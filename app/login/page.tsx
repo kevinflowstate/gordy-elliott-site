@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function LoginPage() {
   return (
     <main className="min-h-screen pt-[120px] pb-20 px-8 flex items-center justify-center">
@@ -21,6 +23,10 @@ export default function LoginPage() {
           </div>
           <p className="text-center text-text-muted text-xs mt-4">Authentication via Supabase - coming soon</p>
         </div>
+
+        <Link href="/portal" className="block text-center mt-6 text-accent text-[0.88rem] font-semibold hover:text-accent-bright transition-colors">
+          Preview Portal Demo
+        </Link>
       </div>
     </main>
   );
