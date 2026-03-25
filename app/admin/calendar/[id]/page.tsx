@@ -110,7 +110,7 @@ export default function EventEditorPage() {
       </Link>
 
       {/* Event header card */}
-      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl overflow-hidden mb-6">
+      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden mb-6">
         <div className="relative h-32 bg-gradient-to-br from-blue-600/20 to-blue-900/40 overflow-hidden">
           <div className="absolute inset-0 flex items-center justify-center">
             <svg className="w-16 h-16 text-white/10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -137,8 +137,8 @@ export default function EventEditorPage() {
         <div className="p-6">
           {editingTitle ? (
             <div className="flex items-center gap-3 mb-3">
-              <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="flex-1 bg-bg-primary border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-xl font-heading font-bold text-text-primary focus:outline-none focus:border-accent/40" autoFocus />
-              <button onClick={() => { setEditingTitle(false); saveField({ title }); }} className="px-4 py-2 gradient-accent text-white rounded-xl text-sm font-medium">Save</button>
+              <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="flex-1 bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-xl px-4 py-3 text-xl font-heading font-bold text-text-primary focus:outline-none focus:border-accent/40" autoFocus />
+              <button onClick={() => { setEditingTitle(false); saveField({ title }); }} className="px-4 py-2 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-medium">Save</button>
               <button onClick={() => { setTitle(event.title); setEditingTitle(false); }} className="px-4 py-2 text-text-muted text-sm">Cancel</button>
             </div>
           ) : (
@@ -154,9 +154,9 @@ export default function EventEditorPage() {
 
           {editingDesc ? (
             <div className="mb-4">
-              <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="w-full bg-bg-primary border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-sm text-text-secondary focus:outline-none focus:border-accent/40 resize-none" autoFocus />
+              <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="w-full bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-xl px-4 py-3 text-sm text-text-secondary focus:outline-none focus:border-accent/40 resize-none" autoFocus />
               <div className="flex gap-2 mt-2">
-                <button onClick={() => { setEditingDesc(false); saveField({ description }); }} className="px-3 py-1.5 gradient-accent text-white rounded-lg text-xs font-medium">Save</button>
+                <button onClick={() => { setEditingDesc(false); saveField({ description }); }} className="px-3 py-1.5 gradient-accent text-[#1a1a1a] rounded-lg text-xs font-medium">Save</button>
                 <button onClick={() => { setDescription(event.description || ""); setEditingDesc(false); }} className="px-3 py-1.5 text-text-muted text-xs">Cancel</button>
               </div>
             </div>
@@ -174,20 +174,20 @@ export default function EventEditorPage() {
       </div>
 
       {/* Event details */}
-      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl p-6 mb-6">
+      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 mb-6">
         <h2 className="text-lg font-heading font-bold text-text-primary mb-4">Event Details</h2>
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1.5">Date</label>
-            <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} onBlur={() => saveField({ event_date: `${eventDate}T${eventTime}:00Z` })} className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40" />
+            <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} onBlur={() => saveField({ event_date: `${eventDate}T${eventTime}:00Z` })} className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40" />
           </div>
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1.5">Time</label>
-            <input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)} onBlur={() => saveField({ event_time: eventTime, event_date: `${eventDate}T${eventTime}:00Z` })} className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40" />
+            <input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)} onBlur={() => saveField({ event_time: eventTime, event_date: `${eventDate}T${eventTime}:00Z` })} className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40" />
           </div>
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1.5">Recurrence</label>
-            <select value={recurrence} onChange={(e) => { const v = e.target.value as RecurrenceType; setRecurrence(v); saveField({ recurrence: v }); }} className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40">
+            <select value={recurrence} onChange={(e) => { const v = e.target.value as RecurrenceType; setRecurrence(v); saveField({ recurrence: v }); }} className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40">
               <option value="none">One-off</option>
               <option value="weekly">Weekly</option>
               <option value="biweekly">Biweekly</option>
@@ -197,7 +197,7 @@ export default function EventEditorPage() {
           {recurrence !== "none" && (
             <div>
               <label className="block text-xs font-medium text-text-secondary mb-1.5">Recurrence Day</label>
-              <select value={recurrenceDay} onChange={(e) => { const v = Number(e.target.value); setRecurrenceDay(v); saveField({ recurrence_day: v }); }} className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40">
+              <select value={recurrenceDay} onChange={(e) => { const v = Number(e.target.value); setRecurrenceDay(v); saveField({ recurrence_day: v }); }} className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40">
                 {dayNames.map((day, i) => <option key={i} value={i}>{day}</option>)}
               </select>
             </div>
@@ -206,20 +206,20 @@ export default function EventEditorPage() {
       </div>
 
       {/* Link section */}
-      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl p-6 mb-6">
+      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 mb-6">
         <h2 className="text-lg font-heading font-bold text-text-primary mb-4">Meeting Link</h2>
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1.5">Link URL</label>
-            <input type="url" value={link} onChange={(e) => setLink(e.target.value)} onBlur={() => saveField({ link: link || undefined })} placeholder="https://zoom.us/j/..." className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40" />
+            <input type="url" value={link} onChange={(e) => setLink(e.target.value)} onBlur={() => saveField({ link: link || undefined })} placeholder="https://zoom.us/j/..." className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40" />
           </div>
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1.5">Link Label</label>
-            <input type="text" value={linkLabel} onChange={(e) => setLinkLabel(e.target.value)} onBlur={() => saveField({ link_label: linkLabel || undefined })} placeholder="e.g. Join Zoom" className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40" />
+            <input type="text" value={linkLabel} onChange={(e) => setLinkLabel(e.target.value)} onBlur={() => saveField({ link_label: linkLabel || undefined })} placeholder="e.g. Join Zoom" className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40" />
           </div>
         </div>
         {link && (
-          <div className="mt-3 flex items-center gap-2 bg-bg-primary border border-[rgba(255,255,255,0.04)] rounded-xl px-4 py-3">
+          <div className="mt-3 flex items-center gap-2 bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-xl px-4 py-3">
             <svg className="w-4 h-4 text-text-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
             </svg>

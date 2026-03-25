@@ -181,9 +181,9 @@ export default function AdminCalendarPage() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-8 w-48 mb-6" />
-        <div className="animate-pulse bg-[rgba(255,255,255,0.04)] rounded-2xl h-20 mb-4" />
-        <div className="animate-pulse bg-[rgba(255,255,255,0.04)] rounded-2xl h-80" />
+        <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-8 w-48 mb-6" />
+        <div className="animate-pulse bg-[rgba(0,0,0,0.06)] rounded-2xl h-20 mb-4" />
+        <div className="animate-pulse bg-[rgba(0,0,0,0.06)] rounded-2xl h-80" />
       </div>
     );
   }
@@ -198,7 +198,7 @@ export default function AdminCalendarPage() {
         </div>
         <button
           onClick={() => setShowAdd(true)}
-          className="px-4 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
+          className="px-4 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -229,7 +229,7 @@ export default function AdminCalendarPage() {
                 href={upNext.event.link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2 gradient-accent text-white rounded-lg text-xs font-semibold no-underline inline-flex items-center gap-1.5"
+                className="px-4 py-2 gradient-accent text-[#1a1a1a] rounded-lg text-xs font-semibold no-underline inline-flex items-center gap-1.5"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -242,9 +242,9 @@ export default function AdminCalendarPage() {
       )}
 
       {/* Calendar grid */}
-      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl overflow-hidden mb-6">
+      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden mb-6">
         {/* Month navigation */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(255,255,255,0.04)]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(0,0,0,0.06)]">
           <button onClick={prevMonth} className="p-2 text-text-muted hover:text-text-primary transition-colors rounded-lg hover:bg-white/5 cursor-pointer">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -261,7 +261,7 @@ export default function AdminCalendarPage() {
         </div>
 
         {/* Day headers */}
-        <div className="grid grid-cols-7 border-b border-[rgba(255,255,255,0.04)]">
+        <div className="grid grid-cols-7 border-b border-[rgba(0,0,0,0.06)]">
           {dayNames.map((d) => (
             <div key={d} className="text-center py-2 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
               {d}
@@ -273,7 +273,7 @@ export default function AdminCalendarPage() {
         <div className="grid grid-cols-7">
           {/* Empty cells before first day */}
           {Array.from({ length: firstDay }).map((_, i) => (
-            <div key={`empty-${i}`} className="h-20 border-b border-r border-[rgba(255,255,255,0.02)] bg-[rgba(0,0,0,0.15)]" />
+            <div key={`empty-${i}`} className="h-20 border-b border-r border-[rgba(0,0,0,0.02)] bg-[rgba(0,0,0,0.15)]" />
           ))}
 
           {/* Day cells */}
@@ -289,12 +289,12 @@ export default function AdminCalendarPage() {
               <button
                 key={key}
                 onClick={() => setSelectedDay(isSelected ? null : key)}
-                className={`h-20 border-b border-r border-[rgba(255,255,255,0.02)] p-1.5 text-left transition-all cursor-pointer relative ${
-                  isSelected ? "bg-accent/10 border-accent/20" : hasEvents ? "hover:bg-[rgba(255,255,255,0.03)]" : "hover:bg-[rgba(255,255,255,0.02)]"
+                className={`h-20 border-b border-r border-[rgba(0,0,0,0.02)] p-1.5 text-left transition-all cursor-pointer relative ${
+                  isSelected ? "bg-accent/10 border-accent/20" : hasEvents ? "hover:bg-[rgba(0,0,0,0.03)]" : "hover:bg-[rgba(0,0,0,0.02)]"
                 }`}
               >
                 <span className={`text-xs font-medium inline-flex items-center justify-center w-6 h-6 rounded-full ${
-                  isToday ? "bg-accent text-white" : "text-text-secondary"
+                  isToday ? "bg-accent text-[#1a1a1a]" : "text-text-secondary"
                 }`}>
                   {dayNum}
                 </span>
@@ -321,7 +321,7 @@ export default function AdminCalendarPage() {
 
       {/* Selected day detail */}
       {selectedDay && (
-        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl p-5 mb-6">
+        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mb-6">
           <h3 className="text-sm font-heading font-bold text-text-primary mb-3">
             {new Date(selectedDay + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </h3>
@@ -370,7 +370,7 @@ export default function AdminCalendarPage() {
           const rec = recurrenceLabels[event.recurrence];
           return (
             <div key={event.id} className={`bg-bg-card/80 backdrop-blur-sm border rounded-2xl p-4 flex items-center justify-between transition-all ${
-              event.is_active ? "border-[rgba(255,255,255,0.04)]" : "border-[rgba(255,255,255,0.02)] opacity-50"
+              event.is_active ? "border-[rgba(0,0,0,0.06)]" : "border-[rgba(0,0,0,0.02)] opacity-50"
             }`}>
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
@@ -417,28 +417,28 @@ export default function AdminCalendarPage() {
       {/* Add event modal */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-bg-card border border-[rgba(255,255,255,0.08)] rounded-2xl p-6 max-w-lg w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 max-w-lg w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-heading font-bold text-text-primary mb-4">New Event</h3>
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">
                 <label className="block text-xs font-medium text-text-secondary mb-1.5">Title</label>
-                <input type="text" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="e.g. Tuesday Night Coaching Call" className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40" />
+                <input type="text" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="e.g. Tuesday Night Coaching Call" className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40" />
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs font-medium text-text-secondary mb-1.5">Description</label>
-                <textarea value={newDesc} onChange={(e) => setNewDesc(e.target.value)} rows={2} placeholder="Brief description" className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 resize-none" />
+                <textarea value={newDesc} onChange={(e) => setNewDesc(e.target.value)} rows={2} placeholder="Brief description" className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 resize-none" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-text-secondary mb-1.5">Date</label>
-                <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40" />
+                <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-text-secondary mb-1.5">Time</label>
-                <input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40" />
+                <input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-text-secondary mb-1.5">Recurrence</label>
-                <select value={newRecurrence} onChange={(e) => setNewRecurrence(e.target.value as RecurrenceType)} className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40">
+                <select value={newRecurrence} onChange={(e) => setNewRecurrence(e.target.value as RecurrenceType)} className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40">
                   <option value="none">One-off</option>
                   <option value="weekly">Weekly</option>
                   <option value="biweekly">Biweekly</option>
@@ -448,23 +448,23 @@ export default function AdminCalendarPage() {
               {newRecurrence !== "none" && (
                 <div>
                   <label className="block text-xs font-medium text-text-secondary mb-1.5">Day</label>
-                  <select value={newRecurrenceDay} onChange={(e) => setNewRecurrenceDay(Number(e.target.value))} className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40">
+                  <select value={newRecurrenceDay} onChange={(e) => setNewRecurrenceDay(Number(e.target.value))} className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40">
                     {dayNamesFull.map((day, i) => <option key={i} value={i}>{day}</option>)}
                   </select>
                 </div>
               )}
               <div>
                 <label className="block text-xs font-medium text-text-secondary mb-1.5">Link URL</label>
-                <input type="url" value={newLink} onChange={(e) => setNewLink(e.target.value)} placeholder="https://zoom.us/j/..." className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40" />
+                <input type="url" value={newLink} onChange={(e) => setNewLink(e.target.value)} placeholder="https://zoom.us/j/..." className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-text-secondary mb-1.5">Link Label</label>
-                <input type="text" value={newLinkLabel} onChange={(e) => setNewLinkLabel(e.target.value)} placeholder="e.g. Join Zoom" className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40" />
+                <input type="text" value={newLinkLabel} onChange={(e) => setNewLinkLabel(e.target.value)} placeholder="e.g. Join Zoom" className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40" />
               </div>
             </div>
             <div className="flex gap-3 mt-5">
               <button onClick={() => setShowAdd(false)} className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-white/5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer">Cancel</button>
-              <button onClick={handleCreate} disabled={saving || !newTitle.trim() || !newDate} className="flex-1 px-4 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-40 cursor-pointer">
+              <button onClick={handleCreate} disabled={saving || !newTitle.trim() || !newDate} className="flex-1 px-4 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold disabled:opacity-40 cursor-pointer">
                 {saving ? "Creating..." : "Create Event"}
               </button>
             </div>

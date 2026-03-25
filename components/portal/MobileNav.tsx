@@ -17,7 +17,7 @@ export default function MobileNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-bg-primary/95 backdrop-blur-lg border-t border-[rgba(255,255,255,0.06)] px-2 pb-[env(safe-area-inset-bottom)]">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-bg-primary/95 backdrop-blur-lg border-t border-[rgba(0,0,0,0.08)] px-2 pb-[env(safe-area-inset-bottom)]">
       <div className="flex items-center justify-around h-14">
         {items.map((item) => {
           const isActive = pathname === item.href || (item.href !== "/portal" && pathname.startsWith(item.href));

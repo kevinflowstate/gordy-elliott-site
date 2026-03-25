@@ -120,8 +120,8 @@ export default function Sidebar() {
   return (
     <>
       {/* Sidebar - desktop only, mobile uses MobileNav bottom bar */}
-      <aside className="portal-sidebar hidden lg:flex fixed top-0 left-0 h-full w-[260px] bg-[rgba(5,5,7,0.97)] border-r border-[rgba(255,255,255,0.04)] backdrop-blur-[20px] z-50 flex-col">
-        <div className="p-6 border-b border-[rgba(255,255,255,0.04)]">
+      <aside className="portal-sidebar hidden lg:flex fixed top-0 left-0 h-full w-[260px] bg-[rgba(255,255,255,0.97)] border-r border-[rgba(0,0,0,0.06)] backdrop-blur-[20px] z-50 flex-col">
+        <div className="p-6 border-b border-[rgba(0,0,0,0.06)]">
           <Link href="/" className="flex items-center gap-3 no-underline">
             <Image src="/images/shift-logo.png" alt="SHIFT" width={28} height={28} className="h-7 w-auto" />
             <span className="font-heading font-extrabold text-sm text-text-primary">Client Portal</span>
@@ -138,8 +138,8 @@ export default function Sidebar() {
                 onClick={() => setCollapsed(false)}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium no-underline transition-all duration-200 ${
                   isActive
-                    ? "bg-[rgba(34,114,222,0.1)] text-accent-bright border border-[rgba(34,114,222,0.2)]"
-                    : "text-text-secondary hover:text-text-primary hover:bg-[rgba(255,255,255,0.03)]"
+                    ? "bg-[rgba(226,184,48,0.1)] text-accent-bright border border-[rgba(226,184,48,0.2)]"
+                    : "text-text-secondary hover:text-text-primary hover:bg-[rgba(0,0,0,0.03)]"
                 }`}
               >
                 <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -161,7 +161,7 @@ export default function Sidebar() {
                 if (unreadIds.length > 0) markAsRead(unreadIds);
               }
             }}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-[rgba(255,255,255,0.03)] transition-all duration-200 relative cursor-pointer"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-[rgba(0,0,0,0.03)] transition-all duration-200 relative cursor-pointer"
           >
             <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -175,7 +175,7 @@ export default function Sidebar() {
           </button>
 
           {showNotifications && (
-            <div className="absolute bottom-full left-4 right-4 mb-2 bg-bg-card border border-[rgba(255,255,255,0.08)] rounded-xl shadow-xl max-h-64 overflow-y-auto z-50">
+            <div className="absolute bottom-full left-4 right-4 mb-2 bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-xl shadow-xl max-h-64 overflow-y-auto z-50">
               {notifications.length === 0 ? (
                 <div className="p-4 text-xs text-text-muted text-center">No notifications</div>
               ) : (
@@ -183,7 +183,7 @@ export default function Sidebar() {
                   <button
                     key={n.id}
                     onClick={() => handleNotificationClick(n)}
-                    className={`w-full text-left px-4 py-3 border-b border-[rgba(255,255,255,0.03)] last:border-0 hover:bg-[rgba(255,255,255,0.03)] transition-colors ${
+                    className={`w-full text-left px-4 py-3 border-b border-[rgba(0,0,0,0.03)] last:border-0 hover:bg-[rgba(0,0,0,0.03)] transition-colors ${
                       !n.read ? "bg-accent/5" : ""
                     }`}
                   >
@@ -204,12 +204,12 @@ export default function Sidebar() {
           )}
         </div>
 
-        <div className="p-4 border-t border-[rgba(255,255,255,0.04)]">
+        <div className="p-4 border-t border-[rgba(0,0,0,0.06)]">
           <div className="flex items-center gap-3 px-4 py-3">
             {avatarUrl ? (
-              <img src={avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover border border-[rgba(34,114,222,0.2)]" />
+              <img src={avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover border border-[rgba(226,184,48,0.2)]" />
             ) : (
-              <div className="w-9 h-9 bg-[rgba(34,114,222,0.1)] border border-[rgba(34,114,222,0.2)] rounded-full flex items-center justify-center text-accent-bright text-xs font-bold">
+              <div className="w-9 h-9 bg-[rgba(226,184,48,0.1)] border border-[rgba(226,184,48,0.2)] rounded-full flex items-center justify-center text-accent-bright text-xs font-bold">
                 {initials || "??"}
               </div>
             )}

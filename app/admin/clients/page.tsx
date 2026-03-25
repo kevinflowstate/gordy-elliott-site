@@ -58,21 +58,21 @@ export default function ClientsPage() {
     return (
       <>
         <div className="mb-8">
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-8 w-32 mb-2" />
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-40" />
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-8 w-32 mb-2" />
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-40" />
         </div>
         <div className="flex gap-2 mb-6">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="animate-pulse bg-[rgba(255,255,255,0.04)] rounded-xl h-10 w-24 border border-[rgba(255,255,255,0.06)]" />
+            <div key={i} className="animate-pulse bg-[rgba(0,0,0,0.06)] rounded-xl h-10 w-24 border border-[rgba(0,0,0,0.08)]" />
           ))}
         </div>
         <div className="space-y-3">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-bg-card/80 border border-[rgba(255,255,255,0.04)] rounded-2xl p-5 flex items-center gap-4">
-              <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-full w-11 h-11" />
+            <div key={i} className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 flex items-center gap-4">
+              <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-full w-11 h-11" />
               <div className="flex-1 space-y-2">
-                <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-36" />
-                <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-3 w-48" />
+                <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-36" />
+                <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-3 w-48" />
               </div>
             </div>
           ))}
@@ -92,7 +92,7 @@ export default function ClientsPage() {
         </div>
         <button
           onClick={() => { setInviteOpen(true); setInviteResult(null); setInviteName(""); setInviteEmail(""); setInvitePassword(""); }}
-          className="px-4 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
+          className="px-4 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -104,7 +104,7 @@ export default function ClientsPage() {
       {/* Add Client Modal */}
       {inviteOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-bg-card border border-[rgba(255,255,255,0.08)] rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
                 <svg className="w-5 h-5 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -134,7 +134,7 @@ export default function ClientsPage() {
                 {!inviteResult.passwordSet && !inviteResult.emailSent && inviteResult.setupUrl && (
                   <div className="mb-4">
                     <p className="text-xs text-amber-400 mb-2">Email couldn't be sent (domain not verified yet). Share this setup link manually:</p>
-                    <div className="bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-lg px-3 py-2">
+                    <div className="bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-lg px-3 py-2">
                       <p className="text-[10px] text-text-muted break-all select-all">{inviteResult.setupUrl}</p>
                     </div>
                   </div>
@@ -164,7 +164,7 @@ export default function ClientsPage() {
                       value={inviteName}
                       onChange={(e) => setInviteName(e.target.value)}
                       placeholder="e.g. James McConnell"
-                      className="w-full bg-bg-primary border border-[rgba(255,255,255,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+                      className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
                     />
                   </div>
                   <div>
@@ -174,7 +174,7 @@ export default function ClientsPage() {
                       value={inviteEmail}
                       onChange={(e) => setInviteEmail(e.target.value)}
                       placeholder="e.g. james@example.com"
-                      className="w-full bg-bg-primary border border-[rgba(255,255,255,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+                      className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
                     />
                   </div>
                   <div>
@@ -184,7 +184,7 @@ export default function ClientsPage() {
                       value={invitePassword}
                       onChange={(e) => setInvitePassword(e.target.value)}
                       placeholder="Min 8 characters"
-                      className="w-full bg-bg-primary border border-[rgba(255,255,255,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+                      className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
                     />
                   </div>
                 </div>
@@ -245,8 +245,8 @@ export default function ClientsPage() {
             onClick={() => setFilter(f)}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer ${
               filter === f
-                ? "bg-[rgba(34,114,222,0.1)] text-accent-bright border border-[rgba(34,114,222,0.2)]"
-                : "text-text-muted hover:text-text-secondary border border-[rgba(255,255,255,0.06)]"
+                ? "bg-[rgba(226,184,48,0.1)] text-accent-bright border border-[rgba(226,184,48,0.2)]"
+                : "text-text-muted hover:text-text-secondary border border-[rgba(0,0,0,0.08)]"
             }`}
           >
             {f === "all"
@@ -259,7 +259,7 @@ export default function ClientsPage() {
       {/* Client cards */}
       <div className="space-y-3">
         {filtered.length === 0 ? (
-          <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl px-6 py-8 text-text-muted text-sm">
+          <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl px-6 py-8 text-text-muted text-sm">
             No clients found.
           </div>
         ) : (
@@ -278,7 +278,7 @@ export default function ClientsPage() {
                 href={`/admin/clients/${client.id}`}
                 className={`group relative block bg-bg-card/80 backdrop-blur-sm border rounded-2xl p-5 overflow-hidden transition-all duration-300 no-underline hover:-translate-y-0.5 cursor-pointer ${glowClass[client.status]}`}
               >
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
                 <div className="flex items-center justify-between relative">
                   <div className="flex items-center gap-4">
                     <div className={`w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold ${sc.bgClass} ${sc.textClass} border ${
@@ -296,7 +296,7 @@ export default function ClientsPage() {
                     <div className="text-right hidden sm:block">
                       <div className="text-xs text-text-muted">Week {client.current_week}/12</div>
                       <div className="flex items-center gap-2 mt-1">
-                        <div className="h-1.5 w-20 bg-[rgba(255,255,255,0.03)] rounded-full overflow-hidden">
+                        <div className="h-1.5 w-20 bg-[rgba(0,0,0,0.03)] rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full ${
                               client.status === "red" ? "bg-red-500/60" : client.status === "amber" ? "bg-amber-500/60" : "bg-emerald-500/60"

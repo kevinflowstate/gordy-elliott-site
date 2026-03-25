@@ -100,7 +100,7 @@ export default function CheckInPage() {
           <p className="text-text-secondary">Gordy will review your check-in and respond shortly.</p>
           <button
             onClick={resetForm}
-            className="mt-6 px-6 py-3 gradient-accent text-white rounded-xl text-sm font-medium cursor-pointer"
+            className="mt-6 px-6 py-3 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-medium cursor-pointer"
           >
             Submit Another
           </button>
@@ -113,25 +113,25 @@ export default function CheckInPage() {
     return (
       <div className="max-w-2xl">
         <div className="mb-8">
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-8 w-48 mb-2" />
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-72" />
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-8 w-48 mb-2" />
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-72" />
         </div>
         <div className="space-y-6">
           <div>
-            <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-52 mb-3" />
+            <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-52 mb-3" />
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="animate-pulse bg-[rgba(255,255,255,0.04)] rounded-xl h-12 border border-[rgba(255,255,255,0.06)]" />
+                <div key={i} className="animate-pulse bg-[rgba(0,0,0,0.06)] rounded-xl h-12 border border-[rgba(0,0,0,0.08)]" />
               ))}
             </div>
           </div>
           {[...Array(3)].map((_, i) => (
             <div key={i}>
-              <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-32 mb-2" />
-              <div className="animate-pulse bg-[rgba(255,255,255,0.04)] rounded-xl h-24 border border-[rgba(255,255,255,0.06)]" />
+              <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-32 mb-2" />
+              <div className="animate-pulse bg-[rgba(0,0,0,0.06)] rounded-xl h-24 border border-[rgba(0,0,0,0.08)]" />
             </div>
           ))}
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-xl h-14" />
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-xl h-14" />
         </div>
       </div>
     );
@@ -158,7 +158,7 @@ export default function CheckInPage() {
                   className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all cursor-pointer ${
                     mood === m.value
                       ? (moodColorMap[m.color] || "border-accent/30 bg-accent/10 text-accent-bright")
-                      : "border-[rgba(255,255,255,0.06)] text-text-muted hover:border-[rgba(255,255,255,0.12)]"
+                      : "border-[rgba(0,0,0,0.08)] text-text-muted hover:border-[rgba(0,0,0,0.1)]"
                   }`}
                 >
                   {m.label}
@@ -177,7 +177,7 @@ export default function CheckInPage() {
               onChange={(e) => setResponses((prev) => ({ ...prev, [q.id]: e.target.value }))}
               rows={3}
               placeholder={q.placeholder}
-              className="w-full bg-bg-card border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none"
+              className="w-full bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none"
             />
           </div>
         ))}
@@ -185,7 +185,7 @@ export default function CheckInPage() {
         <button
           type="submit"
           disabled={(config.mood_enabled && !mood) || submitting}
-          className="w-full py-4 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-opacity"
+          className="w-full py-4 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-opacity"
         >
           {submitting ? "Submitting..." : "Submit Check-In"}
         </button>

@@ -129,9 +129,9 @@ export default function PortalCalendarPage() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-8 w-48 mb-6" />
-        <div className="animate-pulse bg-[rgba(255,255,255,0.04)] rounded-2xl h-20 mb-4" />
-        <div className="animate-pulse bg-[rgba(255,255,255,0.04)] rounded-2xl h-80" />
+        <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-8 w-48 mb-6" />
+        <div className="animate-pulse bg-[rgba(0,0,0,0.06)] rounded-2xl h-20 mb-4" />
+        <div className="animate-pulse bg-[rgba(0,0,0,0.06)] rounded-2xl h-80" />
       </div>
     );
   }
@@ -165,7 +165,7 @@ export default function PortalCalendarPage() {
                 href={upNext.event.link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2.5 gradient-accent text-white rounded-xl text-sm font-medium no-underline inline-flex items-center gap-2 hover:opacity-90 transition-opacity"
+                className="px-4 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-medium no-underline inline-flex items-center gap-2 hover:opacity-90 transition-opacity"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -178,9 +178,9 @@ export default function PortalCalendarPage() {
       )}
 
       {/* Calendar grid */}
-      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl overflow-hidden mb-6">
+      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden mb-6">
         {/* Month navigation */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(255,255,255,0.04)]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(0,0,0,0.06)]">
           <button onClick={prevMonth} className="p-2 text-text-muted hover:text-text-primary transition-colors rounded-lg hover:bg-white/5 cursor-pointer">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -197,7 +197,7 @@ export default function PortalCalendarPage() {
         </div>
 
         {/* Day headers */}
-        <div className="grid grid-cols-7 border-b border-[rgba(255,255,255,0.04)]">
+        <div className="grid grid-cols-7 border-b border-[rgba(0,0,0,0.06)]">
           {dayNames.map((d) => (
             <div key={d} className="text-center py-2 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
               {d}
@@ -208,7 +208,7 @@ export default function PortalCalendarPage() {
         {/* Day cells */}
         <div className="grid grid-cols-7">
           {Array.from({ length: firstDay }).map((_, i) => (
-            <div key={`empty-${i}`} className="h-20 border-b border-r border-[rgba(255,255,255,0.02)] bg-[rgba(0,0,0,0.15)]" />
+            <div key={`empty-${i}`} className="h-20 border-b border-r border-[rgba(0,0,0,0.02)] bg-[rgba(0,0,0,0.15)]" />
           ))}
 
           {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -223,12 +223,12 @@ export default function PortalCalendarPage() {
               <button
                 key={key}
                 onClick={() => setSelectedDay(isSelected ? null : key)}
-                className={`h-20 border-b border-r border-[rgba(255,255,255,0.02)] p-1.5 text-left transition-all cursor-pointer relative ${
-                  isSelected ? "bg-accent/10 border-accent/20" : hasEvents ? "hover:bg-[rgba(255,255,255,0.03)]" : "hover:bg-[rgba(255,255,255,0.02)]"
+                className={`h-20 border-b border-r border-[rgba(0,0,0,0.02)] p-1.5 text-left transition-all cursor-pointer relative ${
+                  isSelected ? "bg-accent/10 border-accent/20" : hasEvents ? "hover:bg-[rgba(0,0,0,0.03)]" : "hover:bg-[rgba(0,0,0,0.02)]"
                 }`}
               >
                 <span className={`text-xs font-medium inline-flex items-center justify-center w-6 h-6 rounded-full ${
-                  isToday ? "bg-accent text-white" : "text-text-secondary"
+                  isToday ? "bg-accent text-[#1a1a1a]" : "text-text-secondary"
                 }`}>
                   {dayNum}
                 </span>
@@ -255,7 +255,7 @@ export default function PortalCalendarPage() {
 
       {/* Selected day detail */}
       {selectedDay && (
-        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl p-5 mb-6">
+        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mb-6">
           <h3 className="text-sm font-heading font-bold text-text-primary mb-3">
             {new Date(selectedDay + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </h3>
@@ -284,7 +284,7 @@ export default function PortalCalendarPage() {
                       href={ev.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-4 py-2 gradient-accent text-white rounded-lg text-xs font-semibold no-underline inline-flex items-center gap-1.5 hover:opacity-90 transition-opacity"
+                      className="px-4 py-2 gradient-accent text-[#1a1a1a] rounded-lg text-xs font-semibold no-underline inline-flex items-center gap-1.5 hover:opacity-90 transition-opacity"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />

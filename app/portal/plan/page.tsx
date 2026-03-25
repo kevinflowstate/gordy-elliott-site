@@ -124,30 +124,30 @@ export default function TrainingPlanPage() {
   if (loading) return (
     <div className="space-y-6">
       <div className="space-y-2 mb-8">
-        <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-8 w-64" />
-        <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-full max-w-xl" />
+        <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-8 w-64" />
+        <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-full max-w-xl" />
       </div>
-      <div className="bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-6">
+      <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6">
         <div className="flex justify-between mb-3">
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-32" />
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-24" />
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-32" />
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-24" />
         </div>
-        <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-full h-3 w-full" />
+        <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-full h-3 w-full" />
       </div>
       {[...Array(3)].map((_, i) => (
-        <div key={i} className="bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl overflow-hidden">
-          <div className="p-6 animate-pulse bg-[rgba(255,255,255,0.03)]">
+        <div key={i} className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
+          <div className="p-6 animate-pulse bg-[rgba(0,0,0,0.03)]">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-[rgba(255,255,255,0.06)]" />
+              <div className="w-12 h-12 rounded-xl bg-[rgba(0,0,0,0.08)]" />
               <div className="flex-1 space-y-2">
-                <div className="bg-[rgba(255,255,255,0.06)] rounded-lg h-5 w-48" />
-                <div className="bg-[rgba(255,255,255,0.06)] rounded-full h-1.5 w-full" />
+                <div className="bg-[rgba(0,0,0,0.08)] rounded-lg h-5 w-48" />
+                <div className="bg-[rgba(0,0,0,0.08)] rounded-full h-1.5 w-full" />
               </div>
             </div>
           </div>
           <div className="p-6 space-y-3">
             {[...Array(3)].map((_, j) => (
-              <div key={j} className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-full" />
+              <div key={j} className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-full" />
             ))}
           </div>
         </div>
@@ -157,7 +157,7 @@ export default function TrainingPlanPage() {
 
   if (!plan) {
     return (
-      <div className="bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-8 text-center">
+      <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
         <p className="text-text-secondary">No business plan created yet.</p>
         <p className="text-text-muted text-sm mt-2">Gordy will build your plan based on your discovery session.</p>
       </div>
@@ -179,7 +179,7 @@ export default function TrainingPlanPage() {
               href={plan.pdf_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold no-underline inline-flex items-center gap-2 hover:opacity-90 transition-opacity"
+              className="px-4 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold no-underline inline-flex items-center gap-2 hover:opacity-90 transition-opacity"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -192,12 +192,12 @@ export default function TrainingPlanPage() {
       </div>
 
       {/* Progress overview */}
-      <div className="bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-6 mb-8">
+      <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 mb-8">
         <div className="flex items-center justify-between mb-3">
           <span className="text-sm font-heading font-bold text-text-primary">Overall Progress</span>
           <span className="text-sm text-text-muted">{completedItems}/{totalItems} actions - {pct}%</span>
         </div>
-        <div className="w-full bg-[rgba(255,255,255,0.04)] rounded-full h-3">
+        <div className="w-full bg-[rgba(0,0,0,0.06)] rounded-full h-3">
           <div className="h-3 rounded-full gradient-accent transition-all duration-500" style={{ width: `${pct}%` }} />
         </div>
       </div>
@@ -211,13 +211,13 @@ export default function TrainingPlanPage() {
           const phasePct = phaseTotal > 0 ? Math.round((phaseCompleted / phaseTotal) * 100) : 0;
 
           return (
-            <div key={phase.id} className="group/phase relative bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(34,114,222,0.15)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.2),0_0_30px_rgba(34,114,222,0.04)] will-change-transform">
+            <div key={phase.id} className="group/phase relative bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(226,184,48,0.15)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.2),0_0_30px_rgba(226,184,48,0.04)] will-change-transform">
                 {/* Bento dot pattern */}
-                <div className="absolute inset-0 opacity-0 group-hover/phase:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[length:4px_4px] z-10 pointer-events-none" />
+                <div className="absolute inset-0 opacity-0 group-hover/phase:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] z-10 pointer-events-none" />
                 {/* Bento gradient border */}
                 <div className="absolute inset-0 -z-10 rounded-2xl p-px bg-gradient-to-br from-transparent via-white/10 to-transparent opacity-0 group-hover/phase:opacity-100 transition-opacity duration-300 pointer-events-none" />
               {/* Phase header */}
-              <div className={`p-6 border-b border-[rgba(255,255,255,0.04)] ${color.bg}`}>
+              <div className={`p-6 border-b border-[rgba(0,0,0,0.06)] ${color.bg}`}>
                 <div className="flex items-center gap-4">
                   <div className={`w-12 h-12 rounded-xl ${color.bg} border ${color.border} flex items-center justify-center`}>
                     <svg className={`w-6 h-6 ${color.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -229,7 +229,7 @@ export default function TrainingPlanPage() {
                       <h2 className="text-lg font-heading font-bold text-text-primary">{phase.name}</h2>
                       <span className="text-xs text-text-muted">{phaseCompleted}/{phaseTotal} - {phasePct}%</span>
                     </div>
-                    <div className="w-full bg-[rgba(255,255,255,0.06)] rounded-full h-1.5 mt-2">
+                    <div className="w-full bg-[rgba(0,0,0,0.08)] rounded-full h-1.5 mt-2">
                       <div className="h-1.5 rounded-full gradient-accent transition-all duration-500" style={{ width: `${phasePct}%` }} />
                     </div>
                   </div>
@@ -239,7 +239,7 @@ export default function TrainingPlanPage() {
               <div className="p-6 space-y-6">
                 {/* Notes from Gordy */}
                 {phase.notes && (
-                  <div className="bg-bg-primary border border-[rgba(255,255,255,0.04)] rounded-xl p-4">
+                  <div className="bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-xl p-4">
                     <div className="text-[10px] text-accent-bright font-semibold uppercase tracking-wider mb-2">Notes from Gordy</div>
                     <p className="text-sm text-text-secondary leading-relaxed">{phase.notes}</p>
                   </div>
@@ -253,10 +253,10 @@ export default function TrainingPlanPage() {
                       <button
                         key={item.id}
                         onClick={() => toggleItem(phase.id, item.id)}
-                        className="w-full flex items-center gap-3 py-2 px-1 rounded-lg hover:bg-[rgba(255,255,255,0.02)] transition-colors text-left cursor-pointer group"
+                        className="w-full flex items-center gap-3 py-2 px-1 rounded-lg hover:bg-[rgba(0,0,0,0.02)] transition-colors text-left cursor-pointer group"
                       >
                         <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${
-                          item.completed ? "bg-emerald-500 border-emerald-500" : "border-[rgba(255,255,255,0.15)] group-hover:border-accent/50"
+                          item.completed ? "bg-emerald-500 border-emerald-500" : "border-[rgba(0,0,0,0.1)] group-hover:border-accent/50"
                         }`}>
                           {item.completed && (
                             <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -286,7 +286,7 @@ export default function TrainingPlanPage() {
                         <Link
                           key={training.id}
                           href={`/portal/training/${training.module_id}`}
-                          className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-[rgba(255,255,255,0.03)] transition-colors no-underline group"
+                          className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-[rgba(0,0,0,0.03)] transition-colors no-underline group"
                         >
                           <div className="w-7 h-7 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
                             <svg className="w-3.5 h-3.5 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">

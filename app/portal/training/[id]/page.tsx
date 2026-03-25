@@ -40,7 +40,7 @@ const contentTypeLabels: Record<ContentType, { label: string; icon: string; colo
   text: {
     label: "Article",
     icon: "M4 6h16M4 12h16M4 18h7",
-    color: "text-text-secondary bg-[rgba(255,255,255,0.04)]",
+    color: "text-text-secondary bg-[rgba(0,0,0,0.06)]",
   },
   checklist: {
     label: "Checklist",
@@ -90,24 +90,24 @@ export default function ModuleView() {
 
   if (loading) return (
     <div className="space-y-4">
-      <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-32 mb-6" />
-      <div className="bg-bg-card/80 border border-[rgba(255,255,255,0.04)] rounded-2xl overflow-hidden">
-        <div className="h-32 animate-pulse bg-[rgba(255,255,255,0.04)]" />
+      <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-32 mb-6" />
+      <div className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
+        <div className="h-32 animate-pulse bg-[rgba(0,0,0,0.06)]" />
         <div className="p-6 space-y-3">
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-6 w-2/3" />
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-full" />
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-3 w-1/3" />
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-6 w-2/3" />
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-full" />
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-3 w-1/3" />
         </div>
       </div>
-      <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-5 w-20 mt-4" />
+      <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-5 w-20 mt-4" />
       {[...Array(4)].map((_, i) => (
-        <div key={i} className="bg-bg-card/80 border border-[rgba(255,255,255,0.04)] rounded-2xl p-4 flex items-center gap-4">
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-md w-6 h-6" />
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg w-6 h-4" />
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg w-8 h-8" />
+        <div key={i} className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 flex items-center gap-4">
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-md w-6 h-6" />
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg w-6 h-4" />
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg w-8 h-8" />
           <div className="flex-1 space-y-2">
-            <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-3/4" />
-            <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-3 w-1/4" />
+            <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-3/4" />
+            <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-3 w-1/4" />
           </div>
         </div>
       ))}
@@ -127,7 +127,7 @@ export default function ModuleView() {
       </Link>
 
       {/* Module header */}
-      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl overflow-hidden mb-6">
+      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden mb-6">
         <ModuleCover title={module.title} variant="banner" />
         <div className="p-6">
           <h1 className="text-2xl font-heading font-bold text-text-primary mb-2">{module.title}</h1>
@@ -164,21 +164,21 @@ export default function ModuleView() {
           const isCompleted = progress[lesson.id];
 
           return (
-            <div key={lesson.id} className="group/lesson relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(34,114,222,0.15)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.2),0_0_30px_rgba(34,114,222,0.04)] will-change-transform">
+            <div key={lesson.id} className="group/lesson relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(226,184,48,0.15)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.2),0_0_30px_rgba(226,184,48,0.04)] will-change-transform">
                 {/* Bento dot pattern */}
-                <div className="absolute inset-0 opacity-0 group-hover/lesson:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[length:4px_4px] z-10 pointer-events-none" />
+                <div className="absolute inset-0 opacity-0 group-hover/lesson:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] z-10 pointer-events-none" />
                 {/* Bento gradient border */}
                 <div className="absolute inset-0 -z-10 rounded-2xl p-px bg-gradient-to-br from-transparent via-white/10 to-transparent opacity-0 group-hover/lesson:opacity-100 transition-opacity duration-300 pointer-events-none" />
               {/* Lesson row */}
               <button
                 onClick={() => setExpandedLesson(isExpanded ? null : lesson.id)}
-                className="w-full flex items-center gap-4 p-4 text-left hover:bg-[rgba(255,255,255,0.02)] transition-colors cursor-pointer"
+                className="w-full flex items-center gap-4 p-4 text-left hover:bg-[rgba(0,0,0,0.02)] transition-colors cursor-pointer"
               >
                 {/* Completion checkbox */}
                 <button
                   onClick={(e) => { e.stopPropagation(); toggleComplete(lesson.id); }}
                   className={`w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all cursor-pointer ${
-                    isCompleted ? "bg-emerald-500 border-emerald-500" : "border-[rgba(255,255,255,0.15)] hover:border-accent"
+                    isCompleted ? "bg-emerald-500 border-emerald-500" : "border-[rgba(0,0,0,0.1)] hover:border-accent"
                   }`}
                 >
                   {isCompleted && (
@@ -211,10 +211,10 @@ export default function ModuleView() {
 
               {/* Expanded content */}
               {isExpanded && (
-                <div className="border-t border-[rgba(255,255,255,0.04)] p-5 space-y-4">
+                <div className="border-t border-[rgba(0,0,0,0.06)] p-5 space-y-4">
                   {/* Video embed */}
                   {lesson.content_type === "video" && lesson.content_url && (
-                    <div className="rounded-xl overflow-hidden border border-[rgba(255,255,255,0.06)] shadow-[0_10px_30px_rgba(0,0,0,0.3)]">
+                    <div className="rounded-xl overflow-hidden border border-[rgba(0,0,0,0.08)] shadow-[0_10px_30px_rgba(0,0,0,0.3)]">
                       <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
                         <iframe
                           src={getVideoEmbed(lesson.content_url).embedUrl}
@@ -231,7 +231,7 @@ export default function ModuleView() {
 
                   {/* PDF / Document link */}
                   {lesson.content_type === "pdf" && lesson.content_url && (
-                    <a href={lesson.content_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-3 bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl text-sm text-accent-bright no-underline hover:border-accent/30 transition-colors">
+                    <a href={lesson.content_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-3 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl text-sm text-accent-bright no-underline hover:border-accent/30 transition-colors">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                       </svg>
@@ -241,7 +241,7 @@ export default function ModuleView() {
 
                   {/* Text / Article content */}
                   {lesson.content_text && (
-                    <div className="bg-bg-primary border border-[rgba(255,255,255,0.04)] rounded-xl p-4">
+                    <div className="bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-xl p-4">
                       <div className="text-sm text-text-secondary leading-relaxed whitespace-pre-line">{lesson.content_text}</div>
                     </div>
                   )}
@@ -254,7 +254,7 @@ export default function ModuleView() {
                       </div>
                       <div className="space-y-2">
                         {lesson.attachments.map((att) => (
-                          <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 bg-bg-primary border border-[rgba(255,255,255,0.04)] rounded-xl px-4 py-3 no-underline hover:border-[rgba(255,255,255,0.08)] transition-colors">
+                          <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-xl px-4 py-3 no-underline hover:border-[rgba(0,0,0,0.08)] transition-colors">
                             <svg className="w-4 h-4 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                             </svg>

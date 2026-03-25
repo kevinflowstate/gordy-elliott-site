@@ -97,23 +97,23 @@ export default function AdminDashboard() {
     return (
       <>
         <div className="mb-8">
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-8 w-64 mb-2" />
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-48" />
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-8 w-64 mb-2" />
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-48" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-bg-card/80 border border-[rgba(255,255,255,0.04)] rounded-2xl p-6">
-              <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-3 w-20 mb-3" />
-              <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-8 w-12" />
+            <div key={i} className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl p-6">
+              <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-3 w-20 mb-3" />
+              <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-8 w-12" />
             </div>
           ))}
         </div>
         <div className="grid lg:grid-cols-2 gap-6">
           {[...Array(2)].map((_, i) => (
-            <div key={i} className="bg-bg-card/80 border border-[rgba(255,255,255,0.04)] rounded-2xl p-5">
-              <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-5 w-32 mb-4" />
+            <div key={i} className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
+              <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-5 w-32 mb-4" />
               {[...Array(4)].map((_, j) => (
-                <div key={j} className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-10 w-full mb-2" />
+                <div key={j} className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-10 w-full mb-2" />
               ))}
             </div>
           ))}
@@ -138,8 +138,8 @@ export default function AdminDashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="group relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.08)] hover:shadow-[0_2px_12px_rgba(255,255,255,0.03)]">
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
+        <div className="group relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(0,0,0,0.08)] hover:shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
           <div className="text-text-muted text-xs uppercase tracking-wider mb-2">Total Clients</div>
           <div className="text-3xl font-heading font-bold text-text-primary">{clients.length}</div>
         </div>
@@ -158,8 +158,8 @@ export default function AdminDashboard() {
             <div className="text-red-400 text-xs mt-1">{redCount} behind schedule</div>
           )}
         </div>
-        <div className="group relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.08)] hover:shadow-[0_2px_12px_rgba(255,255,255,0.03)]">
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
+        <div className="group relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(0,0,0,0.08)] hover:shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
           <div className="text-text-muted text-xs uppercase tracking-wider mb-2">Unreplied Check-Ins</div>
           <div className={`text-3xl font-heading font-bold ${unreplied > 0 ? "text-red-400" : "text-text-primary"}`}>
             {unreplied}
@@ -174,7 +174,7 @@ export default function AdminDashboard() {
       <div className="flex flex-wrap gap-3 mb-8">
         <Link
           href="/admin/calendar"
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.06)] rounded-xl text-sm font-medium text-text-primary hover:border-accent/30 hover:bg-accent/5 transition-all no-underline group"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.08)] rounded-xl text-sm font-medium text-text-primary hover:border-accent/30 hover:bg-accent/5 transition-all no-underline group"
         >
           <svg className="w-4 h-4 text-accent-bright group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -183,7 +183,7 @@ export default function AdminDashboard() {
         </Link>
         <Link
           href="/admin/training"
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.06)] rounded-xl text-sm font-medium text-text-primary hover:border-accent/30 hover:bg-accent/5 transition-all no-underline group"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.08)] rounded-xl text-sm font-medium text-text-primary hover:border-accent/30 hover:bg-accent/5 transition-all no-underline group"
         >
           <svg className="w-4 h-4 text-accent-bright group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -212,7 +212,7 @@ export default function AdminDashboard() {
               </Link>
             </div>
           </div>
-          <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl overflow-hidden">
+          <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
             {clients.map((client) => {
               const sl = statusLabel[client.status];
               const isExpanded = expandedClient === client.id;
@@ -223,11 +223,11 @@ export default function AdminDashboard() {
               const planPct = planTotal > 0 ? Math.round((planDone / planTotal) * 100) : 0;
 
               return (
-                <div key={client.id} className="border-b border-[rgba(255,255,255,0.03)] last:border-b-0">
+                <div key={client.id} className="border-b border-[rgba(0,0,0,0.03)] last:border-b-0">
                   {/* Compact row - name + glow */}
                   <button
                     onClick={() => setExpandedClient(isExpanded ? null : client.id)}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[rgba(255,255,255,0.02)] transition-colors text-left cursor-pointer"
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[rgba(0,0,0,0.02)] transition-colors text-left cursor-pointer"
                   >
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 border ${sl.bgClass} ${sl.textClass} ${
                       client.status === "red" ? "border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.2)]"
@@ -283,7 +283,7 @@ export default function AdminDashboard() {
                         </div>
 
                         {/* Progress bar */}
-                        <div className="h-1.5 bg-[rgba(255,255,255,0.03)] rounded-full overflow-hidden mb-3">
+                        <div className="h-1.5 bg-[rgba(0,0,0,0.03)] rounded-full overflow-hidden mb-3">
                           <div
                             className={`h-full rounded-full transition-all duration-500 ${
                               client.status === "red" ? "bg-red-500/60" : client.status === "amber" ? "bg-amber-500/60" : "bg-emerald-500/60"
@@ -317,7 +317,7 @@ export default function AdminDashboard() {
       {inviteOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setInviteOpen(false); setInviteError(""); setInviteSuccess(false); }} />
-          <div className="relative bg-bg-card border border-[rgba(255,255,255,0.08)] rounded-2xl p-6 w-full max-w-md shadow-2xl">
+          <div className="relative bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 w-full max-w-md shadow-2xl">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-heading font-bold text-text-primary">Invite New Client</h3>
               <button onClick={() => { setInviteOpen(false); setInviteError(""); setInviteSuccess(false); }} className="text-text-muted hover:text-text-secondary transition-colors cursor-pointer">
@@ -338,7 +338,7 @@ export default function AdminDashboard() {
                 <p className="text-text-secondary text-sm">They will receive an email to set up their account.</p>
                 <button
                   onClick={() => { setInviteOpen(false); setInviteSuccess(false); setInviteForm({ firstName: "", lastName: "", email: "" }); }}
-                  className="mt-4 px-6 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold cursor-pointer"
+                  className="mt-4 px-6 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold cursor-pointer"
                 >
                   Done
                 </button>
@@ -382,7 +382,7 @@ export default function AdminDashboard() {
                       required
                       value={inviteForm.firstName}
                       onChange={(e) => setInviteForm(prev => ({ ...prev, firstName: e.target.value }))}
-                      className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-3.5 py-2.5 text-sm text-text-primary focus:outline-none focus:border-accent/40 transition-colors"
+                      className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3.5 py-2.5 text-sm text-text-primary focus:outline-none focus:border-accent/40 transition-colors"
                     />
                   </div>
                   <div>
@@ -392,7 +392,7 @@ export default function AdminDashboard() {
                       required
                       value={inviteForm.lastName}
                       onChange={(e) => setInviteForm(prev => ({ ...prev, lastName: e.target.value }))}
-                      className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-3.5 py-2.5 text-sm text-text-primary focus:outline-none focus:border-accent/40 transition-colors"
+                      className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3.5 py-2.5 text-sm text-text-primary focus:outline-none focus:border-accent/40 transition-colors"
                     />
                   </div>
                 </div>
@@ -404,7 +404,7 @@ export default function AdminDashboard() {
                     value={inviteForm.email}
                     onChange={(e) => setInviteForm(prev => ({ ...prev, email: e.target.value }))}
                     placeholder="client@example.com"
-                    className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-3.5 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
+                    className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3.5 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
                   />
                 </div>
                 {inviteError && (
@@ -413,7 +413,7 @@ export default function AdminDashboard() {
                 <button
                   type="submit"
                   disabled={inviteSending}
-                  className="w-full py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-40 cursor-pointer transition-opacity"
+                  className="w-full py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold disabled:opacity-40 cursor-pointer transition-opacity"
                 >
                   {inviteSending ? "Sending Invite..." : "Send Invite"}
                 </button>
@@ -548,7 +548,7 @@ function ShiftOverview({ clients, recentCheckins }: { clients: AdminClient[]; re
 
   return (
     <>
-      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl p-5 mb-8">
+      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mb-8">
         <div className="flex items-center gap-2.5 mb-4">
           <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
             <svg className="w-4 h-4 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -597,7 +597,7 @@ function ShiftOverview({ clients, recentCheckins }: { clients: AdminClient[]; re
                     )}
                     <button
                       onClick={() => setDismissed(prev => new Set([...prev, insight.id]))}
-                      className="text-[11px] px-2 py-1 rounded-lg text-text-muted hover:text-text-secondary hover:bg-[rgba(255,255,255,0.05)] transition-colors cursor-pointer"
+                      className="text-[11px] px-2 py-1 rounded-lg text-text-muted hover:text-text-secondary hover:bg-[rgba(0,0,0,0.05)] transition-colors cursor-pointer"
                     >
                       Dismiss
                     </button>
@@ -612,7 +612,7 @@ function ShiftOverview({ clients, recentCheckins }: { clients: AdminClient[]; re
       {/* Nudge Modal */}
       {nudgeTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-bg-card border border-[rgba(255,255,255,0.08)] rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
                 <svg className="w-5 h-5 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -638,7 +638,7 @@ function ShiftOverview({ clients, recentCheckins }: { clients: AdminClient[]; re
                 onChange={(e) => setNudgeMessage(e.target.value)}
                 rows={4}
                 placeholder="Type your message..."
-                className="w-full bg-bg-primary border border-[rgba(255,255,255,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50 mb-4 resize-none"
+                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50 mb-4 resize-none"
               />
             )}
 
@@ -785,14 +785,14 @@ function CheckInsPanel({ checkins }: { checkins: EnrichedCheckin[] }) {
         {sections.map((section) => {
           const isCollapsed = collapsedSections.has(section.key);
           return (
-            <div key={section.key} className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl overflow-hidden">
+            <div key={section.key} className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
               <button
                 onClick={() => toggleSection(section.key)}
-                className="w-full flex items-center justify-between px-5 py-3 hover:bg-[rgba(255,255,255,0.02)] transition-colors cursor-pointer"
+                className="w-full flex items-center justify-between px-5 py-3 hover:bg-[rgba(0,0,0,0.02)] transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-text-primary">{section.label}</span>
-                  <span className="text-[10px] text-text-muted bg-[rgba(255,255,255,0.04)] px-2 py-0.5 rounded-full">
+                  <span className="text-[10px] text-text-muted bg-[rgba(0,0,0,0.06)] px-2 py-0.5 rounded-full">
                     {section.items.length}
                   </span>
                   {section.items.some((c) => !c.admin_reply && !sentReplies[c.id]) && (
@@ -810,7 +810,7 @@ function CheckInsPanel({ checkins }: { checkins: EnrichedCheckin[] }) {
               </button>
 
               {!isCollapsed && (
-                <div className="border-t border-[rgba(255,255,255,0.03)]">
+                <div className="border-t border-[rgba(0,0,0,0.03)]">
                   {section.items.map((checkin) => (
                     <CheckInRow
                       key={checkin.id}
@@ -860,10 +860,10 @@ function CheckInRow({
   const hasReply = checkin.admin_reply || sentReply;
 
   return (
-    <div className="border-b border-[rgba(255,255,255,0.02)] last:border-b-0">
+    <div className="border-b border-[rgba(0,0,0,0.02)] last:border-b-0">
       <button
         onClick={onToggle}
-        className="w-full flex items-start gap-3 py-3 px-5 hover:bg-[rgba(255,255,255,0.02)] transition-colors text-left cursor-pointer"
+        className="w-full flex items-start gap-3 py-3 px-5 hover:bg-[rgba(0,0,0,0.02)] transition-colors text-left cursor-pointer"
       >
         <span className={`text-[10px] font-semibold px-2 py-1 rounded-full mt-0.5 uppercase tracking-wider flex-shrink-0 ${mc.bgClass} ${mc.textClass}`}>
           {checkin.mood}
@@ -896,7 +896,7 @@ function CheckInRow({
 
       {isExpanded && (
         <div className="px-5 pb-4 pt-1 ml-[38px]">
-          <div className="bg-[rgba(255,255,255,0.015)] border border-[rgba(255,255,255,0.04)] rounded-xl p-4 space-y-3">
+          <div className="bg-[rgba(255,255,255,0.015)] border border-[rgba(0,0,0,0.06)] rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between text-xs text-text-muted mb-2">
               <span>{checkin.client_business}</span>
               <span>{new Date(checkin.created_at).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</span>
@@ -936,7 +936,7 @@ function CheckInRow({
                 <p className="text-xs text-text-secondary leading-relaxed">{sentReply}</p>
               </div>
             ) : (
-              <div className="mt-2 pt-3 border-t border-[rgba(255,255,255,0.04)]">
+              <div className="mt-2 pt-3 border-t border-[rgba(0,0,0,0.06)]">
                 <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-2">Reply to this check-in</div>
                 <textarea
                   value={replyText}
@@ -944,7 +944,7 @@ function CheckInRow({
                   rows={3}
                   placeholder="Type your reply..."
                   disabled={isSending}
-                  className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-3 py-2.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none disabled:opacity-50"
+                  className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none disabled:opacity-50"
                 />
                 {error && (
                   <div className="text-xs text-red-400 mt-1">{error}</div>
@@ -953,7 +953,7 @@ function CheckInRow({
                   <button
                     onClick={(e) => { e.stopPropagation(); onReplySubmit(); }}
                     disabled={!replyText.trim() || isSending}
-                    className="px-4 py-2 gradient-accent text-white rounded-lg text-xs font-semibold disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-opacity inline-flex items-center gap-1.5"
+                    className="px-4 py-2 gradient-accent text-[#1a1a1a] rounded-lg text-xs font-semibold disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-opacity inline-flex items-center gap-1.5"
                   >
                     {isSending ? (
                       <>

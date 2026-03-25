@@ -123,14 +123,14 @@ export default function CreditsPage() {
     return (
       <>
         <div className="mb-8">
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-8 w-48 mb-2" />
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-64" />
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-8 w-48 mb-2" />
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-64" />
         </div>
         <div className="space-y-3">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-bg-card/80 border border-[rgba(255,255,255,0.04)] rounded-2xl p-5">
-              <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-40 mb-2" />
-              <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-3 w-56" />
+            <div key={i} className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
+              <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-40 mb-2" />
+              <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-3 w-56" />
             </div>
           ))}
         </div>
@@ -156,7 +156,7 @@ export default function CreditsPage() {
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wider px-1">Credit Balances</h2>
           {clients.length === 0 && (
-            <div className="bg-bg-card/80 border border-[rgba(255,255,255,0.04)] rounded-2xl p-6 text-center text-text-muted text-sm">
+            <div className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 text-center text-text-muted text-sm">
               No clients found.
             </div>
           )}
@@ -171,8 +171,8 @@ export default function CreditsPage() {
                 key={client.id}
                 className={`bg-bg-card/80 border rounded-2xl p-5 transition-all cursor-pointer ${
                   isSelected
-                    ? "border-[rgba(34,114,222,0.3)] bg-[rgba(34,114,222,0.04)]"
-                    : "border-[rgba(255,255,255,0.04)] hover:border-[rgba(255,255,255,0.08)]"
+                    ? "border-[rgba(226,184,48,0.3)] bg-[rgba(226,184,48,0.04)]"
+                    : "border-[rgba(0,0,0,0.06)] hover:border-[rgba(0,0,0,0.08)]"
                 }`}
                 onClick={() => loadDetail(client.user_id)}
               >
@@ -206,7 +206,7 @@ export default function CreditsPage() {
                         setTopUpAmount("");
                         setTopUpMessage(null);
                       }}
-                      className="px-3 py-1.5 text-xs font-semibold gradient-accent text-white rounded-lg cursor-pointer"
+                      className="px-3 py-1.5 text-xs font-semibold gradient-accent text-[#1a1a1a] rounded-lg cursor-pointer"
                     >
                       Top Up
                     </button>
@@ -221,23 +221,23 @@ export default function CreditsPage() {
         <div>
           <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wider px-1 mb-3">Usage Detail</h2>
           {!detailUserId && (
-            <div className="bg-bg-card/80 border border-[rgba(255,255,255,0.04)] rounded-2xl p-8 text-center text-text-muted text-sm">
+            <div className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center text-text-muted text-sm">
               Select a client to view usage history
             </div>
           )}
           {detailUserId && detailLoading && (
-            <div className="bg-bg-card/80 border border-[rgba(255,255,255,0.04)] rounded-2xl p-6 space-y-3">
-              <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-32 mb-4" />
+            <div className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 space-y-3">
+              <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-32 mb-4" />
               <div className="grid grid-cols-2 gap-3">
                 {[...Array(4)].map((_, i) => (
-                  <div key={i} className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-xl h-16" />
+                  <div key={i} className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-xl h-16" />
                 ))}
               </div>
             </div>
           )}
           {detailUserId && !detailLoading && detailData && (
-            <div className="bg-bg-card/80 border border-[rgba(255,255,255,0.04)] rounded-2xl p-5">
-              <div className="flex items-center gap-3 mb-5 pb-4 border-b border-[rgba(255,255,255,0.04)]">
+            <div className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
+              <div className="flex items-center gap-3 mb-5 pb-4 border-b border-[rgba(0,0,0,0.06)]">
                 <div>
                   <p className="text-sm font-semibold text-text-primary">
                     {(Array.isArray(detailData.profile.user) ? detailData.profile.user[0] : detailData.profile.user as { full_name: string } | null)?.full_name || "Unknown"}
@@ -248,23 +248,23 @@ export default function CreditsPage() {
 
               <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-3">Last 30 Days</p>
               <div className="grid grid-cols-2 gap-3 mb-5">
-                <div className="bg-bg-primary/60 border border-[rgba(255,255,255,0.04)] rounded-xl p-3">
+                <div className="bg-bg-primary/60 border border-[rgba(0,0,0,0.06)] rounded-xl p-3">
                   <p className="text-xs text-text-muted mb-1">Requests</p>
                   <p className="text-lg font-heading font-bold text-text-primary">{detailData.usage.last30Days.totalRequests}</p>
                 </div>
-                <div className="bg-bg-primary/60 border border-[rgba(255,255,255,0.04)] rounded-xl p-3">
+                <div className="bg-bg-primary/60 border border-[rgba(0,0,0,0.06)] rounded-xl p-3">
                   <p className="text-xs text-text-muted mb-1">Billed</p>
                   <p className="text-lg font-heading font-bold text-text-primary">
                     {formatCredits(detailData.usage.last30Days.totalBilledPence)}
                   </p>
                 </div>
-                <div className="bg-bg-primary/60 border border-[rgba(255,255,255,0.04)] rounded-xl p-3">
+                <div className="bg-bg-primary/60 border border-[rgba(0,0,0,0.06)] rounded-xl p-3">
                   <p className="text-xs text-text-muted mb-1">Input Tokens</p>
                   <p className="text-base font-heading font-bold text-text-primary">
                     {detailData.usage.last30Days.totalInputTokens.toLocaleString()}
                   </p>
                 </div>
-                <div className="bg-bg-primary/60 border border-[rgba(255,255,255,0.04)] rounded-xl p-3">
+                <div className="bg-bg-primary/60 border border-[rgba(0,0,0,0.06)] rounded-xl p-3">
                   <p className="text-xs text-text-muted mb-1">Output Tokens</p>
                   <p className="text-base font-heading font-bold text-text-primary">
                     {detailData.usage.last30Days.totalOutputTokens.toLocaleString()}
@@ -277,7 +277,7 @@ export default function CreditsPage() {
                   <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">Recent Requests</p>
                   <div className="space-y-2 max-h-64 overflow-y-auto">
                     {detailData.usage.recent.map((entry, i) => (
-                      <div key={i} className="flex items-center justify-between py-2 border-b border-[rgba(255,255,255,0.03)] last:border-0">
+                      <div key={i} className="flex items-center justify-between py-2 border-b border-[rgba(0,0,0,0.03)] last:border-0">
                         <div>
                           <p className="text-xs text-text-primary">
                             {entry.input_tokens.toLocaleString()} in / {entry.output_tokens.toLocaleString()} out
@@ -303,7 +303,7 @@ export default function CreditsPage() {
       {/* Top Up Modal */}
       {topUpModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-bg-card border border-[rgba(255,255,255,0.08)] rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -318,7 +318,7 @@ export default function CreditsPage() {
               </div>
             </div>
 
-            <div className="bg-bg-primary/60 border border-[rgba(255,255,255,0.04)] rounded-xl px-4 py-3 mb-4">
+            <div className="bg-bg-primary/60 border border-[rgba(0,0,0,0.06)] rounded-xl px-4 py-3 mb-4">
               <p className="text-xs text-text-muted mb-0.5">Current balance</p>
               <p className="text-base font-heading font-bold text-text-primary">{formatCredits(topUpModal.ai_credits || 0)}</p>
             </div>
@@ -347,7 +347,7 @@ export default function CreditsPage() {
                     value={topUpAmount}
                     onChange={(e) => setTopUpAmount(e.target.value)}
                     placeholder="10.00"
-                    className="w-full pl-7 pr-4 py-2.5 bg-bg-primary border border-[rgba(255,255,255,0.08)] rounded-xl text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent-bright/50 transition-colors"
+                    className="w-full pl-7 pr-4 py-2.5 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent-bright/50 transition-colors"
                     autoFocus
                   />
                 </div>
@@ -357,7 +357,7 @@ export default function CreditsPage() {
                       key={preset}
                       type="button"
                       onClick={() => setTopUpAmount(String(preset))}
-                      className="flex-1 py-1.5 text-xs font-medium text-text-secondary bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-lg hover:border-[rgba(255,255,255,0.12)] hover:text-text-primary transition-colors cursor-pointer"
+                      className="flex-1 py-1.5 text-xs font-medium text-text-secondary bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-lg hover:border-[rgba(0,0,0,0.1)] hover:text-text-primary transition-colors cursor-pointer"
                     >
                       £{preset}
                     </button>
@@ -369,7 +369,7 @@ export default function CreditsPage() {
                 <button
                   type="button"
                   onClick={() => { setTopUpModal(null); setTopUpAmount(""); setTopUpMessage(null); }}
-                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-text-secondary bg-bg-primary border border-[rgba(255,255,255,0.08)] rounded-xl hover:text-text-primary transition-colors cursor-pointer"
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-text-secondary bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl hover:text-text-primary transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>

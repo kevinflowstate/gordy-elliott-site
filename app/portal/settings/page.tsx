@@ -116,23 +116,23 @@ function SettingsContent() {
   if (loading) return (
     <div className="max-w-2xl space-y-6">
       <div className="mb-8">
-        <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-8 w-32 mb-2" />
-        <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-56" />
+        <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-8 w-32 mb-2" />
+        <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-56" />
       </div>
-      <div className="bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-6">
-        <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-5 w-32 mb-4" />
+      <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6">
+        <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-5 w-32 mb-4" />
         <div className="flex items-center gap-5">
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-full w-20 h-20" />
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-xl h-9 w-28" />
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-full w-20 h-20" />
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-xl h-9 w-28" />
         </div>
       </div>
       {[...Array(2)].map((_, i) => (
-        <div key={i} className="bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-6 space-y-5">
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-5 w-24" />
+        <div key={i} className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 space-y-5">
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-5 w-24" />
           {[...Array(2)].map((_, j) => (
             <div key={j}>
-              <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-20 mb-2" />
-              <div className="animate-pulse bg-[rgba(255,255,255,0.04)] rounded-xl h-12 border border-[rgba(255,255,255,0.06)]" />
+              <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-20 mb-2" />
+              <div className="animate-pulse bg-[rgba(0,0,0,0.06)] rounded-xl h-12 border border-[rgba(0,0,0,0.08)]" />
             </div>
           ))}
         </div>
@@ -149,7 +149,7 @@ function SettingsContent() {
 
       <form onSubmit={handleSave} className="space-y-6">
         {/* Profile Picture */}
-        <div className="bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-6">
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6">
           <h2 className="text-lg font-heading font-bold text-text-primary mb-4">Profile Picture</h2>
           <div className="flex items-center gap-5">
             <div className="relative">
@@ -157,10 +157,10 @@ function SettingsContent() {
                 <img
                   src={avatarUrl}
                   alt="Profile"
-                  className="w-20 h-20 rounded-full object-cover border-2 border-[rgba(255,255,255,0.1)]"
+                  className="w-20 h-20 rounded-full object-cover border-2 border-[rgba(0,0,0,0.06)]"
                 />
               ) : (
-                <div className="w-20 h-20 rounded-full bg-accent/10 border-2 border-[rgba(255,255,255,0.1)] flex items-center justify-center">
+                <div className="w-20 h-20 rounded-full bg-accent/10 border-2 border-[rgba(0,0,0,0.06)] flex items-center justify-center">
                   <span className="text-2xl font-heading font-bold text-accent-bright">
                     {fullName ? fullName.charAt(0).toUpperCase() : "?"}
                   </span>
@@ -188,7 +188,7 @@ function SettingsContent() {
           </div>
         </div>
 
-        <div className="bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-6 space-y-5">
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 space-y-5">
           <h2 className="text-lg font-heading font-bold text-text-primary">Profile</h2>
 
           <div>
@@ -197,7 +197,7 @@ function SettingsContent() {
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40 transition-colors"
+              className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40 transition-colors"
             />
           </div>
 
@@ -207,12 +207,12 @@ function SettingsContent() {
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40 transition-colors"
+              className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40 transition-colors"
             />
           </div>
         </div>
 
-        <div className="bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-6 space-y-5">
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 space-y-5">
           <h2 className="text-lg font-heading font-bold text-text-primary">Business Details</h2>
 
           <div>
@@ -221,7 +221,7 @@ function SettingsContent() {
               type="text"
               value={businessName}
               onChange={(e) => setBusinessName(e.target.value)}
-              className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40 transition-colors"
+              className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40 transition-colors"
             />
           </div>
 
@@ -232,7 +232,7 @@ function SettingsContent() {
               value={businessType}
               onChange={(e) => setBusinessType(e.target.value)}
               placeholder="e.g. e.g. Weight Loss, Strength, Lifestyle"
-              className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
+              className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
             />
           </div>
 
@@ -243,13 +243,13 @@ function SettingsContent() {
               onChange={(e) => setGoals(e.target.value)}
               rows={3}
               placeholder="What are you looking to achieve?"
-              className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none"
+              className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none"
             />
           </div>
         </div>
 
         {/* Password section */}
-        <div className="bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-6 space-y-5">
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 space-y-5">
           <h2 className="text-lg font-heading font-bold text-text-primary">
             {isSetup ? "Set Your Password" : "Change Password"}
           </h2>
@@ -264,7 +264,7 @@ function SettingsContent() {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="At least 8 characters"
-              className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
+              className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
             />
           </div>
           <div>
@@ -274,7 +274,7 @@ function SettingsContent() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Type it again"
-              className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
+              className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
             />
           </div>
 
@@ -309,7 +309,7 @@ function SettingsContent() {
                 setPasswordSaving(false);
               }
             }}
-            className="px-6 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-opacity"
+            className="px-6 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-opacity"
           >
             {passwordSaving ? "Updating..." : isSetup ? "Set Password" : "Update Password"}
           </button>
@@ -319,7 +319,7 @@ function SettingsContent() {
           <button
             type="submit"
             disabled={saving}
-            className="px-8 py-3 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-40 cursor-pointer transition-opacity"
+            className="px-8 py-3 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold disabled:opacity-40 cursor-pointer transition-opacity"
           >
             {saving ? "Saving..." : saved ? (
               <span className="inline-flex items-center gap-1.5">

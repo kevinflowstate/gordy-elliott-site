@@ -12,7 +12,7 @@ const attachmentIcons: Record<string, { icon: string; color: string }> = {
   sheet: { icon: "M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2z", color: "text-emerald-400 bg-emerald-500/10" },
   doc: { icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z", color: "text-blue-400 bg-blue-500/10" },
   image: { icon: "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z", color: "text-purple-400 bg-purple-500/10" },
-  other: { icon: "M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13", color: "text-text-muted bg-[rgba(255,255,255,0.04)]" },
+  other: { icon: "M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13", color: "text-text-muted bg-[rgba(0,0,0,0.06)]" },
 };
 
 function getVideoEmbed(url: string): { type: "youtube" | "vimeo" | "fathom" | "unknown"; embedUrl: string } {
@@ -203,23 +203,23 @@ export default function ModuleEditorPage() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-32 mb-6" />
-        <div className="bg-bg-card/80 border border-[rgba(255,255,255,0.04)] rounded-2xl overflow-hidden">
-          <div className="h-40 animate-pulse bg-[rgba(255,255,255,0.04)]" />
+        <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-32 mb-6" />
+        <div className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
+          <div className="h-40 animate-pulse bg-[rgba(0,0,0,0.06)]" />
           <div className="p-6 space-y-3">
-            <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-6 w-2/3" />
-            <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-full" />
-            <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-3 w-1/3" />
+            <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-6 w-2/3" />
+            <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-full" />
+            <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-3 w-1/3" />
           </div>
         </div>
-        <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-5 w-20 mt-4" />
+        <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-5 w-20 mt-4" />
         {[...Array(3)].map((_, i) => (
-          <div key={i} className="bg-bg-card/80 border border-[rgba(255,255,255,0.04)] rounded-2xl p-4 flex items-center gap-4">
-            <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg w-6 h-4" />
-            <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg w-8 h-8" />
+          <div key={i} className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 flex items-center gap-4">
+            <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg w-6 h-4" />
+            <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg w-8 h-8" />
             <div className="flex-1 space-y-2">
-              <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-3/4" />
-              <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-3 w-1/4" />
+              <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-3/4" />
+              <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-3 w-1/4" />
             </div>
           </div>
         ))}
@@ -255,7 +255,7 @@ export default function ModuleEditorPage() {
       </Link>
 
       {/* Module header card */}
-      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl overflow-hidden mb-6">
+      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden mb-6">
         {/* Cover area - auto-generated from title */}
         <div className="relative">
           <ModuleCover title={moduleTitle} variant="banner" />
@@ -283,10 +283,10 @@ export default function ModuleEditorPage() {
                 type="text"
                 value={moduleTitle}
                 onChange={(e) => setModuleTitle(e.target.value)}
-                className="flex-1 bg-bg-primary border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-xl font-heading font-bold text-text-primary focus:outline-none focus:border-accent/40"
+                className="flex-1 bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-xl px-4 py-3 text-xl font-heading font-bold text-text-primary focus:outline-none focus:border-accent/40"
                 autoFocus
               />
-              <button onClick={() => { saveModule({ title: moduleTitle }); setEditingTitle(false); }} disabled={saving} className="px-4 py-2 gradient-accent text-white rounded-xl text-sm font-medium disabled:opacity-50">{saving ? "Saving..." : "Save"}</button>
+              <button onClick={() => { saveModule({ title: moduleTitle }); setEditingTitle(false); }} disabled={saving} className="px-4 py-2 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-medium disabled:opacity-50">{saving ? "Saving..." : "Save"}</button>
               <button onClick={() => { setModuleTitle(module.title); setEditingTitle(false); }} className="px-4 py-2 text-text-muted text-sm">Cancel</button>
             </div>
           ) : (
@@ -309,11 +309,11 @@ export default function ModuleEditorPage() {
                 value={moduleDesc}
                 onChange={(e) => setModuleDesc(e.target.value)}
                 rows={3}
-                className="w-full bg-bg-primary border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-sm text-text-secondary focus:outline-none focus:border-accent/40 resize-none"
+                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-xl px-4 py-3 text-sm text-text-secondary focus:outline-none focus:border-accent/40 resize-none"
                 autoFocus
               />
               <div className="flex gap-2 mt-2">
-                <button onClick={() => { saveModule({ description: moduleDesc }); setEditingDesc(false); }} disabled={saving} className="px-3 py-1.5 gradient-accent text-white rounded-lg text-xs font-medium disabled:opacity-50">{saving ? "..." : "Save"}</button>
+                <button onClick={() => { saveModule({ description: moduleDesc }); setEditingDesc(false); }} disabled={saving} className="px-3 py-1.5 gradient-accent text-[#1a1a1a] rounded-lg text-xs font-medium disabled:opacity-50">{saving ? "..." : "Save"}</button>
                 <button onClick={() => { setModuleDesc(module.description); setEditingDesc(false); }} className="px-3 py-1.5 text-text-muted text-xs">Cancel</button>
               </div>
             </div>
@@ -360,7 +360,7 @@ export default function ModuleEditorPage() {
         <h2 className="text-lg font-heading font-bold text-text-primary">Lessons</h2>
         <button
           onClick={() => setShowAddLesson(!showAddLesson)}
-          className="px-4 py-2 gradient-accent text-white rounded-xl text-sm font-medium inline-flex items-center gap-2"
+          className="px-4 py-2 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-medium inline-flex items-center gap-2"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -381,7 +381,7 @@ export default function ModuleEditorPage() {
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 placeholder="Lesson title"
-                className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40"
+                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40"
               />
             </div>
             <div>
@@ -389,7 +389,7 @@ export default function ModuleEditorPage() {
               <select
                 value={newType}
                 onChange={(e) => setNewType(e.target.value as ContentType)}
-                className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40"
+                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40"
               >
                 <option value="video">Video</option>
                 <option value="pdf">PDF / Document</option>
@@ -420,7 +420,7 @@ export default function ModuleEditorPage() {
                         alert("Upload failed");
                       }
                     }}
-                    className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-accent/10 file:text-accent-bright hover:file:bg-accent/20"
+                    className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-accent/10 file:text-accent-bright hover:file:bg-accent/20"
                   />
                   {newUrl && <p className="text-xs text-emerald-400">File uploaded</p>}
                   <input
@@ -428,7 +428,7 @@ export default function ModuleEditorPage() {
                     value={newUrl}
                     onChange={(e) => setNewUrl(e.target.value)}
                     placeholder="Or paste a URL directly"
-                    className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40"
+                    className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40"
                   />
                 </div>
               ) : (
@@ -437,7 +437,7 @@ export default function ModuleEditorPage() {
                   value={newUrl}
                   onChange={(e) => setNewUrl(e.target.value)}
                   placeholder={newType === "video" ? "https://fathom.video/share/... or YouTube/Vimeo URL" : "https://..."}
-                  className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40"
+                  className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40"
                 />
               )}
             </div>
@@ -448,7 +448,7 @@ export default function ModuleEditorPage() {
                 value={newDuration}
                 onChange={(e) => setNewDuration(e.target.value)}
                 placeholder="e.g. 15"
-                className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40"
+                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40"
               />
             </div>
             <div className="sm:col-span-2">
@@ -458,12 +458,12 @@ export default function ModuleEditorPage() {
                 onChange={(e) => setNewDescription(e.target.value)}
                 rows={4}
                 placeholder="Add lesson description, key takeaways, or any supporting copy..."
-                className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 resize-none"
+                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 resize-none"
               />
             </div>
           </div>
           <div className="flex gap-3 mt-4">
-            <button onClick={addLesson} className="px-5 py-2.5 gradient-accent text-white rounded-xl text-sm font-medium cursor-pointer">Add Lesson</button>
+            <button onClick={addLesson} className="px-5 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-medium cursor-pointer">Add Lesson</button>
             <button onClick={() => setShowAddLesson(false)} className="px-5 py-2.5 text-text-muted text-sm hover:text-text-secondary cursor-pointer">Cancel</button>
           </div>
         </div>
@@ -497,13 +497,13 @@ export default function ModuleEditorPage() {
       </div>
 
       {lessons.length === 0 && (
-        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl p-8 text-center">
+        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
           <p className="text-text-muted text-sm">No lessons yet. Add your first one above.</p>
         </div>
       )}
 
       {/* Danger zone */}
-      <div className="mt-12 pt-6 border-t border-[rgba(255,255,255,0.04)]">
+      <div className="mt-12 pt-6 border-t border-[rgba(0,0,0,0.06)]">
         <button
           onClick={deleteModule}
           className="text-xs text-text-muted hover:text-red-400 transition-colors inline-flex items-center gap-1.5 cursor-pointer"
@@ -562,7 +562,7 @@ function LessonCard({
     text: {
       label: "Article",
       icon: "M4 6h16M4 12h16M4 18h7",
-      color: "text-text-secondary bg-[rgba(255,255,255,0.04)]",
+      color: "text-text-secondary bg-[rgba(0,0,0,0.06)]",
     },
     checklist: {
       label: "Checklist",
@@ -574,13 +574,13 @@ function LessonCard({
   const ct = contentTypeLabels[lesson.content_type];
 
   return (
-    <div className="group/lesson relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(34,114,222,0.15)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.2),0_0_30px_rgba(34,114,222,0.04)] will-change-transform">
-      <div className="absolute inset-0 opacity-0 group-hover/lesson:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[length:4px_4px] z-10 pointer-events-none" />
+    <div className="group/lesson relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(226,184,48,0.15)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.2),0_0_30px_rgba(226,184,48,0.04)] will-change-transform">
+      <div className="absolute inset-0 opacity-0 group-hover/lesson:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] z-10 pointer-events-none" />
       <div className="absolute inset-0 -z-10 rounded-2xl p-px bg-gradient-to-br from-transparent via-white/10 to-transparent opacity-0 group-hover/lesson:opacity-100 transition-opacity duration-300 pointer-events-none" />
       {/* Collapsed row */}
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-4 p-4 text-left hover:bg-[rgba(255,255,255,0.02)] transition-colors cursor-pointer"
+        className="w-full flex items-center gap-4 p-4 text-left hover:bg-[rgba(0,0,0,0.02)] transition-colors cursor-pointer"
       >
         <div className="text-text-muted text-sm font-mono w-6 text-center flex-shrink-0">{index + 1}</div>
 
@@ -640,18 +640,18 @@ function LessonCard({
 
       {/* Expanded content */}
       {isExpanded && (
-        <div className="border-t border-[rgba(255,255,255,0.04)] p-5 space-y-5">
+        <div className="border-t border-[rgba(0,0,0,0.06)] p-5 space-y-5">
           {editing ? (
             /* Edit mode */
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-text-secondary mb-1.5">Title</label>
-                  <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40" />
+                  <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-text-secondary mb-1.5">Type</label>
-                  <select value={editType} onChange={(e) => setEditType(e.target.value as ContentType)} className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40">
+                  <select value={editType} onChange={(e) => setEditType(e.target.value as ContentType)} className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40">
                     <option value="video">Video</option>
                     <option value="text">Article</option>
                     <option value="pdf">Document</option>
@@ -660,15 +660,15 @@ function LessonCard({
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-text-secondary mb-1.5">URL</label>
-                  <input type="text" value={editUrl} onChange={(e) => setEditUrl(e.target.value)} placeholder="https://..." className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40" />
+                  <input type="text" value={editUrl} onChange={(e) => setEditUrl(e.target.value)} placeholder="https://..." className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-text-secondary mb-1.5">Duration (minutes)</label>
-                  <input type="number" value={editDuration} onChange={(e) => setEditDuration(e.target.value)} placeholder="e.g. 15" className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40" />
+                  <input type="number" value={editDuration} onChange={(e) => setEditDuration(e.target.value)} placeholder="e.g. 15" className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40" />
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-medium text-text-secondary mb-1.5">Description / Notes</label>
-                  <textarea value={editText} onChange={(e) => setEditText(e.target.value)} rows={4} placeholder="Lesson description..." className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 resize-none" />
+                  <textarea value={editText} onChange={(e) => setEditText(e.target.value)} rows={4} placeholder="Lesson description..." className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 resize-none" />
                 </div>
               </div>
               <div className="flex gap-3">
@@ -686,7 +686,7 @@ function LessonCard({
                     setSavingLesson(false);
                     setEditing(false);
                   }}
-                  className="px-5 py-2.5 gradient-accent text-white rounded-xl text-sm font-medium cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-medium cursor-pointer disabled:opacity-50"
                 >
                   {savingLesson ? "Saving..." : "Save Changes"}
                 </button>
@@ -710,7 +710,7 @@ function LessonCard({
             <>
               {/* Video embed */}
               {lesson.content_type === "video" && lesson.content_url && (
-                <div className="rounded-xl overflow-hidden border border-[rgba(255,255,255,0.06)] shadow-[0_10px_30px_rgba(0,0,0,0.3)]">
+                <div className="rounded-xl overflow-hidden border border-[rgba(0,0,0,0.08)] shadow-[0_10px_30px_rgba(0,0,0,0.3)]">
                   <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
                     <iframe
                       src={getVideoEmbed(lesson.content_url).embedUrl}
@@ -727,7 +727,7 @@ function LessonCard({
 
               {/* Video URL display */}
               {lesson.content_url && (
-                <div className="flex items-center gap-2 bg-bg-primary border border-[rgba(255,255,255,0.04)] rounded-xl px-4 py-3">
+                <div className="flex items-center gap-2 bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-xl px-4 py-3">
                   <svg className="w-4 h-4 text-text-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                   </svg>
@@ -743,15 +743,15 @@ function LessonCard({
                     <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Description</span>
                     <button onClick={() => setEditing(true)} className="text-xs text-accent-bright hover:text-accent-light transition-colors cursor-pointer">Edit</button>
                   </div>
-                  <div className="bg-bg-primary border border-[rgba(255,255,255,0.04)] rounded-xl p-4">
+                  <div className="bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-xl p-4">
                     <div className="text-sm text-text-secondary leading-relaxed whitespace-pre-line">{lesson.content_text}</div>
                   </div>
                 </div>
               )}
 
               {/* Action row */}
-              <div className="flex items-center gap-2 pt-2 border-t border-[rgba(255,255,255,0.03)]">
-                <button onClick={() => setEditing(true)} className="text-xs text-text-muted hover:text-text-secondary transition-colors inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.03)] cursor-pointer">
+              <div className="flex items-center gap-2 pt-2 border-t border-[rgba(0,0,0,0.03)]">
+                <button onClick={() => setEditing(true)} className="text-xs text-text-muted hover:text-text-secondary transition-colors inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-[rgba(0,0,0,0.03)] cursor-pointer">
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                   </svg>

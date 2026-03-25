@@ -7,7 +7,7 @@ import type { ClientProfile, TrainingModule, CheckIn, CalendarEvent, TrainingPla
 function ProgressBar({ value, max }: { value: number; max: number }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
   return (
-    <div className="w-full bg-[rgba(255,255,255,0.04)] rounded-full h-2">
+    <div className="w-full bg-[rgba(0,0,0,0.06)] rounded-full h-2">
       <div className="h-2 rounded-full gradient-accent transition-all duration-500" style={{ width: `${pct}%` }} />
     </div>
   );
@@ -181,8 +181,8 @@ export default function PortalDashboard() {
           { label: "Trainings", value: `${totalModules}`, sub: totalModules > 0 ? `${totalModules} module${totalModules !== 1 ? "s" : ""} available` : "Coming soon" },
           { label: "Status", value: profile?.status === "green" ? "On Track" : profile?.status === "amber" ? "Needs Attention" : profile?.status === "red" ? "Behind" : "-" },
         ].map((stat, i) => (
-          <div key={i} className="group relative bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.08)] hover:shadow-[0_2px_12px_rgba(255,255,255,0.03)]">
-            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
+          <div key={i} className="group relative bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(0,0,0,0.08)] hover:shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
             <div className="absolute inset-0 -z-10 rounded-2xl p-px bg-gradient-to-br from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
             <div className="relative">
               <div className="text-text-muted text-xs uppercase tracking-wider mb-2">{stat.label}</div>
@@ -206,11 +206,11 @@ export default function PortalDashboard() {
       {/* Split columns: Training Plan Progress (left) + Check-ins (right) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Training Plan Summary */}
-        <div className="group relative bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:border-[rgba(255,255,255,0.08)] hover:shadow-[0_4px_20px_rgba(255,255,255,0.02)]">
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
+        <div className="group relative bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:border-[rgba(0,0,0,0.08)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
           <div className="flex items-center justify-between mb-4 relative z-10">
             <h2 className="text-lg font-heading font-bold text-text-primary">Training Plan</h2>
-            <Link href="/portal/plan" className="px-4 py-2 gradient-accent text-white rounded-xl text-xs font-semibold no-underline hover:opacity-90 transition-opacity">
+            <Link href="/portal/plan" className="px-4 py-2 gradient-accent text-[#1a1a1a] rounded-xl text-xs font-semibold no-underline hover:opacity-90 transition-opacity">
               Go To Plan
             </Link>
           </div>
@@ -232,7 +232,7 @@ export default function PortalDashboard() {
                         <span className="text-sm text-text-primary truncate">{phase.name}</span>
                         <span className="text-[10px] text-text-muted ml-2">{phaseCompleted}/{phaseTotal}</span>
                       </div>
-                      <div className="w-full bg-[rgba(255,255,255,0.04)] rounded-full h-1.5">
+                      <div className="w-full bg-[rgba(0,0,0,0.06)] rounded-full h-1.5">
                         <div
                           className={`h-1.5 rounded-full transition-all duration-500 ${phasePct === 100 ? "bg-emerald-500" : "gradient-accent"}`}
                           style={{ width: `${phasePct}%` }}
@@ -247,12 +247,12 @@ export default function PortalDashboard() {
         </div>
 
         {/* Check-ins */}
-        <div className="group relative bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:border-[rgba(255,255,255,0.08)] hover:shadow-[0_4px_20px_rgba(255,255,255,0.02)]">
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
+        <div className="group relative bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:border-[rgba(0,0,0,0.08)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
           <div className="flex items-center justify-between mb-4 relative z-10">
             <h2 className="text-lg font-heading font-bold text-text-primary">Check-Ins</h2>
             {isCheckinToday ? (
-              <Link href="/portal/checkin" className="px-4 py-2 gradient-accent text-white rounded-xl text-xs font-semibold no-underline hover:opacity-90 transition-opacity">
+              <Link href="/portal/checkin" className="px-4 py-2 gradient-accent text-[#1a1a1a] rounded-xl text-xs font-semibold no-underline hover:opacity-90 transition-opacity">
                 Submit Check-In
               </Link>
             ) : (
@@ -268,10 +268,10 @@ export default function PortalDashboard() {
               {checkins.map((c) => {
                 const isExpanded = expandedCheckin === c.id;
                 return (
-                  <div key={c.id} className="border border-[rgba(255,255,255,0.04)] rounded-xl overflow-hidden">
+                  <div key={c.id} className="border border-[rgba(0,0,0,0.06)] rounded-xl overflow-hidden">
                     <button
                       onClick={() => setExpandedCheckin(isExpanded ? null : c.id)}
-                      className="w-full py-3 px-4 flex items-center justify-between hover:bg-[rgba(255,255,255,0.02)] transition-colors text-left cursor-pointer"
+                      className="w-full py-3 px-4 flex items-center justify-between hover:bg-[rgba(0,0,0,0.02)] transition-colors text-left cursor-pointer"
                     >
                       <div className="flex items-center gap-3">
                         <span className="text-text-primary text-sm font-medium">Week {c.week_number}</span>
@@ -330,14 +330,14 @@ export default function PortalDashboard() {
 }
 
 function SkeletonPulse({ className }: { className?: string }) {
-  return <div className={`animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg ${className || ""}`} />;
+  return <div className={`animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg ${className || ""}`} />;
 }
 
 function DashboardSkeleton() {
   return (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-        <div className="bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-5">
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
           <SkeletonPulse className="h-4 w-24 mb-3" />
           <SkeletonPulse className="h-6 w-48 mb-2" />
           <SkeletonPulse className="h-4 w-36" />
@@ -345,7 +345,7 @@ function DashboardSkeleton() {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-6">
+          <div key={i} className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6">
             <SkeletonPulse className="h-3 w-20 mb-3" />
             <SkeletonPulse className="h-8 w-16 mb-2" />
             <SkeletonPulse className="h-3 w-28" />
@@ -354,7 +354,7 @@ function DashboardSkeleton() {
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {[...Array(2)].map((_, i) => (
-          <div key={i} className="bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-6">
+          <div key={i} className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6">
             <SkeletonPulse className="h-5 w-32 mb-4" />
             <SkeletonPulse className="h-2 w-full mb-4" />
             <div className="space-y-3">
@@ -483,8 +483,8 @@ function JourneyTracker({
     : Math.min(100, Math.round((currentWeek / 12) * 100));
 
   return (
-    <div className="group relative bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-6 mb-8 overflow-hidden transition-all duration-300 hover:border-[rgba(255,255,255,0.08)]">
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
+    <div className="group relative bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 mb-8 overflow-hidden transition-all duration-300 hover:border-[rgba(0,0,0,0.08)]">
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
       <div className="relative z-10">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-heading font-bold text-text-primary">Your Journey</h2>
@@ -493,7 +493,7 @@ function JourneyTracker({
 
         {/* Progress bar with milestones */}
         <div className="relative mb-6">
-          <div className="h-2 bg-[rgba(255,255,255,0.04)] rounded-full">
+          <div className="h-2 bg-[rgba(0,0,0,0.06)] rounded-full">
             <div className="h-2 rounded-full gradient-accent transition-all duration-700" style={{ width: `${progressPct}%` }} />
           </div>
           <div className="flex justify-between mt-4">
@@ -507,7 +507,7 @@ function JourneyTracker({
               return (
                 <div key={m.index} className={`flex flex-col items-center flex-1 ${isFirst ? "items-start" : isLast ? "items-end" : "items-center"}`}>
                   <div className={`w-5 h-5 rounded-full flex items-center justify-center border-2 ${
-                    reached ? "bg-accent border-accent-bright" : "bg-bg-card border-[rgba(255,255,255,0.1)]"
+                    reached ? "bg-accent border-accent-bright" : "bg-bg-card border-[rgba(0,0,0,0.06)]"
                   }`}>
                     {reached && (
                       <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -589,9 +589,9 @@ function NextEventCard() {
   if (loading) return null;
   if (!event || !nextDate) {
     return (
-      <div className="bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-5">
+      <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[rgba(255,255,255,0.04)] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-[rgba(0,0,0,0.06)] flex items-center justify-center">
             <svg className="w-5 h-5 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
@@ -610,8 +610,8 @@ function NextEventCard() {
   const recurrenceText: Record<string, string> = { weekly: `Every ${dayName}`, biweekly: `Every other ${dayName}`, monthly: "Monthly", none: nextDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }) };
 
   return (
-    <div className="group relative bg-bg-card border border-accent/10 rounded-2xl p-5 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-accent/20 hover:shadow-[0_2px_12px_rgba(34,114,222,0.06)]">
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(34,114,222,0.03)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
+    <div className="group relative bg-bg-card border border-accent/10 rounded-2xl p-5 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-accent/20 hover:shadow-[0_2px_12px_rgba(226,184,48,0.06)]">
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(226,184,48,0.03)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
       <div className="relative flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center group-hover:bg-accent/15 transition-colors duration-300">
@@ -629,7 +629,7 @@ function NextEventCard() {
           </div>
         </div>
         {event.link && (
-          <a href={event.link} target="_blank" rel="noopener noreferrer" className="px-4 py-2.5 gradient-accent text-white rounded-xl text-sm font-medium no-underline inline-flex items-center gap-2 hover:opacity-90 transition-opacity flex-shrink-0">
+          <a href={event.link} target="_blank" rel="noopener noreferrer" className="px-4 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-medium no-underline inline-flex items-center gap-2 hover:opacity-90 transition-opacity flex-shrink-0">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>

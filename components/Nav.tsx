@@ -16,8 +16,8 @@ export default function Nav() {
     <nav
       className={`fixed top-0 left-0 right-0 z-[1000] backdrop-blur-[24px] backdrop-saturate-[1.2] px-8 transition-colors duration-300 ${
         scrolled
-          ? "bg-[rgba(5,5,7,0.95)] border-b border-[rgba(34,114,222,0.1)]"
-          : "bg-[rgba(5,5,7,0.8)] border-b border-[rgba(255,255,255,0.04)]"
+          ? "bg-[rgba(255,255,255,0.95)] border-b border-[rgba(226,184,48,0.1)]"
+          : "bg-[rgba(255,255,255,0.8)] border-b border-[rgba(0,0,0,0.06)]"
       }`}
     >
       <div className="max-w-[1200px] mx-auto flex justify-between items-center h-[72px]">
@@ -29,7 +29,7 @@ export default function Nav() {
 
         <Link
           href="/login"
-          className="bg-accent text-white px-6 py-2.5 rounded-lg font-semibold text-[0.85rem] no-underline transition-all duration-300 hover:bg-accent-light hover:-translate-y-px hover:shadow-[0_0_20px_rgba(34,114,222,0.4)]"
+          className="bg-accent text-[#1a1a1a] px-6 py-2.5 rounded-lg font-semibold text-[0.85rem] no-underline transition-all duration-300 hover:bg-accent-light hover:-translate-y-px hover:shadow-[0_0_20px_rgba(226,184,48,0.4)]"
         >
           Client Login
         </Link>

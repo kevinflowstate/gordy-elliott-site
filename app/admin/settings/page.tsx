@@ -174,7 +174,7 @@ export default function AdminSettingsPage() {
     setBpConfig({ ...bpConfig, questions: [...bpConfig.questions, newQ] });
   }
 
-  const inputClass = "w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40";
+  const inputClass = "w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40";
 
   return (
     <div className="max-w-2xl">
@@ -184,7 +184,7 @@ export default function AdminSettingsPage() {
       </div>
 
       {/* Create client */}
-      <div className="bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-6 mb-6">
+      <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 mb-6">
         <h2 className="text-lg font-heading font-bold text-text-primary mb-4">Create Client Account</h2>
         <p className="text-text-muted text-sm mb-4">Add a new client to the portal. They will receive an email to set their password.</p>
 
@@ -212,7 +212,7 @@ export default function AdminSettingsPage() {
           <button
             type="submit"
             disabled={creating || !email.trim() || !fullName.trim()}
-            className="px-6 py-3 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-40 cursor-pointer transition-opacity"
+            className="px-6 py-3 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold disabled:opacity-40 cursor-pointer transition-opacity"
           >
             {creating ? "Creating..." : "Create Client"}
           </button>
@@ -226,7 +226,7 @@ export default function AdminSettingsPage() {
       </div>
 
       {/* Check-In Form Config */}
-      <div className="bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-6 mb-6">
+      <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 mb-6">
         <h2 className="text-lg font-heading font-bold text-text-primary mb-1">Check-In Form</h2>
         <p className="text-text-muted text-sm mb-5">Configure the weekly check-in questions clients see.</p>
 
@@ -255,7 +255,7 @@ export default function AdminSettingsPage() {
               <button
                 type="button"
                 onClick={() => setCheckinConfig({ ...checkinConfig, mood_enabled: !checkinConfig.mood_enabled })}
-                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${checkinConfig.mood_enabled ? "bg-accent" : "bg-[rgba(255,255,255,0.1)]"}`}
+                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${checkinConfig.mood_enabled ? "bg-accent" : "bg-[rgba(0,0,0,0.06)]"}`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${checkinConfig.mood_enabled ? "translate-x-5" : ""}`} />
               </button>
@@ -266,7 +266,7 @@ export default function AdminSettingsPage() {
               <label className="block text-sm font-medium text-text-primary mb-3">Questions</label>
               <div className="space-y-3">
                 {checkinConfig.questions.map((q, idx) => (
-                  <div key={q.id} className="bg-bg-primary border border-[rgba(255,255,255,0.04)] rounded-xl p-4">
+                  <div key={q.id} className="bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-xl p-4">
                     <div className="flex items-start gap-3">
                       <div className="flex-1 space-y-2">
                         <input
@@ -274,7 +274,7 @@ export default function AdminSettingsPage() {
                           value={q.label}
                           onChange={(e) => updateCheckinQuestion(idx, { label: e.target.value })}
                           placeholder="Question label"
-                          className="w-full bg-transparent border-b border-[rgba(255,255,255,0.06)] pb-1 text-sm font-medium text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40"
+                          className="w-full bg-transparent border-b border-[rgba(0,0,0,0.08)] pb-1 text-sm font-medium text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40"
                         />
                         <input
                           type="text"
@@ -301,7 +301,7 @@ export default function AdminSettingsPage() {
               <button
                 type="button"
                 onClick={addCheckinQuestion}
-                className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 border border-dashed border-[rgba(255,255,255,0.08)] hover:border-accent/30 rounded-xl text-xs text-text-muted hover:text-accent-bright transition-colors cursor-pointer"
+                className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 border border-dashed border-[rgba(0,0,0,0.08)] hover:border-accent/30 rounded-xl text-xs text-text-muted hover:text-accent-bright transition-colors cursor-pointer"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -315,7 +315,7 @@ export default function AdminSettingsPage() {
               <button
                 onClick={saveCheckinConfig}
                 disabled={checkinSaving}
-                className="px-6 py-3 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-40 transition-opacity"
+                className="px-6 py-3 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold disabled:opacity-40 transition-opacity"
               >
                 {checkinSaving ? "Saving..." : "Save Check-In Config"}
               </button>
@@ -332,7 +332,7 @@ export default function AdminSettingsPage() {
       </div>
 
       {/* Training Plan Template */}
-      <div className="bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-6 mb-6">
+      <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 mb-6">
         <h2 className="text-lg font-heading font-bold text-text-primary mb-1">Training Plan Template</h2>
         <p className="text-text-muted text-sm mb-5">Discovery questions shown when creating or editing a business plan.</p>
 
@@ -342,7 +342,7 @@ export default function AdminSettingsPage() {
               <label className="block text-sm font-medium text-text-primary mb-3">Discovery Questions</label>
               <div className="space-y-3">
                 {bpConfig.questions.map((q, idx) => (
-                  <div key={q.id} className="bg-bg-primary border border-[rgba(255,255,255,0.04)] rounded-xl p-4">
+                  <div key={q.id} className="bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-xl p-4">
                     <div className="flex items-start gap-3">
                       <div className="flex-1 space-y-2">
                         <input
@@ -350,7 +350,7 @@ export default function AdminSettingsPage() {
                           value={q.label}
                           onChange={(e) => updateBpQuestion(idx, { label: e.target.value })}
                           placeholder="Question label"
-                          className="w-full bg-transparent border-b border-[rgba(255,255,255,0.06)] pb-1 text-sm font-medium text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40"
+                          className="w-full bg-transparent border-b border-[rgba(0,0,0,0.08)] pb-1 text-sm font-medium text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40"
                         />
                         <input
                           type="text"
@@ -381,7 +381,7 @@ export default function AdminSettingsPage() {
               <button
                 type="button"
                 onClick={addBpQuestion}
-                className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 border border-dashed border-[rgba(255,255,255,0.08)] hover:border-accent/30 rounded-xl text-xs text-text-muted hover:text-accent-bright transition-colors cursor-pointer"
+                className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 border border-dashed border-[rgba(0,0,0,0.08)] hover:border-accent/30 rounded-xl text-xs text-text-muted hover:text-accent-bright transition-colors cursor-pointer"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -394,7 +394,7 @@ export default function AdminSettingsPage() {
               <button
                 onClick={saveBpConfig}
                 disabled={bpSaving}
-                className="px-6 py-3 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-40 transition-opacity"
+                className="px-6 py-3 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold disabled:opacity-40 transition-opacity"
               >
                 {bpSaving ? "Saving..." : "Save Template"}
               </button>
@@ -411,14 +411,14 @@ export default function AdminSettingsPage() {
       </div>
 
       {/* Info */}
-      <div className="bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-6">
+      <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6">
         <h2 className="text-lg font-heading font-bold text-text-primary mb-4">Portal Info</h2>
         <div className="space-y-3">
-          <div className="flex justify-between py-2 border-b border-[rgba(255,255,255,0.04)]">
+          <div className="flex justify-between py-2 border-b border-[rgba(0,0,0,0.06)]">
             <span className="text-sm text-text-muted">Portal URL</span>
             <span className="text-sm text-text-primary">/portal</span>
           </div>
-          <div className="flex justify-between py-2 border-b border-[rgba(255,255,255,0.04)]">
+          <div className="flex justify-between py-2 border-b border-[rgba(0,0,0,0.06)]">
             <span className="text-sm text-text-muted">Admin URL</span>
             <span className="text-sm text-text-primary">/admin</span>
           </div>

@@ -92,11 +92,11 @@ export default function TrainingPlansPage() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-8 w-48 mb-6" />
+        <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-8 w-48 mb-6" />
         {[...Array(3)].map((_, i) => (
-          <div key={i} className="bg-bg-card/80 border border-[rgba(255,255,255,0.04)] rounded-2xl p-6">
-            <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-5 w-1/3 mb-3" />
-            <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-3 w-2/3" />
+          <div key={i} className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl p-6">
+            <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-5 w-1/3 mb-3" />
+            <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-3 w-2/3" />
           </div>
         ))}
       </div>
@@ -115,7 +115,7 @@ export default function TrainingPlansPage() {
         </div>
         <button
           onClick={() => setClientPickerOpen(true)}
-          className="px-4 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
+          className="px-4 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -152,7 +152,7 @@ export default function TrainingPlansPage() {
               <button
                 key={c.id}
                 onClick={() => openCreateForClient(c.id)}
-                className="px-3 py-1.5 bg-white/5 hover:bg-accent/10 border border-[rgba(255,255,255,0.06)] hover:border-accent/20 rounded-lg text-xs text-text-secondary hover:text-accent-bright transition-all inline-flex items-center gap-1.5 cursor-pointer"
+                className="px-3 py-1.5 bg-white/5 hover:bg-accent/10 border border-[rgba(0,0,0,0.08)] hover:border-accent/20 rounded-lg text-xs text-text-secondary hover:text-accent-bright transition-all inline-flex items-center gap-1.5 cursor-pointer"
               >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -166,7 +166,7 @@ export default function TrainingPlansPage() {
 
       {/* Plans list */}
       {filtered.length === 0 ? (
-        <div className="bg-bg-card/80 border border-[rgba(255,255,255,0.04)] rounded-2xl p-8 text-center">
+        <div className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
           <p className="text-text-muted text-sm">No {filter !== "all" ? filter : ""} business plans yet.</p>
         </div>
       ) : (
@@ -180,11 +180,11 @@ export default function TrainingPlansPage() {
             const isExpanded = expandedPlan === plan.id;
 
             return (
-              <div key={plan.id} className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl overflow-hidden">
+              <div key={plan.id} className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
                 {/* Plan header */}
                 <button
                   onClick={() => setExpandedPlan(isExpanded ? null : plan.id)}
-                  className="w-full flex items-center justify-between p-5 hover:bg-[rgba(255,255,255,0.02)] transition-colors text-left cursor-pointer"
+                  className="w-full flex items-center justify-between p-5 hover:bg-[rgba(0,0,0,0.02)] transition-colors text-left cursor-pointer"
                 >
                   <div className="flex items-center gap-4 min-w-0">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 ${
@@ -206,7 +206,7 @@ export default function TrainingPlansPage() {
                   <div className="flex items-center gap-5 flex-shrink-0">
                     <div className="text-right hidden sm:block">
                       <div className="flex items-center gap-2">
-                        <div className="h-1.5 w-20 bg-[rgba(255,255,255,0.03)] rounded-full overflow-hidden">
+                        <div className="h-1.5 w-20 bg-[rgba(0,0,0,0.03)] rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all ${pct === 100 ? "bg-emerald-500" : "gradient-accent"}`}
                             style={{ width: `${pct}%` }}
@@ -236,13 +236,13 @@ export default function TrainingPlansPage() {
 
                 {/* Expanded plan detail */}
                 {isExpanded && (
-                  <div className="border-t border-[rgba(255,255,255,0.04)] px-5 pb-5">
+                  <div className="border-t border-[rgba(0,0,0,0.06)] px-5 pb-5">
                     {/* Actions bar */}
-                    <div className="flex items-center justify-between py-3 border-b border-[rgba(255,255,255,0.03)] mb-4">
+                    <div className="flex items-center justify-between py-3 border-b border-[rgba(0,0,0,0.03)] mb-4">
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => openEditPlan(plan)}
-                          className="px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.15)] rounded-lg transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                          className="px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary border border-[rgba(0,0,0,0.08)] hover:border-[rgba(0,0,0,0.1)] rounded-lg transition-colors inline-flex items-center gap-1.5 cursor-pointer"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -251,7 +251,7 @@ export default function TrainingPlansPage() {
                         </button>
                         <Link
                           href={`/admin/clients/${plan.client_id_profile}`}
-                          className="px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.15)] rounded-lg transition-colors inline-flex items-center gap-1.5 no-underline"
+                          className="px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary border border-[rgba(0,0,0,0.08)] hover:border-[rgba(0,0,0,0.1)] rounded-lg transition-colors inline-flex items-center gap-1.5 no-underline"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -299,11 +299,11 @@ export default function TrainingPlansPage() {
                         const phPct = phTotal > 0 ? Math.round((phDone / phTotal) * 100) : 0;
 
                         return (
-                          <div key={phase.id} className="bg-bg-primary/50 border border-[rgba(255,255,255,0.03)] rounded-xl p-4">
+                          <div key={phase.id} className="bg-bg-primary/50 border border-[rgba(0,0,0,0.03)] rounded-xl p-4">
                             <div className="flex items-center justify-between mb-2">
                               <h4 className="text-sm font-semibold text-text-primary">{phase.name}</h4>
                               <div className="flex items-center gap-2">
-                                <div className="h-1.5 w-12 bg-[rgba(255,255,255,0.03)] rounded-full overflow-hidden">
+                                <div className="h-1.5 w-12 bg-[rgba(0,0,0,0.03)] rounded-full overflow-hidden">
                                   <div
                                     className={`h-full rounded-full ${phPct === 100 ? "bg-emerald-500" : "gradient-accent"}`}
                                     style={{ width: `${phPct}%` }}
@@ -323,7 +323,7 @@ export default function TrainingPlansPage() {
                                 {phase.items.map((item) => (
                                   <div key={item.id} className="flex items-center gap-2 py-1">
                                     <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 ${
-                                      item.completed ? "bg-emerald-500/20" : "border border-[rgba(255,255,255,0.1)]"
+                                      item.completed ? "bg-emerald-500/20" : "border border-[rgba(0,0,0,0.06)]"
                                     }`}>
                                       {item.completed && (
                                         <svg className="w-2.5 h-2.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -341,7 +341,7 @@ export default function TrainingPlansPage() {
 
                             {/* Linked trainings */}
                             {phase.linked_trainings.length > 0 && (
-                              <div className="mt-2 pt-2 border-t border-[rgba(255,255,255,0.03)]">
+                              <div className="mt-2 pt-2 border-t border-[rgba(0,0,0,0.03)]">
                                 <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1">
                                   Assigned Trainings ({phase.linked_trainings.length})
                                 </div>
@@ -369,7 +369,7 @@ export default function TrainingPlansPage() {
       {/* Client picker modal */}
       {clientPickerOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-bg-card border border-[rgba(255,255,255,0.08)] rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
             <h3 className="text-lg font-heading font-bold text-text-primary mb-1">Create Training Plan</h3>
             <p className="text-xs text-text-muted mb-4">Select a client to create a plan for.</p>
             <div className="space-y-1 max-h-64 overflow-y-auto">
@@ -380,7 +380,7 @@ export default function TrainingPlansPage() {
                     setClientPickerOpen(false);
                     openCreateForClient(c.id);
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left hover:bg-[rgba(255,255,255,0.04)] transition-colors cursor-pointer"
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left hover:bg-[rgba(0,0,0,0.06)] transition-colors cursor-pointer"
                 >
                   <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center text-xs font-bold text-accent-bright flex-shrink-0">
                     {c.name.split(" ").map(n => n[0]).join("")}

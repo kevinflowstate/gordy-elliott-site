@@ -59,7 +59,7 @@ function LoginForm() {
           <p className="text-text-secondary text-sm">Sign in to access your dashboard</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-bg-card border border-[rgba(255,255,255,0.06)] rounded-[20px] p-8">
+        <form onSubmit={handleSubmit} className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-[20px] p-8">
           {error && (
             <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
               {error}
@@ -74,7 +74,7 @@ function LoginForm() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              className="w-full h-11 bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 text-text-primary text-sm focus:outline-none focus:border-accent/40 transition-colors"
+              className="w-full h-11 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 text-text-primary text-sm focus:outline-none focus:border-accent/40 transition-colors"
             />
           </div>
 
@@ -86,14 +86,14 @@ function LoginForm() {
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
-              className="w-full h-11 bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 text-text-primary text-sm focus:outline-none focus:border-accent/40 transition-colors"
+              className="w-full h-11 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 text-text-primary text-sm focus:outline-none focus:border-accent/40 transition-colors"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-11 gradient-accent rounded-xl flex items-center justify-center text-white font-semibold text-sm disabled:opacity-60 transition-opacity"
+            className="w-full h-11 gradient-accent rounded-xl flex items-center justify-center text-[#1a1a1a] font-semibold text-sm disabled:opacity-60 transition-opacity"
           >
             {loading ? "Signing in..." : "Sign In"}
           </button>

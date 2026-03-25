@@ -129,17 +129,17 @@ export default function TrainingManagerPage() {
     return (
       <>
         <div className="mb-8">
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-8 w-48 mb-2" />
-          <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-4 w-64" />
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-8 w-48 mb-2" />
+          <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-64" />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-bg-card/80 border border-[rgba(255,255,255,0.04)] rounded-2xl overflow-hidden">
-              <div className="h-36 animate-pulse bg-[rgba(255,255,255,0.04)]" />
+            <div key={i} className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
+              <div className="h-36 animate-pulse bg-[rgba(0,0,0,0.06)]" />
               <div className="p-5 space-y-3">
-                <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-5 w-3/4" />
-                <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-3 w-full" />
-                <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-3 w-1/2" />
+                <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-5 w-3/4" />
+                <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-3 w-full" />
+                <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-3 w-1/2" />
               </div>
             </div>
           ))}
@@ -170,7 +170,7 @@ export default function TrainingManagerPage() {
             className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
               bulkMode
                 ? "bg-accent/10 text-accent-bright border border-accent/30"
-                : "bg-bg-card/80 border border-[rgba(255,255,255,0.06)] text-text-secondary hover:text-text-primary hover:border-accent/30"
+                : "bg-bg-card/80 border border-[rgba(0,0,0,0.08)] text-text-secondary hover:text-text-primary hover:border-accent/30"
             }`}
           >
             {bulkMode ? `${selectedModules.size} Selected` : "Bulk Assign"}
@@ -178,7 +178,7 @@ export default function TrainingManagerPage() {
           {bulkMode && selectedModules.size > 0 && (
             <button
               onClick={() => { loadClients(); setShowAssignModal(true); }}
-              className="px-5 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold cursor-pointer inline-flex items-center gap-2"
+              className="px-5 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold cursor-pointer inline-flex items-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -188,7 +188,7 @@ export default function TrainingManagerPage() {
           )}
           <button
             onClick={() => setShowAdd(true)}
-            className="px-5 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
+            className="px-5 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -200,7 +200,7 @@ export default function TrainingManagerPage() {
 
       {/* Add modal */}
       {showAdd && (
-        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.06)] rounded-2xl p-6 mb-6">
+        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 mb-6">
           <h3 className="text-lg font-heading font-bold text-text-primary mb-4">New Module</h3>
           <div className="space-y-4">
             <div>
@@ -210,7 +210,7 @@ export default function TrainingManagerPage() {
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 placeholder="e.g. Advanced Pricing Strategies"
-                className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40"
+                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40"
               />
             </div>
             <div>
@@ -220,7 +220,7 @@ export default function TrainingManagerPage() {
                 onChange={(e) => setNewDesc(e.target.value)}
                 rows={2}
                 placeholder="Brief description of what this module covers"
-                className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 resize-none"
+                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 resize-none"
               />
             </div>
             <div className="flex gap-3">
@@ -254,7 +254,7 @@ export default function TrainingManagerPage() {
                     toast("Failed to create module", "error");
                   }
                 }}
-                className="px-5 py-2 gradient-accent text-white rounded-xl text-sm font-medium cursor-pointer"
+                className="px-5 py-2 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-medium cursor-pointer"
               >
                 Create
               </button>
@@ -277,7 +277,7 @@ export default function TrainingManagerPage() {
           const CardContent = (
             <>
               {/* Bento dot pattern */}
-              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[length:4px_4px] z-10 pointer-events-none" />
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] z-10 pointer-events-none" />
               <div className="absolute inset-0 -z-10 rounded-2xl p-px bg-gradient-to-br from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
               {/* Cover - auto-generated from title */}
               <div className="relative">
@@ -356,7 +356,7 @@ export default function TrainingManagerPage() {
                 key={mod.id}
                 onClick={() => toggleModule(mod.id)}
                 className={`group relative block bg-bg-card/80 backdrop-blur-sm border rounded-2xl overflow-hidden transition-all duration-300 text-left cursor-pointer will-change-transform hover:-translate-y-1 ${
-                  isSelected ? "border-accent/40 shadow-[0_0_20px_rgba(34,114,222,0.1)]" : "border-[rgba(255,255,255,0.04)] hover:border-[rgba(34,114,222,0.2)]"
+                  isSelected ? "border-accent/40 shadow-[0_0_20px_rgba(226,184,48,0.1)]" : "border-[rgba(0,0,0,0.06)] hover:border-[rgba(226,184,48,0.2)]"
                 }`}
               >
                 {CardContent}
@@ -368,7 +368,7 @@ export default function TrainingManagerPage() {
             <Link
               key={mod.id}
               href={`/admin/training/${mod.id}`}
-              className="group relative block bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl overflow-hidden transition-all duration-300 no-underline hover:-translate-y-1 hover:border-[rgba(34,114,222,0.2)] hover:shadow-[0_15px_40px_rgba(0,0,0,0.3),0_0_40px_rgba(34,114,222,0.06)] cursor-pointer will-change-transform"
+              className="group relative block bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden transition-all duration-300 no-underline hover:-translate-y-1 hover:border-[rgba(226,184,48,0.2)] hover:shadow-[0_15px_40px_rgba(0,0,0,0.3),0_0_40px_rgba(226,184,48,0.06)] cursor-pointer will-change-transform"
             >
               {CardContent}
             </Link>
@@ -379,7 +379,7 @@ export default function TrainingManagerPage() {
       {/* Bulk Assign Modal */}
       {showAssignModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowAssignModal(false)}>
-          <div className="bg-bg-card border border-[rgba(255,255,255,0.08)] rounded-2xl p-6 w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-heading font-bold text-text-primary mb-1">Assign to Clients</h3>
             <p className="text-xs text-text-muted mb-4">
               {selectedModules.size} module{selectedModules.size > 1 ? "s" : ""} selected. Choose which clients to assign them to.
@@ -397,10 +397,10 @@ export default function TrainingManagerPage() {
                       setSelectedClients(new Set(clients.map((c) => c.id)));
                     }
                   }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[rgba(255,255,255,0.03)] transition-colors cursor-pointer text-left"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[rgba(0,0,0,0.03)] transition-colors cursor-pointer text-left"
                 >
                   <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
-                    selectedClients.size === clients.length ? "bg-accent border-accent-bright" : "border-[rgba(255,255,255,0.15)]"
+                    selectedClients.size === clients.length ? "bg-accent border-accent-bright" : "border-[rgba(0,0,0,0.1)]"
                   }`}>
                     {selectedClients.size === clients.length && (
                       <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -415,10 +415,10 @@ export default function TrainingManagerPage() {
                   <button
                     key={c.id}
                     onClick={() => toggleClient(c.id)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[rgba(255,255,255,0.03)] transition-colors cursor-pointer text-left"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[rgba(0,0,0,0.03)] transition-colors cursor-pointer text-left"
                   >
                     <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
-                      selectedClients.has(c.id) ? "bg-accent border-accent-bright" : "border-[rgba(255,255,255,0.15)]"
+                      selectedClients.has(c.id) ? "bg-accent border-accent-bright" : "border-[rgba(0,0,0,0.1)]"
                     }`}>
                       {selectedClients.has(c.id) && (
                         <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -439,7 +439,7 @@ export default function TrainingManagerPage() {
               <button
                 onClick={handleBulkAssign}
                 disabled={selectedClients.size === 0 || assigning}
-                className="flex-1 py-3 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-opacity"
+                className="flex-1 py-3 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-opacity"
               >
                 {assigning ? "Assigning..." : `Assign to ${selectedClients.size} Client${selectedClients.size !== 1 ? "s" : ""}`}
               </button>

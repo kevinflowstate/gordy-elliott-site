@@ -338,7 +338,7 @@ export default function ClientDetailPage() {
               {settingsOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setSettingsOpen(false)} />
-                  <div className="absolute right-0 top-full mt-1 z-50 bg-bg-card border border-[rgba(255,255,255,0.08)] rounded-xl shadow-xl py-1 min-w-[180px]">
+                  <div className="absolute right-0 top-full mt-1 z-50 bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-xl shadow-xl py-1 min-w-[180px]">
                     <button
                       onClick={() => { setSettingsOpen(false); setPasswordModalOpen(true); setNewClientPassword(""); setPasswordResult(null); }}
                       className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-text-secondary hover:bg-white/5 transition-colors"
@@ -368,7 +368,7 @@ export default function ClientDetailPage() {
       {/* Revoke Access Modal */}
       {revokeModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-bg-card border border-[rgba(255,255,255,0.08)] rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
                 <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -385,7 +385,7 @@ export default function ClientDetailPage() {
               value={revokeConfirmText}
               onChange={(e) => setRevokeConfirmText(e.target.value)}
               placeholder='Type "confirm" to proceed'
-              className="w-full px-4 py-2.5 bg-bg-primary border border-[rgba(255,255,255,0.08)] rounded-xl text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-red-500/50 mb-4"
+              className="w-full px-4 py-2.5 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-red-500/50 mb-4"
             />
             <div className="flex gap-3">
               <button
@@ -426,7 +426,7 @@ export default function ClientDetailPage() {
       {/* Set Password Modal */}
       {passwordModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-bg-card border border-[rgba(255,255,255,0.08)] rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
                 <svg className="w-5 h-5 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -468,7 +468,7 @@ export default function ClientDetailPage() {
                     value={newClientPassword}
                     onChange={(e) => setNewClientPassword(e.target.value)}
                     placeholder="Min 8 characters"
-                    className="w-full bg-bg-primary border border-[rgba(255,255,255,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+                    className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
                   />
                 </div>
                 <div className="flex gap-3">
@@ -577,22 +577,22 @@ export default function ClientDetailPage() {
 
       {/* Stat cards row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-[rgba(255,255,255,0.07)] border border-[rgba(255,255,255,0.1)] rounded-2xl p-5">
+        <div className="bg-[rgba(255,255,255,0.07)] border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
           <div className="text-white/70 text-sm font-semibold uppercase tracking-wider mb-2">Current Week</div>
           <div className="text-3xl font-heading font-bold text-white">{currentWeek}</div>
           <div className="text-white/60 text-sm font-medium">of {totalWeeks} weeks</div>
         </div>
-        <div className="bg-[rgba(255,255,255,0.07)] border border-[rgba(255,255,255,0.1)] rounded-2xl p-5">
+        <div className="bg-[rgba(255,255,255,0.07)] border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
           <div className="text-white/70 text-sm font-semibold uppercase tracking-wider mb-2">Plan Progress</div>
           <div className="text-3xl font-heading font-bold text-white">{planDone}/{planTotal}</div>
           <div className="text-white/60 text-sm font-medium">{planPct}% complete</div>
         </div>
-        <div className="bg-[rgba(255,255,255,0.07)] border border-[rgba(255,255,255,0.1)] rounded-2xl p-5">
+        <div className="bg-[rgba(255,255,255,0.07)] border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
           <div className="text-white/70 text-sm font-semibold uppercase tracking-wider mb-2">Check-Ins</div>
           <div className="text-3xl font-heading font-bold text-white">{client.checkins.length}</div>
           <div className="text-white/60 text-sm font-medium">Last: {timeAgo(client.last_checkin)}</div>
         </div>
-        <div className="bg-[rgba(255,255,255,0.07)] border border-[rgba(255,255,255,0.1)] rounded-2xl p-5">
+        <div className="bg-[rgba(255,255,255,0.07)] border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
           <div className="text-white/70 text-sm font-semibold uppercase tracking-wider mb-2">Last Login</div>
           <div className={`text-3xl font-heading font-bold ${
             new Date().getTime() - new Date(client.last_login).getTime() > 7 * 24 * 60 * 60 * 1000 ? "text-red-400" : "text-white"
@@ -606,7 +606,7 @@ export default function ClientDetailPage() {
       </div>
 
       {/* Week timeline */}
-      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl p-5 mb-6">
+      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mb-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-heading font-bold text-text-primary">Programme Timeline</h2>
           <span className="text-xs text-text-muted">
@@ -626,7 +626,7 @@ export default function ClientDetailPage() {
                     ? "bg-accent/20 text-accent-bright border border-accent/40"
                     : isComplete
                     ? "bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/10"
-                    : "bg-[rgba(255,255,255,0.02)] text-text-muted border border-[rgba(255,255,255,0.03)]"
+                    : "bg-[rgba(0,0,0,0.02)] text-text-muted border border-[rgba(0,0,0,0.03)]"
                 }`}
               >
                 {weekNum}
@@ -641,7 +641,7 @@ export default function ClientDetailPage() {
 
       {/* Goals */}
       {client.goals && (
-        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl p-5 mb-6">
+        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mb-6">
           <h2 className="text-sm font-heading font-bold text-text-primary mb-2">Goals</h2>
           <p className="text-text-secondary text-sm leading-relaxed">{client.goals}</p>
         </div>
@@ -651,10 +651,10 @@ export default function ClientDetailPage() {
       <ActivityTimeline client={client} />
 
       {/* Internal Notes */}
-      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl mb-6 overflow-hidden">
+      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl mb-6 overflow-hidden">
         <button
           onClick={() => setNotesOpen(!notesOpen)}
-          className="w-full flex items-center justify-between p-5 hover:bg-[rgba(255,255,255,0.02)] transition-colors"
+          className="w-full flex items-center justify-between p-5 hover:bg-[rgba(0,0,0,0.02)] transition-colors"
         >
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
@@ -680,13 +680,13 @@ export default function ClientDetailPage() {
           </div>
         </button>
         {notesOpen && (
-          <div className="px-5 pb-5 border-t border-[rgba(255,255,255,0.03)]">
+          <div className="px-5 pb-5 border-t border-[rgba(0,0,0,0.03)]">
             <textarea
               value={internalNotes}
               onChange={(e) => setInternalNotes(e.target.value)}
               rows={4}
               placeholder="Add private notes about this client... e.g. follow-up items, context for next session, personal circumstances"
-              className="w-full mt-3 bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-y"
+              className="w-full mt-3 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-y"
             />
             <div className="flex items-center gap-2 mt-1.5">
               <button
@@ -711,7 +711,7 @@ export default function ClientDetailPage() {
                 <>
                   <button
                     onClick={() => setBuilderMode("edit")}
-                    className="px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.15)] rounded-lg transition-colors inline-flex items-center gap-1.5"
+                    className="px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary border border-[rgba(0,0,0,0.08)] hover:border-[rgba(0,0,0,0.1)] rounded-lg transition-colors inline-flex items-center gap-1.5"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -745,10 +745,10 @@ export default function ClientDetailPage() {
           {activePlan ? (
             <>
               {/* Plan summary */}
-              <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl p-4 mb-3">
+              <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 mb-3">
                 <p className="text-text-secondary text-sm leading-relaxed">{activePlan.summary}</p>
                 <div className="flex items-center gap-2 mt-3">
-                  <div className="h-2 w-24 bg-[rgba(255,255,255,0.03)] rounded-full overflow-hidden">
+                  <div className="h-2 w-24 bg-[rgba(0,0,0,0.03)] rounded-full overflow-hidden">
                     <div
                       className="h-full gradient-accent rounded-full transition-all duration-500"
                       style={{ width: `${planPct}%` }}
@@ -769,10 +769,10 @@ export default function ClientDetailPage() {
                   const iconPath = getPhaseIcon(phase.name);
 
                   return (
-                    <div key={phase.id} className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl overflow-hidden">
+                    <div key={phase.id} className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
                       <button
                         onClick={() => togglePhase(phase.id)}
-                        className="w-full flex items-center justify-between p-4 hover:bg-[rgba(255,255,255,0.02)] transition-colors"
+                        className="w-full flex items-center justify-between p-4 hover:bg-[rgba(0,0,0,0.02)] transition-colors"
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
@@ -787,7 +787,7 @@ export default function ClientDetailPage() {
                         </div>
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-2">
-                            <div className="h-1.5 w-16 bg-[rgba(255,255,255,0.03)] rounded-full overflow-hidden">
+                            <div className="h-1.5 w-16 bg-[rgba(0,0,0,0.03)] rounded-full overflow-hidden">
                               <div
                                 className={`h-full rounded-full transition-all duration-300 ${phasePct === 100 ? "bg-emerald-500" : "gradient-accent"}`}
                                 style={{ width: `${phasePct}%` }}
@@ -805,10 +805,10 @@ export default function ClientDetailPage() {
                       </button>
 
                       {isExpanded && (
-                        <div className="border-t border-[rgba(255,255,255,0.03)] px-4 pb-3">
+                        <div className="border-t border-[rgba(0,0,0,0.03)] px-4 pb-3">
                           {/* Phase notes */}
                           {phase.notes && (
-                            <div className="py-3 border-b border-[rgba(255,255,255,0.03)] mb-1">
+                            <div className="py-3 border-b border-[rgba(0,0,0,0.03)] mb-1">
                               <p className="text-xs text-text-muted leading-relaxed italic">{phase.notes}</p>
                             </div>
                           )}
@@ -818,12 +818,12 @@ export default function ClientDetailPage() {
                             <button
                               key={item.id}
                               onClick={() => toggleItem(phase.id, item.id)}
-                              className="w-full flex items-center gap-3 py-3 px-2 rounded-lg hover:bg-[rgba(255,255,255,0.02)] transition-colors text-left group"
+                              className="w-full flex items-center gap-3 py-3 px-2 rounded-lg hover:bg-[rgba(0,0,0,0.02)] transition-colors text-left group"
                             >
                               <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${
                                 item.completed
                                   ? "bg-emerald-500 border-emerald-500"
-                                  : "border-[rgba(255,255,255,0.15)] group-hover:border-accent/50"
+                                  : "border-[rgba(0,0,0,0.1)] group-hover:border-accent/50"
                               }`}>
                                 {item.completed && (
                                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -846,7 +846,7 @@ export default function ClientDetailPage() {
 
                           {/* Linked trainings */}
                           {phase.linked_trainings.length > 0 && (
-                            <div className="mt-2 pt-2 border-t border-[rgba(255,255,255,0.03)]">
+                            <div className="mt-2 pt-2 border-t border-[rgba(0,0,0,0.03)]">
                               <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-2 px-2">Linked Training</div>
                               <div className="space-y-1">
                                 {phase.linked_trainings.map((contentId) => {
@@ -905,10 +905,10 @@ export default function ClientDetailPage() {
                         const prevTotal = prevItems.length;
                         const isOpen = expandedHistoryPlan === plan.id;
                         return (
-                          <div key={plan.id} className="bg-bg-card/40 border border-[rgba(255,255,255,0.03)] rounded-2xl overflow-hidden">
+                          <div key={plan.id} className="bg-bg-card/40 border border-[rgba(0,0,0,0.03)] rounded-2xl overflow-hidden">
                             <button
                               onClick={() => setExpandedHistoryPlan(isOpen ? null : plan.id)}
-                              className="w-full p-4 text-left hover:bg-[rgba(255,255,255,0.02)] transition-colors"
+                              className="w-full p-4 text-left hover:bg-[rgba(0,0,0,0.02)] transition-colors"
                             >
                               <div className="flex items-center justify-between mb-2">
                                 <span className="text-xs font-semibold text-text-muted">
@@ -932,7 +932,7 @@ export default function ClientDetailPage() {
                               </div>
                             </button>
                             {isOpen && (
-                              <div className="border-t border-[rgba(255,255,255,0.03)] px-4 pb-4 space-y-3 pt-3">
+                              <div className="border-t border-[rgba(0,0,0,0.03)] px-4 pb-4 space-y-3 pt-3">
                                 {plan.phases.map((phase) => {
                                   const phDone = phase.items.filter((i) => i.completed).length;
                                   const phTotal = phase.items.length;
@@ -948,7 +948,7 @@ export default function ClientDetailPage() {
                                       {phase.items.map((item) => (
                                         <div key={item.id} className="flex items-center gap-2 py-1 px-1">
                                           <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 ${
-                                            item.completed ? "bg-emerald-500/20" : "border border-[rgba(255,255,255,0.1)]"
+                                            item.completed ? "bg-emerald-500/20" : "border border-[rgba(0,0,0,0.06)]"
                                           }`}>
                                             {item.completed && (
                                               <svg className="w-2.5 h-2.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -975,7 +975,7 @@ export default function ClientDetailPage() {
               )}
             </>
           ) : (
-            <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl p-8 text-center">
+            <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
               <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-3">
                 <svg className="w-6 h-6 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1013,10 +1013,10 @@ export default function ClientDetailPage() {
                     const prevTotal = prevItems.length;
                     const isOpen = expandedHistoryPlan === plan.id;
                     return (
-                      <div key={plan.id} className="bg-bg-card/40 border border-[rgba(255,255,255,0.03)] rounded-2xl overflow-hidden mt-2">
+                      <div key={plan.id} className="bg-bg-card/40 border border-[rgba(0,0,0,0.03)] rounded-2xl overflow-hidden mt-2">
                         <button
                           onClick={() => setExpandedHistoryPlan(isOpen ? null : plan.id)}
-                          className="w-full p-4 text-left hover:bg-[rgba(255,255,255,0.02)] transition-colors"
+                          className="w-full p-4 text-left hover:bg-[rgba(0,0,0,0.02)] transition-colors"
                         >
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-xs font-semibold text-text-muted">
@@ -1040,7 +1040,7 @@ export default function ClientDetailPage() {
                           </div>
                         </button>
                         {isOpen && (
-                          <div className="border-t border-[rgba(255,255,255,0.03)] px-4 pb-4 space-y-3 pt-3">
+                          <div className="border-t border-[rgba(0,0,0,0.03)] px-4 pb-4 space-y-3 pt-3">
                             {plan.phases.map((phase) => {
                               const phDone = phase.items.filter((i) => i.completed).length;
                               const phTotal = phase.items.length;
@@ -1056,7 +1056,7 @@ export default function ClientDetailPage() {
                                   {phase.items.map((item) => (
                                     <div key={item.id} className="flex items-center gap-2 py-1 px-1">
                                       <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 ${
-                                        item.completed ? "bg-emerald-500/20" : "border border-[rgba(255,255,255,0.1)]"
+                                        item.completed ? "bg-emerald-500/20" : "border border-[rgba(0,0,0,0.06)]"
                                       }`}>
                                         {item.completed && (
                                           <svg className="w-2.5 h-2.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1087,7 +1087,7 @@ export default function ClientDetailPage() {
         <div>
           <h2 className="text-lg font-heading font-bold text-text-primary mb-4">Check-In History</h2>
           {client.checkins.length === 0 ? (
-            <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl p-6">
+            <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-6">
               <p className="text-text-muted text-sm">No check-ins submitted yet.</p>
             </div>
           ) : (
@@ -1095,7 +1095,7 @@ export default function ClientDetailPage() {
               {client.checkins.map((c) => {
                 const mc = moodConfig[c.mood];
                 return (
-                  <div key={c.id} className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl p-5">
+                  <div key={c.id} className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-text-primary">Week {c.week_number}</span>
@@ -1151,7 +1151,7 @@ export default function ClientDetailPage() {
                         <p className="text-xs text-text-secondary leading-relaxed">{sentReplies[c.id] || c.admin_reply}</p>
                       </div>
                     ) : (
-                      <div className="mt-3 pt-3 border-t border-[rgba(255,255,255,0.04)]">
+                      <div className="mt-3 pt-3 border-t border-[rgba(0,0,0,0.06)]">
                         <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-2">Reply to this check-in</div>
                         <textarea
                           value={replyTexts[c.id] || ""}
@@ -1159,7 +1159,7 @@ export default function ClientDetailPage() {
                           rows={3}
                           placeholder="Type your reply..."
                           disabled={sendingReply === c.id}
-                          className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-3 py-2.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none disabled:opacity-50"
+                          className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none disabled:opacity-50"
                         />
                         {replyError && sendingReply === null && (
                           <div className="text-xs text-red-400 mt-1">{replyError}</div>
@@ -1168,7 +1168,7 @@ export default function ClientDetailPage() {
                           <button
                             onClick={() => handleReply(c.id)}
                             disabled={!replyTexts[c.id]?.trim() || sendingReply === c.id}
-                            className="px-4 py-2 gradient-accent text-white rounded-lg text-xs font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition-opacity inline-flex items-center gap-1.5"
+                            className="px-4 py-2 gradient-accent text-[#1a1a1a] rounded-lg text-xs font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition-opacity inline-flex items-center gap-1.5"
                           >
                             {sendingReply === c.id ? (
                               <>
@@ -1201,7 +1201,7 @@ export default function ClientDetailPage() {
       {/* Nudge Modal */}
       {nudgeOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-bg-card border border-[rgba(255,255,255,0.08)] rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
                 <svg className="w-5 h-5 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1227,7 +1227,7 @@ export default function ClientDetailPage() {
                 onChange={(e) => setNudgeMessage(e.target.value)}
                 rows={4}
                 placeholder="Type your message..."
-                className="w-full bg-bg-primary border border-[rgba(255,255,255,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50 mb-4 resize-none"
+                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50 mb-4 resize-none"
               />
             )}
 
@@ -1357,10 +1357,10 @@ function ActivityTimeline({ client }: { client: AdminClient }) {
   if (events.length === 0) return null;
 
   return (
-    <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl mb-6 overflow-hidden">
+    <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl mb-6 overflow-hidden">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between p-5 hover:bg-[rgba(255,255,255,0.02)] transition-colors cursor-pointer"
+        className="w-full flex items-center justify-between p-5 hover:bg-[rgba(0,0,0,0.02)] transition-colors cursor-pointer"
       >
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
@@ -1380,7 +1380,7 @@ function ActivityTimeline({ client }: { client: AdminClient }) {
 
       {expanded && (
         <div className="px-5 pb-5">
-          <div className="relative border-l border-[rgba(255,255,255,0.06)] ml-4 space-y-0">
+          <div className="relative border-l border-[rgba(0,0,0,0.08)] ml-4 space-y-0">
             {events.slice(0, 15).map((event, i) => (
               <div key={i} className="relative pl-6 pb-4 last:pb-0">
                 <div className={`absolute -left-[5px] top-1 w-2.5 h-2.5 rounded-full border-2 border-bg-card ${

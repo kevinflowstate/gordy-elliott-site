@@ -8,12 +8,12 @@ function getThemeKey(userId: string) {
 }
 
 export function useTheme() {
-  const [theme, setThemeState] = useState<"dark" | "light">("dark");
+  const [theme, setThemeState] = useState<"dark" | "light">("light");
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Always start dark until we know the user
-    document.documentElement.classList.remove("light");
+    // Default to light mode - remove dark class if present
+    document.documentElement.classList.remove("dark");
     // Clean up old global key from before per-user theming
     localStorage.removeItem("portal-theme");
 
@@ -25,7 +25,7 @@ export function useTheme() {
         const saved = localStorage.getItem(getThemeKey(user.id)) as "dark" | "light" | null;
         if (saved) {
           setThemeState(saved);
-          document.documentElement.classList.toggle("light", saved === "light");
+          document.documentElement.classList.toggle("dark", saved === "dark");
         }
       }
     }
@@ -37,7 +37,7 @@ export function useTheme() {
     if (userId) {
       localStorage.setItem(getThemeKey(userId), t);
     }
-    document.documentElement.classList.toggle("light", t === "light");
+    document.documentElement.classList.toggle("dark", t === "dark");
   }
 
   return { theme, setTheme };
@@ -49,7 +49,7 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-      className="p-2 rounded-lg text-text-muted hover:text-text-primary hover:bg-[rgba(255,255,255,0.05)] transition-colors cursor-pointer"
+      className="p-2 rounded-lg text-text-muted hover:text-text-primary hover:bg-[rgba(0,0,0,0.05)] transition-colors cursor-pointer"
       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
     >
       {theme === "dark" ? (

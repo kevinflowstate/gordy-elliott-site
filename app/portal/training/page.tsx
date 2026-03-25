@@ -52,18 +52,18 @@ export default function TrainingLibrary() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-bg-card/80 border border-[rgba(255,255,255,0.04)] rounded-2xl overflow-hidden">
-              <div className="h-36 animate-pulse bg-[rgba(255,255,255,0.04)]" />
+            <div key={i} className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
+              <div className="h-36 animate-pulse bg-[rgba(0,0,0,0.06)]" />
               <div className="p-5 space-y-3">
-                <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-5 w-3/4" />
-                <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-3 w-full" />
-                <div className="animate-pulse bg-[rgba(255,255,255,0.06)] rounded-lg h-3 w-1/2" />
+                <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-5 w-3/4" />
+                <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-3 w-full" />
+                <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-3 w-1/2" />
               </div>
             </div>
           ))}
         </div>
       ) : modules.length === 0 ? (
-        <div className="bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-8 text-center">
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
           <p className="text-text-secondary">No training modules available yet.</p>
           <p className="text-text-muted text-sm mt-2">New content is on the way.</p>
         </div>
@@ -77,10 +77,10 @@ export default function TrainingLibrary() {
               <Link
                 key={mod.id}
                 href={`/portal/training/${mod.id}`}
-                className="group relative block bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl overflow-hidden transition-all duration-300 no-underline hover:-translate-y-1 hover:border-[rgba(34,114,222,0.2)] hover:shadow-[0_15px_40px_rgba(0,0,0,0.3),0_0_40px_rgba(34,114,222,0.06)] will-change-transform cursor-pointer"
+                className="group relative block bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden transition-all duration-300 no-underline hover:-translate-y-1 hover:border-[rgba(226,184,48,0.2)] hover:shadow-[0_15px_40px_rgba(0,0,0,0.3),0_0_40px_rgba(226,184,48,0.06)] will-change-transform cursor-pointer"
               >
                 {/* Bento dot pattern */}
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[length:4px_4px] z-10 pointer-events-none" />
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] z-10 pointer-events-none" />
                 {/* Bento gradient border */}
                 <div className="absolute inset-0 -z-10 rounded-2xl p-px bg-gradient-to-br from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                 {/* Cover - auto-generated from title */}
@@ -94,7 +94,7 @@ export default function TrainingLibrary() {
 
                   {/* Lesson count badge */}
                   <div className="absolute top-4 right-4 z-10">
-                    <span className="text-[10px] px-2.5 py-1 rounded-full font-semibold bg-accent/20 text-blue-300 border border-accent/30">
+                    <span className="text-[10px] px-2.5 py-1 rounded-full font-semibold bg-accent/20 text-accent-dark border border-accent/30">
                       {lessonCount} {lessonCount === 1 ? "lesson" : "lessons"}
                     </span>
                   </div>

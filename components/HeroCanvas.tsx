@@ -13,7 +13,7 @@ export default function HeroCanvas() {
 
     let w: number, h: number;
     let animationId: number;
-    const blue = [34, 114, 222];
+    const blue = [226, 184, 48];
 
     function resize() {
       w = canvas!.width = window.innerWidth;
@@ -138,7 +138,7 @@ export default function HeroCanvas() {
           ctx!.lineWidth = pass === 0 ? this.pipeWidth : this.pipeWidth - 2;
           ctx!.strokeStyle = pass === 0
             ? `rgba(${blue[0]},${blue[1]},${blue[2]},${alpha})`
-            : `rgba(5,5,7,${alpha * 4})`;
+            : `rgba(26,26,26,${alpha * 4})`;
           ctx!.lineCap = "round"; ctx!.lineJoin = "round";
           ctx!.beginPath();
           ctx!.moveTo(this.segments[0].x, this.segments[0].y);
