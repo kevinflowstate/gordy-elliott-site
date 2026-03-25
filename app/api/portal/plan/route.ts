@@ -1,0 +1,152 @@
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { togglePlanItem } from "@/lib/admin-data";
+import { NextResponse } from "next/server";
+
+export async function PATCH(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  const { itemId } = await request.json();
+  if (!itemId) return NextResponse.json({ error: "itemId required" }, { status: 400 });
+
+  const admin = createAdminClient();
+
+  // Verify the plan item belongs to the authenticated user by joining through phases -> plans -> client_profiles
+  const { data: item } = await admin
+    .from("business_plan_items")
+    .select("phase_id")
+    .eq("id", itemId)
+    .single();
+
+  if (!item) return NextResponse.json({ error: "Item not found" }, { status: 404 });
+
+  const { data: phase } = await admin
+    .from("business_plan_phases")
+    .select("plan_id")
+    .eq("id", item.phase_id)
+    .single();
+
+  if (!phase) return NextResponse.json({ error: "Item not found" }, { status: 404 });
+
+  const { data: plan } = await admin
+    .from("business_plans")
+    .select("client_id")
+    .eq("id", phase.plan_id)
+    .single();
+
+  if (!plan) return NextResponse.json({ error: "Item not found" }, { status: 404 });
+
+  const { data: profile } = await admin
+    .from("client_profiles")
+    .select("user_id")
+    .eq("id", plan.client_id)
+    .single();
+
+  if (!profile || profile.user_id !== user.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const result = await togglePlanItem(itemId);
+  if (result.error) return NextResponse.json({ error: result.error }, { status: 500 });
+
+  return NextResponse.json({ success: true });
+}
+
+export async function GET() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const admin = createAdminClient();
+
+  if (!user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  const userId = user.id;
+
+  const { data: profile } = await admin
+    .from("client_profiles")
+    .select("id")
+    .eq("user_id", userId)
+    .single();
+
+  if (!profile) {
+    return NextResponse.json({ error: "No profile" }, { status: 404 });
+  }
+
+  // Get active business plan
+  const { data: plan } = await admin
+    .from("business_plans")
+    .select("*")
+    .eq("client_id", profile.id)
+    .eq("status", "active")
+    .limit(1)
+    .single();
+
+  if (!plan) {
+    return NextResponse.json({ plan: null, phases: [] });
+  }
+
+  // Get phases
+  const { data: phases } = await admin
+    .from("business_plan_phases")
+    .select("*")
+    .eq("plan_id", plan.id)
+    .order("order_index");
+
+  if (!phases || phases.length === 0) {
+    return NextResponse.json({ plan, phases: [] });
+  }
+
+  // Get items for all phases
+  const phaseIds = phases.map((p: { id: string }) => p.id);
+  const { data: items } = await admin
+    .from("business_plan_items")
+    .select("*")
+    .in("phase_id", phaseIds)
+    .order("order_index");
+
+  // Get linked training content for all phases
+  const { data: links } = await admin
+    .from("phase_training_links")
+    .select("phase_id, content_id")
+    .in("phase_id", phaseIds);
+
+  // Get the actual content details for linked trainings
+  const contentIds = [...new Set((links || []).map((l: { content_id: string }) => l.content_id))];
+  let contentLookup: Record<string, { id: string; title: string; content_type: string; duration_minutes: number; module_id: string; moduleName: string }> = {};
+
+  if (contentIds.length > 0) {
+    const { data: contentItems } = await admin
+      .from("module_content")
+      .select("id, title, content_type, duration_minutes, module_id")
+      .in("id", contentIds);
+
+    // Get module names
+    const moduleIds = [...new Set((contentItems || []).map((c: { module_id: string }) => c.module_id))];
+    const { data: modules } = await admin
+      .from("training_modules")
+      .select("id, title")
+      .in("id", moduleIds);
+
+    const moduleMap: Record<string, string> = {};
+    (modules || []).forEach((m: { id: string; title: string }) => { moduleMap[m.id] = m.title; });
+
+    (contentItems || []).forEach((c: { id: string; title: string; content_type: string; duration_minutes: number; module_id: string }) => {
+      contentLookup[c.id] = { ...c, moduleName: moduleMap[c.module_id] || "" };
+    });
+  }
+
+  // Build phases with items and linked trainings
+  const phasesWithData = phases.map((phase: { id: string }) => ({
+    ...phase,
+    items: (items || []).filter((item: { phase_id: string }) => item.phase_id === phase.id),
+    linkedTrainings: (links || [])
+      .filter((l: { phase_id: string }) => l.phase_id === phase.id)
+      .map((l: { content_id: string }) => contentLookup[l.content_id])
+      .filter(Boolean),
+  }));
+
+  return NextResponse.json({ plan, phases: phasesWithData });
+}

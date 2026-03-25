@@ -1,20 +1,20 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-bg-primary: #050507;
-  --color-bg-secondary: #08080c;
-  --color-bg-card: #0c0c12;
-  --color-bg-card-hover: #101018;
-  --color-accent: #10B981;
-  --color-accent-light: #34D399;
-  --color-accent-bright: #6EE7B7;
-  --color-accent-dark: #059669;
-  --color-accent-glow: rgba(16, 185, 129, 0.15);
-  --color-text-primary: #f0f0f5;
-  --color-text-secondary: #8a8ea0;
-  --color-text-muted: #4a4e60;
-  --color-border: #151520;
-  --color-border-light: #1e1e30;
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f8f8f6;
+  --color-bg-card: #f5f3ef;
+  --color-bg-card-hover: #eeebe6;
+  --color-accent: #E2B830;
+  --color-accent-light: #F0CC4A;
+  --color-accent-bright: #F0CC4A;
+  --color-accent-dark: #C9A228;
+  --color-accent-glow: rgba(226, 184, 48, 0.15);
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #444444;
+  --color-text-muted: #888888;
+  --color-border: rgba(0, 0, 0, 0.12);
+  --color-border-light: rgba(0, 0, 0, 0.08);
   --font-sans: var(--font-inter);
   --font-heading: var(--font-montserrat);
 }
@@ -29,26 +29,18 @@ body {
   color: var(--color-text-primary);
   line-height: 1.7;
   overflow-x: hidden;
-}
-
-body::after {
-  content: '';
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
-  pointer-events: none;
-  z-index: 9999;
-  opacity: 0.4;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .gradient-accent {
-  background: linear-gradient(135deg, #059669 0%, #10B981 40%, #34D399 100%);
+  background: linear-gradient(135deg, #C9A228 0%, #E2B830 40%, #F0CC4A 100%);
 }
 
 .section-divider {
   width: 60px;
   height: 3px;
-  background: linear-gradient(135deg, #059669 0%, #10B981 40%, #34D399 100%);
+  background: linear-gradient(135deg, #C9A228 0%, #E2B830 40%, #F0CC4A 100%);
   border-radius: 2px;
   margin: 1.5rem 0;
 }
@@ -84,8 +76,8 @@ body::after {
   50% { transform: translate(0, -50%) scale(1.2); opacity: 0.5; }
 }
 @keyframes progressGlow {
-  0%, 100% { box-shadow: 0 0 10px rgba(16, 185, 129, 0.3); }
-  50% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.5); }
+  0%, 100% { box-shadow: 0 0 10px rgba(226, 184, 48, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(226, 184, 48, 0.5); }
 }
 
 .btn-primary {
@@ -104,7 +96,7 @@ body::after {
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, #059669 0%, #10B981 40%, #34D399 100%);
+  background: linear-gradient(135deg, #C9A228 0%, #E2B830 40%, #F0CC4A 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
