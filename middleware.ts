@@ -1,32 +1,17 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-// TODO: Remove PREVIEW_MODE before go-live
-const PREVIEW_MODE = false;
 
 export async function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
   const path = request.nextUrl.pathname;
 
   // Subdomain routing
-  if (hostname.startsWith('calendar.')) {
+  if (hostname.startsWith('portal.')) {
     if (path === '/') {
       const url = request.nextUrl.clone();
-      url.pathname = '/book-marc';
-      return NextResponse.rewrite(url);
-    }
-  }
-
-  if (hostname.startsWith('join.')) {
-    // Root -> webinar opt-in page
-    if (path === '/') {
-      const url = request.nextUrl.clone();
-      url.pathname = '/webinar';
-      return NextResponse.rewrite(url);
-    }
-    // Allow webinar, pay, and book routes on join subdomain
-    if (path.startsWith('/webinar') || path.startsWith('/pay/') || path.startsWith('/book')) {
-      return NextResponse.next();
+      url.pathname = '/login';
+      return NextResponse.redirect(url);
     }
   }
 
@@ -57,11 +42,6 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  // In preview mode, skip auth enforcement but session is still refreshed
-  if (PREVIEW_MODE) {
-    return supabaseResponse;
-  }
 
   // Protect portal and admin routes
   if ((path.startsWith('/portal') || path.startsWith('/admin')) && !user) {

@@ -57,7 +57,7 @@ function renderContent(text: string) {
   });
 }
 
-export default function AdminBlueprintAIPage() {
+export default function AdminShiftAIPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -117,9 +117,9 @@ export default function AdminBlueprintAIPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-2rem)] max-w-3xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-heading font-extrabold text-text-primary">Blueprint AI</h1>
+        <h1 className="text-2xl font-heading font-extrabold text-text-primary">SHIFT AI</h1>
         <p className="text-sm text-text-secondary mt-1">
-          Your coaching business assistant - ask about clients, training, check-ins, or training plans.
+          Your coaching business assistant - ask about clients, training, check-ins, or business plans.
         </p>
       </div>
 
@@ -199,7 +199,7 @@ export default function AdminBlueprintAIPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask Blueprint AI..."
+          placeholder="Ask SHIFT AI..."
           rows={1}
           className="w-full resize-none rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-4 py-3.5 pr-12 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[rgba(34,114,222,0.3)] transition-colors"
           style={{ minHeight: "48px", maxHeight: "120px" }}

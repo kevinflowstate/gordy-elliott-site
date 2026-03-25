@@ -14,7 +14,7 @@ const glowClass: Record<TrafficLight, string> = {
 const statusConfig: Record<TrafficLight, { label: string; dotClass: string; bgClass: string; textClass: string }> = {
   red: { label: "Needs Attention", dotClass: "bg-red-500", bgClass: "bg-red-500/10", textClass: "text-red-400" },
   amber: { label: "Check In Due", dotClass: "bg-amber-500", bgClass: "bg-amber-500/10", textClass: "text-amber-400" },
-  green: { label: "On Track", dotClass: "bg-amber-500", bgClass: "bg-amber-500/10", textClass: "text-amber-400" },
+  green: { label: "On Track", dotClass: "bg-emerald-500", bgClass: "bg-emerald-500/10", textClass: "text-emerald-400" },
 };
 
 function timeAgo(dateStr: string): string {
@@ -119,11 +119,11 @@ export default function ClientsPage() {
 
             {inviteResult?.success ? (
               <>
-                <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 mb-4">
-                  <svg className="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 mb-4">
+                  <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  <span className="text-sm text-amber-400 font-medium">
+                  <span className="text-sm text-emerald-400 font-medium">
                     {inviteResult.passwordSet
                       ? "Client added - password set, ready to log in"
                       : inviteResult.emailSent
@@ -265,7 +265,8 @@ export default function ClientsPage() {
         ) : (
           filtered.map((client) => {
             const sc = statusConfig[client.status];
-            const activePlan = client.training_plan.find((p) => p.status === "active");
+            const activePlans = client.training_plan.filter((p) => p.status === "active");
+            const activePlan = activePlans.find((p) => p.phases.length > 0) || activePlans[0];
             const allItems = activePlan?.phases.flatMap((ph) => ph.items) || [];
             const planTotal = allItems.length;
             const planDone = allItems.filter((p) => p.completed).length;
@@ -281,7 +282,7 @@ export default function ClientsPage() {
                 <div className="flex items-center justify-between relative">
                   <div className="flex items-center gap-4">
                     <div className={`w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold ${sc.bgClass} ${sc.textClass} border ${
-                      client.status === "red" ? "border-red-500/30" : client.status === "amber" ? "border-amber-500/30" : "border-amber-500/30"
+                      client.status === "red" ? "border-red-500/30" : client.status === "amber" ? "border-amber-500/30" : "border-emerald-500/30"
                     }`}>
                       {client.name.split(" ").map((n) => n[0]).join("")}
                     </div>
@@ -298,7 +299,7 @@ export default function ClientsPage() {
                         <div className="h-1.5 w-20 bg-[rgba(255,255,255,0.03)] rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full ${
-                              client.status === "red" ? "bg-red-500/60" : client.status === "amber" ? "bg-amber-500/60" : "bg-amber-500/60"
+                              client.status === "red" ? "bg-red-500/60" : client.status === "amber" ? "bg-amber-500/60" : "bg-emerald-500/60"
                             }`}
                             style={{ width: `${planPct}%` }}
                           />

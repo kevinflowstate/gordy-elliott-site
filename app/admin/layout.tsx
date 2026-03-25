@@ -3,7 +3,7 @@ import AdminBackground from "@/components/admin/AdminBackground";
 import { ToastProvider } from "@/components/ui/Toast";
 
 export const metadata = {
-  title: "Admin - Marc Watters",
+  title: "Admin - Gordy Elliott",
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

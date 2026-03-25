@@ -57,7 +57,7 @@ function renderContent(text: string) {
   });
 }
 
-export default function BlueprintAIPage() {
+export default function ShiftAIPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -117,13 +117,13 @@ export default function BlueprintAIPage() {
   return (
     <div className="flex flex-col h-[calc(100dvh-8rem)] lg:h-[calc(100vh-4rem)] max-w-3xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-heading font-extrabold text-text-primary">Blueprint AI</h1>
+        <h1 className="text-2xl font-heading font-extrabold text-text-primary">SHIFT AI</h1>
         <p className="text-sm text-text-secondary mt-1">
-          Your personal coaching assistant - ask about training, your training plan, or next steps.
+          Your personal coaching assistant - ask about training, your business plan, or next steps.
         </p>
       </div>
 
-      <div className={`flex-1 overflow-y-auto p-4 space-y-4 mb-4 bg-[rgba(255,255,255,0.01)] rounded-2xl border border-[rgba(255,255,255,0.03)] flex flex-col ${messages.length > 0 ? "justify-end" : ""}`}>
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 mb-4 bg-[rgba(255,255,255,0.01)] rounded-2xl border border-[rgba(255,255,255,0.03)] flex flex-col">
         {messages.length === 0 && !loading && (
           <div className="flex flex-col items-center justify-center h-full text-center px-4">
             <div className="w-14 h-14 rounded-2xl bg-[rgba(34,114,222,0.1)] border border-[rgba(34,114,222,0.2)] flex items-center justify-center mb-4">
@@ -133,14 +133,14 @@ export default function BlueprintAIPage() {
             </div>
             <h2 className="text-lg font-semibold text-text-primary mb-2">How can I help?</h2>
             <p className="text-sm text-text-muted max-w-md mb-6">
-              I know your training modules, training plan, and coaching goals. Ask me anything.
+              I know your training modules, business plan, and coaching goals. Ask me anything.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-md">
               {[
                 "What should I focus on this week?",
                 "Help me with pricing my services",
                 "What training do I have left?",
-                "Summarise my training plan progress",
+                "Summarise my business plan progress",
               ].map((q) => (
                 <button
                   key={q}
@@ -153,6 +153,8 @@ export default function BlueprintAIPage() {
             </div>
           </div>
         )}
+
+        {messages.length > 0 && <div className="flex-1" />}
 
         {messages.map((msg, i) => (
           <div
@@ -194,7 +196,7 @@ export default function BlueprintAIPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask Blueprint AI..."
+          placeholder="Ask SHIFT AI..."
           rows={1}
           className="w-full resize-none rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-4 py-3.5 pr-12 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[rgba(34,114,222,0.3)] transition-colors"
           style={{ minHeight: "48px", maxHeight: "120px" }}

@@ -1,4 +1,4 @@
--- Seed Demo Data for Marc Watters Admin Dashboard
+-- Seed Demo Data for Gordy Elliott Admin Dashboard
 -- Run this AFTER migration-v2.sql in the Supabase SQL Editor
 --
 -- Creates 5 demo clients (users + client_profiles) with:

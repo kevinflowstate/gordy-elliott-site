@@ -122,7 +122,7 @@ export default function EventEditorPage() {
               onClick={() => { setIsActive(!isActive); saveField({ is_active: !isActive }); }}
               className={`text-xs px-3 py-1.5 rounded-full font-semibold transition-all ${
                 isActive
-                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30"
+                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30"
                   : "bg-white/10 text-white/60 border border-white/10 hover:border-white/20"
               }`}
             >

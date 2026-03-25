@@ -29,11 +29,12 @@ interface PlanPhase {
   linkedTrainings: LinkedTraining[];
 }
 
-interface TrainingPlan {
+interface LocalTrainingPlan {
   id: string;
   summary: string;
   status: string;
   created_at: string;
+  pdf_url?: string;
 }
 
 const phaseIcons: Record<string, string> = {
@@ -46,7 +47,7 @@ const phaseIcons: Record<string, string> = {
 
 const phaseColors = [
   { bg: "bg-blue-500/10", border: "border-blue-500/20", icon: "text-blue-400", accent: "text-blue-400" },
-  { bg: "bg-amber-500/10", border: "border-amber-500/20", icon: "text-amber-400", accent: "text-amber-400" },
+  { bg: "bg-emerald-500/10", border: "border-emerald-500/20", icon: "text-emerald-400", accent: "text-emerald-400" },
   { bg: "bg-purple-500/10", border: "border-purple-500/20", icon: "text-purple-400", accent: "text-purple-400" },
   { bg: "bg-amber-500/10", border: "border-amber-500/20", icon: "text-amber-400", accent: "text-amber-400" },
 ];
@@ -61,7 +62,7 @@ function getPhaseIcon(name: string): string {
 }
 
 export default function TrainingPlanPage() {
-  const [plan, setPlan] = useState<TrainingPlan | null>(null);
+  const [plan, setPlan] = useState<LocalTrainingPlan | null>(null);
   const [phases, setPhases] = useState<PlanPhase[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -96,12 +97,28 @@ export default function TrainingPlanPage() {
         };
       })
     );
-    // Persist
-    await fetch("/api/portal/plan", {
+    // Persist - rollback on failure
+    const res = await fetch("/api/portal/plan", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ itemId }),
     });
+    if (!res.ok) {
+      // Reverse the optimistic update
+      setPhases((prev) =>
+        prev.map((phase) => {
+          if (phase.id !== phaseId) return phase;
+          return {
+            ...phase,
+            items: phase.items.map((item) =>
+              item.id === itemId
+                ? { ...item, completed: !item.completed, completed_at: !item.completed ? new Date().toISOString() : undefined }
+                : item
+            ),
+          };
+        })
+      );
+    }
   }
 
   if (loading) return (
@@ -141,8 +158,8 @@ export default function TrainingPlanPage() {
   if (!plan) {
     return (
       <div className="bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-8 text-center">
-        <p className="text-text-secondary">No training plan created yet.</p>
-        <p className="text-text-muted text-sm mt-2">Marc will build your plan based on your discovery session.</p>
+        <p className="text-text-secondary">No business plan created yet.</p>
+        <p className="text-text-muted text-sm mt-2">Gordy will build your plan based on your discovery session.</p>
       </div>
     );
   }
@@ -155,7 +172,22 @@ export default function TrainingPlanPage() {
   return (
     <>
       <div className="mb-8">
-        <h1 className="text-3xl font-heading font-bold text-text-primary">Your Training Plan</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-heading font-bold text-text-primary">Your Training Plan</h1>
+          {plan.pdf_url && (
+            <a
+              href={plan.pdf_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold no-underline inline-flex items-center gap-2 hover:opacity-90 transition-opacity"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Download PDF
+            </a>
+          )}
+        </div>
         <p className="text-text-secondary mt-2 leading-relaxed max-w-3xl">{plan.summary}</p>
       </div>
 
@@ -205,10 +237,10 @@ export default function TrainingPlanPage() {
               </div>
 
               <div className="p-6 space-y-6">
-                {/* Notes from Marc */}
+                {/* Notes from Gordy */}
                 {phase.notes && (
                   <div className="bg-bg-primary border border-[rgba(255,255,255,0.04)] rounded-xl p-4">
-                    <div className="text-[10px] text-accent-bright font-semibold uppercase tracking-wider mb-2">Notes from Marc</div>
+                    <div className="text-[10px] text-accent-bright font-semibold uppercase tracking-wider mb-2">Notes from Gordy</div>
                     <p className="text-sm text-text-secondary leading-relaxed">{phase.notes}</p>
                   </div>
                 )}
@@ -224,7 +256,7 @@ export default function TrainingPlanPage() {
                         className="w-full flex items-center gap-3 py-2 px-1 rounded-lg hover:bg-[rgba(255,255,255,0.02)] transition-colors text-left cursor-pointer group"
                       >
                         <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${
-                          item.completed ? "bg-amber-500 border-amber-500" : "border-[rgba(255,255,255,0.15)] group-hover:border-accent/50"
+                          item.completed ? "bg-emerald-500 border-emerald-500" : "border-[rgba(255,255,255,0.15)] group-hover:border-accent/50"
                         }`}>
                           {item.completed && (
                             <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

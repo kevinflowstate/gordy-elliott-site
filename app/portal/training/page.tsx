@@ -7,7 +7,7 @@ import ModuleCover from "@/components/training/ModuleCover";
 
 const moduleColors = [
   { bg: "from-blue-600/20 to-blue-900/40", icon: "text-blue-400" },
-  { bg: "from-amber-600/20 to-amber-900/40", icon: "text-amber-400" },
+  { bg: "from-emerald-600/20 to-emerald-900/40", icon: "text-emerald-400" },
   { bg: "from-purple-600/20 to-purple-900/40", icon: "text-purple-400" },
   { bg: "from-amber-600/20 to-amber-900/40", icon: "text-amber-400" },
   { bg: "from-rose-600/20 to-rose-900/40", icon: "text-rose-400" },

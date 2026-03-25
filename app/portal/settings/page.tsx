@@ -65,6 +65,10 @@ function SettingsContent() {
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast("File too large. Maximum 2MB.");
+      return;
+    }
     setUploadingAvatar(true);
 
     const formData = new FormData();
@@ -75,6 +79,8 @@ function SettingsContent() {
       if (res.ok) {
         const data = await res.json();
         setAvatarUrl(data.avatarUrl);
+      } else {
+        toast("Failed to upload avatar. Please try again.");
       }
     } finally {
       setUploadingAvatar(false);
@@ -85,16 +91,20 @@ function SettingsContent() {
     e.preventDefault();
     setSaving(true);
 
-    await fetch("/api/portal/settings", {
+    const res = await fetch("/api/portal/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fullName, phone, businessName, businessType, goals }),
     });
 
     setSaving(false);
-    setSaved(true);
-    toast("Settings saved successfully");
-    setTimeout(() => setSaved(false), 3000);
+    if (res.ok) {
+      setSaved(true);
+      toast("Settings saved successfully");
+      setTimeout(() => setSaved(false), 3000);
+    } else {
+      toast("Failed to save settings. Please try again.");
+    }
   }
 
   async function handleSignOut() {
@@ -221,7 +231,7 @@ function SettingsContent() {
               type="text"
               value={businessType}
               onChange={(e) => setBusinessType(e.target.value)}
-              placeholder="e.g. Plumbing, Electrical, Construction"
+              placeholder="e.g. e.g. Weight Loss, Strength, Lifestyle"
               className="w-full bg-bg-primary border border-[rgba(255,255,255,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
             />
           </div>
@@ -270,7 +280,7 @@ function SettingsContent() {
 
           {passwordMessage && (
             <div className={`text-sm px-4 py-2.5 rounded-xl ${
-              passwordMessage.type === "success" ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-red-400"
+              passwordMessage.type === "success" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
             }`}>
               {passwordMessage.text}
             </div>

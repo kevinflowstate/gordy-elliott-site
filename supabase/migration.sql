@@ -1,4 +1,4 @@
--- Marc Watters Client Portal - Database Schema
+-- Gordy Elliott Client Portal - Database Schema
 -- Run this in the Supabase Dashboard SQL Editor
 
 -- Enable UUID extension

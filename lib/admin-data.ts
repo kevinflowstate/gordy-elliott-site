@@ -36,12 +36,17 @@ export interface AdminClient {
 // Status calculation
 // ============================================
 
-function computeStatus(lastLogin: string | null, lastCheckin: string | null): TrafficLight {
+function computeStatus(lastLogin: string | null, lastCheckin: string | null, createdAt: string): TrafficLight {
   const now = Date.now();
   const DAY = 1000 * 60 * 60 * 24;
 
-  const loginDays = lastLogin ? (now - new Date(lastLogin).getTime()) / DAY : Infinity;
-  const checkinDays = lastCheckin ? (now - new Date(lastCheckin).getTime()) / DAY : Infinity;
+  // Use created_at as fallback for last_login (new clients who haven't had login tracked yet)
+  const loginRef = lastLogin || createdAt;
+  const loginDays = loginRef ? (now - new Date(loginRef).getTime()) / DAY : Infinity;
+
+  // If client has never checked in, use created_at as reference (don't penalise new clients)
+  const checkinRef = lastCheckin || createdAt;
+  const checkinDays = checkinRef ? (now - new Date(checkinRef).getTime()) / DAY : Infinity;
 
   if (loginDays > 10 || checkinDays > 14) return "red";
   if (checkinDays > 7) return "amber";
@@ -79,7 +84,7 @@ export async function getClients(): Promise<AdminClient[]> {
     .select("*")
     .order("created_at", { ascending: false });
 
-  // Fetch all training plans with phases + items + training links
+  // Fetch all business plans with phases + items + training links
   const { data: plans } = await admin
     .from("business_plans")
     .select("*")
@@ -170,7 +175,7 @@ export async function getClients(): Promise<AdminClient[]> {
       business_type: p.business_type || "",
       goals: p.goals || "",
       start_date: p.start_date,
-      status: computeStatus(p.last_login, p.last_checkin),
+      status: computeStatus(p.last_login, p.last_checkin, p.created_at),
       current_week: computeCurrentWeek(p.start_date),
       last_login: p.last_login || p.created_at,
       last_checkin: p.last_checkin || p.created_at,
@@ -311,7 +316,7 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
     business_type: p.business_type || "",
     goals: p.goals || "",
     start_date: p.start_date,
-    status: computeStatus(p.last_login, p.last_checkin),
+    status: computeStatus(p.last_login, p.last_checkin, p.created_at),
     current_week: computeCurrentWeek(p.start_date),
     last_login: p.last_login || p.created_at,
     last_checkin: p.last_checkin || p.created_at,
@@ -354,7 +359,7 @@ export async function getRecentCheckins() {
 }
 
 // ============================================
-// Save training plan (create or update)
+// Save business plan (create or update)
 // ============================================
 
 export async function savePlan(plan: TrainingPlan): Promise<{ error?: string }> {
@@ -371,6 +376,7 @@ export async function savePlan(plan: TrainingPlan): Promise<{ error?: string }> 
       created_at: plan.created_at,
       completed_at: plan.completed_at || null,
       discovery_answers: plan.discovery_answers || null,
+      pdf_url: plan.pdf_url || null,
     });
 
   if (planError) return { error: planError.message };

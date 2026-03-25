@@ -107,7 +107,7 @@ export default function PortalDashboard() {
   const planPct = totalPlanItems > 0 ? Math.round((completedPlanItems / totalPlanItems) * 100) : 0;
 
   const totalModules = modules.length;
-  const currentWeek = checkins.length > 0 ? checkins[0].week_number : 0;
+  const currentWeek = checkins.length > 0 ? checkins[0].week_number : 1;
 
   const nextCheckinDate = getNextCheckinDate(checkinDay);
   const isCheckinToday = isToday(nextCheckinDate);
@@ -146,11 +146,11 @@ export default function PortalDashboard() {
       <div className={`grid grid-cols-1 ${newModules.length > 0 ? 'lg:grid-cols-2' : ''} gap-4 mb-8`}>
         <NextEventCard />
         {newModules.length > 0 && (
-          <div className="group relative bg-bg-card border border-amber-500/10 rounded-2xl p-5 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-amber-500/20 hover:shadow-[0_2px_12px_rgba(212,175,55,0.04)]">
-            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.03)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
+          <div className="group relative bg-bg-card border border-emerald-500/10 rounded-2xl p-5 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-500/20 hover:shadow-[0_2px_12px_rgba(16,185,129,0.04)]">
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.03)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-                <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
               </div>
@@ -200,38 +200,8 @@ export default function PortalDashboard() {
         totalModules={totalModules}
         planPct={planPct}
         totalCheckins={checkins.length}
+        phases={planPhases}
       />
-
-      {/* Training Progress */}
-      {trainingProgress.totalLessons > 0 && (
-        <div className="group relative bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-6 mb-8 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.08)] hover:shadow-[0_4px_20px_rgba(255,255,255,0.02)]">
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
-          <div className="flex items-center justify-between mb-4 relative z-10">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center">
-                <svg className="w-5 h-5 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-              </div>
-              <h2 className="text-lg font-heading font-bold text-text-primary">Training Progress</h2>
-            </div>
-            <Link href="/portal/training" className="px-4 py-2 gradient-accent text-white rounded-xl text-xs font-semibold no-underline hover:opacity-90 transition-opacity">
-              View Training
-            </Link>
-          </div>
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-2xl font-heading font-bold text-text-primary">
-                {trainingProgress.totalLessons > 0 ? Math.round((trainingProgress.completedLessons / trainingProgress.totalLessons) * 100) : 0}%
-              </span>
-              <span className="text-sm text-text-muted">
-                {trainingProgress.completedLessons}/{trainingProgress.totalLessons} lessons completed
-              </span>
-            </div>
-            <ProgressBar value={trainingProgress.completedLessons} max={trainingProgress.totalLessons} />
-          </div>
-        </div>
-      )}
 
       {/* Split columns: Training Plan Progress (left) + Check-ins (right) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -264,7 +234,7 @@ export default function PortalDashboard() {
                       </div>
                       <div className="w-full bg-[rgba(255,255,255,0.04)] rounded-full h-1.5">
                         <div
-                          className={`h-1.5 rounded-full transition-all duration-500 ${phasePct === 100 ? "bg-amber-500" : "gradient-accent"}`}
+                          className={`h-1.5 rounded-full transition-all duration-500 ${phasePct === 100 ? "bg-emerald-500" : "gradient-accent"}`}
                           style={{ width: `${phasePct}%` }}
                         />
                       </div>
@@ -307,7 +277,7 @@ export default function PortalDashboard() {
                         <span className="text-text-primary text-sm font-medium">Week {c.week_number}</span>
                         <span className="text-text-muted text-xs">{new Date(c.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          c.mood === "great" ? "bg-amber-500/10 text-amber-400" :
+                          c.mood === "great" ? "bg-emerald-500/10 text-emerald-400" :
                           c.mood === "good" ? "bg-blue-500/10 text-blue-400" :
                           c.mood === "okay" ? "bg-amber-500/10 text-amber-400" :
                           "bg-red-500/10 text-red-400"
@@ -325,7 +295,7 @@ export default function PortalDashboard() {
                         {c.responses && Object.entries(c.responses).map(([key, value]) => (
                           <div key={key}>
                             <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
-                              {key === "wins" ? "Wins this week" : key === "challenges" ? "Challenges" : key === "questions" ? "Questions for Marc" : key}
+                              {key === "wins" ? "Wins this week" : key === "challenges" ? "Challenges" : key === "questions" ? "Questions for Gordy" : key}
                             </div>
                             <p className="text-xs text-text-secondary leading-relaxed">{value}</p>
                           </div>
@@ -339,7 +309,7 @@ export default function PortalDashboard() {
                         )}
                         {c.admin_reply && (
                           <div className="mt-2 pl-3 border-l-2 border-accent/30 bg-accent/5 rounded-r-lg py-2 pr-3">
-                            <div className="text-[10px] text-accent-bright font-semibold uppercase tracking-wider mb-1">Marc&apos;s Reply</div>
+                            <div className="text-[10px] text-accent-bright font-semibold uppercase tracking-wider mb-1">Gordy&apos;s Reply</div>
                             <p className="text-xs text-text-secondary leading-relaxed">{c.admin_reply}</p>
                             {c.replied_at && <div className="text-[10px] text-text-muted mt-1">{new Date(c.replied_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</div>}
                           </div>
@@ -431,7 +401,7 @@ function BriefingBanner({
     const replyDate = new Date(latestReply.replied_at);
     const daysDiff = Math.floor((Date.now() - replyDate.getTime()) / (1000 * 60 * 60 * 24));
     if (daysDiff <= 3) {
-      items.push({ icon: "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z", text: "Marc replied to your latest check-in", accent: true });
+      items.push({ icon: "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z", text: "Gordy replied to your latest check-in", accent: true });
     }
   }
 
@@ -475,23 +445,42 @@ function JourneyTracker({
   totalModules,
   planPct,
   totalCheckins,
+  phases,
 }: {
   currentWeek: number;
   completedModules: number;
   totalModules: number;
   planPct: number;
   totalCheckins: number;
+  phases: TrainingPlanPhase[];
 }) {
-  const totalWeeks = 12;
-  const milestones = [
-    { week: 1, label: "Kickoff", icon: "M13 10V3L4 14h7v7l9-11h-7z" },
-    { week: 3, label: "Foundation", icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" },
-    { week: 6, label: "Halfway", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
-    { week: 9, label: "Systems", icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" },
-    { week: 12, label: "Review", icon: "M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" },
-  ];
+  // Build milestones from business plan phases
+  const phaseCount = phases.length;
+  const milestones = phaseCount > 0
+    ? phases.map((phase, i) => {
+        // Strip "Phase N:" or "Phase N -" prefix for cleaner labels
+        const cleanName = phase.name.replace(/^Phase\s*\d+\s*[:\-]\s*/i, "");
+        // Truncate long names
+        const label = cleanName.length > 18 ? cleanName.slice(0, 16) + "..." : cleanName;
+        return { index: i, label };
+      })
+    : [
+        { index: 0, label: "Kickoff" },
+        { index: 1, label: "Foundation" },
+        { index: 2, label: "Halfway" },
+        { index: 3, label: "Systems" },
+        { index: 4, label: "Review" },
+      ];
 
-  const weekPct = Math.min(100, Math.round((currentWeek / totalWeeks) * 100));
+  // Calculate progress based on completed plan items per phase
+  const completedPhaseCount = phases.filter((phase) => {
+    const items = phase.items || [];
+    return items.length > 0 && items.every((item) => item.completed);
+  }).length;
+
+  const progressPct = phaseCount > 0
+    ? Math.min(100, Math.round((completedPhaseCount / phaseCount) * 100))
+    : Math.min(100, Math.round((currentWeek / 12) * 100));
 
   return (
     <div className="group relative bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-6 mb-8 overflow-hidden transition-all duration-300 hover:border-[rgba(255,255,255,0.08)]">
@@ -499,20 +488,24 @@ function JourneyTracker({
       <div className="relative z-10">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-heading font-bold text-text-primary">Your Journey</h2>
-          <span className="text-xs text-text-muted">Week {currentWeek || 0} of {totalWeeks}</span>
+          <span className="text-xs text-text-muted">{phaseCount > 0 ? `${completedPhaseCount} of ${phaseCount} phases` : `Week ${currentWeek || 0} of 12`}</span>
         </div>
 
         {/* Progress bar with milestones */}
         <div className="relative mb-6">
           <div className="h-2 bg-[rgba(255,255,255,0.04)] rounded-full">
-            <div className="h-2 rounded-full gradient-accent transition-all duration-700" style={{ width: `${weekPct}%` }} />
+            <div className="h-2 rounded-full gradient-accent transition-all duration-700" style={{ width: `${progressPct}%` }} />
           </div>
-          <div className="flex justify-between mt-1">
-            {milestones.map((m) => {
-              const reached = currentWeek >= m.week;
-              const position = ((m.week - 1) / (totalWeeks - 1)) * 100;
+          <div className="flex justify-between mt-4">
+            {milestones.map((m, i) => {
+              const reached = phaseCount > 0
+                ? m.index < completedPhaseCount
+                : currentWeek >= (m.index + 1);
+              const total = milestones.length;
+              const isFirst = i === 0;
+              const isLast = i === total - 1;
               return (
-                <div key={m.week} className="flex flex-col items-center" style={{ position: "absolute", left: `${position}%`, transform: "translateX(-50%)", top: "-6px" }}>
+                <div key={m.index} className={`flex flex-col items-center flex-1 ${isFirst ? "items-start" : isLast ? "items-end" : "items-center"}`}>
                   <div className={`w-5 h-5 rounded-full flex items-center justify-center border-2 ${
                     reached ? "bg-accent border-accent-bright" : "bg-bg-card border-[rgba(255,255,255,0.1)]"
                   }`}>
@@ -522,7 +515,7 @@ function JourneyTracker({
                       </svg>
                     )}
                   </div>
-                  <span className={`text-[9px] mt-3 whitespace-nowrap ${reached ? "text-text-primary font-medium" : "text-text-muted"}`}>{m.label}</span>
+                  <span className={`text-[9px] mt-2 text-center max-w-[90px] leading-tight ${reached ? "text-text-primary font-medium" : "text-text-muted"}`}>{m.label}</span>
                 </div>
               );
             })}
@@ -532,11 +525,11 @@ function JourneyTracker({
         {/* Achievement badges */}
         <div className="flex flex-wrap gap-3 mt-10">
           {totalCheckins >= 1 && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20">
-              <svg className="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+              <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <span className="text-[10px] text-amber-400 font-medium">{totalCheckins} Check-in{totalCheckins > 1 ? "s" : ""}</span>
+              <span className="text-[10px] text-emerald-400 font-medium">{totalCheckins} Check-in{totalCheckins > 1 ? "s" : ""}</span>
             </div>
           )}
           {totalModules > 0 && (

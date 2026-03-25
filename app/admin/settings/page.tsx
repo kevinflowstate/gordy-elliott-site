@@ -30,7 +30,7 @@ export default function AdminSettingsPage() {
     async function loadConfigs() {
       const [checkinRes, bpRes] = await Promise.all([
         fetch("/api/admin/form-config?type=checkin"),
-        fetch("/api/admin/form-config?type=training_plan"),
+        fetch("/api/admin/form-config?type=business_plan"),
       ]);
 
       if (checkinRes.ok) {
@@ -108,7 +108,7 @@ export default function AdminSettingsPage() {
       const res = await fetch("/api/admin/form-config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "training_plan", config: bpConfig }),
+        body: JSON.stringify({ type: "business_plan", config: bpConfig }),
       });
 
       if (res.ok) {
@@ -219,7 +219,7 @@ export default function AdminSettingsPage() {
         </form>
 
         {message && (
-          <div className={`mt-4 p-3 rounded-xl text-sm ${message.startsWith("Error") ? "bg-red-500/10 text-red-400" : "bg-amber-500/10 text-amber-400"}`}>
+          <div className={`mt-4 p-3 rounded-xl text-sm ${message.startsWith("Error") ? "bg-red-500/10 text-red-400" : "bg-emerald-500/10 text-emerald-400"}`}>
             {message}
           </div>
         )}
@@ -320,7 +320,7 @@ export default function AdminSettingsPage() {
                 {checkinSaving ? "Saving..." : "Save Check-In Config"}
               </button>
               {checkinMessage && (
-                <span className={`text-sm ${checkinMessage.startsWith("Error") ? "text-red-400" : "text-amber-400"}`}>
+                <span className={`text-sm ${checkinMessage.startsWith("Error") ? "text-red-400" : "text-emerald-400"}`}>
                   {checkinMessage}
                 </span>
               )}
@@ -334,7 +334,7 @@ export default function AdminSettingsPage() {
       {/* Training Plan Template */}
       <div className="bg-bg-card border border-[rgba(255,255,255,0.04)] rounded-2xl p-6 mb-6">
         <h2 className="text-lg font-heading font-bold text-text-primary mb-1">Training Plan Template</h2>
-        <p className="text-text-muted text-sm mb-5">Discovery questions shown when creating or editing a training plan.</p>
+        <p className="text-text-muted text-sm mb-5">Discovery questions shown when creating or editing a business plan.</p>
 
         {bpConfig ? (
           <div className="space-y-5">
@@ -399,7 +399,7 @@ export default function AdminSettingsPage() {
                 {bpSaving ? "Saving..." : "Save Template"}
               </button>
               {bpMessage && (
-                <span className={`text-sm ${bpMessage.startsWith("Error") ? "text-red-400" : "text-amber-400"}`}>
+                <span className={`text-sm ${bpMessage.startsWith("Error") ? "text-red-400" : "text-emerald-400"}`}>
                   {bpMessage}
                 </span>
               )}

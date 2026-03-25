@@ -39,6 +39,7 @@ export async function POST(request: Request) {
     user_metadata: {
       full_name: name.trim(),
       role: "client",
+      app_name: "gordy-elliott-portal",
     },
   });
 
@@ -79,7 +80,7 @@ export async function POST(request: Request) {
   // Create welcome notification
   await admin.from("notifications").insert({
     user_id: newUser.user.id,
-    title: "Welcome to the Blueprint",
+    title: "Welcome to SHIFT Coaching",
     message: `Welcome ${name.split(" ")[0]}! Your portal is set up and ready. Start by exploring your training modules and completing your first check-in.`,
     link: "/portal",
   });
@@ -111,6 +112,6 @@ export async function POST(request: Request) {
     profileId: profile.id,
     emailSent,
     passwordSet: !!password,
-    setupUrl: emailSent ? null : setupUrl, // Return URL if email didn't send, so Marc can share manually
+    setupUrl: emailSent ? null : setupUrl, // Return URL if email didn't send, so Gordy can share manually
   });
 }

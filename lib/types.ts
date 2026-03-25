@@ -120,7 +120,11 @@ export interface TrainingPlan {
   completed_at?: string;
   phases: TrainingPlanPhase[];
   discovery_answers?: Record<string, string>;
+  pdf_url?: string;
 }
+
+// Legacy alias for DB compatibility
+export type BusinessPlan = TrainingPlan;
 
 export interface DemoClient {
   id: string;

@@ -4,7 +4,7 @@ import PushNotificationBanner from "@/components/portal/PushNotificationBanner";
 import { ToastProvider } from "@/components/ui/Toast";
 
 export const metadata = {
-  title: "Client Portal - Marc Watters",
+  title: "Client Portal - Gordy Elliott",
 };
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {

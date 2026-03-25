@@ -16,11 +16,11 @@ const glowClass: Record<TrafficLight, string> = {
 const statusConfig: Record<TrafficLight, { label: string; dotClass: string; bgClass: string; textClass: string; ringClass: string }> = {
   red: { label: "Needs Attention", dotClass: "bg-red-500", bgClass: "bg-red-500/10", textClass: "text-red-400", ringClass: "ring-red-500" },
   amber: { label: "Check In Due", dotClass: "bg-amber-500", bgClass: "bg-amber-500/10", textClass: "text-amber-400", ringClass: "ring-amber-500" },
-  green: { label: "On Track", dotClass: "bg-amber-500", bgClass: "bg-amber-500/10", textClass: "text-amber-400", ringClass: "ring-amber-500" },
+  green: { label: "On Track", dotClass: "bg-emerald-500", bgClass: "bg-emerald-500/10", textClass: "text-emerald-400", ringClass: "ring-emerald-500" },
 };
 
 const moodConfig: Record<CheckInMood, { bgClass: string; textClass: string }> = {
-  great: { bgClass: "bg-amber-500/10", textClass: "text-amber-400" },
+  great: { bgClass: "bg-emerald-500/10", textClass: "text-emerald-400" },
   good: { bgClass: "bg-blue-500/10", textClass: "text-blue-400" },
   okay: { bgClass: "bg-amber-500/10", textClass: "text-amber-400" },
   struggling: { bgClass: "bg-red-500/10", textClass: "text-red-400" },
@@ -172,7 +172,9 @@ export default function ClientDetailPage() {
     );
   }
 
-  const activePlan = plans.find((p) => p.status === "active");
+  // Prefer the active plan that has phases (in case of duplicates)
+  const activePlans = plans.filter((p) => p.status === "active");
+  const activePlan = activePlans.find((p) => p.phases.length > 0) || activePlans[0];
   const completedPlans = plans.filter((p) => p.status === "completed");
   const sc = statusConfig[client.status];
 
@@ -203,8 +205,30 @@ export default function ClientDetailPage() {
         };
       })
     );
-    // Persist
-    await fetch(`/api/admin/plan-items/${itemId}`, { method: "PATCH" });
+    // Persist - rollback on failure
+    const res = await fetch(`/api/admin/plan-items/${itemId}`, { method: "PATCH" });
+    if (!res.ok) {
+      // Reverse the optimistic update
+      setPlans((prev) =>
+        prev.map((plan) => {
+          if (plan.status !== "active") return plan;
+          return {
+            ...plan,
+            phases: plan.phases.map((phase) => {
+              if (phase.id !== phaseId) return phase;
+              return {
+                ...phase,
+                items: phase.items.map((item) =>
+                  item.id === itemId
+                    ? { ...item, completed: !item.completed, completed_at: !item.completed ? new Date().toISOString() : undefined }
+                    : item
+                ),
+              };
+            }),
+          };
+        })
+      );
+    }
   }
 
   function togglePhase(phaseId: string) {
@@ -220,7 +244,7 @@ export default function ClientDetailPage() {
     // If new plan, mark any active plan as completed first
     const existingActive = plans.find((p) => p.status === "active" && p.id !== plan.id);
     if (existingActive && !plans.find((p) => p.id === plan.id)) {
-      await fetch("/api/admin/business-plans", {
+      await fetch("/api/admin/training-plans", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "complete", plan_id: existingActive.id }),
@@ -228,7 +252,7 @@ export default function ClientDetailPage() {
     }
 
     // Save the plan
-    await fetch("/api/admin/business-plans", {
+    await fetch("/api/admin/training-plans", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ plan }),
@@ -280,18 +304,20 @@ export default function ClientDetailPage() {
       </Link>
 
       {/* Header with glow */}
-      <div className={`bg-bg-card/80 backdrop-blur-sm border rounded-2xl p-6 mb-6 transition-all duration-300 ${glowClass[client.status]}`}>
+      <div className={`bg-bg-card border rounded-2xl p-6 mb-6 transition-all duration-300 overflow-visible ${glowClass[client.status]}`}>
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-4">
             <div className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold ${sc.bgClass} ${sc.textClass} border ${
-              client.status === "red" ? "border-red-500/30" : client.status === "amber" ? "border-amber-500/30" : "border-amber-500/30"
+              client.status === "red" ? "border-red-500/30" : client.status === "amber" ? "border-amber-500/30" : "border-emerald-500/30"
             }`}>
               {client.name.split(" ").map((n) => n[0]).join("")}
             </div>
             <div>
               <h1 className="text-2xl font-heading font-bold text-text-primary">{client.name}</h1>
-              <p className="text-text-secondary text-sm">{client.email} - {client.phone}</p>
-              <p className="text-text-muted text-xs mt-0.5">{client.business_name} ({client.business_type})</p>
+              <p className="text-text-secondary text-sm">{client.email}{client.phone ? ` - ${client.phone}` : ""}</p>
+              {(client.business_name || client.business_type) && (
+                <p className="text-text-muted text-xs mt-0.5">{[client.business_name, client.business_type].filter(Boolean).join(" - ")}</p>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -352,7 +378,7 @@ export default function ClientDetailPage() {
               <h3 className="text-lg font-heading font-bold text-text-primary">Revoke Client Access</h3>
             </div>
             <p className="text-sm text-text-secondary mb-4 leading-relaxed">
-              This will permanently remove <span className="text-text-primary font-semibold">{client.name}</span> and all their data (training plans, check-ins, training progress). This cannot be undone.
+              This will permanently remove <span className="text-text-primary font-semibold">{client.name}</span> and all their data (business plans, check-ins, training progress). This cannot be undone.
             </p>
             <input
               type="text"
@@ -380,6 +406,9 @@ export default function ClientDetailPage() {
                     });
                     if (res.ok) {
                       router.push("/admin/clients");
+                    } else {
+                      const data = await res.json().catch(() => ({}));
+                      alert(data.error || "Failed to revoke access");
                     }
                   } finally {
                     setRevoking(false);
@@ -435,7 +464,7 @@ export default function ClientDetailPage() {
                 <div className="mb-4">
                   <label className="block text-xs font-medium text-text-secondary mb-1.5">New Password</label>
                   <input
-                    type="text"
+                    type="password"
                     value={newClientPassword}
                     onChange={(e) => setNewClientPassword(e.target.value)}
                     placeholder="Min 8 characters"
@@ -548,29 +577,29 @@ export default function ClientDetailPage() {
 
       {/* Stat cards row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl p-5">
-          <div className="text-text-muted text-xs uppercase tracking-wider mb-2">Current Week</div>
-          <div className="text-2xl font-heading font-bold text-accent-bright">{currentWeek}</div>
-          <div className="text-text-secondary text-xs">of {totalWeeks} weeks</div>
+        <div className="bg-[rgba(255,255,255,0.07)] border border-[rgba(255,255,255,0.1)] rounded-2xl p-5">
+          <div className="text-white/70 text-sm font-semibold uppercase tracking-wider mb-2">Current Week</div>
+          <div className="text-3xl font-heading font-bold text-white">{currentWeek}</div>
+          <div className="text-white/60 text-sm font-medium">of {totalWeeks} weeks</div>
         </div>
-        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl p-5">
-          <div className="text-text-muted text-xs uppercase tracking-wider mb-2">Plan Progress</div>
-          <div className="text-2xl font-heading font-bold text-text-primary">{planDone}/{planTotal}</div>
-          <div className="text-text-secondary text-xs">{planPct}% complete</div>
+        <div className="bg-[rgba(255,255,255,0.07)] border border-[rgba(255,255,255,0.1)] rounded-2xl p-5">
+          <div className="text-white/70 text-sm font-semibold uppercase tracking-wider mb-2">Plan Progress</div>
+          <div className="text-3xl font-heading font-bold text-white">{planDone}/{planTotal}</div>
+          <div className="text-white/60 text-sm font-medium">{planPct}% complete</div>
         </div>
-        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl p-5">
-          <div className="text-text-muted text-xs uppercase tracking-wider mb-2">Check-Ins</div>
-          <div className="text-2xl font-heading font-bold text-text-primary">{client.checkins.length}</div>
-          <div className="text-text-secondary text-xs">Last: {timeAgo(client.last_checkin)}</div>
+        <div className="bg-[rgba(255,255,255,0.07)] border border-[rgba(255,255,255,0.1)] rounded-2xl p-5">
+          <div className="text-white/70 text-sm font-semibold uppercase tracking-wider mb-2">Check-Ins</div>
+          <div className="text-3xl font-heading font-bold text-white">{client.checkins.length}</div>
+          <div className="text-white/60 text-sm font-medium">Last: {timeAgo(client.last_checkin)}</div>
         </div>
-        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl p-5">
-          <div className="text-text-muted text-xs uppercase tracking-wider mb-2">Last Login</div>
-          <div className={`text-2xl font-heading font-bold ${
-            new Date().getTime() - new Date(client.last_login).getTime() > 7 * 24 * 60 * 60 * 1000 ? "text-red-400" : "text-text-primary"
+        <div className="bg-[rgba(255,255,255,0.07)] border border-[rgba(255,255,255,0.1)] rounded-2xl p-5">
+          <div className="text-white/70 text-sm font-semibold uppercase tracking-wider mb-2">Last Login</div>
+          <div className={`text-3xl font-heading font-bold ${
+            new Date().getTime() - new Date(client.last_login).getTime() > 7 * 24 * 60 * 60 * 1000 ? "text-red-400" : "text-white"
           }`}>
             {timeAgo(client.last_login)}
           </div>
-          <div className="text-text-secondary text-xs">
+          <div className="text-white/60 text-sm font-medium">
             {new Date(client.last_login).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
           </div>
         </div>
@@ -596,7 +625,7 @@ export default function ClientDetailPage() {
                   isCurrent
                     ? "bg-accent/20 text-accent-bright border border-accent/40"
                     : isComplete
-                    ? "bg-amber-500/10 text-amber-400/80 border border-amber-500/10"
+                    ? "bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/10"
                     : "bg-[rgba(255,255,255,0.02)] text-text-muted border border-[rgba(255,255,255,0.03)]"
                 }`}
               >
@@ -760,7 +789,7 @@ export default function ClientDetailPage() {
                           <div className="flex items-center gap-2">
                             <div className="h-1.5 w-16 bg-[rgba(255,255,255,0.03)] rounded-full overflow-hidden">
                               <div
-                                className={`h-full rounded-full transition-all duration-300 ${phasePct === 100 ? "bg-amber-500" : "gradient-accent"}`}
+                                className={`h-full rounded-full transition-all duration-300 ${phasePct === 100 ? "bg-emerald-500" : "gradient-accent"}`}
                                 style={{ width: `${phasePct}%` }}
                               />
                             </div>
@@ -793,7 +822,7 @@ export default function ClientDetailPage() {
                             >
                               <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${
                                 item.completed
-                                  ? "bg-amber-500 border-amber-500"
+                                  ? "bg-emerald-500 border-emerald-500"
                                   : "border-[rgba(255,255,255,0.15)] group-hover:border-accent/50"
                               }`}>
                                 {item.completed && (
@@ -886,7 +915,7 @@ export default function ClientDetailPage() {
                                   {new Date(plan.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                                 </span>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[10px] px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full font-semibold">
+                                  <span className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full font-semibold">
                                     Completed {plan.completed_at ? new Date(plan.completed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : ""}
                                   </span>
                                   <svg
@@ -919,10 +948,10 @@ export default function ClientDetailPage() {
                                       {phase.items.map((item) => (
                                         <div key={item.id} className="flex items-center gap-2 py-1 px-1">
                                           <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 ${
-                                            item.completed ? "bg-amber-500/20" : "border border-[rgba(255,255,255,0.1)]"
+                                            item.completed ? "bg-emerald-500/20" : "border border-[rgba(255,255,255,0.1)]"
                                           }`}>
                                             {item.completed && (
-                                              <svg className="w-2.5 h-2.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <svg className="w-2.5 h-2.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                               </svg>
                                             )}
@@ -952,7 +981,7 @@ export default function ClientDetailPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <p className="text-sm text-text-muted mb-4">No active training plan for this client.</p>
+              <p className="text-sm text-text-muted mb-4">No active business plan for this client.</p>
               <button
                 onClick={() => setBuilderMode("create")}
                 className="px-4 py-2 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5"
@@ -994,7 +1023,7 @@ export default function ClientDetailPage() {
                               {new Date(plan.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                             </span>
                             <div className="flex items-center gap-2">
-                              <span className="text-[10px] px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full font-semibold">
+                              <span className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full font-semibold">
                                 Completed {plan.completed_at ? new Date(plan.completed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : ""}
                               </span>
                               <svg
@@ -1027,10 +1056,10 @@ export default function ClientDetailPage() {
                                   {phase.items.map((item) => (
                                     <div key={item.id} className="flex items-center gap-2 py-1 px-1">
                                       <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 ${
-                                        item.completed ? "bg-amber-500/20" : "border border-[rgba(255,255,255,0.1)]"
+                                        item.completed ? "bg-emerald-500/20" : "border border-[rgba(255,255,255,0.1)]"
                                       }`}>
                                         {item.completed && (
-                                          <svg className="w-2.5 h-2.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <svg className="w-2.5 h-2.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                           </svg>
                                         )}
@@ -1063,7 +1092,7 @@ export default function ClientDetailPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {[...client.checkins].reverse().map((c) => {
+              {client.checkins.map((c) => {
                 const mc = moodConfig[c.mood];
                 return (
                   <div key={c.id} className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(255,255,255,0.04)] rounded-2xl p-5">
@@ -1094,7 +1123,7 @@ export default function ClientDetailPage() {
                       <>
                         {c.wins && (
                           <div className="mb-2">
-                            <span className="text-[10px] text-amber-400 font-semibold uppercase tracking-wider">Wins</span>
+                            <span className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider">Wins</span>
                             <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">{c.wins}</p>
                           </div>
                         )}
@@ -1116,8 +1145,8 @@ export default function ClientDetailPage() {
                     {c.admin_reply || sentReplies[c.id] ? (
                       <div className="mt-3 pl-3 border-l-2 border-accent/30 bg-accent/5 rounded-r-lg py-2 pr-3">
                         <div className="text-[10px] text-accent-bright font-semibold uppercase tracking-wider mb-1">
-                          Marc&apos;s Reply
-                          {sentReplies[c.id] && !c.admin_reply && <span className="text-amber-400/60 ml-2">Just sent</span>}
+                          Gordy&apos;s Reply
+                          {sentReplies[c.id] && !c.admin_reply && <span className="text-emerald-400/60 ml-2">Just sent</span>}
                         </div>
                         <p className="text-xs text-text-secondary leading-relaxed">{sentReplies[c.id] || c.admin_reply}</p>
                       </div>
@@ -1186,11 +1215,11 @@ export default function ClientDetailPage() {
             </div>
 
             {nudgeSent ? (
-              <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 mb-4">
-                <svg className="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 mb-4">
+                <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                <span className="text-sm text-amber-400 font-medium">Nudge sent</span>
+                <span className="text-sm text-emerald-400 font-medium">Nudge sent</span>
               </div>
             ) : (
               <textarea
@@ -1215,18 +1244,23 @@ export default function ClientDetailPage() {
                   onClick={async () => {
                     setNudgeSending(true);
                     try {
-                      await fetch("/api/push/send", {
+                      const res = await fetch("/api/push/send", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                           userId: client.user_id,
-                          title: "Marc Watters",
+                          title: "Gordy Elliott",
                           body: nudgeMessage,
                           url: "/portal",
                           tag: "nudge",
                         }),
                       });
-                      setNudgeSent(true);
+                      const result = await res.json().catch(() => ({}));
+                      if (res.ok && result.sent > 0) {
+                        setNudgeSent(true);
+                      } else {
+                        alert("Push notification could not be delivered. Client may not have notifications enabled.");
+                      }
                     } finally {
                       setNudgeSending(false);
                     }
@@ -1291,7 +1325,7 @@ function ActivityTimeline({ client }: { client: AdminClient }) {
       events.push({
         type: "reply",
         date: c.replied_at,
-        title: `Marc replied to Week ${c.week_number} check-in`,
+        title: `Gordy replied to Week ${c.week_number} check-in`,
         color: "text-accent-bright",
         icon: "M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6",
       });
@@ -1309,7 +1343,7 @@ function ActivityTimeline({ client }: { client: AdminClient }) {
             date: item.completed_at,
             title: `Completed: ${item.title}`,
             detail: phase.name,
-            color: "text-amber-400",
+            color: "text-emerald-400",
             icon: "M5 13l4 4L19 7",
           });
         }
@@ -1352,7 +1386,7 @@ function ActivityTimeline({ client }: { client: AdminClient }) {
                 <div className={`absolute -left-[5px] top-1 w-2.5 h-2.5 rounded-full border-2 border-bg-card ${
                   event.type === "checkin" ? "bg-blue-400" :
                   event.type === "reply" ? "bg-accent" :
-                  event.type === "plan_item" ? "bg-amber-400" :
+                  event.type === "plan_item" ? "bg-emerald-400" :
                   "bg-purple-400"
                 }`} />
                 <div className="flex items-start justify-between gap-3">

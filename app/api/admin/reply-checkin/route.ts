@@ -65,7 +65,7 @@ export async function POST(request: Request) {
       // Insert notification for the client
       await admin.from("notifications").insert({
         user_id: clientProfile.user_id,
-        title: "New reply from Marc",
+        title: "New reply from Gordy",
         message: reply_text.trim().slice(0, 200),
         link: "/portal",
       });

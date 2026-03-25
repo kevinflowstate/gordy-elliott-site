@@ -6,7 +6,7 @@ import type { CalendarEvent, RecurrenceType } from "@/lib/types";
 
 const recurrenceLabels: Record<RecurrenceType, { label: string; color: string }> = {
   none: { label: "One-off", color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-  weekly: { label: "Weekly", color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+  weekly: { label: "Weekly", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
   biweekly: { label: "Biweekly", color: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
   monthly: { label: "Monthly", color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
 };
@@ -119,7 +119,7 @@ export default function AdminCalendarPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: newTitle, description: newDesc,
-          event_date: `${newDate}T${newTime}:00Z`, event_time: newTime,
+          event_date: `${newDate}T${newTime}:00`, event_time: newTime,
           recurrence: newRecurrence,
           recurrence_day: newRecurrence !== "none" ? newRecurrenceDay : null,
           link: newLink, link_label: newLinkLabel,
@@ -393,7 +393,7 @@ export default function AdminCalendarPage() {
                 <button
                   onClick={() => handleToggleActive(event.id, event.is_active)}
                   className={`text-[10px] px-2.5 py-1 rounded-full font-semibold transition-all cursor-pointer ${
-                    event.is_active ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "bg-white/10 text-white/60 border border-white/10"
+                    event.is_active ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-white/10 text-white/60 border border-white/10"
                   }`}
                 >
                   {event.is_active ? "Active" : "Inactive"}

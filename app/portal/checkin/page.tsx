@@ -5,7 +5,7 @@ import { useToast } from "@/components/ui/Toast";
 import type { CheckinFormConfig } from "@/lib/types";
 
 const moodColorMap: Record<string, string> = {
-  emerald: "border-amber-500/30 bg-amber-500/10 text-amber-400",
+  emerald: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
   blue: "border-blue-500/30 bg-blue-500/10 text-blue-400",
   amber: "border-amber-500/30 bg-amber-500/10 text-amber-400",
   red: "border-red-500/30 bg-red-500/10 text-red-400",
@@ -42,7 +42,7 @@ export default function CheckInPage() {
           questions: [
             { id: "wins", label: "Wins this week", placeholder: "What went well? Any progress or breakthroughs?", type: "textarea", required: false },
             { id: "challenges", label: "Challenges", placeholder: "What are you finding difficult or stuck on?", type: "textarea", required: false },
-            { id: "questions", label: "Questions for Marc", placeholder: "Anything you need help with or want to discuss?", type: "textarea", required: false },
+            { id: "questions", label: "Questions for Gordy", placeholder: "Anything you need help with or want to discuss?", type: "textarea", required: false },
           ],
         });
       }
@@ -65,7 +65,12 @@ export default function CheckInPage() {
 
       if (res.ok) {
         setSubmitted(true);
-        toast("Check-in submitted - Marc will review it this week");
+        toast("Check-in submitted - Gordy will review it this week");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(true);
+        toast(data.error || "Something went wrong. Please try again.", "error");
+        setTimeout(() => setError(false), 5000);
       }
     } catch {
       setError(true);
@@ -85,14 +90,14 @@ export default function CheckInPage() {
   if (submitted) {
     return (
       <div className="max-w-2xl">
-        <div className="bg-bg-card border border-amber-500/20 rounded-2xl p-8 text-center">
-          <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-bg-card border border-emerald-500/20 rounded-2xl p-8 text-center">
+          <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
           <h2 className="text-2xl font-heading font-bold text-text-primary mb-2">Check-In Submitted</h2>
-          <p className="text-text-secondary">Marc will review your check-in and respond shortly.</p>
+          <p className="text-text-secondary">Gordy will review your check-in and respond shortly.</p>
           <button
             onClick={resetForm}
             className="mt-6 px-6 py-3 gradient-accent text-white rounded-xl text-sm font-medium cursor-pointer"
@@ -136,7 +141,7 @@ export default function CheckInPage() {
     <div className="max-w-2xl">
       <div className="mb-8">
         <h1 className="text-3xl font-heading font-bold text-text-primary">Weekly Check-In</h1>
-        <p className="text-text-secondary mt-1">Let Marc know how you&apos;re getting on this week.</p>
+        <p className="text-text-secondary mt-1">Let Gordy know how you&apos;re getting on this week.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">

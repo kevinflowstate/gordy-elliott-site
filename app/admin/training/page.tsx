@@ -14,7 +14,7 @@ interface ClientOption {
 
 const moduleColors = [
   { bg: "from-blue-600/20 to-blue-900/40", icon: "text-blue-400", border: "border-blue-500/20" },
-  { bg: "from-amber-600/20 to-amber-900/40", icon: "text-amber-400", border: "border-amber-500/20" },
+  { bg: "from-emerald-600/20 to-emerald-900/40", icon: "text-emerald-400", border: "border-emerald-500/20" },
   { bg: "from-purple-600/20 to-purple-900/40", icon: "text-purple-400", border: "border-purple-500/20" },
   { bg: "from-amber-600/20 to-amber-900/40", icon: "text-amber-400", border: "border-amber-500/20" },
   { bg: "from-rose-600/20 to-rose-900/40", icon: "text-rose-400", border: "border-rose-500/20" },
@@ -306,7 +306,7 @@ export default function TrainingManagerPage() {
                 <div className="absolute top-4 right-4">
                   <span className={`text-[10px] px-2.5 py-1 rounded-full font-semibold ${
                     mod.is_published
-                      ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
                       : "bg-white/10 text-white/60 border border-white/10"
                   }`}>
                     {mod.is_published ? "Published" : "Draft"}

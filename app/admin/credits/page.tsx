@@ -194,7 +194,7 @@ export default function CreditsPage() {
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
                     <div className="text-right">
-                      <p className={`text-base font-bold font-heading ${credits === 0 ? "text-red-400" : isLow ? "text-amber-400" : "text-amber-400"}`}>
+                      <p className={`text-base font-bold font-heading ${credits === 0 ? "text-red-400" : isLow ? "text-amber-400" : "text-emerald-400"}`}>
                         {formatCredits(credits)}
                       </p>
                       <p className="text-[10px] text-text-muted">balance</p>
@@ -326,10 +326,10 @@ export default function CreditsPage() {
             {topUpMessage && (
               <div className={`flex items-center gap-2 rounded-xl px-4 py-3 mb-4 border ${
                 topUpMessage.type === "success"
-                  ? "bg-amber-500/10 border-amber-500/20"
+                  ? "bg-emerald-500/10 border-emerald-500/20"
                   : "bg-red-500/10 border-red-500/20"
               }`}>
-                <span className={`text-sm font-medium ${topUpMessage.type === "success" ? "text-amber-400" : "text-red-400"}`}>
+                <span className={`text-sm font-medium ${topUpMessage.type === "success" ? "text-emerald-400" : "text-red-400"}`}>
                   {topUpMessage.text}
                 </span>
               </div>

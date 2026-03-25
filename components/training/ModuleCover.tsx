@@ -74,9 +74,9 @@ export default function ModuleCover({
       {/* Top accent line */}
       <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-[#2272DE] to-transparent opacity-60" />
 
-      {/* CBB text logo */}
+      {/* SHIFT text logo */}
       <div className="absolute top-4 left-0 right-0 flex items-center justify-center">
-        <span className="text-[11px] font-extrabold tracking-[0.15em] text-[#2272DE] font-heading">CBB</span>
+        <span className="text-[11px] font-extrabold tracking-[0.15em] text-[#2272DE] font-heading">SHIFT</span>
       </div>
 
       {/* Module title */}

@@ -1,16 +1,25 @@
+import { getSiteUrl } from "./site-url";
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 async function getResend() {
   const { Resend } = await import("resend");
   return new Resend(process.env.RESEND_API_KEY!);
 }
-const FROM = "Marc Watters <marc@marcwatters.com>";
-const PORTAL_URL = "https://marc-watters-site.vercel.app";
+const FROM = "SHIFT Coaching <team@flowstatesystems.ai>";
 
 function wrap(content: string): string {
   return `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px;">
       ${content}
       <p style="color: #999; font-size: 12px; margin: 32px 0 0;">
-        Construction Business Blueprint - Client Portal
+        SHIFT Coaching - Client Portal
       </p>
     </div>
   `;
@@ -25,11 +34,11 @@ export async function sendWelcomeEmail(to: string, name: string, setupUrl: strin
   const resend = await getResend(); return resend.emails.send({
     from: FROM,
     to,
-    subject: "Your Construction Business Blueprint portal is ready",
+    subject: "Your SHIFT Coaching portal is ready",
     html: wrap(`
-      <h2 style="margin: 0 0 8px; font-size: 20px; color: #111;">Welcome ${firstName},</h2>
+      <h2 style="margin: 0 0 8px; font-size: 20px; color: #111;">Welcome ${escapeHtml(firstName)},</h2>
       <p style="color: #555; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
-        Your client portal is set up and ready to go. Click below to set your password and access your training, training plan, and check-ins.
+        Your client portal is set up and ready to go. Click below to set your password, your business plan &amp; trainings will be assigned as soon as onboarding is complete.
       </p>
       ${button(setupUrl, "Set Up Your Account")}
     `),
@@ -41,16 +50,16 @@ export async function sendCheckinReplyEmail(to: string, clientName: string, repl
   const resend = await getResend(); return resend.emails.send({
     from: FROM,
     to,
-    subject: "Marc replied to your check-in",
+    subject: "Gordy replied to your check-in",
     html: wrap(`
-      <h2 style="margin: 0 0 8px; font-size: 20px; color: #111;">Hey ${firstName},</h2>
+      <h2 style="margin: 0 0 8px; font-size: 20px; color: #111;">Hey ${escapeHtml(firstName)},</h2>
       <p style="color: #555; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
-        Marc has replied to your latest check-in.
+        Gordy has replied to your latest check-in.
       </p>
       <div style="background: #f8f9fa; border-left: 3px solid #2272de; border-radius: 0 8px 8px 0; padding: 16px 20px; margin: 0 0 24px;">
-        <p style="margin: 0; color: #333; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">${replyText}</p>
+        <p style="margin: 0; color: #333; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">${escapeHtml(replyText)}</p>
       </div>
-      ${button(`${PORTAL_URL}/portal`, "View in Portal")}
+      ${button(`${getSiteUrl()}/portal`, "View in Portal")}
     `),
   });
 }
@@ -62,11 +71,11 @@ export async function sendCheckinReminderEmail(to: string, clientName: string, w
     to,
     subject: `Week ${weekNumber} check-in reminder`,
     html: wrap(`
-      <h2 style="margin: 0 0 8px; font-size: 20px; color: #111;">Hey ${firstName},</h2>
+      <h2 style="margin: 0 0 8px; font-size: 20px; color: #111;">Hey ${escapeHtml(firstName)},</h2>
       <p style="color: #555; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
-        Your Week ${weekNumber} check-in is due. It takes 2 minutes and helps Marc stay on top of your progress.
+        Your Week ${weekNumber} check-in is due. It takes 2 minutes and helps Gordy stay on top of your progress.
       </p>
-      ${button(`${PORTAL_URL}/portal/checkin`, "Submit Check-In")}
+      ${button(`${getSiteUrl()}/portal/checkin`, "Submit Check-In")}
     `),
   });
 }
@@ -113,7 +122,7 @@ export async function sendWeeklySummaryEmail(to: string, summary: {
         </ul>
       ` : ""}
 
-      ${button(`${PORTAL_URL}/admin`, "Open Admin Dashboard")}
+      ${button(`${getSiteUrl()}/admin`, "Open Admin Dashboard")}
     `),
   });
 }

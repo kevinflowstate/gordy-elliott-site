@@ -35,7 +35,7 @@ export default function TrainingPlansPage() {
 
   async function loadData() {
     try {
-      const res = await fetch("/api/admin/business-plans");
+      const res = await fetch("/api/admin/training-plans");
       if (res.ok) {
         const data = await res.json();
         setPlans(data.plans || []);
@@ -54,7 +54,7 @@ export default function TrainingPlansPage() {
     if (!builderPlan) {
       const existingActive = plans.find(p => p.client_id === plan.client_id && p.status === "active");
       if (existingActive) {
-        await fetch("/api/admin/business-plans", {
+        await fetch("/api/admin/training-plans", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "complete", plan_id: existingActive.id }),
@@ -62,7 +62,7 @@ export default function TrainingPlansPage() {
       }
     }
 
-    await fetch("/api/admin/business-plans", {
+    await fetch("/api/admin/training-plans", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ plan }),
@@ -167,7 +167,7 @@ export default function TrainingPlansPage() {
       {/* Plans list */}
       {filtered.length === 0 ? (
         <div className="bg-bg-card/80 border border-[rgba(255,255,255,0.04)] rounded-2xl p-8 text-center">
-          <p className="text-text-muted text-sm">No {filter !== "all" ? filter : ""} training plans yet.</p>
+          <p className="text-text-muted text-sm">No {filter !== "all" ? filter : ""} business plans yet.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -190,7 +190,7 @@ export default function TrainingPlansPage() {
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 ${
                       plan.status === "active"
                         ? "bg-accent/10 text-accent-bright border border-accent/20"
-                        : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                        : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                     }`}>
                       {plan.client_name.split(" ").map(n => n[0]).join("")}
                     </div>
@@ -208,7 +208,7 @@ export default function TrainingPlansPage() {
                       <div className="flex items-center gap-2">
                         <div className="h-1.5 w-20 bg-[rgba(255,255,255,0.03)] rounded-full overflow-hidden">
                           <div
-                            className={`h-full rounded-full transition-all ${pct === 100 ? "bg-amber-500" : "gradient-accent"}`}
+                            className={`h-full rounded-full transition-all ${pct === 100 ? "bg-emerald-500" : "gradient-accent"}`}
                             style={{ width: `${pct}%` }}
                           />
                         </div>
@@ -221,7 +221,7 @@ export default function TrainingPlansPage() {
                     <span className={`text-[10px] px-2.5 py-1 rounded-full font-semibold ${
                       plan.status === "active"
                         ? "bg-accent/10 text-accent-bright border border-accent/20"
-                        : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                        : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                     }`}>
                       {plan.status === "active" ? "Active" : "Completed"}
                     </span>
@@ -264,14 +264,14 @@ export default function TrainingPlansPage() {
                           <button
                             onClick={async () => {
                               if (!confirm(`Mark ${plan.client_name}'s plan as complete?`)) return;
-                              await fetch("/api/admin/business-plans", {
+                              await fetch("/api/admin/training-plans", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ action: "complete", plan_id: plan.id }),
                               });
                               await loadData();
                             }}
-                            className="px-3 py-1.5 text-xs font-medium text-amber-400 hover:text-amber-300 border border-amber-500/20 hover:border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 rounded-lg transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                            className="px-3 py-1.5 text-xs font-medium text-emerald-400 hover:text-emerald-300 border border-emerald-500/20 hover:border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 rounded-lg transition-colors inline-flex items-center gap-1.5 cursor-pointer"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -305,7 +305,7 @@ export default function TrainingPlansPage() {
                               <div className="flex items-center gap-2">
                                 <div className="h-1.5 w-12 bg-[rgba(255,255,255,0.03)] rounded-full overflow-hidden">
                                   <div
-                                    className={`h-full rounded-full ${phPct === 100 ? "bg-amber-500" : "gradient-accent"}`}
+                                    className={`h-full rounded-full ${phPct === 100 ? "bg-emerald-500" : "gradient-accent"}`}
                                     style={{ width: `${phPct}%` }}
                                   />
                                 </div>
@@ -323,10 +323,10 @@ export default function TrainingPlansPage() {
                                 {phase.items.map((item) => (
                                   <div key={item.id} className="flex items-center gap-2 py-1">
                                     <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 ${
-                                      item.completed ? "bg-amber-500/20" : "border border-[rgba(255,255,255,0.1)]"
+                                      item.completed ? "bg-emerald-500/20" : "border border-[rgba(255,255,255,0.1)]"
                                     }`}>
                                       {item.completed && (
-                                        <svg className="w-2.5 h-2.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg className="w-2.5 h-2.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                         </svg>
                                       )}

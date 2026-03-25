@@ -17,6 +17,12 @@ function getVideoEmbed(url: string): { type: string; embedUrl: string } {
     return { type: "vimeo", embedUrl: `https://player.vimeo.com/video/${vimeoMatch[1]}${h}color=2272DE&title=0&byline=0&portrait=0` };
   }
 
+  // Fathom (share link -> embed link)
+  const fathomShareMatch = url.match(/fathom\.video\/share\/([a-zA-Z0-9_-]+)/);
+  if (fathomShareMatch) return { type: "fathom", embedUrl: `https://fathom.video/embed/${fathomShareMatch[1]}` };
+  const fathomEmbedMatch = url.match(/fathom\.video\/embed\/([a-zA-Z0-9_-]+)/);
+  if (fathomEmbedMatch) return { type: "fathom", embedUrl: `https://fathom.video/embed/${fathomEmbedMatch[1]}` };
+
   return { type: "unknown", embedUrl: url };
 }
 
@@ -39,7 +45,7 @@ const contentTypeLabels: Record<ContentType, { label: string; icon: string; colo
   checklist: {
     label: "Checklist",
     icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
-    color: "text-amber-400 bg-amber-500/10",
+    color: "text-emerald-400 bg-emerald-500/10",
   },
 };
 
@@ -172,7 +178,7 @@ export default function ModuleView() {
                 <button
                   onClick={(e) => { e.stopPropagation(); toggleComplete(lesson.id); }}
                   className={`w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all cursor-pointer ${
-                    isCompleted ? "bg-amber-500 border-amber-500" : "border-[rgba(255,255,255,0.15)] hover:border-accent"
+                    isCompleted ? "bg-emerald-500 border-emerald-500" : "border-[rgba(255,255,255,0.15)] hover:border-accent"
                   }`}
                 >
                   {isCompleted && (
@@ -213,9 +219,11 @@ export default function ModuleView() {
                         <iframe
                           src={getVideoEmbed(lesson.content_url).embedUrl}
                           className="absolute top-0 left-0 w-full h-full"
-                          allow="autoplay; fullscreen; picture-in-picture"
+                          allow="encrypted-media *; fullscreen *"
                           allowFullScreen
+                          scrolling="no"
                           title={lesson.title}
+                          style={{ border: 0 }}
                         />
                       </div>
                     </div>

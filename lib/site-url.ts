@@ -1,4 +1,4 @@
-const FALLBACK = "https://marc-watters-site.vercel.app";
+const FALLBACK = "https://gordy-elliott-site.vercel.app";
 
 export function getSiteUrl(): string {
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
