@@ -77,6 +77,7 @@ export default function PortalDashboard() {
   const [recentModules, setRecentModules] = useState<RecentModule[]>([]);
   const [expandedCheckin, setExpandedCheckin] = useState<string | null>(null);
   const [trainingProgress, setTrainingProgress] = useState<{ completedLessons: number; totalLessons: number }>({ completedLessons: 0, totalLessons: 0 });
+  const [currentTime] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -135,6 +136,7 @@ export default function PortalDashboard() {
           unrepliedCheckins={checkins.filter((c) => c.admin_reply && !expandedCheckin).length}
           latestReply={checkins.find((c) => c.admin_reply)}
           planPct={planPct}
+          currentTime={currentTime}
         />
       )}
 
@@ -376,6 +378,7 @@ function BriefingBanner({
   unrepliedCheckins,
   latestReply,
   planPct,
+  currentTime,
 }: {
   isCheckinToday: boolean;
   nextCheckinDate: Date;
@@ -383,6 +386,7 @@ function BriefingBanner({
   unrepliedCheckins: number;
   latestReply?: CheckIn;
   planPct: number;
+  currentTime: number;
 }) {
   const items: { icon: string; text: string; href?: string; accent?: boolean }[] = [];
 
@@ -399,7 +403,7 @@ function BriefingBanner({
 
   if (latestReply?.admin_reply && latestReply.replied_at) {
     const replyDate = new Date(latestReply.replied_at);
-    const daysDiff = Math.floor((Date.now() - replyDate.getTime()) / (1000 * 60 * 60 * 24));
+    const daysDiff = Math.floor((currentTime - replyDate.getTime()) / (1000 * 60 * 60 * 24));
     if (daysDiff <= 3) {
       items.push({ icon: "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z", text: "Gordy replied to your latest check-in", accent: true });
     }
