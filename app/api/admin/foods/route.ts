@@ -35,6 +35,7 @@ export async function POST(request: Request) {
     carbs_g: body.carbs_g,
     fat_g: body.fat_g,
     fibre_g: body.fibre_g ?? null,
+    photo_url: body.photo_url ?? null,
   }).select().single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

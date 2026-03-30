@@ -275,6 +275,7 @@ export interface Food {
   carbs_g: number;
   fat_g: number;
   fibre_g?: number;
+  photo_url?: string;
   is_active: boolean;
   created_at: string;
 }
@@ -343,4 +344,50 @@ export interface Macros {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+}
+
+// ============================================
+// Body Measurement Types
+// ============================================
+
+export interface BodyMeasurement {
+  id: string;
+  client_id: string;
+  measured_date: string;
+  weight_kg?: number;
+  height_cm?: number;
+  body_fat_percent?: number;
+  chest_cm?: number;
+  waist_cm?: number;
+  hip_cm?: number;
+  notes?: string;
+  created_at: string;
+}
+
+// ============================================
+// Personal Meal Types (Client-created)
+// ============================================
+
+export interface QuickMeal {
+  id: string;
+  client_id: string;
+  tracked_date: string;
+  name: string;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  completed: boolean;
+  created_at: string;
+}
+
+export interface ClientSavedMeal {
+  id: string;
+  client_id: string;
+  name: string;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  created_at: string;
 }

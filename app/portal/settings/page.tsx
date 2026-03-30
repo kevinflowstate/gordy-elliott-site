@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
 import { Suspense } from "react";
+import type { BodyMeasurement } from "@/lib/types";
 
 export default function SettingsPage() {
   return (
@@ -34,6 +35,18 @@ function SettingsContent() {
   const [passwordMessage, setPasswordMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isSetup, setIsSetup] = useState(false);
 
+  // Body measurements state
+  const [measurements, setMeasurements] = useState<BodyMeasurement[]>([]);
+  const [showMeasurementForm, setShowMeasurementForm] = useState(false);
+  const [mWeight, setMWeight] = useState("");
+  const [mHeight, setMHeight] = useState("");
+  const [mBodyFat, setMBodyFat] = useState("");
+  const [mChest, setMChest] = useState("");
+  const [mWaist, setMWaist] = useState("");
+  const [mHip, setMHip] = useState("");
+  const [mNotes, setMNotes] = useState("");
+  const [mSaving, setMSaving] = useState(false);
+
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -59,7 +72,29 @@ function SettingsContent() {
         setLoading(false);
       }
     }
+    async function loadMeasurements() {
+      try {
+        const res = await fetch("/api/portal/body-measurements");
+        if (res.ok) {
+          const data = await res.json();
+          setMeasurements(data.measurements || []);
+          // Pre-fill form with most recent measurement
+          if (data.measurements?.length > 0) {
+            const latest = data.measurements[0];
+            setMWeight(latest.weight_kg ? String(Number(latest.weight_kg)) : "");
+            setMHeight(latest.height_cm ? String(Number(latest.height_cm)) : "");
+            setMBodyFat(latest.body_fat_percent ? String(Number(latest.body_fat_percent)) : "");
+            setMChest(latest.chest_cm ? String(Number(latest.chest_cm)) : "");
+            setMWaist(latest.waist_cm ? String(Number(latest.waist_cm)) : "");
+            setMHip(latest.hip_cm ? String(Number(latest.hip_cm)) : "");
+          }
+        }
+      } catch {
+        // Non-critical
+      }
+    }
     load();
+    loadMeasurements();
   }, []);
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -246,6 +281,174 @@ function SettingsContent() {
               className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none"
             />
           </div>
+        </div>
+
+        {/* Body Measurements */}
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 space-y-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-heading font-bold text-text-primary">Body Measurements</h2>
+            <button
+              type="button"
+              onClick={() => setShowMeasurementForm(!showMeasurementForm)}
+              className="text-xs text-accent-bright font-medium cursor-pointer"
+            >
+              {showMeasurementForm ? "Hide" : measurements.length > 0 ? "Update" : "Add"}
+            </button>
+          </div>
+
+          {showMeasurementForm && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">Weight (kg)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={mWeight}
+                    onChange={(e) => setMWeight(e.target.value)}
+                    placeholder="e.g. 85.0"
+                    className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">Height (cm)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={mHeight}
+                    onChange={(e) => setMHeight(e.target.value)}
+                    placeholder="e.g. 178"
+                    className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">Body Fat %</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={mBodyFat}
+                    onChange={(e) => setMBodyFat(e.target.value)}
+                    placeholder="e.g. 18.5"
+                    className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">Chest (cm)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={mChest}
+                    onChange={(e) => setMChest(e.target.value)}
+                    placeholder="e.g. 100"
+                    className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">Waist (cm)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={mWaist}
+                    onChange={(e) => setMWaist(e.target.value)}
+                    placeholder="e.g. 82"
+                    className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">Hip (cm)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={mHip}
+                    onChange={(e) => setMHip(e.target.value)}
+                    placeholder="e.g. 95"
+                    className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">Notes <span className="text-text-muted text-xs">optional</span></label>
+                <input
+                  type="text"
+                  value={mNotes}
+                  onChange={(e) => setMNotes(e.target.value)}
+                  placeholder="e.g. Measured first thing in the morning"
+                  className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
+                />
+              </div>
+              <button
+                type="button"
+                disabled={mSaving || (!mWeight && !mBodyFat && !mChest && !mWaist && !mHip)}
+                onClick={async () => {
+                  setMSaving(true);
+                  try {
+                    const res = await fetch("/api/portal/body-measurements", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        weight_kg: mWeight ? parseFloat(mWeight) : null,
+                        height_cm: mHeight ? parseFloat(mHeight) : null,
+                        body_fat_percent: mBodyFat ? parseFloat(mBodyFat) : null,
+                        chest_cm: mChest ? parseFloat(mChest) : null,
+                        waist_cm: mWaist ? parseFloat(mWaist) : null,
+                        hip_cm: mHip ? parseFloat(mHip) : null,
+                        notes: mNotes || null,
+                      }),
+                    });
+                    if (res.ok) {
+                      toast("Measurements saved");
+                      setShowMeasurementForm(false);
+                      // Refresh measurements
+                      const mRes = await fetch("/api/portal/body-measurements");
+                      if (mRes.ok) {
+                        const mData = await mRes.json();
+                        setMeasurements(mData.measurements || []);
+                      }
+                    } else {
+                      toast("Failed to save measurements");
+                    }
+                  } catch {
+                    toast("Failed to save measurements");
+                  } finally {
+                    setMSaving(false);
+                  }
+                }}
+                className="px-6 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-opacity"
+              >
+                {mSaving ? "Saving..." : "Save Measurements"}
+              </button>
+            </div>
+          )}
+
+          {/* Measurement History */}
+          {measurements.length > 0 && !showMeasurementForm && (
+            <div className="space-y-3">
+              {measurements.slice(0, 5).map((m) => (
+                <div key={m.id} className="flex items-start justify-between py-3 border-b border-[rgba(0,0,0,0.04)] last:border-0">
+                  <div>
+                    <span className="text-sm font-medium text-text-primary">
+                      {new Date(m.measured_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                    </span>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                      {m.weight_kg && <span className="text-xs text-text-secondary">{Number(m.weight_kg)} kg</span>}
+                      {m.body_fat_percent && <span className="text-xs text-text-secondary">{Number(m.body_fat_percent)}% BF</span>}
+                      {m.chest_cm && <span className="text-xs text-text-secondary">Chest: {Number(m.chest_cm)}cm</span>}
+                      {m.waist_cm && <span className="text-xs text-text-secondary">Waist: {Number(m.waist_cm)}cm</span>}
+                      {m.hip_cm && <span className="text-xs text-text-secondary">Hip: {Number(m.hip_cm)}cm</span>}
+                    </div>
+                    {m.notes && <p className="text-xs text-text-muted mt-1 italic">{m.notes}</p>}
+                  </div>
+                </div>
+              ))}
+              {measurements.length > 5 && (
+                <p className="text-xs text-text-muted text-center">+ {measurements.length - 5} more entries</p>
+              )}
+            </div>
+          )}
+
+          {measurements.length === 0 && !showMeasurementForm && (
+            <p className="text-sm text-text-muted">No measurements recorded yet. Tap &quot;Add&quot; to log your first entry.</p>
+          )}
         </div>
 
         {/* Password section */}

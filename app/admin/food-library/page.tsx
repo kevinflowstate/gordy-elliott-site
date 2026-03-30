@@ -47,6 +47,7 @@ interface FoodFormState {
   carbs_g: string;
   fat_g: string;
   fibre_g: string;
+  photo_url: string;
 }
 
 const EMPTY_FORM: FoodFormState = {
@@ -58,6 +59,7 @@ const EMPTY_FORM: FoodFormState = {
   carbs_g: "",
   fat_g: "",
   fibre_g: "",
+  photo_url: "",
 };
 
 function macroToString(value: number | undefined | null): string {
@@ -115,6 +117,7 @@ export default function FoodLibraryPage() {
       carbs_g: String(food.carbs_g),
       fat_g: String(food.fat_g),
       fibre_g: food.fibre_g != null ? String(food.fibre_g) : "",
+      photo_url: food.photo_url || "",
     });
     setShowModal(true);
   }
@@ -142,6 +145,7 @@ export default function FoodLibraryPage() {
         carbs_g: parseFloat(form.carbs_g) || 0,
         fat_g: parseFloat(form.fat_g) || 0,
         fibre_g: form.fibre_g ? parseFloat(form.fibre_g) : null,
+        photo_url: form.photo_url.trim() || null,
       };
 
       const res = editingFood
@@ -275,7 +279,8 @@ export default function FoodLibraryPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[rgba(0,0,0,0.06)]">
-                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider">Name</th>
+                  <th className="px-3 py-3.5 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider w-10"></th>
+                  <th className="px-3 py-3.5 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider">Name</th>
                   <th className="px-4 py-3.5 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider">Category</th>
                   <th className="px-4 py-3.5 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider">Serving</th>
                   <th className="px-4 py-3.5 text-right text-[11px] font-semibold text-text-muted uppercase tracking-wider">Calories</th>
@@ -289,7 +294,18 @@ export default function FoodLibraryPage() {
               <tbody className="divide-y divide-[rgba(0,0,0,0.04)]">
                 {foods.map((food) => (
                   <tr key={food.id} className="hover:bg-[rgba(0,0,0,0.015)] transition-colors group">
-                    <td className="px-5 py-3 font-medium text-text-primary whitespace-nowrap">{food.name}</td>
+                    <td className="px-3 py-3">
+                      {food.photo_url ? (
+                        <img src={food.photo_url} alt="" className="w-8 h-8 rounded-lg object-cover" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-lg bg-[rgba(0,0,0,0.04)] flex items-center justify-center">
+                          <svg className="w-4 h-4 text-text-muted/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 font-medium text-text-primary whitespace-nowrap">{food.name}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${categoryBadgeClass(food.category)}`}>
                         {food.category}
@@ -437,8 +453,8 @@ export default function FoodLibraryPage() {
                 </div>
               </div>
 
-              {/* Fibre (optional) */}
-              <div className="grid grid-cols-4 gap-3">
+              {/* Fibre + Photo URL (optional) */}
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] text-text-muted mb-1">Fibre (g) <span className="text-text-muted/60">optional</span></label>
                   <input
@@ -450,6 +466,23 @@ export default function FoodLibraryPage() {
                     placeholder="0"
                     className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40"
                   />
+                </div>
+              </div>
+
+              {/* Photo URL */}
+              <div>
+                <label className="block text-[11px] text-text-muted mb-1">Photo URL <span className="text-text-muted/60">optional</span></label>
+                <div className="flex gap-2 items-start">
+                  <input
+                    type="url"
+                    value={form.photo_url}
+                    onChange={(e) => setField("photo_url", e.target.value)}
+                    placeholder="https://..."
+                    className="flex-1 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40"
+                  />
+                  {form.photo_url && (
+                    <img src={form.photo_url} alt="" className="w-10 h-10 rounded-lg object-cover border border-[rgba(0,0,0,0.08)] flex-shrink-0" />
+                  )}
                 </div>
               </div>
             </div>
