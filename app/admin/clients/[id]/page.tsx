@@ -4,8 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { AdminClient } from "@/lib/admin-data";
-import type { TrafficLight, CheckInMood, TrainingPlan, TrainingPlanPhase, CheckinFormConfig, FormQuestion } from "@/lib/types";
+import type { TrafficLight, CheckInMood, TrainingPlan, TrainingPlanPhase, CheckinFormConfig, FormQuestion, ClientExercisePlan, ClientNutritionPlan } from "@/lib/types";
 import TrainingPlanBuilder from "@/components/admin/TrainingPlanBuilder";
+import ExerciseTemplatePicker from "@/components/admin/ExerciseTemplatePicker";
+import NutritionTemplatePicker from "@/components/admin/NutritionTemplatePicker";
 
 const glowClass: Record<TrafficLight, string> = {
   green: "glow-green",
@@ -84,6 +86,12 @@ export default function ClientDetailPage() {
   const [passwordResult, setPasswordResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [nudgeOpen, setNudgeOpen] = useState(false);
   const [nudgeMessage, setNudgeMessage] = useState("");
+  const [exercisePlans, setExercisePlans] = useState<ClientExercisePlan[]>([]);
+  const [nutritionPlans, setNutritionPlans] = useState<ClientNutritionPlan[]>([]);
+  const [showExercisePicker, setShowExercisePicker] = useState(false);
+  const [showNutritionPicker, setShowNutritionPicker] = useState(false);
+  const [assigningExercise, setAssigningExercise] = useState(false);
+  const [assigningNutrition, setAssigningNutrition] = useState(false);
   const [nudgeSending, setNudgeSending] = useState(false);
   const [nudgeSent, setNudgeSent] = useState(false);
 
@@ -119,12 +127,80 @@ export default function ClientDetailPage() {
         const cfgData = await configRes.json();
         setCheckinConfig(cfgData.config);
       }
+
+      // Fetch exercise and nutrition plans for this client
+      if (id) {
+        const [exRes, nutRes] = await Promise.all([
+          fetch(`/api/admin/client-exercise-plans?clientId=${id}`),
+          fetch(`/api/admin/client-nutrition-plans?clientId=${id}`),
+        ]);
+        if (exRes.ok) {
+          const exData = await exRes.json();
+          setExercisePlans(exData.plans || []);
+        }
+        if (nutRes.ok) {
+          const nutData = await nutRes.json();
+          setNutritionPlans(nutData.plans || []);
+        }
+      }
     } finally {
       setLoading(false);
     }
   }, [id]);
 
   useEffect(() => { loadClient(); }, [loadClient]);
+
+  async function handleAssignExercisePlan(templateId: string) {
+    setAssigningExercise(true);
+    try {
+      const res = await fetch("/api/admin/client-exercise-plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client_id: id, template_id: templateId }),
+      });
+      if (res.ok) {
+        setShowExercisePicker(false);
+        loadClient();
+      }
+    } finally {
+      setAssigningExercise(false);
+    }
+  }
+
+  async function handleAssignNutritionPlan(templateId: string) {
+    setAssigningNutrition(true);
+    try {
+      const res = await fetch("/api/admin/client-nutrition-plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client_id: id, template_id: templateId }),
+      });
+      if (res.ok) {
+        setShowNutritionPicker(false);
+        loadClient();
+      }
+    } finally {
+      setAssigningNutrition(false);
+    }
+  }
+
+  async function handleArchiveExercisePlan(planId: string) {
+    await fetch("/api/admin/client-exercise-plans", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: planId, status: "archived" }),
+    });
+    loadClient();
+  }
+
+  async function handleArchiveNutritionPlan(planId: string) {
+    await fetch("/api/admin/client-nutrition-plans", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: planId, status: "archived" }),
+    });
+    loadClient();
+  }
 
   async function handleReply(checkinId: string) {
     const text = replyTexts[checkinId];
@@ -1083,6 +1159,120 @@ export default function ClientDetailPage() {
           )}
         </div>
 
+        {/* Exercise Plan */}
+        <div className="lg:col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-heading font-bold text-text-primary">Exercise Plan</h2>
+            <button
+              onClick={() => setShowExercisePicker(true)}
+              disabled={assigningExercise}
+              className="px-3 py-1.5 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              {exercisePlans.some((p) => p.status === "active") ? "Replace Plan" : "Assign Exercise Plan"}
+            </button>
+          </div>
+          {(() => {
+            const activeExPlan = exercisePlans.find((p) => p.status === "active");
+            if (!activeExPlan) {
+              return (
+                <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 text-center">
+                  <p className="text-text-muted text-sm">No exercise plan assigned.</p>
+                </div>
+              );
+            }
+            return (
+              <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="font-semibold text-text-primary">{activeExPlan.name}</h3>
+                    {activeExPlan.description && <p className="text-[13px] text-text-secondary mt-0.5">{activeExPlan.description}</p>}
+                    <span className="text-[13px] text-accent-bright">{activeExPlan.sessions.length} sessions</span>
+                  </div>
+                  <button
+                    onClick={() => handleArchiveExercisePlan(activeExPlan.id)}
+                    className="text-[13px] text-text-secondary hover:text-red-400 transition-colors"
+                  >
+                    Archive
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {activeExPlan.sessions.map((session) => (
+                    <div key={session.id} className="bg-[rgba(0,0,0,0.02)] dark:bg-[rgba(255,255,255,0.02)] rounded-xl p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="w-6 h-6 rounded-lg bg-accent-bright/10 text-accent-bright font-bold text-[11px] flex items-center justify-center">{session.day_number}</span>
+                        <span className="font-medium text-text-primary text-[13px]">{session.name}</span>
+                        <span className="text-[13px] text-text-secondary/50 ml-auto">{session.items.length} exercises</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+
+        {/* Nutrition Plan */}
+        <div className="lg:col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-heading font-bold text-text-primary">Nutrition Plan</h2>
+            <button
+              onClick={() => setShowNutritionPicker(true)}
+              disabled={assigningNutrition}
+              className="px-3 py-1.5 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              {nutritionPlans.some((p) => p.status === "active") ? "Replace Plan" : "Assign Nutrition Plan"}
+            </button>
+          </div>
+          {(() => {
+            const activeNutPlan = nutritionPlans.find((p) => p.status === "active");
+            if (!activeNutPlan) {
+              return (
+                <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 text-center">
+                  <p className="text-text-muted text-sm">No nutrition plan assigned.</p>
+                </div>
+              );
+            }
+            return (
+              <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="font-semibold text-text-primary">{activeNutPlan.name}</h3>
+                    <div className="flex gap-3 mt-1 text-[13px]">
+                      {activeNutPlan.target_calories && <span className="text-text-primary font-medium">{activeNutPlan.target_calories} kcal</span>}
+                      {activeNutPlan.target_protein_g && <span className="text-blue-500">{activeNutPlan.target_protein_g}g P</span>}
+                      {activeNutPlan.target_carbs_g && <span className="text-accent-bright">{activeNutPlan.target_carbs_g}g C</span>}
+                      {activeNutPlan.target_fat_g && <span className="text-red-500">{activeNutPlan.target_fat_g}g F</span>}
+                    </div>
+                    <span className="text-[13px] text-accent-bright">{activeNutPlan.meals.length} meals</span>
+                  </div>
+                  <button
+                    onClick={() => handleArchiveNutritionPlan(activeNutPlan.id)}
+                    className="text-[13px] text-text-secondary hover:text-red-400 transition-colors"
+                  >
+                    Archive
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {activeNutPlan.meals.map((meal) => (
+                    <div key={meal.id} className="bg-[rgba(0,0,0,0.02)] dark:bg-[rgba(255,255,255,0.02)] rounded-xl p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-text-primary text-[13px]">{meal.name}</span>
+                        <span className="text-[13px] text-text-secondary/50">{meal.items.length} items</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+
         {/* Check-in History */}
         <div>
           <h2 className="text-lg font-heading font-bold text-text-primary mb-4">Check-In History</h2>
@@ -1290,6 +1480,22 @@ export default function ClientDetailPage() {
           existingPlan={builderMode === "edit" ? activePlan : undefined}
           onSave={handleSavePlan}
           onCancel={() => setBuilderMode("closed")}
+        />
+      )}
+
+      {/* Exercise Template Picker Modal */}
+      {showExercisePicker && (
+        <ExerciseTemplatePicker
+          onSelect={handleAssignExercisePlan}
+          onClose={() => setShowExercisePicker(false)}
+        />
+      )}
+
+      {/* Nutrition Template Picker Modal */}
+      {showNutritionPicker && (
+        <NutritionTemplatePicker
+          onSelect={handleAssignNutritionPlan}
+          onClose={() => setShowNutritionPicker(false)}
         />
       )}
     </>

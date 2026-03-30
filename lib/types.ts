@@ -194,3 +194,151 @@ export interface CheckinFormConfig {
 export interface TrainingPlanFormConfig {
   questions: FormQuestion[];
 }
+
+// ============================================
+// Exercise Plan Types
+// ============================================
+
+export interface Exercise {
+  id: string;
+  name: string;
+  muscle_group: string;
+  equipment: string;
+  description?: string;
+  video_url?: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface ExerciseSessionItem {
+  id: string;
+  session_id: string;
+  exercise_id: string;
+  exercise?: Exercise;
+  order_index: number;
+  sets: number;
+  reps: string;
+  rest_seconds?: number;
+  tempo?: string;
+  notes?: string;
+}
+
+export interface ExerciseSession {
+  id: string;
+  template_id?: string;
+  plan_id?: string;
+  name: string;
+  day_number: number;
+  notes?: string;
+  items: ExerciseSessionItem[];
+}
+
+export interface ExerciseTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  category: string;
+  duration_weeks?: number;
+  is_active: boolean;
+  sessions: ExerciseSession[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClientExercisePlan {
+  id: string;
+  client_id: string;
+  template_id?: string;
+  name: string;
+  description?: string;
+  status: 'active' | 'completed' | 'archived';
+  start_date?: string;
+  end_date?: string;
+  sessions: ExerciseSession[];
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================
+// Nutrition Plan Types
+// ============================================
+
+export interface Food {
+  id: string;
+  name: string;
+  category: string;
+  serving_size: string;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  fibre_g?: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface NutritionMealItem {
+  id: string;
+  meal_id: string;
+  food_id: string;
+  food?: Food;
+  quantity: number;
+  order_index: number;
+  notes?: string;
+}
+
+export interface NutritionMeal {
+  id: string;
+  template_id?: string;
+  plan_id?: string;
+  name: string;
+  order_index: number;
+  notes?: string;
+  items: NutritionMealItem[];
+}
+
+export interface NutritionTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  calorie_range: string;
+  target_calories?: number;
+  target_protein_g?: number;
+  target_carbs_g?: number;
+  target_fat_g?: number;
+  is_active: boolean;
+  meals: NutritionMeal[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClientNutritionPlan {
+  id: string;
+  client_id: string;
+  template_id?: string;
+  name: string;
+  status: 'active' | 'completed' | 'archived';
+  target_calories?: number;
+  target_protein_g?: number;
+  target_carbs_g?: number;
+  target_fat_g?: number;
+  start_date?: string;
+  meals: NutritionMeal[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MealTracking {
+  id: string;
+  client_id: string;
+  meal_id: string;
+  tracked_date: string;
+  completed: boolean;
+}
+
+export interface Macros {
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+}
