@@ -112,7 +112,7 @@ export default function ExercisePlansPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-heading font-bold text-text-primary">Exercise Plans</h1>
+          <h1 className="text-3xl font-heading font-bold text-text-primary">Training Plans</h1>
           <p className="text-text-secondary mt-1 text-sm">
             {templates.length} template{templates.length !== 1 ? "s" : ""} in library
           </p>

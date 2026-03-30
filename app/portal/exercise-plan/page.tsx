@@ -36,7 +36,7 @@ export default function PortalExercisePlanPage() {
   if (!plan) {
     return (
       <div className="p-6">
-        <h1 className="text-2xl font-bold text-text-primary mb-4">My Exercise Plan</h1>
+        <h1 className="text-2xl font-bold text-text-primary mb-4">My Training Plan</h1>
         <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] rounded-2xl p-8 text-center">
           <svg className="w-16 h-16 mx-auto mb-4 text-text-secondary/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />

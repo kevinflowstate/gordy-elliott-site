@@ -34,7 +34,7 @@ export default function ExerciseTemplatePicker({ onSelect, onClose }: ExerciseTe
       >
         <div className="p-4 border-b border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)]">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-bold text-text-primary">Select Exercise Template</h3>
+            <h3 className="text-lg font-bold text-text-primary">Select Training Template</h3>
             <button onClick={onClose} className="text-text-secondary hover:text-text-primary">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
