@@ -5,6 +5,18 @@ import FoodPicker from "./FoodPicker";
 import MacroSummaryBar from "./MacroSummaryBar";
 import type { NutritionTemplate, NutritionMeal, NutritionMealItem, Food } from "@/lib/types";
 
+function parseGrams(servingSize: string): number {
+  // Extract the number before 'g' from serving size strings
+  // Handles: "150g", "30g scoop", "1 medium ~120g", "100g", "250ml", "1 tbsp ~15ml"
+  const match = servingSize.match(/~?(\d+)\s*g/i);
+  if (match) return parseInt(match[1], 10);
+  // For ml-based items, treat as grams (close enough for tracking)
+  const mlMatch = servingSize.match(/~?(\d+)\s*ml/i);
+  if (mlMatch) return parseInt(mlMatch[1], 10);
+  // For items like "2 large", "1 tablet" etc, use 100 as default
+  return 100;
+}
+
 interface NutritionTemplateBuilderProps {
   template?: NutritionTemplate;
   onSave: (template: NutritionTemplate) => void;
@@ -340,6 +352,34 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
                 </div>
               </div>
             )}
+            {targetCalories > 0 && (targetProtein > 0 || targetCarbs > 0 || targetFat > 0) && (() => {
+              const macrosCalories = (targetProtein * 4) + (targetCarbs * 4) + (targetFat * 9);
+              const diff = targetCalories - macrosCalories;
+              const absDiff = Math.abs(diff);
+
+              if (absDiff <= 10) {
+                return (
+                  <div className="mt-3 flex items-center gap-2 text-[13px] text-green-500">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    Macros aligned ({macrosCalories} kcal from macros)
+                  </div>
+                );
+              }
+              if (diff > 10) {
+                return (
+                  <div className="mt-3 flex items-center gap-2 text-[13px] text-amber-500">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                    {diff} kcal unallocated (macros = {macrosCalories} kcal)
+                  </div>
+                );
+              }
+              return (
+                <div className="mt-3 flex items-center gap-2 text-[13px] text-red-500">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                  Over by {absDiff} kcal (macros = {macrosCalories} kcal)
+                </div>
+              );
+            })()}
           </div>
 
           {/* Meals */}
@@ -392,16 +432,30 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
                         <div key={item.id} className="flex items-center gap-2 px-3 py-2">
                           <div className="flex-1 min-w-0">
                             <span className="text-[13px] text-text-primary">{food.name}</span>
-                            <span className="text-[13px] text-text-secondary/50 ml-1">({food.serving_size})</span>
+                            <span className="text-[13px] text-text-secondary/50 ml-1">
+                              ({Math.round(parseGrams(food.serving_size) * item.quantity)}g)
+                            </span>
                           </div>
-                          <input
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) => updateFoodQuantity(meal.id, item.id, Number(e.target.value) || 1)}
-                            min={0.25}
-                            step={0.25}
-                            className="w-16 px-2 py-1 rounded-lg border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] bg-transparent text-text-primary text-[13px] text-center"
-                          />
+                          {(() => {
+                            const baseGrams = parseGrams(food.serving_size);
+                            const actualGrams = Math.round(baseGrams * item.quantity);
+                            return (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  value={actualGrams}
+                                  onChange={(e) => {
+                                    const newGrams = Number(e.target.value) || baseGrams;
+                                    updateFoodQuantity(meal.id, item.id, newGrams / baseGrams);
+                                  }}
+                                  min={1}
+                                  step={5}
+                                  className="w-16 px-2 py-1 rounded-lg border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] bg-transparent text-text-primary text-[13px] text-center"
+                                />
+                                <span className="text-[11px] text-text-secondary/50">g</span>
+                              </div>
+                            );
+                          })()}
                           <span className="text-[13px] text-text-secondary w-16 text-right flex-shrink-0">
                             {Math.round(food.calories * qty)} kcal
                           </span>

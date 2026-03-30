@@ -4,6 +4,18 @@ import { useEffect, useState, useCallback } from "react";
 import MacroDonutChart from "@/components/portal/MacroDonutChart";
 import type { ClientNutritionPlan, MealTracking, NutritionMeal, NutritionMealItem } from "@/lib/types";
 
+function parseGrams(servingSize: string): number {
+  // Extract the number before 'g' from serving size strings
+  // Handles: "150g", "30g scoop", "1 medium ~120g", "100g", "250ml", "1 tbsp ~15ml"
+  const match = servingSize.match(/~?(\d+)\s*g/i);
+  if (match) return parseInt(match[1], 10);
+  // For ml-based items, treat as grams (close enough for tracking)
+  const mlMatch = servingSize.match(/~?(\d+)\s*ml/i);
+  if (mlMatch) return parseInt(mlMatch[1], 10);
+  // For items like "2 large", "1 tablet" etc, use 100 as default
+  return 100;
+}
+
 // Calculate macros for a meal based on its food items and quantities
 function calcMealMacros(meal: NutritionMeal) {
   let calories = 0, protein = 0, carbs = 0, fat = 0;
@@ -219,7 +231,7 @@ export default function PortalNutritionPlanPage() {
                           {food.name}
                         </span>
                         <span className="text-[13px] text-text-secondary/60 ml-2">
-                          {qty !== 1 ? `${qty}x ` : ""}{food.serving_size}
+                          {Math.round(parseGrams(food.serving_size) * qty)}g
                         </span>
                       </div>
                       <span className="text-[13px] text-text-secondary ml-2 flex-shrink-0">
