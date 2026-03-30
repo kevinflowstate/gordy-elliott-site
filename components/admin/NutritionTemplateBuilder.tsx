@@ -30,6 +30,31 @@ const CALORIE_RANGES = [
   { value: "custom", label: "Custom" },
 ];
 
+const QUICK_MEAL_NAMES = ["Pre-Workout", "Post-Workout", "Snack", "Supper", "Morning Snack", "Evening Snack"];
+
+const DAY_PRESETS = [
+  { label: "Standard (1 day)", days: [""] },
+  { label: "Training / Rest (2 days)", days: ["Training Day", "Rest Day"] },
+  { label: "High Carb / Low Carb (2 days)", days: ["High Carb", "Low Carb"] },
+  { label: "High Carb / Moderate / Low Carb (3 days)", days: ["High Carb", "Moderate Carb", "Low Carb"] },
+];
+
+function detectDayVariations(meals: NutritionMeal[]): string[] {
+  if (meals.length === 0) return [];
+  // Check if any meal name contains " - " which indicates a day prefix
+  const hasDayPrefix = meals.some((m) => m.name.includes(" - "));
+  if (!hasDayPrefix) return [];
+  // Extract unique day prefixes
+  const prefixes = new Set<string>();
+  for (const meal of meals) {
+    const idx = meal.name.indexOf(" - ");
+    if (idx > 0) {
+      prefixes.add(meal.name.substring(0, idx));
+    }
+  }
+  return Array.from(prefixes);
+}
+
 function calcMealMacros(meal: NutritionMeal) {
   let calories = 0, protein_g = 0, carbs_g = 0, fat_g = 0;
   for (const item of meal.items) {
@@ -56,7 +81,42 @@ function calcTotalMacros(meals: NutritionMeal[]) {
   return { calories, protein_g, carbs_g, fat_g };
 }
 
+function getNextMealName(existingMeals: NutritionMeal[], dayPrefix: string): string {
+  const baseMeals = ["Breakfast", "Lunch", "Dinner"];
+  const extraMeals = ["Snack 1", "Snack 2", "Pre-Workout", "Post-Workout", "Morning Snack", "Evening Snack"];
+
+  // Build list of existing names (strip prefix for comparison)
+  const existingNames = new Set(
+    existingMeals.map((m) => {
+      const idx = m.name.indexOf(" - ");
+      return idx > 0 ? m.name.substring(idx + 3) : m.name;
+    })
+  );
+
+  // Try base meals first
+  for (const base of baseMeals) {
+    if (!existingNames.has(base)) {
+      return dayPrefix ? `${dayPrefix} - ${base}` : base;
+    }
+  }
+
+  // Then extra meals
+  for (const extra of extraMeals) {
+    if (!existingNames.has(extra)) {
+      return dayPrefix ? `${dayPrefix} - ${extra}` : extra;
+    }
+  }
+
+  // Fallback
+  const n = existingMeals.length + 1;
+  return dayPrefix ? `${dayPrefix} - Meal ${n}` : `Meal ${n}`;
+}
+
 export default function NutritionTemplateBuilder({ template, onSave, onCancel }: NutritionTemplateBuilderProps) {
+  // Detect existing day variations if editing
+  const existingDayVariations = template ? detectDayVariations(template.meals || []) : [];
+  const isExistingMultiDay = existingDayVariations.length > 1;
+
   const [name, setName] = useState(template?.name || "");
   const [description, setDescription] = useState(template?.description || "");
   const [calorieRange, setCalorieRange] = useState(template?.calorie_range || "moderate");
@@ -73,6 +133,20 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
   );
   const [pickerMealId, setPickerMealId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Day variations state
+  const [setupComplete, setSetupComplete] = useState(!!template); // true when editing existing
+  const [dayVariations, setDayVariations] = useState<string[]>(
+    isExistingMultiDay ? existingDayVariations : []
+  );
+  const [activeDay, setActiveDay] = useState(0);
+
+  // Setup screen state
+  const [setupDayCount, setSetupDayCount] = useState<number>(1);
+  const [setupDayNames, setSetupDayNames] = useState<string[]>(["Day 1"]);
+
+  // Meal name focus state for quick-name buttons
+  const [focusedMealId, setFocusedMealId] = useState<string | null>(null);
 
   // TDEE helper state
   const [showTdee, setShowTdee] = useState(false);
@@ -103,12 +177,70 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
     setShowTdee(false);
   };
 
+  // Setup screen handlers
+  const applyPreset = (preset: { label: string; days: string[] }) => {
+    const count = preset.days.filter((d) => d !== "").length || 1;
+    if (preset.days[0] === "") {
+      // Single day / standard
+      setSetupDayCount(1);
+      setSetupDayNames([""]);
+    } else {
+      setSetupDayCount(count);
+      setSetupDayNames([...preset.days]);
+    }
+  };
+
+  const handleSetupDayCount = (count: number) => {
+    setSetupDayCount(count);
+    // Build default names
+    const defaultNames = Array.from({ length: count }, (_, i) => `Day ${i + 1}`);
+    setSetupDayNames(defaultNames);
+  };
+
+  const handleSetupComplete = () => {
+    const isSingleDay = setupDayCount === 1 || setupDayNames.every((n) => n === "");
+    if (isSingleDay) {
+      // Single day - no prefixes
+      setDayVariations([]);
+      setMeals([
+        { id: crypto.randomUUID(), name: "Breakfast", order_index: 0, items: [] },
+        { id: crypto.randomUUID(), name: "Lunch", order_index: 1, items: [] },
+        { id: crypto.randomUUID(), name: "Dinner", order_index: 2, items: [] },
+      ]);
+    } else {
+      // Multi-day - create meals for each day
+      setDayVariations(setupDayNames);
+      const newMeals: NutritionMeal[] = [];
+      let orderIdx = 0;
+      for (const dayName of setupDayNames) {
+        newMeals.push({ id: crypto.randomUUID(), name: `${dayName} - Breakfast`, order_index: orderIdx++, items: [] });
+        newMeals.push({ id: crypto.randomUUID(), name: `${dayName} - Lunch`, order_index: orderIdx++, items: [] });
+        newMeals.push({ id: crypto.randomUUID(), name: `${dayName} - Dinner`, order_index: orderIdx++, items: [] });
+      }
+      setMeals(newMeals);
+    }
+    setActiveDay(0);
+    setSetupComplete(true);
+  };
+
+  // Determine the active day prefix for filtering
+  const activeDayPrefix = dayVariations.length > 1 ? dayVariations[activeDay] : null;
+
+  // Filter meals for the active day (or all if single day)
+  const visibleMeals = activeDayPrefix
+    ? meals.filter((m) => m.name.startsWith(activeDayPrefix + " - "))
+    : meals;
+
   const addMeal = () => {
+    const dayMeals = activeDayPrefix
+      ? meals.filter((m) => m.name.startsWith(activeDayPrefix + " - "))
+      : meals;
+    const newName = getNextMealName(dayMeals, activeDayPrefix || "");
     setMeals([
       ...meals,
       {
         id: crypto.randomUUID(),
-        name: `Meal ${meals.length + 1}`,
+        name: newName,
         order_index: meals.length,
         items: [],
       },
@@ -189,9 +321,146 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
     setSaving(false);
   };
 
-  const totals = calcTotalMacros(meals);
+  const totals = calcTotalMacros(visibleMeals);
   const targets = targetCalories ? { calories: targetCalories, protein_g: targetProtein, carbs_g: targetCarbs, fat_g: targetFat } : null;
 
+  // Setup screen
+  if (!setupComplete) {
+    return (
+      <div className="fixed inset-0 z-40 flex">
+        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onCancel} />
+        <div className="relative ml-auto w-full max-w-3xl bg-bg-primary border-l border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] overflow-y-auto flex flex-col">
+          <div className="sticky top-0 z-10 bg-bg-primary/95 backdrop-blur border-b border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-text-primary">New Nutrition Template</h2>
+              <button onClick={onCancel} className="px-4 py-2 rounded-xl border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] text-text-secondary text-[13px]">
+                Cancel
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-8 flex-1">
+            <div>
+              <h3 className="text-lg font-bold text-text-primary mb-1">Day Variations</h3>
+              <p className="text-[13px] text-text-secondary mb-6">How many day types does this plan need?</p>
+
+              {/* Day count selector */}
+              <div className="flex gap-2 mb-6">
+                {[1, 2, 3].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => handleSetupDayCount(n)}
+                    className={`px-5 py-2.5 rounded-xl font-semibold text-[13px] transition-colors ${
+                      setupDayCount === n && setupDayNames[0] !== "" || (n === 1 && setupDayCount === 1 && setupDayNames[0] === "")
+                        ? "bg-accent-bright text-black"
+                        : "bg-bg-card border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    {n} {n === 1 ? "Day" : "Days"}
+                  </button>
+                ))}
+                <button
+                  onClick={() => handleSetupDayCount(4)}
+                  className={`px-5 py-2.5 rounded-xl font-semibold text-[13px] transition-colors ${
+                    setupDayCount >= 4
+                      ? "bg-accent-bright text-black"
+                      : "bg-bg-card border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] text-text-secondary hover:text-text-primary"
+                  }`}
+                >
+                  Custom
+                </button>
+              </div>
+
+              {/* Presets */}
+              <div className="mb-6">
+                <p className="text-[12px] text-text-secondary font-medium uppercase tracking-wide mb-3">Quick presets</p>
+                <div className="space-y-2">
+                  {DAY_PRESETS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      onClick={() => applyPreset(preset)}
+                      className="w-full text-left px-4 py-3 rounded-xl bg-bg-card border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] hover:border-accent-bright/40 transition-colors group"
+                    >
+                      <span className="text-[13px] font-medium text-text-primary group-hover:text-accent-bright transition-colors">
+                        {preset.label}
+                      </span>
+                      {preset.days[0] !== "" && (
+                        <span className="text-[12px] text-text-secondary ml-2">
+                          ({preset.days.join(", ")})
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Day name inputs */}
+              {setupDayCount > 1 && (
+                <div className="mb-6">
+                  <p className="text-[12px] text-text-secondary font-medium uppercase tracking-wide mb-3">Day names</p>
+                  <div className="space-y-2">
+                    {setupDayNames.map((dayName, idx) => (
+                      <div key={idx} className="flex items-center gap-3">
+                        <span className="text-[13px] text-text-secondary w-14 flex-shrink-0">Day {idx + 1}</span>
+                        <input
+                          type="text"
+                          value={dayName}
+                          onChange={(e) => {
+                            const updated = [...setupDayNames];
+                            updated[idx] = e.target.value;
+                            setSetupDayNames(updated);
+                          }}
+                          placeholder={`Day ${idx + 1} name...`}
+                          className="flex-1 px-3 py-2 rounded-xl border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] bg-transparent text-text-primary text-[13px] focus:border-accent-bright focus:outline-none"
+                        />
+                      </div>
+                    ))}
+                    {/* Add/remove day buttons for custom count */}
+                    {setupDayCount >= 4 && (
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          onClick={() => {
+                            const newCount = setupDayCount + 1;
+                            setSetupDayCount(newCount);
+                            setSetupDayNames([...setupDayNames, `Day ${newCount}`]);
+                          }}
+                          className="text-[12px] text-accent-bright hover:underline"
+                        >
+                          + Add day
+                        </button>
+                        {setupDayCount > 4 && (
+                          <button
+                            onClick={() => {
+                              setSetupDayCount(setupDayCount - 1);
+                              setSetupDayNames(setupDayNames.slice(0, -1));
+                            }}
+                            className="text-[12px] text-red-400 hover:underline"
+                          >
+                            Remove last
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="p-4 border-t border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)]">
+            <button
+              onClick={handleSetupComplete}
+              className="w-full py-3 rounded-xl bg-accent-bright text-black font-semibold text-[14px] hover:opacity-90 transition-opacity"
+            >
+              Continue to Builder
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Main builder
   return (
     <div className="fixed inset-0 z-40 flex">
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onCancel} />
@@ -394,32 +663,83 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
               </button>
             </div>
 
-            {meals.map((meal) => {
+            {/* Day variation tabs */}
+            {dayVariations.length > 1 && (
+              <div className="flex gap-2 flex-wrap">
+                {dayVariations.map((dayName, idx) => (
+                  <button
+                    key={dayName}
+                    onClick={() => setActiveDay(idx)}
+                    className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-colors ${
+                      activeDay === idx
+                        ? "bg-accent-bright text-black"
+                        : "bg-bg-card border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    {dayName}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {visibleMeals.map((meal) => {
               const mealMacros = calcMealMacros(meal);
+              const isFocused = focusedMealId === meal.id;
+              // Get display name (strip day prefix for placeholder)
+              const baseName = activeDayPrefix && meal.name.startsWith(activeDayPrefix + " - ")
+                ? meal.name.substring(activeDayPrefix.length + 3)
+                : meal.name;
+              const isEmpty = baseName.trim() === "" || baseName.startsWith("Meal ");
+
               return (
                 <div
                   key={meal.id}
                   className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] rounded-2xl overflow-hidden"
                 >
                   {/* Meal header */}
-                  <div className="flex items-center gap-3 p-3 border-b border-[rgba(0,0,0,0.04)] dark:border-[rgba(255,255,255,0.04)]">
-                    <input
-                      type="text"
-                      value={meal.name}
-                      onChange={(e) => updateMealName(meal.id, e.target.value)}
-                      className="flex-1 px-2 py-1 rounded-lg border border-transparent hover:border-[rgba(0,0,0,0.08)] dark:hover:border-[rgba(255,255,255,0.08)] bg-transparent text-text-primary font-semibold text-[14px] focus:border-accent-bright focus:outline-none"
-                    />
-                    <span className="text-[13px] text-text-secondary flex-shrink-0">
-                      {Math.round(mealMacros.calories)} kcal
-                    </span>
-                    <button
-                      onClick={() => removeMeal(meal.id)}
-                      className="text-red-400 hover:text-red-500 flex-shrink-0"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                  <div className="flex flex-col gap-1 p-3 border-b border-[rgba(0,0,0,0.04)] dark:border-[rgba(255,255,255,0.04)]">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="text"
+                        value={meal.name}
+                        onChange={(e) => updateMealName(meal.id, e.target.value)}
+                        onFocus={() => setFocusedMealId(meal.id)}
+                        onBlur={() => setTimeout(() => setFocusedMealId(null), 150)}
+                        placeholder="Meal name (e.g. Pre-Workout, Snack 1)..."
+                        className="flex-1 px-2 py-1 rounded-lg border border-transparent hover:border-[rgba(0,0,0,0.08)] dark:hover:border-[rgba(255,255,255,0.08)] bg-transparent text-text-primary font-semibold text-[14px] focus:border-accent-bright focus:outline-none placeholder:text-text-secondary/40 placeholder:font-normal"
+                      />
+                      <span className="text-[13px] text-text-secondary flex-shrink-0">
+                        {Math.round(mealMacros.calories)} kcal
+                      </span>
+                      <button
+                        onClick={() => removeMeal(meal.id)}
+                        className="text-red-400 hover:text-red-500 flex-shrink-0"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    {/* Quick name buttons - show when focused or name is a placeholder */}
+                    {(isFocused || isEmpty) && (
+                      <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                        <span className="text-[11px] text-text-secondary/60">Quick:</span>
+                        {QUICK_MEAL_NAMES.map((qn) => (
+                          <button
+                            key={qn}
+                            onMouseDown={(e) => {
+                              e.preventDefault(); // prevent blur firing before click
+                              const fullName = activeDayPrefix ? `${activeDayPrefix} - ${qn}` : qn;
+                              updateMealName(meal.id, fullName);
+                            }}
+                            className="px-2 py-0.5 rounded-md bg-accent-bright/10 text-accent-bright text-[11px] font-medium hover:bg-accent-bright/20 transition-colors"
+                          >
+                            {qn}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Food items */}
