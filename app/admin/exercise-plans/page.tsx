@@ -22,9 +22,10 @@ export default function ExercisePlansPage() {
   const [categoryFilter, setCategoryFilter] = useState<Category | "all">("all");
   const [search, setSearch] = useState("");
 
-  // Builder state
+  // Builder & preview state
   const [builderOpen, setBuilderOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ExerciseTemplate | undefined>(undefined);
+  const [viewingTemplate, setViewingTemplate] = useState<ExerciseTemplate | null>(null);
 
   async function loadTemplates() {
     try {
@@ -219,11 +220,21 @@ export default function ExercisePlansPage() {
             <TemplateCard
               key={template.id}
               template={template}
+              onView={() => setViewingTemplate(template)}
               onEdit={() => openEdit(template)}
               onDelete={() => handleDelete(template.id, template.name)}
             />
           ))}
         </div>
+      )}
+
+      {/* Template Preview */}
+      {viewingTemplate && (
+        <TemplatePreview
+          template={viewingTemplate}
+          onEdit={() => { setViewingTemplate(null); openEdit(viewingTemplate); }}
+          onClose={() => setViewingTemplate(null)}
+        />
       )}
 
       {/* Builder */}
@@ -240,20 +251,21 @@ export default function ExercisePlansPage() {
 
 interface TemplateCardProps {
   template: ExerciseTemplate;
+  onView: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }
 
-function TemplateCard({ template, onEdit, onDelete }: TemplateCardProps) {
+function TemplateCard({ template, onView, onEdit, onDelete }: TemplateCardProps) {
   const categoryColor = CATEGORY_COLORS[template.category] || CATEGORY_COLORS.general;
   const totalExercises = template.sessions.reduce((sum, s) => sum + s.items.length, 0);
 
   return (
     <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden hover:border-accent/20 transition-colors group">
-      {/* Card body - clickable to edit */}
+      {/* Card body - clickable to preview */}
       <button
         type="button"
-        onClick={onEdit}
+        onClick={onView}
         className="w-full text-left p-5 cursor-pointer"
       >
         <div className="flex items-start justify-between gap-3 mb-3">
@@ -315,6 +327,152 @@ function TemplateCard({ template, onEdit, onDelete }: TemplateCardProps) {
           </svg>
           Delete
         </button>
+      </div>
+    </div>
+  );
+}
+
+// Read-only preview of a template
+interface TemplatePreviewProps {
+  template: ExerciseTemplate;
+  onEdit: () => void;
+  onClose: () => void;
+}
+
+function TemplatePreview({ template, onEdit, onClose }: TemplatePreviewProps) {
+  const categoryColor = CATEGORY_COLORS[template.category] || CATEGORY_COLORS.general;
+  const totalExercises = template.sessions.reduce((sum, s) => sum + s.items.filter(i => i.exercise_id !== "__section__").length, 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative ml-auto w-full max-w-2xl bg-bg-primary border-l border-[rgba(0,0,0,0.08)] overflow-y-auto">
+        {/* Header */}
+        <div className="sticky top-0 z-10 bg-bg-primary/95 backdrop-blur-sm border-b border-[rgba(0,0,0,0.06)] px-6 py-4 flex items-center justify-between">
+          <h2 className="text-lg font-heading font-bold text-text-primary">{template.name}</h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onEdit}
+              className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary border border-[rgba(0,0,0,0.08)] rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Edit Template
+            </button>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-medium text-text-muted hover:text-text-primary border border-[rgba(0,0,0,0.08)] rounded-lg transition-colors cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Template info */}
+          <div className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                {template.description && (
+                  <p className="text-sm text-text-secondary mb-3">{template.description}</p>
+                )}
+                <div className="flex items-center gap-3 text-[13px] text-text-muted">
+                  <span className={`text-[11px] px-2.5 py-1 rounded-full font-semibold border capitalize ${categoryColor}`}>
+                    {template.category}
+                  </span>
+                  {template.duration_weeks && <span>{template.duration_weeks} weeks</span>}
+                  <span>{template.sessions.length} session{template.sessions.length !== 1 ? "s" : ""}</span>
+                  <span>{totalExercises} exercise{totalExercises !== 1 ? "s" : ""}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Sessions */}
+          {template.sessions.map((session) => {
+            const exerciseItems = session.items.filter(i => i.exercise_id !== "__section__");
+            return (
+              <div key={session.id} className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
+                {/* Session header */}
+                <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.04)] flex items-center gap-3">
+                  <span className="w-7 h-7 rounded-lg bg-accent/10 flex items-center justify-center text-xs font-bold text-accent-bright flex-shrink-0">
+                    {session.day_number}
+                  </span>
+                  <h3 className="text-sm font-semibold text-text-primary">{session.name}</h3>
+                  <span className="text-[11px] text-text-muted ml-auto">{exerciseItems.length} exercises</span>
+                </div>
+
+                {session.notes && (
+                  <div className="px-5 py-2 bg-accent-bright/5 text-[13px] text-text-secondary italic border-b border-[rgba(0,0,0,0.04)]">
+                    {session.notes}
+                  </div>
+                )}
+
+                {/* Exercises */}
+                <div className="divide-y divide-[rgba(0,0,0,0.03)]">
+                  {session.items.map((item) => {
+                    // Section divider
+                    if (item.exercise_id === "__section__") {
+                      return (
+                        <div key={item.id} className="flex items-center gap-3 px-5 pt-4 pb-1">
+                          <svg className="w-4 h-4 text-accent-bright flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16" />
+                          </svg>
+                          <span className="text-[12px] font-bold text-accent-bright uppercase tracking-wider">
+                            {item.section_label || "Section"}
+                          </span>
+                          <div className="flex-1 border-t border-accent-bright/20" />
+                        </div>
+                      );
+                    }
+
+                    const inSuperset = !!item.superset_group;
+                    return (
+                      <div
+                        key={item.id}
+                        className={`px-5 py-3 flex items-start gap-3 ${inSuperset ? "border-l-2 border-accent-bright ml-4" : ""}`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-[13px] font-medium text-text-primary">
+                                {item.exercise?.name || "Unknown"}
+                              </h4>
+                              {inSuperset && (
+                                <span className="text-[9px] font-bold text-accent-bright uppercase bg-accent-bright/10 px-1.5 py-0.5 rounded">
+                                  SS
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex gap-2 flex-shrink-0">
+                              <span className="text-[13px] px-2 py-0.5 rounded-md bg-accent-bright/10 text-accent-bright font-medium">
+                                {item.sets} x {item.reps}
+                              </span>
+                              {item.rest_seconds && (
+                                <span className="text-[13px] px-2 py-0.5 rounded-md bg-[rgba(0,0,0,0.04)] text-text-secondary">
+                                  {item.rest_seconds}s rest
+                                </span>
+                              )}
+                              {item.tempo && (
+                                <span className="text-[13px] px-2 py-0.5 rounded-md bg-[rgba(0,0,0,0.04)] text-text-secondary">
+                                  {item.tempo}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {item.notes && (
+                            <p className="text-[13px] text-accent-bright/70 mt-1 italic">{item.notes}</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
