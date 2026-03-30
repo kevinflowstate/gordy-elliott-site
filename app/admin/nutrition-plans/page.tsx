@@ -13,7 +13,6 @@ export default function NutritionPlansPage() {
   const [calorieFilter, setCalorieFilter] = useState("All");
 
   const fetchTemplates = useCallback(() => {
-    setLoading(true);
     fetch("/api/admin/nutrition-templates")
       .then((r) => r.json())
       .then((data) => setTemplates(data.templates || []))
@@ -33,6 +32,7 @@ export default function NutritionPlansPage() {
         body: JSON.stringify({ template }),
       });
       if (res.ok) {
+        setLoading(true);
         setShowBuilder(false);
         setEditingTemplate(undefined);
         fetchTemplates();
@@ -45,6 +45,7 @@ export default function NutritionPlansPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this template?")) return;
     try {
+      setLoading(true);
       await fetch("/api/admin/nutrition-templates", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -77,20 +78,6 @@ export default function NutritionPlansPage() {
       }
     }
     return { calories: Math.round(calories), protein: Math.round(protein), carbs: Math.round(carbs), fat: Math.round(fat) };
-  };
-
-  const rangeLabel: Record<string, string> = {
-    low: "Low Calorie",
-    moderate: "Moderate",
-    high: "High Calorie",
-    custom: "Custom",
-  };
-
-  const rangeColor: Record<string, string> = {
-    low: "bg-blue-500/10 text-blue-500",
-    moderate: "bg-green-500/10 text-green-500",
-    high: "bg-orange-500/10 text-orange-500",
-    custom: "bg-purple-500/10 text-purple-500",
   };
 
   return (

@@ -27,7 +27,6 @@ export default function ExercisePicker({ onPick, onClose }: ExercisePickerProps)
     if (muscleGroup) params.set("muscle_group", muscleGroup);
     if (equipment) params.set("equipment", equipment);
 
-    setLoading(true);
     fetch(`/api/admin/exercises?${params.toString()}`)
       .then((r) => r.ok ? r.json() : { exercises: [] })
       .then((d) => setExercises(d.exercises || []))
@@ -67,14 +66,20 @@ export default function ExercisePicker({ onPick, onClose }: ExercisePickerProps)
             ref={searchRef}
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setLoading(true);
+              setSearch(e.target.value);
+            }}
             placeholder="Search exercises..."
             className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
           />
           <div className="flex gap-2">
             <select
               value={muscleGroup}
-              onChange={(e) => setMuscleGroup(e.target.value)}
+              onChange={(e) => {
+                setLoading(true);
+                setMuscleGroup(e.target.value);
+              }}
               className="flex-1 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent/40 transition-colors cursor-pointer"
             >
               <option value="">All muscle groups</option>
@@ -84,7 +89,10 @@ export default function ExercisePicker({ onPick, onClose }: ExercisePickerProps)
             </select>
             <select
               value={equipment}
-              onChange={(e) => setEquipment(e.target.value)}
+              onChange={(e) => {
+                setLoading(true);
+                setEquipment(e.target.value);
+              }}
               className="flex-1 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent/40 transition-colors cursor-pointer"
             >
               <option value="">All equipment</option>
@@ -107,7 +115,12 @@ export default function ExercisePicker({ onPick, onClose }: ExercisePickerProps)
               {(search || muscleGroup || equipment) && (
                 <button
                   type="button"
-                  onClick={() => { setSearch(""); setMuscleGroup(""); setEquipment(""); }}
+                  onClick={() => {
+                    setLoading(true);
+                    setSearch("");
+                    setMuscleGroup("");
+                    setEquipment("");
+                  }}
                   className="mt-2 text-xs text-accent-bright hover:underline cursor-pointer"
                 >
                   Clear filters

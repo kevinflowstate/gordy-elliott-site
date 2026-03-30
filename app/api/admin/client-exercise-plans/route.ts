@@ -176,6 +176,8 @@ export async function POST(request: Request) {
             rest_seconds: item.rest_seconds,
             tempo: item.tempo,
             notes: item.notes,
+            section_label: item.section_label,
+            superset_group: item.superset_group,
           }))
         );
       }
