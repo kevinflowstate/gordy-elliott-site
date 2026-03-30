@@ -139,11 +139,11 @@ export default function NutritionPlansPage() {
         </select>
       </div>
 
-      {/* Templates grid */}
+      {/* Templates table */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="animate-pulse h-48 bg-[rgba(0,0,0,0.06)] dark:bg-[rgba(255,255,255,0.06)] rounded-2xl" />
+            <div key={i} className="animate-pulse h-16 bg-[rgba(0,0,0,0.06)] dark:bg-[rgba(255,255,255,0.06)] rounded-2xl" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
@@ -152,54 +152,87 @@ export default function NutritionPlansPage() {
           <p className="text-text-secondary/60 text-[13px] mt-1">Create your first template to get started.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((t) => {
+        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] rounded-2xl overflow-hidden">
+          {/* Table header */}
+          <div className="grid grid-cols-[1fr_100px_80px_120px_120px_120px_80px] gap-2 px-5 py-3 border-b border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.02)] dark:bg-[rgba(255,255,255,0.02)]">
+            <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider">Plan Name</span>
+            <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider text-center">Calories</span>
+            <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider text-center">Meals</span>
+            <span className="text-[11px] font-semibold text-blue-500 uppercase tracking-wider text-center">Protein</span>
+            <span className="text-[11px] font-semibold text-accent-bright uppercase tracking-wider text-center">Carbs</span>
+            <span className="text-[11px] font-semibold text-red-500 uppercase tracking-wider text-center">Fat</span>
+            <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider text-center">Actions</span>
+          </div>
+
+          {/* Table rows */}
+          {filtered.map((t, idx) => {
             const macros = calcTemplateMacros(t);
+            const rowColors = [
+              "bg-blue-500/5 hover:bg-blue-500/10",
+              "bg-accent-bright/5 hover:bg-accent-bright/10",
+              "bg-purple-500/5 hover:bg-purple-500/10",
+              "bg-emerald-500/5 hover:bg-emerald-500/10",
+              "bg-orange-500/5 hover:bg-orange-500/10",
+            ];
+            const rowColor = rowColors[idx % rowColors.length];
+
             return (
               <div
                 key={t.id}
-                className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] rounded-2xl p-4 hover:border-accent-bright/20 transition-colors cursor-pointer group"
                 onClick={() => { setEditingTemplate(t); setShowBuilder(true); }}
+                className={`grid grid-cols-[1fr_100px_80px_120px_120px_120px_80px] gap-2 px-5 py-4 items-center cursor-pointer transition-colors border-b border-[rgba(0,0,0,0.03)] dark:border-[rgba(255,255,255,0.03)] last:border-0 ${rowColor}`}
               >
-                <div className="flex items-start justify-between mb-3">
-                  <h3 className="font-semibold text-text-primary group-hover:text-accent-bright transition-colors">
-                    {t.name}
-                  </h3>
+                {/* Name + description */}
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-text-primary text-[14px] truncate">{t.name}</h3>
+                  {t.description && (
+                    <p className="text-[12px] text-text-secondary/60 truncate mt-0.5">{t.description}</p>
+                  )}
+                </div>
+
+                {/* Calories */}
+                <div className="text-center">
+                  <span className="text-[14px] font-bold text-text-primary">{macros.calories}</span>
+                  <span className="text-[11px] text-text-secondary/50 ml-0.5">kcal</span>
+                </div>
+
+                {/* Meals */}
+                <div className="text-center">
+                  <span className="text-[14px] font-semibold text-text-primary">{t.meals.length}</span>
+                </div>
+
+                {/* Protein */}
+                <div className="text-center">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-500 font-bold text-[13px]">
+                    {macros.protein}g
+                  </span>
+                </div>
+
+                {/* Carbs */}
+                <div className="text-center">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-accent-bright/10 text-accent-bright font-bold text-[13px]">
+                    {macros.carbs}g
+                  </span>
+                </div>
+
+                {/* Fat */}
+                <div className="text-center">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-500/10 text-red-500 font-bold text-[13px]">
+                    {macros.fat}g
+                  </span>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-center gap-1">
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }}
-                    className="text-text-secondary/30 hover:text-red-400 transition-colors"
+                    className="p-1.5 text-text-secondary/30 hover:text-red-400 transition-colors rounded-lg hover:bg-red-500/10"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
                   </button>
                 </div>
-
-                {t.description && (
-                  <p className="text-[13px] text-text-secondary mb-3 line-clamp-2">{t.description}</p>
-                )}
-
-                <div className="flex gap-2 mb-3">
-                  <span className={`text-[13px] px-2 py-0.5 rounded-full font-medium ${rangeColor[t.calorie_range] || rangeColor.custom}`}>
-                    {rangeLabel[t.calorie_range] || t.calorie_range}
-                  </span>
-                  <span className="text-[13px] px-2 py-0.5 rounded-full bg-[rgba(0,0,0,0.04)] dark:bg-[rgba(255,255,255,0.06)] text-text-secondary">
-                    {t.meals.length} meals
-                  </span>
-                </div>
-
-                <div className="flex gap-3 text-[13px]">
-                  <span className="text-text-primary font-medium">{macros.calories} kcal</span>
-                  <span className="text-blue-500">{macros.protein}g P</span>
-                  <span className="text-accent-bright">{macros.carbs}g C</span>
-                  <span className="text-red-500">{macros.fat}g F</span>
-                </div>
-
-                {t.target_calories && (
-                  <div className="mt-2 text-[13px] text-text-secondary/50">
-                    Target: {t.target_calories} kcal
-                  </div>
-                )}
               </div>
             );
           })}
