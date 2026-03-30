@@ -1166,7 +1166,7 @@ export default function ClientDetailPage() {
             <button
               onClick={() => setShowExercisePicker(true)}
               disabled={assigningExercise}
-              className="px-3 py-1.5 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5 disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1221,7 +1221,7 @@ export default function ClientDetailPage() {
             <button
               onClick={() => setShowNutritionPicker(true)}
               disabled={assigningNutrition}
-              className="px-3 py-1.5 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5 disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
