@@ -5,6 +5,13 @@ import FoodPicker from "./FoodPicker";
 import MacroSummaryBar from "./MacroSummaryBar";
 import type { NutritionTemplate, NutritionMeal, NutritionMealItem, Food } from "@/lib/types";
 
+interface SavedMeal {
+  id: string;
+  name: string;
+  items: { food_id: string; food_name: string; quantity: number }[];
+  created_at: string;
+}
+
 function parseGrams(servingSize: string): number {
   // Extract the number before 'g' from serving size strings
   // Handles: "150g", "30g scoop", "1 medium ~120g", "100g", "250ml", "1 tbsp ~15ml"
@@ -147,6 +154,14 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
 
   // Meal name focus state for quick-name buttons
   const [focusedMealId, setFocusedMealId] = useState<string | null>(null);
+
+  // Saved meals state
+  const [savingMealId, setSavingMealId] = useState<string | null>(null);
+  const [saveMealName, setSaveMealName] = useState("");
+  const [saveMealConfirm, setSaveMealConfirm] = useState<string | null>(null); // mealId that just saved
+  const [showLoadSaved, setShowLoadSaved] = useState(false);
+  const [savedMeals, setSavedMeals] = useState<SavedMeal[]>([]);
+  const [loadingSaved, setLoadingSaved] = useState(false);
 
   // TDEE helper state
   const [showTdee, setShowTdee] = useState(false);
@@ -298,6 +313,90 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
         return { ...m, items: m.items.map((i) => (i.id === itemId ? { ...i, notes } : i)) };
       })
     );
+  };
+
+  const handleSaveMeal = async (meal: NutritionMeal) => {
+    const nameToSave = saveMealName.trim() || meal.name;
+    const items = meal.items.map((item) => ({
+      food_id: item.food_id,
+      food_name: item.food?.name || "",
+      quantity: item.quantity,
+    }));
+    try {
+      await fetch("/api/admin/saved-meals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: nameToSave, items }),
+      });
+      setSavingMealId(null);
+      setSaveMealName("");
+      setSaveMealConfirm(meal.id);
+      setTimeout(() => setSaveMealConfirm(null), 2000);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleOpenLoadSaved = async () => {
+    setShowLoadSaved(true);
+    setLoadingSaved(true);
+    try {
+      const res = await fetch("/api/admin/saved-meals");
+      const data = await res.json();
+      setSavedMeals(data.saved_meals || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingSaved(false);
+    }
+  };
+
+  const handleLoadSavedMeal = async (saved: SavedMeal) => {
+    setShowLoadSaved(false);
+    // Fetch all foods to build a lookup map
+    const res = await fetch("/api/admin/foods");
+    const data = await res.json();
+    const foodMap = new Map<string, Food>();
+    for (const f of (data.foods || []) as Food[]) {
+      foodMap.set(f.id, f);
+    }
+
+    const newItems: NutritionMealItem[] = [];
+    for (const si of saved.items) {
+      const food = foodMap.get(si.food_id);
+      if (!food) continue; // skip deleted foods
+      newItems.push({
+        id: crypto.randomUUID(),
+        meal_id: "",
+        food_id: si.food_id,
+        food,
+        quantity: si.quantity,
+        order_index: newItems.length,
+      });
+    }
+
+    const newMealId = crypto.randomUUID();
+    const mealName = activeDayPrefix ? `${activeDayPrefix} - ${saved.name}` : saved.name;
+    const newMeal: NutritionMeal = {
+      id: newMealId,
+      name: mealName,
+      order_index: meals.length,
+      items: newItems.map((i) => ({ ...i, meal_id: newMealId })),
+    };
+    setMeals([...meals, newMeal]);
+  };
+
+  const handleDeleteSavedMeal = async (id: string) => {
+    try {
+      await fetch("/api/admin/saved-meals", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      setSavedMeals((prev) => prev.filter((m) => m.id !== id));
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleSave = async () => {
@@ -655,13 +754,62 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-text-primary">Meals</h3>
-              <button
-                onClick={addMeal}
-                className="text-[13px] px-3 py-1.5 rounded-xl bg-accent-bright/10 text-accent-bright font-medium hover:bg-accent-bright/20 transition-colors"
-              >
-                + Add Meal
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleOpenLoadSaved}
+                  className="text-[13px] px-3 py-1.5 rounded-xl border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] text-text-secondary font-medium hover:text-text-primary transition-colors"
+                >
+                  + Load Saved Meal
+                </button>
+                <button
+                  onClick={addMeal}
+                  className="text-[13px] px-3 py-1.5 rounded-xl bg-accent-bright/10 text-accent-bright font-medium hover:bg-accent-bright/20 transition-colors"
+                >
+                  + Add Meal
+                </button>
+              </div>
             </div>
+
+            {/* Load Saved Meal popup */}
+            {showLoadSaved && (
+              <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold text-text-primary text-[14px]">Saved Meals</h4>
+                  <button onClick={() => setShowLoadSaved(false)} className="text-text-secondary hover:text-text-primary">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                {loadingSaved ? (
+                  <p className="text-[13px] text-text-secondary">Loading...</p>
+                ) : savedMeals.length === 0 ? (
+                  <p className="text-[13px] text-text-secondary">No saved meals yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {savedMeals.map((sm) => (
+                      <div key={sm.id} className="flex items-center justify-between gap-3 p-2.5 rounded-xl hover:bg-[rgba(0,0,0,0.03)] dark:hover:bg-[rgba(255,255,255,0.03)]">
+                        <button
+                          onClick={() => handleLoadSavedMeal(sm)}
+                          className="flex-1 text-left"
+                        >
+                          <span className="text-[13px] font-medium text-text-primary">{sm.name}</span>
+                          <span className="text-[12px] text-text-secondary ml-2">{sm.items.length} items</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSavedMeal(sm.id)}
+                          className="text-text-secondary/40 hover:text-red-400 flex-shrink-0"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Day variation tabs */}
             {dayVariations.length > 1 && (
@@ -711,6 +859,22 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
                       <span className="text-[13px] text-text-secondary flex-shrink-0">
                         {Math.round(mealMacros.calories)} kcal
                       </span>
+                      {saveMealConfirm === meal.id ? (
+                        <span className="text-[12px] text-green-500 flex-shrink-0">Saved!</span>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setSavingMealId(meal.id);
+                            setSaveMealName(meal.name);
+                          }}
+                          title="Save meal as preset"
+                          className="text-text-secondary/50 hover:text-accent-bright flex-shrink-0"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                          </svg>
+                        </button>
+                      )}
                       <button
                         onClick={() => removeMeal(meal.id)}
                         className="text-red-400 hover:text-red-500 flex-shrink-0"
@@ -720,6 +884,32 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
                         </svg>
                       </button>
                     </div>
+
+                    {/* Save meal name input */}
+                    {savingMealId === meal.id && (
+                      <div className="flex items-center gap-2 pt-1">
+                        <input
+                          type="text"
+                          value={saveMealName}
+                          onChange={(e) => setSaveMealName(e.target.value)}
+                          placeholder="Preset name..."
+                          autoFocus
+                          className="flex-1 px-2.5 py-1 rounded-lg border border-accent-bright/30 bg-transparent text-text-primary text-[13px] focus:border-accent-bright focus:outline-none"
+                        />
+                        <button
+                          onClick={() => handleSaveMeal(meal)}
+                          className="px-3 py-1 rounded-lg bg-accent-bright text-black text-[12px] font-semibold"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => { setSavingMealId(null); setSaveMealName(""); }}
+                          className="text-text-secondary hover:text-text-primary text-[12px]"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
 
                     {/* Quick name buttons - show when focused or name is a placeholder */}
                     {(isFocused || isEmpty) && (
