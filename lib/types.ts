@@ -221,6 +221,8 @@ export interface ExerciseSessionItem {
   rest_seconds?: number;
   tempo?: string;
   notes?: string;
+  section_label?: string;
+  superset_group?: string;
 }
 
 export interface ExerciseSession {

@@ -111,49 +111,75 @@ export default function PortalExercisePlanPage() {
                   )}
                   {session.items.map((item, idx) => {
                     const exercise = item.exercise;
+                    const nextItem = session.items[idx + 1];
+                    const inSuperset = !!item.superset_group;
+                    const isLastInSuperset = inSuperset && (!nextItem || nextItem.superset_group !== item.superset_group);
                     return (
-                      <div
-                        key={item.id}
-                        className={`px-4 py-3 flex items-start gap-3 ${
-                          idx < session.items.length - 1
-                            ? "border-b border-[rgba(0,0,0,0.04)] dark:border-[rgba(255,255,255,0.04)]"
-                            : ""
-                        }`}
-                      >
-                        <span className="w-6 h-6 rounded-full bg-[rgba(0,0,0,0.04)] dark:bg-[rgba(255,255,255,0.06)] text-text-secondary text-[13px] font-medium flex items-center justify-center flex-shrink-0 mt-0.5">
-                          {idx + 1}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <h4 className="font-medium text-text-primary">
-                              {exercise?.name || "Unknown Exercise"}
-                            </h4>
-                            <div className="flex gap-2 flex-shrink-0">
-                              <span className="text-[13px] px-2 py-0.5 rounded-md bg-accent-bright/10 text-accent-bright font-medium">
-                                {item.sets} x {item.reps}
-                              </span>
-                              {item.rest_seconds && (
-                                <span className="text-[13px] px-2 py-0.5 rounded-md bg-[rgba(0,0,0,0.04)] dark:bg-[rgba(255,255,255,0.06)] text-text-secondary">
-                                  {item.rest_seconds}s rest
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          {item.tempo && (
-                            <p className="text-[13px] text-text-secondary mt-0.5">
-                              Tempo: {item.tempo}
-                            </p>
-                          )}
-                          {item.notes && (
-                            <p className="text-[13px] text-accent-bright/80 mt-1 italic">
-                              {item.notes}
-                            </p>
-                          )}
-                          {exercise?.muscle_group && (
-                            <span className="inline-block mt-1 text-[13px] px-2 py-0.5 rounded-md bg-[rgba(0,0,0,0.03)] dark:bg-[rgba(255,255,255,0.04)] text-text-secondary/70 capitalize">
-                              {exercise.muscle_group}
+                      <div key={item.id}>
+                        {/* Section label header */}
+                        {item.section_label && (
+                          <div className="flex items-center gap-3 px-4 pt-3 pb-1">
+                            <span className="text-[11px] font-bold text-accent-bright uppercase tracking-wider">
+                              {item.section_label}
                             </span>
-                          )}
+                            <div className="flex-1 border-t border-accent-bright/20" />
+                          </div>
+                        )}
+                        <div
+                          className={`px-4 py-3 flex items-start gap-3 ${
+                            inSuperset ? "border-l-2 border-accent-bright ml-4" : ""
+                          } ${
+                            idx < session.items.length - 1 && !isLastInSuperset
+                              ? "border-b border-[rgba(0,0,0,0.04)] dark:border-[rgba(255,255,255,0.04)]"
+                              : ""
+                          } ${
+                            isLastInSuperset
+                              ? "border-b border-[rgba(0,0,0,0.04)] dark:border-[rgba(255,255,255,0.04)] mb-1"
+                              : ""
+                          }`}
+                        >
+                          <span className="w-6 h-6 rounded-full bg-[rgba(0,0,0,0.04)] dark:bg-[rgba(255,255,255,0.06)] text-text-secondary text-[13px] font-medium flex items-center justify-center flex-shrink-0 mt-0.5">
+                            {idx + 1}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium text-text-primary">
+                                  {exercise?.name || "Unknown Exercise"}
+                                </h4>
+                                {inSuperset && (
+                                  <span className="text-[10px] font-bold text-accent-bright uppercase tracking-wider bg-accent-bright/10 px-1.5 py-0.5 rounded flex-shrink-0">
+                                    Superset
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex gap-2 flex-shrink-0">
+                                <span className="text-[13px] px-2 py-0.5 rounded-md bg-accent-bright/10 text-accent-bright font-medium">
+                                  {item.sets} x {item.reps}
+                                </span>
+                                {item.rest_seconds && (
+                                  <span className="text-[13px] px-2 py-0.5 rounded-md bg-[rgba(0,0,0,0.04)] dark:bg-[rgba(255,255,255,0.06)] text-text-secondary">
+                                    {item.rest_seconds}s rest
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {item.tempo && (
+                              <p className="text-[13px] text-text-secondary mt-0.5">
+                                Tempo: {item.tempo}
+                              </p>
+                            )}
+                            {item.notes && (
+                              <p className="text-[13px] text-accent-bright/80 mt-1 italic">
+                                {item.notes}
+                              </p>
+                            )}
+                            {exercise?.muscle_group && (
+                              <span className="inline-block mt-1 text-[13px] px-2 py-0.5 rounded-md bg-[rgba(0,0,0,0.03)] dark:bg-[rgba(255,255,255,0.04)] text-text-secondary/70 capitalize">
+                                {exercise.muscle_group}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );

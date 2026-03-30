@@ -306,6 +306,27 @@ function SessionCard({
   onReorderItems,
   canRemove,
 }: SessionCardProps) {
+  function toggleSuperset(itemIndex: number) {
+    const items = [...session.items];
+    const current = items[itemIndex];
+    const next = items[itemIndex + 1];
+    if (!next) return;
+
+    if (current.superset_group) {
+      // Remove superset from both items that share this group
+      items[itemIndex] = { ...current, superset_group: undefined };
+      if (next.superset_group === current.superset_group) {
+        items[itemIndex + 1] = { ...next, superset_group: undefined };
+      }
+    } else {
+      // Create superset linking this item and the next
+      const groupId = crypto.randomUUID();
+      items[itemIndex] = { ...current, superset_group: groupId };
+      items[itemIndex + 1] = { ...next, superset_group: next.superset_group || groupId };
+    }
+    onReorderItems(items);
+  }
+
   return (
     <div className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
       {/* Session header */}
@@ -363,20 +384,23 @@ function SessionCard({
           <div>
             <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-2">Exercises</label>
             {/* Column headers */}
-            <div className="grid gap-1 mb-1 px-9" style={{ gridTemplateColumns: "1fr 52px 64px 72px 80px 80px 28px" }}>
-              {["Exercise", "Sets", "Reps", "Rest (s)", "Tempo", "Notes", ""].map((h) => (
-                <div key={h} className="text-[9px] font-semibold text-text-muted uppercase tracking-wider truncate">{h}</div>
+            <div className="grid gap-1 mb-1 px-9" style={{ gridTemplateColumns: "1fr 52px 64px 72px 80px 80px 28px 28px 28px" }}>
+              {["Exercise", "Sets", "Reps", "Rest (s)", "Tempo", "Notes", "", "", ""].map((h, i) => (
+                <div key={i} className="text-[9px] font-semibold text-text-muted uppercase tracking-wider truncate">{h}</div>
               ))}
             </div>
             <DndSortableList
               items={session.items}
               onReorder={onReorderItems}
-              renderItem={(item, _idx, dragHandleProps) => (
+              renderItem={(item, idx, dragHandleProps) => (
                 <ExerciseItemRow
                   item={item}
+                  itemIndex={idx}
+                  totalItems={session.items.length}
                   dragHandleProps={dragHandleProps}
                   onUpdate={(updates) => onUpdateItem(item.id, updates)}
                   onRemove={() => onRemoveItem(item.id)}
+                  onToggleSuperset={() => toggleSuperset(idx)}
                 />
               )}
             />
@@ -401,87 +425,157 @@ function SessionCard({
 
 interface ExerciseItemRowProps {
   item: ExerciseSessionItem;
+  itemIndex: number;
+  totalItems: number;
   dragHandleProps: Record<string, unknown>;
   onUpdate: (updates: Partial<ExerciseSessionItem>) => void;
   onRemove: () => void;
+  onToggleSuperset: () => void;
 }
 
-function ExerciseItemRow({ item, dragHandleProps, onUpdate, onRemove }: ExerciseItemRowProps) {
+function ExerciseItemRow({ item, itemIndex, totalItems, dragHandleProps, onUpdate, onRemove, onToggleSuperset }: ExerciseItemRowProps) {
   const inputClass =
     "w-full bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-lg px-2 py-1.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/30 transition-colors text-center";
 
+  const inSuperset = !!item.superset_group;
+
   return (
-    <div className="flex items-center gap-1 group py-0.5">
-      <DragHandle {...dragHandleProps} />
-      {/* Exercise name */}
-      <div className="flex-1 min-w-0">
-        <div className="text-xs font-medium text-text-primary truncate px-2 py-1.5 bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-lg">
-          {item.exercise?.name || "Unknown exercise"}
+    <>
+      {/* Section label header */}
+      {item.section_label !== undefined && (
+        <div className="flex items-center gap-2 py-1 mb-0.5">
+          <div className="flex-1 flex items-center gap-2">
+            <input
+              type="text"
+              value={item.section_label}
+              onChange={(e) => onUpdate({ section_label: e.target.value })}
+              placeholder="Section name..."
+              className="text-[11px] font-bold text-accent-bright uppercase tracking-wider bg-transparent focus:outline-none placeholder:text-accent-bright/40 w-32"
+              autoFocus={!item.section_label}
+            />
+            <div className="flex-1 border-t border-accent/20" />
+          </div>
+          <button
+            type="button"
+            onClick={() => onUpdate({ section_label: undefined })}
+            className="text-text-muted hover:text-red-400 p-0.5 cursor-pointer"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
+      )}
+
+      <div className={`flex items-center gap-1 group py-0.5 ${inSuperset ? "border-l-2 border-accent-bright pl-1" : ""}`}>
+        <DragHandle {...dragHandleProps} />
+        {/* Exercise name */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <div className="flex-1 text-xs font-medium text-text-primary truncate px-2 py-1.5 bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-lg">
+              {item.exercise?.name || "Unknown exercise"}
+            </div>
+            {inSuperset && (
+              <span className="text-[9px] font-bold text-accent-bright uppercase tracking-wider bg-accent/10 px-1.5 py-0.5 rounded flex-shrink-0">
+                SS
+              </span>
+            )}
+          </div>
+        </div>
+        {/* Sets */}
+        <div className="w-[52px]">
+          <input
+            type="number"
+            min="1"
+            max="20"
+            value={item.sets}
+            onChange={(e) => onUpdate({ sets: parseInt(e.target.value, 10) || 1 })}
+            className={inputClass}
+          />
+        </div>
+        {/* Reps */}
+        <div className="w-16">
+          <input
+            type="text"
+            value={item.reps}
+            onChange={(e) => onUpdate({ reps: e.target.value })}
+            placeholder="10"
+            className={inputClass}
+          />
+        </div>
+        {/* Rest */}
+        <div className="w-[72px]">
+          <input
+            type="number"
+            min="0"
+            step="5"
+            value={item.rest_seconds ?? ""}
+            onChange={(e) => onUpdate({ rest_seconds: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+            placeholder="60"
+            className={inputClass}
+          />
+        </div>
+        {/* Tempo - auto-format with dashes */}
+        <div className="w-20">
+          <input
+            type="text"
+            value={item.tempo || ""}
+            onChange={(e) => {
+              const digits = e.target.value.replace(/[^0-9]/g, "").slice(0, 4);
+              const formatted = digits.split("").join("-");
+              onUpdate({ tempo: formatted });
+            }}
+            placeholder="3-1-1-0"
+            className={inputClass}
+          />
+        </div>
+        {/* Notes */}
+        <div className="w-20">
+          <input
+            type="text"
+            value={item.notes || ""}
+            onChange={(e) => onUpdate({ notes: e.target.value })}
+            placeholder="Notes"
+            className={inputClass}
+          />
+        </div>
+        {/* Section label toggle */}
+        <button
+          type="button"
+          onClick={() => onUpdate({ section_label: item.section_label !== undefined ? undefined : "" })}
+          title="Add section header"
+          className="w-7 flex-shrink-0 opacity-0 group-hover:opacity-100 text-text-muted hover:text-accent-bright transition-all p-1 cursor-pointer"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16" />
+          </svg>
+        </button>
+        {/* Superset toggle - only show when not the last item */}
+        {itemIndex < totalItems - 1 && (
+          <button
+            type="button"
+            onClick={onToggleSuperset}
+            title={inSuperset ? "Remove superset" : "Link as superset with next exercise"}
+            className={`w-7 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-all p-1 cursor-pointer rounded text-[9px] font-bold ${inSuperset ? "text-accent-bright" : "text-text-muted hover:text-accent-bright"}`}
+          >
+            SS
+          </button>
+        )}
+        {/* Placeholder to keep alignment when superset button is hidden */}
+        {itemIndex >= totalItems - 1 && (
+          <div className="w-7 flex-shrink-0" />
+        )}
+        {/* Remove */}
+        <button
+          type="button"
+          onClick={onRemove}
+          className="w-7 flex-shrink-0 opacity-0 group-hover:opacity-100 text-text-muted hover:text-red-400 transition-all p-1 cursor-pointer"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
-      {/* Sets */}
-      <div className="w-[52px]">
-        <input
-          type="number"
-          min="1"
-          max="20"
-          value={item.sets}
-          onChange={(e) => onUpdate({ sets: parseInt(e.target.value, 10) || 1 })}
-          className={inputClass}
-        />
-      </div>
-      {/* Reps */}
-      <div className="w-16">
-        <input
-          type="text"
-          value={item.reps}
-          onChange={(e) => onUpdate({ reps: e.target.value })}
-          placeholder="10"
-          className={inputClass}
-        />
-      </div>
-      {/* Rest */}
-      <div className="w-[72px]">
-        <input
-          type="number"
-          min="0"
-          step="5"
-          value={item.rest_seconds ?? ""}
-          onChange={(e) => onUpdate({ rest_seconds: e.target.value ? parseInt(e.target.value, 10) : undefined })}
-          placeholder="60"
-          className={inputClass}
-        />
-      </div>
-      {/* Tempo */}
-      <div className="w-20">
-        <input
-          type="text"
-          value={item.tempo || ""}
-          onChange={(e) => onUpdate({ tempo: e.target.value })}
-          placeholder="3-1-1-0"
-          className={inputClass}
-        />
-      </div>
-      {/* Notes */}
-      <div className="w-20">
-        <input
-          type="text"
-          value={item.notes || ""}
-          onChange={(e) => onUpdate({ notes: e.target.value })}
-          placeholder="Notes"
-          className={inputClass}
-        />
-      </div>
-      {/* Remove */}
-      <button
-        type="button"
-        onClick={onRemove}
-        className="w-7 flex-shrink-0 opacity-0 group-hover:opacity-100 text-text-muted hover:text-red-400 transition-all p-1 cursor-pointer"
-      >
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
-    </div>
+    </>
   );
 }
