@@ -96,6 +96,25 @@ export default function ExerciseTemplateBuilder({
     );
   }
 
+  function addSectionToSession(sessionId: string) {
+    setSessions((prev) =>
+      prev.map((s) => {
+        if (s.id !== sessionId) return s;
+        // Insert a section divider as a special item with no exercise
+        const sectionItem: ExerciseSessionItem = {
+          id: generateId(),
+          session_id: sessionId,
+          exercise_id: "__section__",
+          order_index: s.items.length,
+          sets: 0,
+          reps: "",
+          section_label: "",
+        };
+        return { ...s, items: [...s.items, sectionItem] };
+      })
+    );
+  }
+
   function removeItem(sessionId: string, itemId: string) {
     setSessions((prev) =>
       prev.map((s) => {
@@ -247,6 +266,7 @@ export default function ExerciseTemplateBuilder({
                   onUpdate={(updates) => updateSession(session.id, updates)}
                   onRemove={() => removeSession(session.id)}
                   onAddExercise={() => setExercisePickerSessionId(session.id)}
+                  onAddSection={() => addSectionToSession(session.id)}
                   onUpdateItem={(itemId, updates) => updateItem(session.id, itemId, updates)}
                   onRemoveItem={(itemId) => removeItem(session.id, itemId)}
                   onReorderItems={(reordered) => reorderItems(session.id, reordered)}
@@ -288,6 +308,7 @@ interface SessionCardProps {
   onUpdate: (updates: Partial<ExerciseSession>) => void;
   onRemove: () => void;
   onAddExercise: () => void;
+  onAddSection: () => void;
   onUpdateItem: (itemId: string, updates: Partial<ExerciseSessionItem>) => void;
   onRemoveItem: (itemId: string) => void;
   onReorderItems: (reordered: ExerciseSessionItem[]) => void;
@@ -301,6 +322,7 @@ function SessionCard({
   onUpdate,
   onRemove,
   onAddExercise,
+  onAddSection,
   onUpdateItem,
   onRemoveItem,
   onReorderItems,
@@ -384,8 +406,8 @@ function SessionCard({
           <div>
             <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-2">Exercises</label>
             {/* Column headers */}
-            <div className="grid gap-1 mb-1 px-9" style={{ gridTemplateColumns: "1fr 52px 64px 72px 80px 80px 28px 28px 28px" }}>
-              {["Exercise", "Sets", "Reps", "Rest (s)", "Tempo", "Notes", "", "", ""].map((h, i) => (
+            <div className="grid gap-1 mb-1 px-9" style={{ gridTemplateColumns: "1fr 52px 64px 72px 80px 80px 28px 28px" }}>
+              {["Exercise", "Sets", "Reps", "Rest (s)", "Tempo", "Notes", "", ""].map((h, i) => (
                 <div key={i} className="text-[9px] font-semibold text-text-muted uppercase tracking-wider truncate">{h}</div>
               ))}
             </div>
@@ -407,17 +429,29 @@ function SessionCard({
           </div>
         )}
 
-        {/* Add exercise */}
-        <button
-          type="button"
-          onClick={onAddExercise}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent-bright bg-accent/10 hover:bg-accent/20 border border-accent/20 rounded-lg transition-colors cursor-pointer"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Add Exercise
-        </button>
+        {/* Add exercise / section buttons */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onAddExercise}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent-bright bg-accent/10 hover:bg-accent/20 border border-accent/20 rounded-lg transition-colors cursor-pointer"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Exercise
+          </button>
+          <button
+            type="button"
+            onClick={onAddSection}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary bg-[rgba(0,0,0,0.03)] hover:bg-[rgba(0,0,0,0.06)] border border-[rgba(0,0,0,0.06)] rounded-lg transition-colors cursor-pointer"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16" />
+            </svg>
+            Add Section
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -439,34 +473,39 @@ function ExerciseItemRow({ item, itemIndex, totalItems, dragHandleProps, onUpdat
 
   const inSuperset = !!item.superset_group;
 
-  return (
-    <>
-      {/* Section label header */}
-      {item.section_label !== undefined && (
-        <div className="flex items-center gap-2 py-1 mb-0.5">
-          <div className="flex-1 flex items-center gap-2">
-            <input
-              type="text"
-              value={item.section_label}
-              onChange={(e) => onUpdate({ section_label: e.target.value })}
-              placeholder="Section name..."
-              className="text-[11px] font-bold text-accent-bright uppercase tracking-wider bg-transparent focus:outline-none placeholder:text-accent-bright/40 w-32"
-              autoFocus={!item.section_label}
-            />
-            <div className="flex-1 border-t border-accent/20" />
-          </div>
+  // Section divider item (no exercise, just a label)
+  if (item.exercise_id === "__section__") {
+    return (
+      <div className="flex items-center gap-2 py-2 my-1">
+        <DragHandle {...dragHandleProps} />
+        <div className="flex-1 flex items-center gap-2 bg-accent-bright/5 border border-accent/15 rounded-xl px-3 py-2">
+          <svg className="w-4 h-4 text-accent-bright flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16" />
+          </svg>
+          <input
+            type="text"
+            value={item.section_label || ""}
+            onChange={(e) => onUpdate({ section_label: e.target.value })}
+            placeholder="Section name (e.g. Warm Up, Strength A)..."
+            className="flex-1 text-sm font-bold text-accent-bright bg-transparent focus:outline-none placeholder:text-accent-bright/40 uppercase tracking-wider"
+            autoFocus={!item.section_label}
+          />
           <button
             type="button"
-            onClick={() => onUpdate({ section_label: undefined })}
-            className="text-text-muted hover:text-red-400 p-0.5 cursor-pointer"
+            onClick={onRemove}
+            className="text-text-muted hover:text-red-400 p-0.5 cursor-pointer flex-shrink-0"
           >
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
-      )}
+      </div>
+    );
+  }
 
+  return (
+    <>
       <div className={`flex items-center gap-1 group py-0.5 ${inSuperset ? "border-l-2 border-accent-bright pl-1" : ""}`}>
         <DragHandle {...dragHandleProps} />
         {/* Exercise name */}
@@ -539,17 +578,6 @@ function ExerciseItemRow({ item, itemIndex, totalItems, dragHandleProps, onUpdat
             className={inputClass}
           />
         </div>
-        {/* Section label toggle */}
-        <button
-          type="button"
-          onClick={() => onUpdate({ section_label: item.section_label !== undefined ? undefined : "" })}
-          title="Add section header"
-          className="w-7 flex-shrink-0 opacity-0 group-hover:opacity-100 text-text-muted hover:text-accent-bright transition-all p-1 cursor-pointer"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16" />
-          </svg>
-        </button>
         {/* Superset toggle - only show when not the last item */}
         {itemIndex < totalItems - 1 && (
           <button

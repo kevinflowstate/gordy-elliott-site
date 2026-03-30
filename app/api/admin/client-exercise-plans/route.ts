@@ -42,10 +42,22 @@ export async function GET(request: Request) {
         .order("order_index", { ascending: true })
     : { data: [] };
 
-  // Assemble nested structure
+  // Assemble nested structure (reconstruct section dividers from section_label)
   const itemsBySession = new Map<string, typeof items>();
   for (const item of items || []) {
     const list = itemsBySession.get(item.session_id) || [];
+    if (item.section_label) {
+      list.push({
+        ...item,
+        id: `section-${item.id}`,
+        exercise_id: "__section__",
+        order_index: item.order_index - 0.5,
+        sets: 0,
+        reps: "",
+        section_label: item.section_label,
+        exercise: null,
+      });
+    }
     list.push(item);
     itemsBySession.set(item.session_id, list);
   }
@@ -223,9 +235,16 @@ export async function POST(request: Request) {
       if (!newSession) continue;
 
       const sessionItems = session.items || [];
-      if (sessionItems.length > 0) {
+      const realItems = sessionItems.filter(
+        (item: { exercise_id: string }) => item.exercise_id && item.exercise_id !== "__section__"
+      );
+      const sectionItems = sessionItems.filter(
+        (item: { exercise_id: string }) => !item.exercise_id || item.exercise_id === "__section__"
+      );
+
+      if (realItems.length > 0) {
         await admin.from("client_exercise_session_items").insert(
-          sessionItems.map((item: { exercise_id: string; order_index: number; sets: number; reps: string; rest_seconds?: number; tempo?: string; notes?: string }) => ({
+          realItems.map((item: { exercise_id: string; order_index: number; sets: number; reps: string; rest_seconds?: number; tempo?: string; notes?: string; section_label?: string; superset_group?: string }) => ({
             session_id: newSession.id,
             exercise_id: item.exercise_id,
             order_index: item.order_index,
@@ -234,8 +253,26 @@ export async function POST(request: Request) {
             rest_seconds: item.rest_seconds || null,
             tempo: item.tempo || null,
             notes: item.notes || null,
+            section_label: item.section_label || null,
+            superset_group: item.superset_group || null,
           }))
         );
+      }
+
+      // Attach section labels to the next real exercise
+      for (const section of sectionItems) {
+        const sIdx = (section as { order_index: number }).order_index;
+        const nextExercise = realItems.find(
+          (e: { order_index: number }) => e.order_index > sIdx
+        );
+        if (nextExercise) {
+          await admin
+            .from("client_exercise_session_items")
+            .update({ section_label: (section as { section_label?: string }).section_label || "Section" })
+            .eq("session_id", newSession.id)
+            .eq("exercise_id", (nextExercise as { exercise_id: string }).exercise_id)
+            .eq("order_index", (nextExercise as { order_index: number }).order_index);
+        }
       }
     }
 

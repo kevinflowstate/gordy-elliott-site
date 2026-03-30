@@ -49,10 +49,22 @@ export async function GET() {
         .order("order_index", { ascending: true })
     : { data: [] };
 
-  // Assemble
+  // Assemble (reconstruct section dividers from section_label)
   const itemsBySession = new Map<string, typeof items>();
   for (const item of items || []) {
     const list = itemsBySession.get(item.session_id) || [];
+    if (item.section_label) {
+      list.push({
+        ...item,
+        id: `section-${item.id}`,
+        exercise_id: "__section__",
+        order_index: item.order_index - 0.5,
+        sets: 0,
+        reps: "",
+        section_label: item.section_label,
+        exercise: null,
+      });
+    }
     list.push(item);
     itemsBySession.set(item.session_id, list);
   }

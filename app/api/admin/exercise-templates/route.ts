@@ -43,6 +43,24 @@ export async function GET() {
   const itemsBySession = new Map<string, typeof items>();
   for (const item of items || []) {
     const list = itemsBySession.get(item.session_id) || [];
+    // If this item has a section_label, insert a section divider before it
+    if (item.section_label) {
+      list.push({
+        id: `section-${item.id}`,
+        session_id: item.session_id,
+        exercise_id: "__section__",
+        order_index: item.order_index - 0.5,
+        sets: 0,
+        reps: "",
+        rest_seconds: null,
+        tempo: null,
+        notes: null,
+        section_label: item.section_label,
+        superset_group: null,
+        exercise: null,
+        created_at: item.created_at,
+      });
+    }
     list.push(item);
     itemsBySession.set(item.session_id, list);
   }
@@ -115,9 +133,18 @@ export async function POST(request: Request) {
     if (sError || !newSession) continue;
 
     const sessionItems = session.items || [];
-    if (sessionItems.length > 0) {
+    // Split into real exercises and section dividers
+    const exerciseItems = sessionItems.filter(
+      (item: { exercise_id: string }) => item.exercise_id && item.exercise_id !== "__section__"
+    );
+    const sectionItems = sessionItems.filter(
+      (item: { exercise_id: string }) => !item.exercise_id || item.exercise_id === "__section__"
+    );
+
+    // Insert real exercise items
+    if (exerciseItems.length > 0) {
       await admin.from("exercise_training_session_items").insert(
-        sessionItems.map(
+        exerciseItems.map(
           (item: {
             exercise_id: string;
             order_index: number;
@@ -126,6 +153,8 @@ export async function POST(request: Request) {
             rest_seconds?: number;
             tempo?: string;
             notes?: string;
+            section_label?: string;
+            superset_group?: string;
           }) => ({
             session_id: newSession.id,
             exercise_id: item.exercise_id,
@@ -135,9 +164,30 @@ export async function POST(request: Request) {
             rest_seconds: item.rest_seconds || null,
             tempo: item.tempo || null,
             notes: item.notes || null,
+            section_label: item.section_label || null,
+            superset_group: item.superset_group || null,
           })
         )
       );
+    }
+
+    // For section dividers, store as items with a placeholder exercise_id
+    // We need to handle these client-side only since DB requires exercise_id FK
+    // Instead, attach section_label to the next real exercise in order
+    for (const section of sectionItems) {
+      const sIdx = (section as { order_index: number }).order_index;
+      // Find next real exercise after this section divider
+      const nextExercise = exerciseItems.find(
+        (e: { order_index: number }) => e.order_index > sIdx
+      );
+      if (nextExercise) {
+        await admin
+          .from("exercise_training_session_items")
+          .update({ section_label: (section as { section_label?: string }).section_label || "Section" })
+          .eq("session_id", newSession.id)
+          .eq("exercise_id", (nextExercise as { exercise_id: string }).exercise_id)
+          .eq("order_index", (nextExercise as { order_index: number }).order_index);
+      }
     }
   }
 

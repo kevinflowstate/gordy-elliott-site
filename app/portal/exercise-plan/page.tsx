@@ -110,21 +110,29 @@ export default function PortalExercisePlanPage() {
                     </div>
                   )}
                   {session.items.map((item, idx) => {
+                    // Section divider - render as header, not exercise row
+                    if (item.exercise_id === "__section__") {
+                      return (
+                        <div key={item.id} className="flex items-center gap-3 px-4 pt-4 pb-1">
+                          <svg className="w-4 h-4 text-accent-bright flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16" />
+                          </svg>
+                          <span className="text-[12px] font-bold text-accent-bright uppercase tracking-wider">
+                            {item.section_label || "Section"}
+                          </span>
+                          <div className="flex-1 border-t border-accent-bright/20" />
+                        </div>
+                      );
+                    }
+
                     const exercise = item.exercise;
                     const nextItem = session.items[idx + 1];
                     const inSuperset = !!item.superset_group;
                     const isLastInSuperset = inSuperset && (!nextItem || nextItem.superset_group !== item.superset_group);
+                    // Count only non-section items for numbering
+                    const exerciseNumber = session.items.slice(0, idx).filter(i => i.exercise_id !== "__section__").length + 1;
                     return (
                       <div key={item.id}>
-                        {/* Section label header */}
-                        {item.section_label && (
-                          <div className="flex items-center gap-3 px-4 pt-3 pb-1">
-                            <span className="text-[11px] font-bold text-accent-bright uppercase tracking-wider">
-                              {item.section_label}
-                            </span>
-                            <div className="flex-1 border-t border-accent-bright/20" />
-                          </div>
-                        )}
                         <div
                           className={`px-4 py-3 flex items-start gap-3 ${
                             inSuperset ? "border-l-2 border-accent-bright ml-4" : ""
@@ -139,7 +147,7 @@ export default function PortalExercisePlanPage() {
                           }`}
                         >
                           <span className="w-6 h-6 rounded-full bg-[rgba(0,0,0,0.04)] dark:bg-[rgba(255,255,255,0.06)] text-text-secondary text-[13px] font-medium flex items-center justify-center flex-shrink-0 mt-0.5">
-                            {idx + 1}
+                            {exerciseNumber}
                           </span>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2">
