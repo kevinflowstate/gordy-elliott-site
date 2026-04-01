@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { AdminClient } from "@/lib/admin-data";
@@ -9,6 +9,7 @@ import TrainingPlanBuilder from "@/components/admin/TrainingPlanBuilder";
 import ExerciseTemplatePicker from "@/components/admin/ExerciseTemplatePicker";
 import NutritionTemplatePicker from "@/components/admin/NutritionTemplatePicker";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Dot } from "recharts";
+import PhotoGallery from "@/components/portal/PhotoGallery";
 
 type TabId = "dashboard" | "checkins" | "training" | "nutrition" | "gallery";
 
@@ -74,6 +75,46 @@ function timeAgoDetailed(dateStr: string): string {
   return `${Math.floor(diffDays / 7)} weeks ago`;
 }
 
+interface PhotoGroup {
+  date: string;
+  front?: string;
+  back?: string;
+  side?: string;
+  signedUrls: Record<string, string>;
+}
+
+interface AdminGalleryTabProps {
+  clientId: string;
+  groups: PhotoGroup[];
+  loading: boolean;
+  loaded: boolean;
+  onLoad: (groups: PhotoGroup[]) => void;
+  onLoadStart: () => void;
+}
+
+function AdminGalleryTab({ clientId, groups, loading, loaded, onLoad, onLoadStart }: AdminGalleryTabProps) {
+  const onLoadRef = useRef(onLoad);
+  const onLoadStartRef = useRef(onLoadStart);
+  onLoadRef.current = onLoad;
+  onLoadStartRef.current = onLoadStart;
+
+  useEffect(() => {
+    if (loaded || loading) return;
+    onLoadStartRef.current();
+    fetch(`/api/admin/client-photos?clientId=${clientId}`)
+      .then((r) => r.json())
+      .then((data) => onLoadRef.current(data.groups || []))
+      .catch(() => onLoadRef.current([]));
+  }, [clientId, loaded, loading]);
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-lg font-heading font-bold text-text-primary">Progress Photos</h2>
+      <PhotoGallery groups={groups} loading={loading} />
+    </div>
+  );
+}
+
 export default function ClientDetailPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -122,6 +163,9 @@ export default function ClientDetailPage() {
   const [goalTargetDate, setGoalTargetDate] = useState("");
   const [goalNotes, setGoalNotes] = useState("");
   const [goalsSaving, setGoalsSaving] = useState(false);
+  const [galleryGroups, setGalleryGroups] = useState<Array<{ date: string; front?: string; back?: string; side?: string; signedUrls: Record<string, string> }>>([]);
+  const [galleryLoading, setGalleryLoading] = useState(false);
+  const [galleryLoaded, setGalleryLoaded] = useState(false);
 
   const loadClient = useCallback(async () => {
     try {
@@ -740,7 +784,7 @@ export default function ClientDetailPage() {
           {/* Left: Activity Log */}
           <div>
             <h3 className="text-sm font-heading font-bold text-text-primary mb-3">Activity</h3>
-            <ActivityTimeline client={client} />
+            <ActivityTimeline clientId={client.id} />
 
             {/* Programme Timeline */}
             <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mt-4">
@@ -1450,15 +1494,7 @@ export default function ClientDetailPage() {
 
       {/* ── Gallery Tab ── */}
       {activeTab === "gallery" && (
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-12 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-[rgba(0,0,0,0.03)] flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <h3 className="text-base font-heading font-bold text-text-primary mb-2">Progress Photos</h3>
-          <p className="text-sm text-text-muted max-w-sm mx-auto">Progress photos will appear here once the client uploads photos during check-ins.</p>
-        </div>
+        <AdminGalleryTab clientId={id as string} groups={galleryGroups} loading={galleryLoading} loaded={galleryLoaded} onLoad={(groups) => { setGalleryGroups(groups); setGalleryLoaded(true); setGalleryLoading(false); }} onLoadStart={() => setGalleryLoading(true)} />
       )}
 
       {/* ── Modals ── */}
@@ -1737,57 +1773,32 @@ export default function ClientDetailPage() {
   );
 }
 
-function ActivityTimeline({ client }: { client: AdminClient }) {
-  interface TimelineEvent {
-    type: "checkin" | "plan_item" | "module_started" | "module_completed" | "reply";
-    date: string;
-    title: string;
-    detail?: string;
+function ActivityTimeline({ clientId }: { clientId: string }) {
+  interface ActivityEvent {
+    type: string;
+    description: string;
+    timestamp: string;
     color: string;
-    icon: string;
   }
 
-  const events: TimelineEvent[] = [];
+  const [events, setEvents] = useState<ActivityEvent[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  for (const c of client.checkins) {
-    events.push({
-      type: "checkin",
-      date: c.created_at,
-      title: `Submitted Week ${c.week_number} check-in`,
-      detail: c.mood ? `Mood: ${c.mood}` : undefined,
-      color: "text-blue-400",
-      icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
-    });
-    if (c.admin_reply && c.replied_at) {
-      events.push({
-        type: "reply",
-        date: c.replied_at,
-        title: `Gordy replied to Week ${c.week_number} check-in`,
-        color: "text-accent-bright",
-        icon: "M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6",
-      });
-    }
+  useEffect(() => {
+    fetch(`/api/admin/client-activity?clientId=${clientId}`)
+      .then((r) => r.json())
+      .then((data) => setEvents(data.events || []))
+      .catch(() => setEvents([]))
+      .finally(() => setLoading(false));
+  }, [clientId]);
+
+  if (loading) {
+    return (
+      <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 text-center">
+        <p className="text-xs text-text-muted">Loading activity...</p>
+      </div>
+    );
   }
-
-  const activePlan = client.training_plan?.find((p) => p.status === "active");
-  if (activePlan) {
-    for (const phase of activePlan.phases) {
-      for (const item of phase.items) {
-        if (item.completed && item.completed_at) {
-          events.push({
-            type: "plan_item",
-            date: item.completed_at,
-            title: `Completed: ${item.title}`,
-            detail: phase.name,
-            color: "text-emerald-400",
-            icon: "M5 13l4 4L19 7",
-          });
-        }
-      }
-    }
-  }
-
-  events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   if (events.length === 0) {
     return (
@@ -1798,30 +1809,25 @@ function ActivityTimeline({ client }: { client: AdminClient }) {
   }
 
   return (
-    <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4">
+    <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 max-h-[480px] overflow-y-auto">
       <div className="relative border-l border-[rgba(0,0,0,0.08)] ml-3 space-y-0">
-        {events.slice(0, 12).map((event, i) => (
-          <div key={i} className="relative pl-5 pb-4 last:pb-0">
-            <div className={`absolute -left-[5px] top-1 w-2.5 h-2.5 rounded-full border-2 border-bg-card ${
-              event.type === "checkin" ? "bg-blue-400" :
-              event.type === "reply" ? "bg-[#E2B830]" :
-              event.type === "plan_item" ? "bg-emerald-400" :
-              "bg-purple-400"
-            }`} />
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <span className="text-xs text-text-primary">{event.title}</span>
-                {event.detail && <span className="text-[10px] text-text-muted ml-1.5">{event.detail}</span>}
+        {events.map((event, i) => {
+          const ts = new Date(event.timestamp);
+          const timeLabel = ts.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+          const dateLabel = ts.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+          return (
+            <div key={i} className="relative pl-5 pb-4 last:pb-0">
+              <div className={`absolute -left-[5px] top-1 w-2.5 h-2.5 rounded-full border-2 border-bg-card ${event.color}`} />
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="text-[10px] text-text-muted font-mono mr-1.5">{timeLabel}</span>
+                  <span className="text-xs text-text-primary">{event.description}</span>
+                </div>
+                <span className="text-[10px] text-text-muted whitespace-nowrap flex-shrink-0">{dateLabel}</span>
               </div>
-              <span className="text-[10px] text-text-muted whitespace-nowrap flex-shrink-0">
-                {new Date(event.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-              </span>
             </div>
-          </div>
-        ))}
-        {events.length > 12 && (
-          <div className="pl-5 pt-1 text-[10px] text-text-muted">+ {events.length - 12} more</div>
-        )}
+          );
+        })}
       </div>
     </div>
   );

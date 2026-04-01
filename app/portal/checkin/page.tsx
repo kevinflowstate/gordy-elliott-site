@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/components/ui/Toast";
 import type { CheckinFormConfig, ProgressMetric } from "@/lib/types";
+import PhotoUpload from "@/components/portal/PhotoUpload";
 
 const moodColorMap: Record<string, string> = {
   emerald: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
@@ -53,6 +54,7 @@ export default function CheckInPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState(false);
+  const [photos, setPhotos] = useState<Record<string, File>>({});
 
   useEffect(() => {
     async function loadConfig() {
@@ -101,6 +103,19 @@ export default function CheckInPage() {
       });
 
       if (res.ok) {
+        // Upload any progress photos
+        if (Object.keys(photos).length > 0) {
+          const today = new Date().toISOString().split("T")[0];
+          await Promise.all(
+            Object.entries(photos).map(async ([angle, file]) => {
+              const fd = new FormData();
+              fd.append("file", file);
+              fd.append("angle", angle);
+              fd.append("date", today);
+              await fetch("/api/portal/upload-photo", { method: "POST", body: fd });
+            })
+          );
+        }
         setSubmitted(true);
         toast("Check-in submitted - Gordy will review it this week");
       } else {
@@ -123,6 +138,7 @@ export default function CheckInPage() {
     setMood(null);
     setResponses({});
     setProgressData({});
+    setPhotos({});
   }
 
   if (submitted) {
@@ -209,9 +225,15 @@ export default function CheckInPage() {
           </div>
         )}
 
+        {/* Progress Photos */}
+        <PhotoUpload
+          date={new Date().toISOString().split("T")[0]}
+          onPhotosChange={setPhotos}
+        />
+
         {/* Dynamic questions */}
         {enabledQuestions.map((q) => {
-          if (q.id === "photos") return null; // Photos field is a TODO placeholder
+          if (q.id === "photos") return null; // handled by PhotoUpload above
           if (q.type === "select" && q.options?.length) {
             return (
               <div key={q.id}>
