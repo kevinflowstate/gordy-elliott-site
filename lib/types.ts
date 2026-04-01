@@ -177,7 +177,9 @@ export interface FormQuestion {
   id: string;
   label: string;
   placeholder: string;
-  type: 'textarea' | 'text';
+  type: 'textarea' | 'text' | 'select';
+  options?: string[];
+  enabled?: boolean;
   required?: boolean;
 }
 
@@ -187,11 +189,23 @@ export interface MoodOption {
   color: string;
 }
 
+export interface ProgressMetric {
+  id: string;
+  label: string;
+  type: 'number' | 'scale';
+  unit?: string;
+  min?: number;
+  max?: number;
+  enabled: boolean;
+}
+
 export interface CheckinFormConfig {
+  title?: string;
   checkin_day: string;
   mood_enabled: boolean;
   mood_options: MoodOption[];
   questions: FormQuestion[];
+  progress_tracking?: ProgressMetric[];
 }
 
 export interface TrainingPlanFormConfig {
@@ -242,6 +256,8 @@ export interface ExerciseTemplate {
   id: string;
   name: string;
   description?: string;
+  overview?: string;
+  tags?: string[];
   category: string;
   duration_weeks?: number;
   is_active: boolean;
@@ -308,6 +324,7 @@ export interface NutritionTemplate {
   name: string;
   description?: string;
   calorie_range: string;
+  plan_type?: 'full' | 'macro_only';
   target_calories?: number;
   target_protein_g?: number;
   target_carbs_g?: number;
@@ -316,6 +333,12 @@ export interface NutritionTemplate {
   meals: NutritionMeal[];
   created_at: string;
   updated_at: string;
+}
+
+export interface MealAlternative {
+  id: string;
+  name: string;
+  items: NutritionMealItem[];
 }
 
 export interface ClientNutritionPlan {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useToast } from "@/components/ui/Toast";
-import type { CheckinFormConfig } from "@/lib/types";
+import type { CheckinFormConfig, ProgressMetric } from "@/lib/types";
 
 const moodColorMap: Record<string, string> = {
   emerald: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
@@ -11,11 +11,45 @@ const moodColorMap: Record<string, string> = {
   red: "border-red-500/30 bg-red-500/10 text-red-400",
 };
 
+function ScaleInput({ metric, value, onChange }: { metric: ProgressMetric; value: string; onChange: (v: string) => void }) {
+  const min = metric.min ?? 1;
+  const max = metric.max ?? 10;
+  const selected = value ? parseInt(value) : null;
+  const points = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+
+  return (
+    <div>
+      <div className="flex gap-1.5 flex-wrap">
+        {points.map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => onChange(String(p))}
+            className={`w-9 h-9 rounded-lg text-sm font-semibold transition-all cursor-pointer border ${
+              selected === p
+                ? "bg-[#E2B830] text-[#1a1a1a] border-[#E2B830]"
+                : "bg-bg-card border-[rgba(0,0,0,0.08)] text-text-muted hover:border-[#E2B830]/40 hover:text-text-primary"
+            }`}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+      {selected !== null && (
+        <div className="text-xs text-text-muted mt-1.5">
+          {selected <= 3 ? "Low" : selected <= 6 ? "Moderate" : "High"} ({selected}/{max})
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CheckInPage() {
   const { toast } = useToast();
   const [config, setConfig] = useState<CheckinFormConfig | null>(null);
   const [mood, setMood] = useState<string | null>(null);
   const [responses, setResponses] = useState<Record<string, string>>({});
+  const [progressData, setProgressData] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState(false);
@@ -56,11 +90,14 @@ export default function CheckInPage() {
     setError(false);
     setSubmitting(true);
 
+    // Merge progress data into responses so it's stored in the responses JSONB
+    const fullResponses = { ...responses, ...progressData };
+
     try {
       const res = await fetch("/api/portal/checkin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mood: mood || "good", responses }),
+        body: JSON.stringify({ mood: mood || "good", responses: fullResponses }),
       });
 
       if (res.ok) {
@@ -85,6 +122,7 @@ export default function CheckInPage() {
     setSubmitted(false);
     setMood(null);
     setResponses({});
+    setProgressData({});
   }
 
   if (submitted) {
@@ -137,10 +175,13 @@ export default function CheckInPage() {
     );
   }
 
+  const enabledQuestions = config.questions.filter((q) => q.enabled !== false);
+  const enabledMetrics = (config.progress_tracking || []).filter((m) => m.enabled);
+
   return (
     <div className="max-w-2xl">
       <div className="mb-8">
-        <h1 className="text-3xl font-heading font-bold text-text-primary">Weekly Check-In</h1>
+        <h1 className="text-3xl font-heading font-bold text-text-primary">{config.title || "Weekly Check-In"}</h1>
         <p className="text-text-secondary mt-1">Let Gordy know how you&apos;re getting on this week.</p>
       </div>
 
@@ -169,18 +210,77 @@ export default function CheckInPage() {
         )}
 
         {/* Dynamic questions */}
-        {config.questions.map((q) => (
-          <div key={q.id}>
-            <label className="block text-sm font-medium text-text-primary mb-2">{q.label}</label>
-            <textarea
-              value={responses[q.id] || ""}
-              onChange={(e) => setResponses((prev) => ({ ...prev, [q.id]: e.target.value }))}
-              rows={3}
-              placeholder={q.placeholder}
-              className="w-full bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none"
-            />
+        {enabledQuestions.map((q) => {
+          if (q.id === "photos") return null; // Photos field is a TODO placeholder
+          if (q.type === "select" && q.options?.length) {
+            return (
+              <div key={q.id}>
+                <label className="block text-sm font-medium text-text-primary mb-2">{q.label}</label>
+                <div className="flex gap-2 flex-wrap">
+                  {q.options.map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setResponses((prev) => ({ ...prev, [q.id]: opt }))}
+                      className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all cursor-pointer ${
+                        responses[q.id] === opt
+                          ? "bg-[#E2B830]/10 border-[#E2B830]/40 text-[#E2B830]"
+                          : "border-[rgba(0,0,0,0.08)] text-text-muted hover:border-[rgba(0,0,0,0.12)]"
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          }
+          return (
+            <div key={q.id}>
+              <label className="block text-sm font-medium text-text-primary mb-2">{q.label}</label>
+              <textarea
+                value={responses[q.id] || ""}
+                onChange={(e) => setResponses((prev) => ({ ...prev, [q.id]: e.target.value }))}
+                rows={3}
+                placeholder={q.placeholder}
+                className="w-full bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none"
+              />
+            </div>
+          );
+        })}
+
+        {/* Progress Tracking */}
+        {enabledMetrics.length > 0 && (
+          <div>
+            <div className="text-sm font-medium text-text-primary mb-4">Progress Tracking</div>
+            <div className="space-y-5">
+              {enabledMetrics.map((m) => (
+                <div key={m.id}>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    {m.label}
+                    {m.unit && <span className="text-text-muted font-normal ml-1">({m.unit})</span>}
+                  </label>
+                  {m.type === "scale" ? (
+                    <ScaleInput
+                      metric={m}
+                      value={progressData[m.id] || ""}
+                      onChange={(v) => setProgressData((prev) => ({ ...prev, [m.id]: v }))}
+                    />
+                  ) : (
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={progressData[m.id] || ""}
+                      onChange={(e) => setProgressData((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                      placeholder={m.unit ? `e.g. 75${m.unit}` : "Enter value"}
+                      className="w-full bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-[#E2B830]/40 transition-colors"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
+        )}
 
         <button
           type="submit"

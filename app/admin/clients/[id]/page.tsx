@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { AdminClient } from "@/lib/admin-data";
-import type { TrafficLight, CheckInMood, TrainingPlan, TrainingPlanPhase, CheckinFormConfig, FormQuestion, ClientExercisePlan, ClientNutritionPlan } from "@/lib/types";
+import type { TrafficLight, CheckInMood, TrainingPlan, TrainingPlanPhase, CheckinFormConfig, FormQuestion, ClientExercisePlan, ClientNutritionPlan, ProgressMetric } from "@/lib/types";
 import TrainingPlanBuilder from "@/components/admin/TrainingPlanBuilder";
 import ExerciseTemplatePicker from "@/components/admin/ExerciseTemplatePicker";
 import NutritionTemplatePicker from "@/components/admin/NutritionTemplatePicker";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Dot } from "recharts";
 
 type TabId = "dashboard" | "checkins" | "training" | "nutrition" | "gallery";
 
@@ -337,6 +338,32 @@ export default function ClientDetailPage() {
     : null;
   const startWeightVal = client.start_weight || (checkinsWithWeight.length > 0 ? parseFloat(checkinsWithWeight[0].responses?.weight || checkinsWithWeight[0].responses?.current_weight || "0") : null);
   const weightTrend = latestWeight && prevWeight ? latestWeight - prevWeight : null;
+
+  // Build trend chart data for weight and other progress metrics
+  const weightChartData = checkinsWithWeight.slice(-8).map((c) => ({
+    date: new Date(c.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
+    value: parseFloat(c.responses?.weight || c.responses?.current_weight || "0"),
+  }));
+
+  // Build trend data for other enabled progress metrics from checkin config
+  const otherMetricTrends: Array<{ metric: ProgressMetric; data: Array<{ date: string; value: number }> }> =
+    (checkinConfig?.progress_tracking || [])
+      .filter((m) => m.enabled && m.id !== "weight" && m.id !== "current_weight")
+      .map((m) => {
+        const data = client.checkins
+          .filter((c) => {
+            const v = c.responses?.[m.id];
+            return v !== undefined && v !== "" && !isNaN(parseFloat(v));
+          })
+          .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+          .slice(-8)
+          .map((c) => ({
+            date: new Date(c.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
+            value: parseFloat(c.responses![m.id]),
+          }));
+        return { metric: m, data };
+      })
+      .filter((t) => t.data.length >= 2);
 
   async function toggleItem(phaseId: string, itemId: string) {
     setPlans((prev) =>
@@ -879,6 +906,58 @@ export default function ClientDetailPage() {
                 )}
               </div>
             </div>
+
+            {/* Weight trend chart */}
+            {weightChartData.length >= 2 && (
+              <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 mb-3">
+                <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-3">Weight Trend</div>
+                <ResponsiveContainer width="100%" height={80}>
+                  <LineChart data={weightChartData} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
+                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--color-text-muted)" }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 9, fill: "var(--color-text-muted)" }} tickLine={false} axisLine={false} domain={["auto", "auto"]} />
+                    <Tooltip
+                      contentStyle={{ background: "var(--color-bg-card)", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 8, fontSize: 11 }}
+                      formatter={(v) => [`${v}kg`, "Weight"]}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#E2B830"
+                      strokeWidth={2}
+                      dot={<Dot r={3} fill="#E2B830" stroke="#E2B830" />}
+                      activeDot={{ r: 4, fill: "#E2B830" }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Other metric trend charts */}
+            {otherMetricTrends.map(({ metric, data }) => (
+              <div key={metric.id} className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 mb-3">
+                <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-3">
+                  {metric.label} {metric.unit ? `(${metric.unit})` : metric.type === "scale" ? "(1–10)" : ""}
+                </div>
+                <ResponsiveContainer width="100%" height={80}>
+                  <LineChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
+                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--color-text-muted)" }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 9, fill: "var(--color-text-muted)" }} tickLine={false} axisLine={false} domain={metric.type === "scale" ? [1, metric.max ?? 10] : ["auto", "auto"]} />
+                    <Tooltip
+                      contentStyle={{ background: "var(--color-bg-card)", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 8, fontSize: 11 }}
+                      formatter={(v) => [`${v}${metric.unit ? metric.unit : ""}`, metric.label]}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#E2B830"
+                      strokeWidth={2}
+                      dot={<Dot r={3} fill="#E2B830" stroke="#E2B830" />}
+                      activeDot={{ r: 4, fill: "#E2B830" }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ))}
 
             {/* Goal card */}
             <div
