@@ -39,7 +39,7 @@ function timeAgo(dateStr: string): string {
 
 function formatDate(date: Date): string {
   const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const months = ["January", "February", "Gordyh", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const d = date.getDate();
   const suffix = d === 1 || d === 21 || d === 31 ? "st" : d === 2 || d === 22 ? "nd" : d === 3 || d === 23 ? "rd" : "th";
   return `${days[date.getDay()]} ${d}${suffix} ${months[date.getMonth()]} ${date.getFullYear()}`;
