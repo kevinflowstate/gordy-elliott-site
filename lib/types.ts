@@ -177,7 +177,7 @@ export interface FormQuestion {
   id: string;
   label: string;
   placeholder: string;
-  type: 'textarea' | 'text' | 'select';
+  type: 'textarea' | 'text' | 'select' | 'file';
   options?: string[];
   enabled?: boolean;
   required?: boolean;

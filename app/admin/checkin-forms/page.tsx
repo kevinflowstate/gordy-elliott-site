@@ -11,7 +11,7 @@ const DEFAULT_QUESTIONS: FormQuestion[] = [
   { id: "diet_detail", label: "Detail your diet from the last week", placeholder: "Describe what you've been eating...", type: "textarea", enabled: true },
   { id: "diet_adherence", label: "Did you stick to your diet?", placeholder: "", type: "select", options: ["Yes", "Mostly", "No"], enabled: true },
   { id: "wellbeing", label: "How do you feel / overall wellbeing?", placeholder: "How are you feeling overall?", type: "textarea", enabled: true },
-  { id: "photos", label: "Current photos (front, back, side)", placeholder: "File upload - coming soon", type: "text", enabled: false },
+  { id: "photos", label: "Current photos (front, back, side)", placeholder: "Upload your progress photos", type: "file", enabled: true },
   { id: "anything_else", label: "Anything else?", placeholder: "Anything else you'd like to share?", type: "textarea", enabled: true },
 ];
 
@@ -257,7 +257,6 @@ export default function CheckinFormsPage() {
         {questionsOpen && (
           <div className="mt-4 space-y-2">
             {questions.map((q, idx) => {
-              const isPhotoPlaceholder = q.id === "photos";
               return (
                 <div
                   key={q.id}
@@ -269,21 +268,14 @@ export default function CheckinFormsPage() {
                 >
                   <Toggle enabled={!!q.enabled} onToggle={() => toggleQuestion(idx)} />
                   <div className="flex-1 min-w-0">
-                    {isPhotoPlaceholder ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-text-primary truncate">{q.label}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 bg-amber-500/10 text-amber-400 rounded font-semibold uppercase tracking-wider">TODO</span>
-                      </div>
-                    ) : (
-                      <input
-                        type="text"
-                        value={q.label}
-                        onChange={(e) => updateQuestionLabel(idx, e.target.value)}
-                        placeholder="Question label"
-                        className="w-full bg-transparent text-sm text-text-primary placeholder:text-text-muted focus:outline-none"
-                      />
-                    )}
-                    <div className="text-[10px] text-text-muted mt-0.5 capitalize">{q.type === "select" ? `Select: ${q.options?.join(" / ")}` : q.type}</div>
+                    <input
+                      type="text"
+                      value={q.label}
+                      onChange={(e) => updateQuestionLabel(idx, e.target.value)}
+                      placeholder="Question label"
+                      className="w-full bg-transparent text-sm text-text-primary placeholder:text-text-muted focus:outline-none"
+                    />
+                    <div className="text-[10px] text-text-muted mt-0.5">{q.type === "select" ? q.options?.join(" / ") : q.type === "file" ? "Photo upload" : "Free text"}</div>
                   </div>
                   {/* Only allow removing custom questions (not the defaults) */}
                   {!DEFAULT_QUESTIONS.find((dq) => dq.id === q.id) && (
