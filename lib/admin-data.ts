@@ -22,6 +22,9 @@ export interface AdminClient {
   business_name: string;
   business_type: string;
   goals: string;
+  primary_goal?: string;
+  target_date?: string;
+  goal_notes?: string;
   start_date: string;
   status: TrafficLight;
   current_week: number;
@@ -30,6 +33,7 @@ export interface AdminClient {
   checkins: CheckIn[];
   training_plan: TrainingPlan[];
   internal_notes?: string;
+  checkin_day?: string;
 }
 
 // ============================================
@@ -71,7 +75,8 @@ export async function getClients(): Promise<AdminClient[]> {
     .from("client_profiles")
     .select(`
       id, user_id, phone, business_name, business_type, goals,
-      start_date, last_login, last_checkin, created_at,
+      primary_goal, target_date, goal_notes,
+      start_date, last_login, last_checkin, created_at, checkin_day,
       user:users!client_profiles_user_id_fkey(email, full_name)
     `)
     .order("created_at", { ascending: true });
@@ -174,6 +179,9 @@ export async function getClients(): Promise<AdminClient[]> {
       business_name: p.business_name || "",
       business_type: p.business_type || "",
       goals: p.goals || "",
+      primary_goal: p.primary_goal || undefined,
+      target_date: p.target_date || undefined,
+      goal_notes: p.goal_notes || undefined,
       start_date: p.start_date,
       status: computeStatus(p.last_login, p.last_checkin, p.created_at),
       current_week: computeCurrentWeek(p.start_date),
@@ -181,6 +189,7 @@ export async function getClients(): Promise<AdminClient[]> {
       last_checkin: p.last_checkin || p.created_at,
       checkins: checkinsByClient.get(p.id) || [],
       training_plan: plansByClient.get(p.id) || [],
+      checkin_day: p.checkin_day || undefined,
     };
   });
 
@@ -202,7 +211,8 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
     .from("client_profiles")
     .select(`
       id, user_id, phone, business_name, business_type, goals,
-      start_date, last_login, last_checkin, created_at,
+      primary_goal, target_date, goal_notes,
+      start_date, last_login, last_checkin, created_at, checkin_day,
       user:users!client_profiles_user_id_fkey(email, full_name)
     `)
     .eq("id", id)
@@ -315,6 +325,9 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
     business_name: p.business_name || "",
     business_type: p.business_type || "",
     goals: p.goals || "",
+    primary_goal: p.primary_goal || undefined,
+    target_date: p.target_date || undefined,
+    goal_notes: p.goal_notes || undefined,
     start_date: p.start_date,
     status: computeStatus(p.last_login, p.last_checkin, p.created_at),
     current_week: computeCurrentWeek(p.start_date),
@@ -323,6 +336,7 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
     checkins: checkins || [],
     training_plan: trainingPlans,
     internal_notes: notes?.content || "",
+    checkin_day: p.checkin_day || undefined,
   };
 }
 

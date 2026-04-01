@@ -127,6 +127,28 @@ export default function PortalDashboard() {
         <p className="text-text-secondary mt-1">Here&apos;s your progress overview.</p>
       </div>
 
+      {/* Goal banner */}
+      {!loading && profile?.primary_goal && (
+        <div className="mb-6 bg-bg-card border border-[#E2B830]/20 rounded-2xl px-5 py-4">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-[#E2B830]/10 border border-[#E2B830]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <svg className="w-4 h-4 text-[#E2B830]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-xs text-[#E2B830] font-semibold uppercase tracking-wider mb-0.5">Your Goal</div>
+              <div className="text-lg font-heading font-bold text-text-primary leading-snug">{profile.primary_goal}</div>
+              {profile.target_date && (
+                <div className="text-xs text-text-muted mt-0.5">
+                  Target: {new Date(profile.target_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Briefing Banner */}
       {!loading && (
         <BriefingBanner

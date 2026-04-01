@@ -1,13 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { CheckinFormConfig, TrainingPlanFormConfig, FormQuestion } from "@/lib/types";
+import type { CheckinFormConfig, FormQuestion } from "@/lib/types";
 
 function generateQuestionId() {
   return `q_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 }
-
-const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
 export default function AdminSettingsPage() {
   // Create client form
@@ -21,25 +19,12 @@ export default function AdminSettingsPage() {
   const [checkinSaving, setCheckinSaving] = useState(false);
   const [checkinMessage, setCheckinMessage] = useState("");
 
-  // Business plan config
-  const [bpConfig, setBpConfig] = useState<TrainingPlanFormConfig | null>(null);
-  const [bpSaving, setBpSaving] = useState(false);
-  const [bpMessage, setBpMessage] = useState("");
-
   useEffect(() => {
     async function loadConfigs() {
-      const [checkinRes, bpRes] = await Promise.all([
-        fetch("/api/admin/form-config?type=checkin"),
-        fetch("/api/admin/form-config?type=business_plan"),
-      ]);
-
+      const checkinRes = await fetch("/api/admin/form-config?type=checkin");
       if (checkinRes.ok) {
         const data = await checkinRes.json();
         setCheckinConfig(data.config);
-      }
-      if (bpRes.ok) {
-        const data = await bpRes.json();
-        setBpConfig(data.config);
       }
     }
     loadConfigs();
@@ -99,32 +84,6 @@ export default function AdminSettingsPage() {
     setCheckinSaving(false);
   }
 
-  async function saveBpConfig() {
-    if (!bpConfig) return;
-    setBpSaving(true);
-    setBpMessage("");
-
-    try {
-      const res = await fetch("/api/admin/form-config", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "business_plan", config: bpConfig }),
-      });
-
-      if (res.ok) {
-        setBpMessage("Saved");
-        setTimeout(() => setBpMessage(""), 2000);
-      } else {
-        const data = await res.json();
-        setBpMessage(`Error: ${data.error}`);
-      }
-    } catch {
-      setBpMessage("Failed to save");
-    }
-
-    setBpSaving(false);
-  }
-
   function updateCheckinQuestion(index: number, updates: Partial<FormQuestion>) {
     if (!checkinConfig) return;
     const questions = [...checkinConfig.questions];
@@ -148,30 +107,6 @@ export default function AdminSettingsPage() {
       required: false,
     };
     setCheckinConfig({ ...checkinConfig, questions: [...checkinConfig.questions, newQ] });
-  }
-
-  function updateBpQuestion(index: number, updates: Partial<FormQuestion>) {
-    if (!bpConfig) return;
-    const questions = [...bpConfig.questions];
-    questions[index] = { ...questions[index], ...updates };
-    setBpConfig({ ...bpConfig, questions });
-  }
-
-  function removeBpQuestion(index: number) {
-    if (!bpConfig) return;
-    const questions = bpConfig.questions.filter((_, i) => i !== index);
-    setBpConfig({ ...bpConfig, questions });
-  }
-
-  function addBpQuestion() {
-    if (!bpConfig) return;
-    const newQ: FormQuestion = {
-      id: generateQuestionId(),
-      label: "",
-      placeholder: "",
-      type: "textarea",
-    };
-    setBpConfig({ ...bpConfig, questions: [...bpConfig.questions, newQ] });
   }
 
   const inputClass = "w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40";
@@ -232,20 +167,6 @@ export default function AdminSettingsPage() {
 
         {checkinConfig ? (
           <div className="space-y-5">
-            {/* Check-in day */}
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-2">Check-in day</label>
-              <select
-                value={checkinConfig.checkin_day}
-                onChange={(e) => setCheckinConfig({ ...checkinConfig, checkin_day: e.target.value })}
-                className={inputClass}
-              >
-                {DAYS.map((d) => (
-                  <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
-                ))}
-              </select>
-            </div>
-
             {/* Mood toggle */}
             <div className="flex items-center justify-between py-2">
               <div>
@@ -322,85 +243,6 @@ export default function AdminSettingsPage() {
               {checkinMessage && (
                 <span className={`text-sm ${checkinMessage.startsWith("Error") ? "text-red-400" : "text-emerald-400"}`}>
                   {checkinMessage}
-                </span>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="text-text-muted text-sm">Loading config...</div>
-        )}
-      </div>
-
-      {/* Training Plan Template */}
-      <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 mb-6">
-        <h2 className="text-lg font-heading font-bold text-text-primary mb-1">Training Plan Template</h2>
-        <p className="text-text-muted text-sm mb-5">Discovery questions shown when creating or editing a training plan.</p>
-
-        {bpConfig ? (
-          <div className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-3">Discovery Questions</label>
-              <div className="space-y-3">
-                {bpConfig.questions.map((q, idx) => (
-                  <div key={q.id} className="bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-xl p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-1 space-y-2">
-                        <input
-                          type="text"
-                          value={q.label}
-                          onChange={(e) => updateBpQuestion(idx, { label: e.target.value })}
-                          placeholder="Question label"
-                          className="w-full bg-transparent border-b border-[rgba(0,0,0,0.08)] pb-1 text-sm font-medium text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40"
-                        />
-                        <input
-                          type="text"
-                          value={q.placeholder}
-                          onChange={(e) => updateBpQuestion(idx, { placeholder: e.target.value })}
-                          placeholder="Placeholder text"
-                          className="w-full bg-transparent text-xs text-text-secondary placeholder:text-text-muted focus:outline-none"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeBpQuestion(idx)}
-                        className="text-text-muted hover:text-red-400 transition-colors p-1 mt-0.5 cursor-pointer"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-
-                {bpConfig.questions.length === 0 && (
-                  <p className="text-text-muted text-xs py-2">No discovery questions configured. Plans will go straight to the phase builder.</p>
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={addBpQuestion}
-                className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 border border-dashed border-[rgba(0,0,0,0.08)] hover:border-accent/30 rounded-xl text-xs text-text-muted hover:text-accent-bright transition-colors cursor-pointer"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Add Question
-              </button>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={saveBpConfig}
-                disabled={bpSaving}
-                className="px-6 py-3 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold disabled:opacity-40 transition-opacity"
-              >
-                {bpSaving ? "Saving..." : "Save Template"}
-              </button>
-              {bpMessage && (
-                <span className={`text-sm ${bpMessage.startsWith("Error") ? "text-red-400" : "text-emerald-400"}`}>
-                  {bpMessage}
                 </span>
               )}
             </div>

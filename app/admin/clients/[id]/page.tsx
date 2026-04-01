@@ -88,12 +88,20 @@ export default function ClientDetailPage() {
   const [nudgeMessage, setNudgeMessage] = useState("");
   const [exercisePlans, setExercisePlans] = useState<ClientExercisePlan[]>([]);
   const [nutritionPlans, setNutritionPlans] = useState<ClientNutritionPlan[]>([]);
+  const [recentExerciseLogs, setRecentExerciseLogs] = useState<Array<{ id: string; exercise_item_id: string; session_id: string | null; log_date: string; sets_data: Array<{ set_number: number; weight: string; reps: string; notes: string }>; completed: boolean }>>([]);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [showNutritionPicker, setShowNutritionPicker] = useState(false);
   const [assigningExercise, setAssigningExercise] = useState(false);
   const [assigningNutrition, setAssigningNutrition] = useState(false);
   const [nudgeSending, setNudgeSending] = useState(false);
   const [nudgeSent, setNudgeSent] = useState(false);
+  const [checkinDay, setCheckinDay] = useState<string>("");
+  const [checkinDaySaving, setCheckinDaySaving] = useState(false);
+  const [goalsModalOpen, setGoalsModalOpen] = useState(false);
+  const [goalPrimary, setGoalPrimary] = useState("");
+  const [goalTargetDate, setGoalTargetDate] = useState("");
+  const [goalNotes, setGoalNotes] = useState("");
+  const [goalsSaving, setGoalsSaving] = useState(false);
 
   const loadClient = useCallback(async () => {
     try {
@@ -110,6 +118,10 @@ export default function ClientDetailPage() {
         const activePlan = (data.client?.training_plan || []).find((p: TrainingPlan) => p.status === "active");
         setExpandedPhases(new Set(activePlan?.phases.map((ph: TrainingPlanPhase) => ph.id) || []));
         setInternalNotes(data.client?.internal_notes || "");
+        setCheckinDay(data.client?.checkin_day || "");
+        setGoalPrimary(data.client?.primary_goal || "");
+        setGoalTargetDate(data.client?.target_date || "");
+        setGoalNotes(data.client?.goal_notes || "");
       }
 
       if (trainingRes.ok) {
@@ -141,6 +153,12 @@ export default function ClientDetailPage() {
         if (nutRes.ok) {
           const nutData = await nutRes.json();
           setNutritionPlans(nutData.plans || []);
+        }
+        // Fetch recent exercise logs
+        const logsRes = await fetch(`/api/admin/client-exercise-logs?clientId=${id}`);
+        if (logsRes.ok) {
+          const logsData = await logsRes.json();
+          setRecentExerciseLogs(logsData.logs || []);
         }
       }
     } finally {
@@ -191,6 +209,26 @@ export default function ClientDetailPage() {
       body: JSON.stringify({ id: planId, status: "archived" }),
     });
     loadClient();
+  }
+
+  async function handleUnassignExercisePlan(planId: string) {
+    await fetch("/api/admin/client-exercise-plans", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: planId, status: "inactive" }),
+    });
+    loadClient();
+  }
+
+  async function saveCheckinDay(day: string) {
+    if (!client) return;
+    setCheckinDaySaving(true);
+    await fetch(`/api/admin/clients/${client.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ checkin_day: day }),
+    });
+    setCheckinDaySaving(false);
   }
 
   async function handleArchiveNutritionPlan(planId: string) {
@@ -352,6 +390,24 @@ export default function ClientDetailPage() {
       body: JSON.stringify({ content: internalNotes }),
     });
     setNotesSaving(false);
+  }
+
+  async function handleSaveGoals() {
+    if (!client) return;
+    setGoalsSaving(true);
+    await fetch("/api/admin/client-goals", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_id: client.id,
+        primary_goal: goalPrimary,
+        target_date: goalTargetDate,
+        goal_notes: goalNotes,
+      }),
+    });
+    setGoalsSaving(false);
+    setGoalsModalOpen(false);
+    loadClient();
   }
 
   // Week progress
@@ -681,6 +737,106 @@ export default function ClientDetailPage() {
         </div>
       </div>
 
+      {/* Goals card */}
+      <div className="bg-bg-card border border-[#E2B830]/20 rounded-2xl p-5 mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-[#E2B830]/10 border border-[#E2B830]/20 flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4 text-[#E2B830]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <h2 className="text-sm font-heading font-bold text-text-primary">Client Goal</h2>
+          </div>
+          <button
+            onClick={() => { setGoalPrimary(client.primary_goal || ""); setGoalTargetDate(client.target_date || ""); setGoalNotes(client.goal_notes || ""); setGoalsModalOpen(true); }}
+            className="px-3 py-1.5 text-xs font-semibold text-[#E2B830] bg-[#E2B830]/10 hover:bg-[#E2B830]/20 border border-[#E2B830]/20 rounded-lg transition-colors cursor-pointer"
+          >
+            {client.primary_goal ? "Edit Goal" : "Set Goal"}
+          </button>
+        </div>
+        {client.primary_goal ? (
+          <div>
+            <div className="text-xl font-heading font-bold text-[#E2B830] leading-snug mb-1">{client.primary_goal}</div>
+            {client.target_date && (
+              <div className="text-xs text-text-muted">
+                Target: {new Date(client.target_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+              </div>
+            )}
+            {client.goal_notes && (
+              <div className="text-sm text-text-secondary mt-2 leading-relaxed">{client.goal_notes}</div>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-text-muted">No goal set yet. Add a primary goal to keep this client focused and motivated.</p>
+        )}
+      </div>
+
+      {/* Goals modal */}
+      {goalsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-xl bg-[#E2B830]/10 border border-[#E2B830]/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-[#E2B830]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-heading font-bold text-text-primary">Client Goal</h3>
+                <p className="text-xs text-text-muted">What is {client.name.split(" ")[0]} working towards?</p>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1.5">Primary Goal</label>
+                <input
+                  type="text"
+                  value={goalPrimary}
+                  onChange={(e) => setGoalPrimary(e.target.value)}
+                  placeholder="e.g. Lose 10kg, Run a 5k, Build muscle"
+                  className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-[#E2B830]/50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1.5">Target Date <span className="text-text-muted font-normal">(optional)</span></label>
+                <input
+                  type="date"
+                  value={goalTargetDate}
+                  onChange={(e) => setGoalTargetDate(e.target.value)}
+                  className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-[#E2B830]/50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1.5">Additional Notes <span className="text-text-muted font-normal">(optional)</span></label>
+                <textarea
+                  value={goalNotes}
+                  onChange={(e) => setGoalNotes(e.target.value)}
+                  placeholder="Context, motivation, milestones..."
+                  rows={3}
+                  className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-[#E2B830]/50 resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={() => setGoalsModalOpen(false)}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-white/5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={goalsSaving || !goalPrimary.trim()}
+                onClick={handleSaveGoals}
+                className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-[#E2B830] hover:bg-[#c9a228] rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {goalsSaving ? "Saving..." : "Save Goal"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Week timeline */}
       <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mb-6">
         <div className="flex items-center justify-between mb-3">
@@ -777,6 +933,29 @@ export default function ClientDetailPage() {
         )}
       </div>
 
+      {/* Per-client check-in day */}
+      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mb-6 flex items-center gap-4">
+        <div className="flex-1">
+          <h2 className="text-sm font-heading font-bold text-text-primary">Check-In Day</h2>
+          <p className="text-[10px] text-text-muted mt-0.5">Which day this client submits their weekly check-in</p>
+        </div>
+        <select
+          value={checkinDay}
+          onChange={async (e) => {
+            const day = e.target.value;
+            setCheckinDay(day);
+            await saveCheckinDay(day);
+          }}
+          className="bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent/40 transition-colors cursor-pointer"
+        >
+          <option value="">Not set</option>
+          {["monday","tuesday","wednesday","thursday","friday","saturday","sunday"].map((d) => (
+            <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
+          ))}
+        </select>
+        {checkinDaySaving && <span className="text-xs text-text-muted">Saving...</span>}
+      </div>
+
       <div className="grid lg:grid-cols-[1.3fr_1fr] gap-6">
         {/* Training Plan */}
         <div>
@@ -820,7 +999,7 @@ export default function ClientDetailPage() {
 
           {activePlan ? (
             <>
-              {/* Plan summary */}
+              {/* Plan summary (phases-based) */}
               <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 mb-3">
                 <p className="text-text-secondary text-sm leading-relaxed">{activePlan.summary}</p>
                 <div className="flex items-center gap-2 mt-3">
@@ -1050,7 +1229,7 @@ export default function ClientDetailPage() {
                 </div>
               )}
             </>
-          ) : (
+          ) : !exercisePlans.some((p) => p.status === "active") ? (
             <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
               <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-3">
                 <svg className="w-6 h-6 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1156,7 +1335,7 @@ export default function ClientDetailPage() {
                 </div>
               )}
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Exercise Plan */}
@@ -1191,12 +1370,20 @@ export default function ClientDetailPage() {
                     {activeExPlan.description && <p className="text-[13px] text-text-secondary mt-0.5">{activeExPlan.description}</p>}
                     <span className="text-[13px] text-accent-bright">{activeExPlan.sessions.length} sessions</span>
                   </div>
-                  <button
-                    onClick={() => handleArchiveExercisePlan(activeExPlan.id)}
-                    className="text-[13px] text-text-secondary hover:text-red-400 transition-colors"
-                  >
-                    Archive
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => handleUnassignExercisePlan(activeExPlan.id)}
+                      className="text-[13px] text-text-secondary hover:text-amber-400 transition-colors"
+                    >
+                      Remove
+                    </button>
+                    <button
+                      onClick={() => handleArchiveExercisePlan(activeExPlan.id)}
+                      className="text-[13px] text-text-secondary hover:text-red-400 transition-colors"
+                    >
+                      Archive
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   {activeExPlan.sessions.map((session) => (
@@ -1209,6 +1396,73 @@ export default function ClientDetailPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* Recent Training Logs */}
+                {recentExerciseLogs.length > 0 && (() => {
+                  // Group logs by date
+                  const byDate = recentExerciseLogs.reduce((acc, log) => {
+                    if (!acc[log.log_date]) acc[log.log_date] = [];
+                    acc[log.log_date].push(log);
+                    return acc;
+                  }, {} as Record<string, typeof recentExerciseLogs>);
+                  const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a)).slice(0, 5);
+                  return (
+                    <div className="mt-4 pt-4 border-t border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)]">
+                      <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-3">Recent Training Logs</h4>
+                      <div className="space-y-2">
+                        {dates.map((date) => {
+                          const dayLogs = byDate[date];
+                          const completedCount = dayLogs.filter((l) => l.completed).length;
+                          const sessionId = dayLogs[0]?.session_id;
+                          const sessionName = sessionId
+                            ? activeExPlan.sessions.find((s) => s.id === sessionId)?.name
+                            : null;
+                          return (
+                            <div key={date} className="bg-[rgba(0,0,0,0.02)] dark:bg-[rgba(255,255,255,0.02)] rounded-xl p-3">
+                              <div className="flex items-center justify-between mb-1.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[13px] font-semibold text-text-primary">
+                                    {new Date(date + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
+                                  </span>
+                                  {sessionName && (
+                                    <span className="text-xs text-accent-bright font-medium">{sessionName}</span>
+                                  )}
+                                </div>
+                                <span className="text-xs text-emerald-500 font-semibold">
+                                  {completedCount}/{dayLogs.length} logged
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {dayLogs.slice(0, 6).map((log) => {
+                                  const exerciseItem = activeExPlan.sessions
+                                    .flatMap((s) => s.items)
+                                    .find((i) => i.id === log.exercise_item_id);
+                                  const topSet = log.sets_data?.[0];
+                                  return (
+                                    <span key={log.id} className={`text-xs px-2 py-0.5 rounded-lg font-medium ${
+                                      log.completed
+                                        ? "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400"
+                                        : "bg-[rgba(0,0,0,0.04)] dark:bg-[rgba(255,255,255,0.05)] text-text-secondary"
+                                    }`}>
+                                      {exerciseItem?.exercise?.name || "Exercise"}
+                                      {topSet?.weight && ` ${topSet.weight}kg`}
+                                      {topSet?.reps && ` x${topSet.reps}`}
+                                    </span>
+                                  );
+                                })}
+                                {dayLogs.length > 6 && (
+                                  <span className="text-xs px-2 py-0.5 rounded-lg bg-[rgba(0,0,0,0.04)] dark:bg-[rgba(255,255,255,0.05)] text-text-secondary">
+                                    +{dayLogs.length - 6} more
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}

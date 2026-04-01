@@ -62,7 +62,7 @@ export default function NutritionTemplatePicker({ onSelect, onClose }: Nutrition
               <button
                 key={t.id}
                 onClick={() => onSelect(t.id)}
-                className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-[rgba(0,0,0,0.03)] dark:hover:bg-[rgba(255,255,255,0.03)] transition-colors text-left"
+                className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-[rgba(0,0,0,0.03)] dark:hover:bg-[rgba(255,255,255,0.03)] transition-colors text-left cursor-pointer"
               >
                 <div>
                   <span className="text-text-primary font-medium">{t.name}</span>

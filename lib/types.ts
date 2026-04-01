@@ -20,6 +20,9 @@ export interface ClientProfile {
   business_name?: string;
   business_type?: string;
   goals?: string;
+  primary_goal?: string;
+  target_date?: string;
+  goal_notes?: string;
   start_date: string;
   status: TrafficLight;
   notes?: string;

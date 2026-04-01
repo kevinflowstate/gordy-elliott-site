@@ -196,7 +196,7 @@ export default function ExercisePlansPage() {
             </svg>
           </div>
           <p className="text-text-muted text-sm mb-4">
-            {search || categoryFilter !== "all" ? "No templates match your filters." : "No exercise templates yet."}
+            {search || categoryFilter !== "all" ? "No training plans match your filters." : "No training plans yet."}
           </p>
           {search || categoryFilter !== "all" ? (
             <button

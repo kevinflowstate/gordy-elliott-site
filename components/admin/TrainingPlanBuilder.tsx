@@ -132,14 +132,9 @@ export default function TrainingPlanBuilder({ clientId, existingPlan, onSave, on
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
-
-      {/* Slide-over panel */}
-      <div className="relative ml-auto w-full max-w-2xl bg-bg-primary border-l border-[rgba(255,255,255,0.06)] overflow-y-auto animate-in slide-in-from-right duration-300">
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-bg-primary/95 backdrop-blur-sm border-b border-[rgba(255,255,255,0.06)] px-6 py-4 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 bg-bg-primary overflow-y-auto">
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-bg-primary/95 backdrop-blur-sm border-b border-[rgba(255,255,255,0.06)] px-6 py-4 flex items-center justify-between">
           <h2 className="text-lg font-heading font-bold text-text-primary">
             {isEditing ? "Edit Training Plan" : "Create Training Plan"}
           </h2>
@@ -160,7 +155,7 @@ export default function TrainingPlanBuilder({ clientId, existingPlan, onSave, on
           </div>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 max-w-3xl mx-auto">
           {/* Discovery Questions */}
           {bpConfig && bpConfig.questions.length > 0 && (
             <div>
@@ -395,7 +390,6 @@ export default function TrainingPlanBuilder({ clientId, existingPlan, onSave, on
             Add Phase
           </button>
         </div>
-      </div>
     </div>
   );
 }

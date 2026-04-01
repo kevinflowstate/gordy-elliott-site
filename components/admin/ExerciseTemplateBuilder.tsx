@@ -164,7 +164,7 @@ export default function ExerciseTemplateBuilder({
         {/* Header */}
         <div className="sticky top-0 z-10 bg-bg-primary/95 backdrop-blur-sm border-b border-[rgba(0,0,0,0.06)] px-6 py-4 flex items-center justify-between">
           <h2 className="text-lg font-heading font-bold text-text-primary">
-            {isEditing ? "Edit Template" : "Create Exercise Template"}
+            {isEditing ? "Edit Training Plan" : "Create Training Plan"}
           </h2>
           <div className="flex items-center gap-2">
             <button
@@ -405,11 +405,17 @@ function SessionCard({
         {session.items.length > 0 && (
           <div>
             <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-2">Exercises</label>
-            {/* Column headers */}
-            <div className="grid gap-1 mb-1 px-9" style={{ gridTemplateColumns: "1fr 52px 64px 72px 80px 80px 28px 28px" }}>
-              {["Exercise", "Sets", "Reps", "Rest (s)", "Tempo", "Notes", "", ""].map((h, i) => (
-                <div key={i} className="text-[9px] font-semibold text-text-muted uppercase tracking-wider truncate">{h}</div>
-              ))}
+            {/* Column headers - must match ExerciseItemRow flex widths exactly */}
+            {/* drag(16) gap(4) name(flex) gap(4) sets(52) gap(4) reps(64) gap(4) rest(72) gap(4) tempo(80) gap(4) notes(80) gap(4) ss(28) gap(4) remove(28) */}
+            <div className="flex items-center gap-1 mb-1 pl-[20px]">
+              <div className="flex-1 text-[9px] font-semibold text-text-muted uppercase tracking-wider">Exercise</div>
+              <div className="w-[52px] text-[9px] font-semibold text-text-muted uppercase tracking-wider text-center">Sets</div>
+              <div className="w-16 text-[9px] font-semibold text-text-muted uppercase tracking-wider text-center">Reps</div>
+              <div className="w-[72px] text-[9px] font-semibold text-text-muted uppercase tracking-wider text-center">Rest (s)</div>
+              <div className="w-20 text-[9px] font-semibold text-text-muted uppercase tracking-wider text-center">Tempo</div>
+              <div className="w-20 text-[9px] font-semibold text-text-muted uppercase tracking-wider text-center">Notes</div>
+              <div className="w-7 flex-shrink-0" />
+              <div className="w-7 flex-shrink-0" />
             </div>
             <DndSortableList
               items={session.items}
