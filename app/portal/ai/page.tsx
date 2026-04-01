@@ -119,7 +119,7 @@ export default function ShiftAIPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-heading font-extrabold text-text-primary">SHIFT AI</h1>
         <p className="text-sm text-text-secondary mt-1">
-          Your personal coaching assistant - ask about training, your business plan, or next steps.
+          Your personal coaching assistant - ask about training, your plan, or next steps.
         </p>
       </div>
 
@@ -133,14 +133,14 @@ export default function ShiftAIPage() {
             </div>
             <h2 className="text-lg font-semibold text-text-primary mb-2">How can I help?</h2>
             <p className="text-sm text-text-muted max-w-md mb-6">
-              I know your training modules, business plan, and coaching goals. Ask me anything.
+              I know your training modules, coaching plan, and goals. Ask me anything.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-md">
               {[
                 "What should I focus on this week?",
                 "Help me with pricing my services",
                 "What training do I have left?",
-                "Summarise my business plan progress",
+                "Summarise my training plan progress",
               ].map((q) => (
                 <button
                   key={q}

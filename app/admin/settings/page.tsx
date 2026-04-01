@@ -334,7 +334,7 @@ export default function AdminSettingsPage() {
       {/* Training Plan Template */}
       <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 mb-6">
         <h2 className="text-lg font-heading font-bold text-text-primary mb-1">Training Plan Template</h2>
-        <p className="text-text-muted text-sm mb-5">Discovery questions shown when creating or editing a business plan.</p>
+        <p className="text-text-muted text-sm mb-5">Discovery questions shown when creating or editing a training plan.</p>
 
         {bpConfig ? (
           <div className="space-y-5">

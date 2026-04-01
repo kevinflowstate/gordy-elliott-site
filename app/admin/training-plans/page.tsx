@@ -167,7 +167,7 @@ export default function TrainingPlansPage() {
       {/* Plans list */}
       {filtered.length === 0 ? (
         <div className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
-          <p className="text-text-muted text-sm">No {filter !== "all" ? filter : ""} business plans yet.</p>
+          <p className="text-text-muted text-sm">No {filter !== "all" ? filter : ""} training plans yet.</p>
         </div>
       ) : (
         <div className="space-y-3">

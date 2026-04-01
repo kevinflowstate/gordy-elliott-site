@@ -470,7 +470,7 @@ function BriefingBanner({
   }
 
   if (planPct > 0 && planPct < 100) {
-    items.push({ icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z", text: `Business plan ${planPct}% complete`, href: "/portal/plan" });
+    items.push({ icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z", text: `Training plan ${planPct}% complete`, href: "/portal/plan" });
   }
 
   if (items.length === 0) return null;
@@ -557,22 +557,23 @@ function JourneyTracker({
     : Math.min(100, Math.round((currentWeek / 12) * 100));
 
   return (
-    <div className="group relative bg-gradient-to-br from-accent/5 via-bg-card to-bg-card border border-accent/15 rounded-2xl p-6 mb-8 overflow-hidden transition-all duration-300 hover:border-accent/25 hover:shadow-[0_8px_32px_rgba(226,184,48,0.08)]">
-      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-accent-dark via-accent to-transparent rounded-t-2xl" />
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.04] transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(226,184,48,1)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
+    <div className="group relative bg-gradient-to-br from-[#1a1a1a] via-[#222222] to-[#1a1a1a] border border-accent/20 rounded-2xl p-6 mb-8 overflow-hidden transition-all duration-300 hover:border-accent/40 hover:shadow-[0_8px_40px_rgba(226,184,48,0.15)]">
+      <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-accent to-transparent rounded-t-2xl" />
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_top_right,rgba(226,184,48,0.08)_0%,transparent_50%)]" />
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_bottom_left,rgba(226,184,48,0.05)_0%,transparent_50%)]" />
       <div className="relative z-10">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-heading font-bold text-text-primary">Your Journey</h2>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-xl font-heading font-extrabold text-white uppercase tracking-wide">Your Journey</h2>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-text-muted">{phaseCount > 0 ? `${completedPhaseCount} of ${phaseCount} phases` : `Week ${currentWeek || 0} of 12`}</span>
-            <span className="gradient-text text-xl font-heading font-bold">{progressPct}%</span>
+            <span className="text-xs text-[#999]">{phaseCount > 0 ? `${completedPhaseCount} of ${phaseCount} phases` : `Week ${currentWeek || 0} of 12`}</span>
+            <span className="gradient-text text-2xl font-heading font-extrabold">{progressPct}%</span>
           </div>
         </div>
 
         {/* Progress bar with milestones */}
         <div className="relative mb-6">
-          <div className="h-3 bg-[rgba(0,0,0,0.06)] rounded-full overflow-hidden">
-            <div className="h-3 rounded-full gradient-accent transition-all duration-700 shadow-[0_0_8px_rgba(226,184,48,0.4)]" style={{ width: `${progressPct}%` }} />
+          <div className="h-4 bg-[rgba(255,255,255,0.08)] rounded-full overflow-hidden border border-[rgba(255,255,255,0.05)]">
+            <div className="h-4 rounded-full gradient-accent transition-all duration-700 shadow-[0_0_16px_rgba(226,184,48,0.6)]" style={{ width: `${progressPct}%` }} />
           </div>
           <div className="flex justify-between mt-4">
             {milestones.map((m, i) => {
@@ -584,18 +585,18 @@ function JourneyTracker({
               const isLast = i === total - 1;
               return (
                 <div key={m.index} className={`flex flex-col items-center flex-1 ${isFirst ? "items-start" : isLast ? "items-end" : "items-center"}`}>
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
                     reached
-                      ? "bg-accent border-accent-bright shadow-[0_0_12px_rgba(226,184,48,0.5)]"
-                      : "bg-bg-card border-[rgba(0,0,0,0.10)]"
+                      ? "bg-accent border-accent-bright shadow-[0_0_16px_rgba(226,184,48,0.6)]"
+                      : "bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.15)]"
                   }`}>
                     {reached && (
-                      <svg className="w-3 h-3 text-[#1a1a1a]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3.5 h-3.5 text-[#1a1a1a]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
                     )}
                   </div>
-                  <span className={`text-[10px] mt-2 text-center max-w-[90px] leading-tight font-medium ${reached ? "text-text-primary" : "text-text-muted"}`}>{m.label}</span>
+                  <span className={`text-[11px] mt-2 text-center max-w-[90px] leading-tight font-semibold ${reached ? "text-accent-bright" : "text-[#777]"}`}>{m.label}</span>
                 </div>
               );
             })}

@@ -119,7 +119,7 @@ export default function AdminShiftAIPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-heading font-extrabold text-text-primary">SHIFT AI</h1>
         <p className="text-sm text-text-secondary mt-1">
-          Your coaching business assistant - ask about clients, training, check-ins, or business plans.
+          Your coaching business assistant - ask about clients, training, check-ins, or plans.
         </p>
       </div>
 

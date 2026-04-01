@@ -158,7 +158,7 @@ export default function TrainingPlanPage() {
   if (!plan) {
     return (
       <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
-        <p className="text-text-secondary">No business plan created yet.</p>
+        <p className="text-text-secondary">No training plan created yet.</p>
         <p className="text-text-muted text-sm mt-2">Gordy will build your plan based on your discovery session.</p>
       </div>
     );
