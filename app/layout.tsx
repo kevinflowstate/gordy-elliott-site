@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Barlow_Condensed } from "next/font/google";
 import { getSiteUrl } from "@/lib/site-url";
 import "./globals.css";
 
@@ -7,6 +7,12 @@ const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700", "800"],
+});
+
+const barlowCondensed = Barlow_Condensed({
+  variable: "--font-barlow-condensed",
+  subsets: ["latin"],
+  weight: ["600", "700", "800"],
 });
 
 const siteUrl = getSiteUrl();
@@ -83,7 +89,7 @@ export default function RootLayout({
           />
         </noscript>
       </head>
-      <body className={`${inter.variable} antialiased`}>
+      <body className={`${inter.variable} ${barlowCondensed.variable} antialiased`}>
         {children}
         <script
           dangerouslySetInnerHTML={{

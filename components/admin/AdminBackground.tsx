@@ -5,10 +5,10 @@ export default function AdminBackground() {
       <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <pattern id="admin-grid" width="80" height="80" patternUnits="userSpaceOnUse">
-            <path d="M 80 0 L 0 0 0 80" fill="none" stroke="rgba(226,184,48,0.05)" strokeWidth="0.5" />
+            <path d="M 80 0 L 0 0 0 80" fill="none" stroke="rgba(226,184,48,0.08)" strokeWidth="0.5" />
           </pattern>
           <pattern id="admin-grid-minor" width="20" height="20" patternUnits="userSpaceOnUse">
-            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(226,184,48,0.025)" strokeWidth="0.5" />
+            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(226,184,48,0.04)" strokeWidth="0.5" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#admin-grid-minor)" />
@@ -16,7 +16,7 @@ export default function AdminBackground() {
       </svg>
 
       {/* Cog - top left */}
-      <svg className="absolute top-[8%] left-[5%] w-[120px] h-[120px] opacity-[0.12]" viewBox="0 0 120 120" fill="none" stroke="rgba(226,184,48,1)" strokeWidth="1">
+      <svg className="absolute top-[8%] left-[5%] w-[120px] h-[120px] opacity-[0.18]" viewBox="0 0 120 120" fill="none" stroke="rgba(226,184,48,1)" strokeWidth="1">
         <circle cx="60" cy="60" r="20" />
         <circle cx="60" cy="60" r="8" />
         {Array.from({ length: 12 }).map((_, i) => {
@@ -127,8 +127,8 @@ export default function AdminBackground() {
       </svg>
 
       {/* Radial glow accents */}
-      <div className="absolute top-[10%] right-[15%] w-[400px] h-[400px] rounded-full bg-[radial-gradient(circle,rgba(226,184,48,0.06)_0%,transparent_70%)]" />
-      <div className="absolute bottom-[20%] left-[10%] w-[300px] h-[300px] rounded-full bg-[radial-gradient(circle,rgba(226,184,48,0.05)_0%,transparent_70%)]" />
+      <div className="absolute top-[10%] right-[15%] w-[400px] h-[400px] rounded-full bg-[radial-gradient(circle,rgba(226,184,48,0.11)_0%,transparent_70%)]" />
+      <div className="absolute bottom-[20%] left-[10%] w-[300px] h-[300px] rounded-full bg-[radial-gradient(circle,rgba(226,184,48,0.10)_0%,transparent_70%)]" />
     </div>
   );
 }

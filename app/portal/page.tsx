@@ -7,8 +7,8 @@ import type { ClientProfile, TrainingModule, CheckIn, CalendarEvent, TrainingPla
 function ProgressBar({ value, max }: { value: number; max: number }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
   return (
-    <div className="w-full bg-[rgba(0,0,0,0.06)] rounded-full h-2">
-      <div className="h-2 rounded-full gradient-accent transition-all duration-500" style={{ width: `${pct}%` }} />
+    <div className="w-full bg-[rgba(0,0,0,0.06)] rounded-full h-2.5">
+      <div className="h-2.5 rounded-full gradient-accent transition-all duration-500" style={{ width: `${pct}%` }} />
     </div>
   );
 }
@@ -177,22 +177,82 @@ export default function PortalDashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {[
-          { label: "Plan Progress", value: `${planPct}%`, sub: `${completedPlanItems}/${totalPlanItems} actions done` },
-          { label: "Current Week", value: `Week ${currentWeek || "-"}` },
-          { label: "Trainings", value: `${totalModules}`, sub: totalModules > 0 ? `${totalModules} module${totalModules !== 1 ? "s" : ""} available` : "Coming soon" },
-          { label: "Status", value: profile?.status === "green" ? "On Track" : profile?.status === "amber" ? "Needs Attention" : profile?.status === "red" ? "Behind" : "-" },
-        ].map((stat, i) => (
-          <div key={i} className="group relative bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(0,0,0,0.08)] hover:shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
-            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
-            <div className="absolute inset-0 -z-10 rounded-2xl p-px bg-gradient-to-br from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-            <div className="relative">
-              <div className="text-text-muted text-xs uppercase tracking-wider mb-2">{stat.label}</div>
-              <div className="text-2xl font-heading font-bold text-text-primary">{stat.value}</div>
-              {stat.sub && <div className="text-text-secondary text-sm mt-1">{stat.sub}</div>}
+        {/* Plan Progress - gold accent */}
+        <div className="group relative bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(0,0,0,0.12)] hover:border-accent/20">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-accent-dark via-accent to-accent-light rounded-t-2xl" />
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.06] transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,1)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
+          <div className="flex items-start justify-between mb-3">
+            <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
             </div>
           </div>
-        ))}
+          <div className="text-text-muted text-xs uppercase tracking-wider mb-1">Plan Progress</div>
+          <div className="text-2xl font-heading font-bold text-text-primary">{planPct}%</div>
+          <div className="text-text-secondary text-sm mt-1">{completedPlanItems}/{totalPlanItems} actions done</div>
+        </div>
+
+        {/* Current Week - neutral */}
+        <div className="group relative bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(0,0,0,0.12)] hover:border-[rgba(0,0,0,0.1)]">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-[rgba(0,0,0,0.08)] rounded-t-2xl" />
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.06] transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,1)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
+          <div className="flex items-start justify-between mb-3">
+            <div className="w-10 h-10 rounded-xl bg-[rgba(0,0,0,0.04)] border border-[rgba(0,0,0,0.06)] flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+          </div>
+          <div className="text-text-muted text-xs uppercase tracking-wider mb-1">Current Week</div>
+          <div className="text-2xl font-heading font-bold text-text-primary">Week {currentWeek || "-"}</div>
+        </div>
+
+        {/* Trainings - emerald */}
+        <div className="group relative bg-bg-card border border-emerald-500/10 rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(16,185,129,0.12)] hover:border-emerald-500/25">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-emerald-500/60 rounded-t-2xl" />
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.06] transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(16,185,129,1)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
+          <div className="flex items-start justify-between mb-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+            </div>
+          </div>
+          <div className="text-text-muted text-xs uppercase tracking-wider mb-1">Trainings</div>
+          <div className="text-2xl font-heading font-bold text-text-primary">{totalModules}</div>
+          <div className="text-text-secondary text-sm mt-1">{totalModules > 0 ? `${totalModules} module${totalModules !== 1 ? "s" : ""} available` : "Coming soon"}</div>
+        </div>
+
+        {/* Status - semantic colour */}
+        {(() => {
+          const statusVal = profile?.status;
+          const isGreen = statusVal === "green";
+          const isAmber = statusVal === "amber";
+          const isRed = statusVal === "red";
+          const statusText = isGreen ? "On Track" : isAmber ? "Needs Attention" : isRed ? "Behind" : "-";
+          const borderCol = isGreen ? "border-emerald-500/15" : isAmber ? "border-amber-500/15" : isRed ? "border-red-500/15" : "border-[rgba(0,0,0,0.06)]";
+          const topBorder = isGreen ? "bg-emerald-500/60" : isAmber ? "bg-amber-500/60" : isRed ? "bg-red-500/60" : "bg-[rgba(0,0,0,0.08)]";
+          const iconBg = isGreen ? "bg-emerald-500/10 border-emerald-500/20" : isAmber ? "bg-amber-500/10 border-amber-500/20" : isRed ? "bg-red-500/10 border-red-500/20" : "bg-[rgba(0,0,0,0.04)] border-[rgba(0,0,0,0.06)]";
+          const iconCol = isGreen ? "text-emerald-400" : isAmber ? "text-amber-400" : isRed ? "text-red-400" : "text-text-muted";
+          const textCol = isGreen ? "text-emerald-400" : isAmber ? "text-amber-400" : isRed ? "text-red-400" : "text-text-primary";
+          const hoverShadow = isGreen ? "hover:shadow-[0_8px_32px_rgba(16,185,129,0.12)]" : isAmber ? "hover:shadow-[0_8px_32px_rgba(245,158,11,0.12)]" : isRed ? "hover:shadow-[0_8px_32px_rgba(239,68,68,0.12)]" : "hover:shadow-[0_8px_32px_rgba(0,0,0,0.12)]";
+          return (
+            <div className={`group relative bg-bg-card border ${borderCol} rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-1 ${hoverShadow}`}>
+              <div className={`absolute top-0 left-0 right-0 h-[2px] ${topBorder} rounded-t-2xl`} />
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.06] transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,1)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
+              <div className="flex items-start justify-between mb-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 border ${iconBg}`}>
+                  <svg className={`w-5 h-5 ${iconCol}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={isGreen ? "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" : isAmber ? "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" : isRed ? "M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" : "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"} />
+                  </svg>
+                </div>
+              </div>
+              <div className="text-text-muted text-xs uppercase tracking-wider mb-1">Status</div>
+              <div className={`text-2xl font-heading font-bold ${textCol}`}>{statusText}</div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Journey Progress */}
@@ -234,9 +294,9 @@ export default function PortalDashboard() {
                         <span className="text-sm text-text-primary truncate">{phase.name}</span>
                         <span className="text-[10px] text-text-muted ml-2">{phaseCompleted}/{phaseTotal}</span>
                       </div>
-                      <div className="w-full bg-[rgba(0,0,0,0.06)] rounded-full h-1.5">
+                      <div className="w-full bg-[rgba(0,0,0,0.06)] rounded-full h-2.5">
                         <div
-                          className={`h-1.5 rounded-full transition-all duration-500 ${phasePct === 100 ? "bg-emerald-500" : "gradient-accent"}`}
+                          className={`h-2.5 rounded-full transition-all duration-500 ${phasePct === 100 ? "bg-emerald-500" : "gradient-accent"}`}
                           style={{ width: `${phasePct}%` }}
                         />
                       </div>
@@ -416,28 +476,38 @@ function BriefingBanner({
   if (items.length === 0) return null;
 
   return (
-    <div className="bg-bg-card border border-accent/10 rounded-2xl p-5 mb-8">
-      <div className="flex items-center gap-2 mb-3">
-        <svg className="w-4 h-4 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <span className="text-xs font-semibold text-accent-bright uppercase tracking-wider">This Week</span>
-      </div>
-      <div className="flex flex-col gap-2">
-        {items.map((item, i) => (
-          <div key={i} className="flex items-center gap-3">
-            <svg className={`w-4 h-4 flex-shrink-0 ${item.accent ? "text-accent-bright" : "text-text-muted"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
-            </svg>
-            {item.href ? (
-              <Link href={item.href} className={`text-sm no-underline transition-colors ${item.accent ? "text-accent-bright hover:text-accent-light font-medium" : "text-text-secondary hover:text-text-primary"}`}>
-                {item.text}
-              </Link>
-            ) : (
-              <span className={`text-sm ${item.accent ? "text-accent-bright font-medium" : "text-text-secondary"}`}>{item.text}</span>
-            )}
-          </div>
-        ))}
+    <div className="relative bg-gradient-to-r from-accent/8 via-accent/4 to-transparent border border-accent/15 rounded-2xl p-6 mb-8 overflow-hidden">
+      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-accent-dark via-accent to-transparent rounded-t-2xl" />
+      <div className="absolute inset-0 pointer-events-none rounded-2xl bg-[radial-gradient(ellipse_at_top_left,rgba(226,184,48,0.06)_0%,transparent_60%)]" />
+      <div className="relative">
+        <div className="flex items-center gap-2 mb-4">
+          <svg className="w-5 h-5 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-sm font-bold text-accent-bright uppercase tracking-widest">This Week</span>
+        </div>
+        <div className="flex flex-col gap-3">
+          {items.map((item, i) => (
+            <div key={i} className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <svg className={`w-5 h-5 flex-shrink-0 ${item.accent ? "text-accent-bright" : "text-text-secondary"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
+                </svg>
+                <span className={`text-sm ${item.accent ? "text-text-primary font-semibold" : "text-text-primary"}`}>{item.text}</span>
+              </div>
+              {item.href && item.accent && (
+                <Link href={item.href} className="flex-shrink-0 px-4 py-2 gradient-accent text-[#1a1a1a] rounded-xl text-xs font-bold no-underline hover:opacity-90 transition-opacity">
+                  Go Now
+                </Link>
+              )}
+              {item.href && !item.accent && (
+                <Link href={item.href} className="flex-shrink-0 text-xs text-accent-bright hover:text-accent-light font-medium no-underline transition-colors">
+                  View
+                </Link>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -487,18 +557,22 @@ function JourneyTracker({
     : Math.min(100, Math.round((currentWeek / 12) * 100));
 
   return (
-    <div className="group relative bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 mb-8 overflow-hidden transition-all duration-300 hover:border-[rgba(0,0,0,0.08)]">
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
+    <div className="group relative bg-gradient-to-br from-accent/5 via-bg-card to-bg-card border border-accent/15 rounded-2xl p-6 mb-8 overflow-hidden transition-all duration-300 hover:border-accent/25 hover:shadow-[0_8px_32px_rgba(226,184,48,0.08)]">
+      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-accent-dark via-accent to-transparent rounded-t-2xl" />
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.04] transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(226,184,48,1)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
       <div className="relative z-10">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-heading font-bold text-text-primary">Your Journey</h2>
-          <span className="text-xs text-text-muted">{phaseCount > 0 ? `${completedPhaseCount} of ${phaseCount} phases` : `Week ${currentWeek || 0} of 12`}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-text-muted">{phaseCount > 0 ? `${completedPhaseCount} of ${phaseCount} phases` : `Week ${currentWeek || 0} of 12`}</span>
+            <span className="gradient-text text-xl font-heading font-bold">{progressPct}%</span>
+          </div>
         </div>
 
         {/* Progress bar with milestones */}
         <div className="relative mb-6">
-          <div className="h-2 bg-[rgba(0,0,0,0.06)] rounded-full">
-            <div className="h-2 rounded-full gradient-accent transition-all duration-700" style={{ width: `${progressPct}%` }} />
+          <div className="h-3 bg-[rgba(0,0,0,0.06)] rounded-full overflow-hidden">
+            <div className="h-3 rounded-full gradient-accent transition-all duration-700 shadow-[0_0_8px_rgba(226,184,48,0.4)]" style={{ width: `${progressPct}%` }} />
           </div>
           <div className="flex justify-between mt-4">
             {milestones.map((m, i) => {
@@ -510,16 +584,18 @@ function JourneyTracker({
               const isLast = i === total - 1;
               return (
                 <div key={m.index} className={`flex flex-col items-center flex-1 ${isFirst ? "items-start" : isLast ? "items-end" : "items-center"}`}>
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center border-2 ${
-                    reached ? "bg-accent border-accent-bright" : "bg-bg-card border-[rgba(0,0,0,0.06)]"
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                    reached
+                      ? "bg-accent border-accent-bright shadow-[0_0_12px_rgba(226,184,48,0.5)]"
+                      : "bg-bg-card border-[rgba(0,0,0,0.10)]"
                   }`}>
                     {reached && (
-                      <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3 h-3 text-[#1a1a1a]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
                     )}
                   </div>
-                  <span className={`text-[9px] mt-2 text-center max-w-[90px] leading-tight ${reached ? "text-text-primary font-medium" : "text-text-muted"}`}>{m.label}</span>
+                  <span className={`text-[10px] mt-2 text-center max-w-[90px] leading-tight font-medium ${reached ? "text-text-primary" : "text-text-muted"}`}>{m.label}</span>
                 </div>
               );
             })}

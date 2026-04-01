@@ -40,11 +40,11 @@ export default function AdminSidebar() {
         </svg>
       </button>
 
-      <aside className={`fixed top-0 left-0 h-full w-[260px] bg-[rgba(255,255,255,0.97)] border-r border-[rgba(0,0,0,0.06)] backdrop-blur-[20px] z-50 flex flex-col transition-transform duration-300 ${collapsed ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}>
-        <div className="p-6 border-b border-[rgba(0,0,0,0.06)]">
+      <aside className={`fixed top-0 left-0 h-full w-[260px] bg-[#fafaf8] border-r border-[rgba(0,0,0,0.1)] backdrop-blur-[20px] z-50 flex flex-col transition-transform duration-300 ${collapsed ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}>
+        <div className="px-6 py-7 border-b border-[rgba(0,0,0,0.08)]">
           <Link href="/admin" className="flex items-center gap-3 no-underline">
-            <Image src="/images/shift-logo.png" alt="SHIFT" width={28} height={28} className="h-7 w-auto" />
-            <span className="font-heading font-extrabold text-sm text-text-primary">Admin Panel</span>
+            <Image src="/images/shift-logo.png" alt="SHIFT" width={32} height={32} className="h-8 w-auto" />
+            <span className="font-heading font-extrabold text-base text-text-primary tracking-wide">Admin Panel</span>
           </Link>
         </div>
 
@@ -56,10 +56,10 @@ export default function AdminSidebar() {
                 key={item.href}
                 href={item.href}
                 onClick={() => setCollapsed(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium no-underline transition-all duration-200 ${
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm no-underline transition-all duration-200 ${
                   isActive
-                    ? "bg-[rgba(226,184,48,0.1)] text-accent-bright border border-[rgba(226,184,48,0.2)]"
-                    : "text-text-secondary hover:text-text-primary hover:bg-[rgba(0,0,0,0.03)]"
+                    ? "border-l-2 border-accent bg-accent/8 text-accent font-semibold pl-[14px]"
+                    : "font-medium text-text-secondary hover:text-text-primary hover:bg-[rgba(0,0,0,0.04)]"
                 }`}
               >
                 <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

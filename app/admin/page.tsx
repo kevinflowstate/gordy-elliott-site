@@ -138,19 +138,48 @@ export default function AdminDashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="group relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(0,0,0,0.08)] hover:shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
-          <div className="text-text-muted text-xs uppercase tracking-wider mb-2">Total Clients</div>
+        {/* Total Clients - gold accent */}
+        <div className="group relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(0,0,0,0.12)] hover:border-accent/20">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-accent-dark via-accent to-accent-light rounded-t-2xl" />
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.06] transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,1)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
+          <div className="flex items-start justify-between mb-3">
+            <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+          </div>
+          <div className="text-text-muted text-xs uppercase tracking-wider mb-1">Total Clients</div>
           <div className="text-3xl font-heading font-bold text-text-primary">{clients.length}</div>
         </div>
-        <div className="group relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(16,185,129,0.15)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_2px_12px_rgba(16,185,129,0.06)]">
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.03)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
-          <div className="text-text-muted text-xs uppercase tracking-wider mb-2">On Track</div>
+
+        {/* On Track - emerald accent */}
+        <div className="group relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(16,185,129,0.15)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(16,185,129,0.14)] hover:border-emerald-500/30">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-emerald-500/70 rounded-t-2xl" />
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.06] transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(16,185,129,1)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
+          <div className="flex items-start justify-between mb-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+          <div className="text-text-muted text-xs uppercase tracking-wider mb-1">On Track</div>
           <div className="text-3xl font-heading font-bold text-emerald-400">{greenCount}</div>
         </div>
-        <div className="group relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(245,158,11,0.15)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_2px_12px_rgba(245,158,11,0.06)]">
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.03)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
-          <div className="text-text-muted text-xs uppercase tracking-wider mb-2">Needs Attention</div>
+
+        {/* Needs Attention - amber/red accent */}
+        <div className="group relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(245,158,11,0.15)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(245,158,11,0.14)] hover:border-amber-500/30">
+          <div className={`absolute top-0 left-0 right-0 h-[2px] rounded-t-2xl ${redCount > 0 ? "bg-red-500/70" : "bg-amber-500/70"}`} />
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.06] transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(245,158,11,1)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
+          <div className="flex items-start justify-between mb-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+          </div>
+          <div className="text-text-muted text-xs uppercase tracking-wider mb-1">Needs Attention</div>
           <div className={`text-3xl font-heading font-bold ${amberCount + redCount > 0 ? "text-amber-400" : "text-text-primary"}`}>
             {amberCount + redCount}
           </div>
@@ -158,9 +187,19 @@ export default function AdminDashboard() {
             <div className="text-red-400 text-xs mt-1">{redCount} behind schedule</div>
           )}
         </div>
-        <div className="group relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(0,0,0,0.08)] hover:shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
-          <div className="text-text-muted text-xs uppercase tracking-wider mb-2">Unreplied Check-Ins</div>
+
+        {/* Unreplied - red if any, neutral if zero */}
+        <div className="group relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(0,0,0,0.12)] hover:border-[rgba(0,0,0,0.1)]">
+          <div className={`absolute top-0 left-0 right-0 h-[2px] rounded-t-2xl ${unreplied > 0 ? "bg-red-500/70" : "bg-[rgba(0,0,0,0.08)]"}`} />
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.06] transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,1)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
+          <div className="flex items-start justify-between mb-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${unreplied > 0 ? "bg-red-500/10 border border-red-500/20" : "bg-[rgba(0,0,0,0.04)] border border-[rgba(0,0,0,0.06)]"}`}>
+              <svg className={`w-5 h-5 ${unreplied > 0 ? "text-red-400" : "text-text-muted"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              </svg>
+            </div>
+          </div>
+          <div className="text-text-muted text-xs uppercase tracking-wider mb-1">Unreplied Check-Ins</div>
           <div className={`text-3xl font-heading font-bold ${unreplied > 0 ? "text-red-400" : "text-text-primary"}`}>
             {unreplied}
           </div>
@@ -229,7 +268,7 @@ export default function AdminDashboard() {
                     onClick={() => setExpandedClient(isExpanded ? null : client.id)}
                     className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[rgba(0,0,0,0.02)] transition-colors text-left cursor-pointer"
                   >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 border ${sl.bgClass} ${sl.textClass} ${
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 border ${sl.bgClass} ${sl.textClass} ${
                       client.status === "red" ? "border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.2)]"
                       : client.status === "amber" ? "border-amber-500/30 shadow-[0_0_10px_rgba(245,158,11,0.2)]"
                       : "border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
@@ -237,7 +276,10 @@ export default function AdminDashboard() {
                       {client.name.split(" ").map((n) => n[0]).join("")}
                     </div>
                     <span className="text-sm font-medium text-text-primary flex-1">{client.name}</span>
-                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${sl.dotClass}`} />
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold flex-shrink-0 ${sl.bgClass} ${sl.textClass}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${sl.dotClass}`} />
+                      {sl.text}
+                    </span>
                     <svg
                       className={`w-3.5 h-3.5 text-text-muted transition-transform duration-200 flex-shrink-0 ${isExpanded ? "rotate-180" : ""}`}
                       fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -262,13 +304,13 @@ export default function AdminDashboard() {
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3 text-xs mb-3">
+                        <div className="grid grid-cols-3 gap-3 text-sm mb-3">
                           <div>
-                            <div className="text-text-muted mb-0.5">Week</div>
+                            <div className="text-text-muted text-xs mb-0.5">Week</div>
                             <div className="text-text-primary font-semibold">{client.current_week}/12</div>
                           </div>
                           <div>
-                            <div className="text-text-muted mb-0.5">Last Check-In</div>
+                            <div className="text-text-muted text-xs mb-0.5">Last Check-In</div>
                             <div className={`font-semibold ${
                               new Date().getTime() - new Date(client.last_checkin).getTime() > 7 * 24 * 60 * 60 * 1000
                                 ? "text-red-400" : "text-text-primary"
@@ -277,13 +319,13 @@ export default function AdminDashboard() {
                             </div>
                           </div>
                           <div>
-                            <div className="text-text-muted mb-0.5">Plan</div>
+                            <div className="text-text-muted text-xs mb-0.5">Plan</div>
                             <div className="text-text-primary font-semibold">{planDone}/{planTotal} ({planPct}%)</div>
                           </div>
                         </div>
 
                         {/* Progress bar */}
-                        <div className="h-1.5 bg-[rgba(0,0,0,0.03)] rounded-full overflow-hidden mb-3">
+                        <div className="h-2.5 bg-[rgba(0,0,0,0.04)] rounded-full overflow-hidden mb-3">
                           <div
                             className={`h-full rounded-full transition-all duration-500 ${
                               client.status === "red" ? "bg-red-500/60" : client.status === "amber" ? "bg-amber-500/60" : "bg-emerald-500/60"

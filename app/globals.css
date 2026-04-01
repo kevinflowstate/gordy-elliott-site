@@ -16,7 +16,7 @@
   --color-border: #e8e8e4;
   --color-border-light: #d8d8d4;
   --font-sans: var(--font-inter);
-  --font-heading: var(--font-inter);
+  --font-heading: var(--font-barlow-condensed);
 }
 
 html {
