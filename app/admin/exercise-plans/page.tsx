@@ -21,6 +21,7 @@ export default function ExercisePlansPage() {
   const [loading, setLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState<Category | "all">("all");
   const [search, setSearch] = useState("");
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
 
   // Builder & preview state
   const [builderOpen, setBuilderOpen] = useState(false);
@@ -84,10 +85,13 @@ export default function ExercisePlansPage() {
     setBuilderOpen(true);
   }
 
+  const allTags = Array.from(new Set(templates.flatMap((t) => t.tags || []))).sort();
+
   const filtered = templates.filter((t) => {
     const matchesCategory = categoryFilter === "all" || t.category === categoryFilter;
     const matchesSearch = !search || t.name.toLowerCase().includes(search.toLowerCase()) || t.description?.toLowerCase().includes(search.toLowerCase());
-    return matchesCategory && matchesSearch;
+    const matchesTag = !tagFilter || (t.tags || []).includes(tagFilter);
+    return matchesCategory && matchesSearch && matchesTag;
   });
 
   if (loading) {
@@ -140,51 +144,81 @@ export default function ExercisePlansPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        {/* Search */}
-        <div className="relative flex-1 max-w-xs">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search templates..."
-            className="w-full bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-xl pl-10 pr-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
-          />
+      <div className="flex flex-col gap-3 mb-6">
+        <div className="flex flex-col sm:flex-row gap-3">
+          {/* Search */}
+          <div className="relative flex-1 max-w-xs">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search templates..."
+              className="w-full bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-xl pl-10 pr-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
+            />
+          </div>
+
+          {/* Category filter */}
+          <div className="flex gap-1 bg-bg-card/50 rounded-xl p-1 flex-wrap">
+            <button
+              onClick={() => setCategoryFilter("all")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                categoryFilter === "all"
+                  ? "bg-accent/10 text-accent-bright border border-accent/20"
+                  : "text-text-muted hover:text-text-secondary"
+              }`}
+            >
+              All ({templates.length})
+            </button>
+            {CATEGORIES.map((c) => {
+              const count = templates.filter((t) => t.category === c).length;
+              if (count === 0) return null;
+              return (
+                <button
+                  key={c}
+                  onClick={() => setCategoryFilter(c)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer capitalize ${
+                    categoryFilter === c
+                      ? "bg-accent/10 text-accent-bright border border-accent/20"
+                      : "text-text-muted hover:text-text-secondary"
+                  }`}
+                >
+                  {c} ({count})
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Category filter */}
-        <div className="flex gap-1 bg-bg-card/50 rounded-xl p-1 flex-wrap">
-          <button
-            onClick={() => setCategoryFilter("all")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              categoryFilter === "all"
-                ? "bg-accent/10 text-accent-bright border border-accent/20"
-                : "text-text-muted hover:text-text-secondary"
-            }`}
-          >
-            All ({templates.length})
-          </button>
-          {CATEGORIES.map((c) => {
-            const count = templates.filter((t) => t.category === c).length;
-            if (count === 0) return null;
-            return (
+        {/* Tag filter */}
+        {allTags.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Tags:</span>
+            {tagFilter && (
               <button
-                key={c}
-                onClick={() => setCategoryFilter(c)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer capitalize ${
-                  categoryFilter === c
-                    ? "bg-accent/10 text-accent-bright border border-accent/20"
-                    : "text-text-muted hover:text-text-secondary"
+                onClick={() => setTagFilter(null)}
+                className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-bg-card/50 text-text-muted hover:text-text-secondary border border-[rgba(0,0,0,0.06)] cursor-pointer transition-colors"
+              >
+                Clear
+              </button>
+            )}
+            {allTags.map((tag) => (
+              <button
+                key={tag}
+                onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border cursor-pointer transition-all ${
+                  tagFilter === tag
+                    ? "bg-accent/15 text-accent-bright border-accent/30"
+                    : "bg-bg-card/50 text-white/40 border-white/[0.06] hover:text-accent-bright hover:border-accent/20"
                 }`}
               >
-                {c} ({count})
+                {tag}
               </button>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Empty state */}
@@ -202,7 +236,7 @@ export default function ExercisePlansPage() {
             </p>
             {search || categoryFilter !== "all" ? (
               <button
-                onClick={() => { setSearch(""); setCategoryFilter("all"); }}
+                onClick={() => { setSearch(""); setCategoryFilter("all"); setTagFilter(null); }}
                 className="text-xs text-accent-bright hover:underline cursor-pointer"
               >
                 Clear filters
@@ -284,7 +318,20 @@ function TemplateCard({ template, onView, onEdit, onDelete }: TemplateCardProps)
         </div>
 
         {template.description && (
-          <p className="text-xs text-white/50 leading-relaxed mb-4 line-clamp-2">{template.description}</p>
+          <p className="text-xs text-white/50 leading-relaxed mb-3 line-clamp-2">{template.description}</p>
+        )}
+
+        {template.tags && template.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {template.tags.map((tag) => (
+              <span
+                key={tag}
+                className="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-accent/15 text-accent-bright border border-accent/25"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
         )}
 
         <div className="flex items-center gap-3 text-[10px] text-white/40">

@@ -17,13 +17,27 @@ function generateId() {
 
 const CATEGORIES = ["strength", "hypertrophy", "conditioning", "flexibility", "general"] as const;
 
-function createEmptySession(orderIndex: number): ExerciseSession {
-  return {
+function createDefaultSectionItems(sessionId: string): ExerciseSessionItem[] {
+  const sectionNames = ["Warm Up", "Workout", "Cool Down"];
+  return sectionNames.map((label, i) => ({
     id: generateId(),
+    session_id: sessionId,
+    exercise_id: "__section__",
+    order_index: i,
+    sets: 0,
+    reps: "",
+    section_label: label,
+  }));
+}
+
+function createEmptySession(orderIndex: number): ExerciseSession {
+  const id = generateId();
+  return {
+    id,
     name: `Session ${orderIndex + 1}`,
     day_number: orderIndex + 1,
     notes: "",
-    items: [],
+    items: createDefaultSectionItems(id),
   };
 }
 
@@ -49,6 +63,9 @@ export default function ExerciseTemplateBuilder({
 }: ExerciseTemplateBuilderProps) {
   const [name, setName] = useState(existingTemplate?.name || "");
   const [description, setDescription] = useState(existingTemplate?.description || "");
+  const [overview, setOverview] = useState(existingTemplate?.overview || "");
+  const [tags, setTags] = useState<string[]>(existingTemplate?.tags || []);
+  const [tagInput, setTagInput] = useState("");
   const [category, setCategory] = useState<string>(existingTemplate?.category || "general");
   const [durationWeeks, setDurationWeeks] = useState<string>(
     existingTemplate?.duration_weeks ? String(existingTemplate.duration_weeks) : ""
@@ -58,6 +75,18 @@ export default function ExerciseTemplateBuilder({
   );
   const [exercisePickerSessionId, setExercisePickerSessionId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  function addTag(raw: string) {
+    const tag = raw.trim().toLowerCase();
+    if (tag && !tags.includes(tag)) {
+      setTags((prev) => [...prev, tag]);
+    }
+    setTagInput("");
+  }
+
+  function removeTag(tag: string) {
+    setTags((prev) => prev.filter((t) => t !== tag));
+  }
 
   const isEditing = !!existingTemplate;
 
@@ -141,6 +170,8 @@ export default function ExerciseTemplateBuilder({
         id: existingTemplate?.id || generateId(),
         name: name.trim(),
         description: description.trim() || undefined,
+        overview: overview.trim() || undefined,
+        tags: tags.length ? tags : undefined,
         category,
         duration_weeks: durationWeeks ? parseInt(durationWeeks, 10) : undefined,
         is_active: true,
@@ -211,6 +242,58 @@ export default function ExerciseTemplateBuilder({
                 rows={2}
                 placeholder="Brief overview of this template..."
                 className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
+                Program Overview
+              </label>
+              <textarea
+                value={overview}
+                onChange={(e) => setOverview(e.target.value)}
+                rows={3}
+                placeholder="Detailed description of the program goals, structure, and guidelines..."
+                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
+                Tags
+              </label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-accent/15 text-accent-bright border border-accent/30"
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => removeTag(tag)}
+                      className="hover:text-white transition-colors cursor-pointer ml-0.5"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <input
+                type="text"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === ",") {
+                    e.preventDefault();
+                    addTag(tagInput);
+                  }
+                }}
+                onBlur={() => { if (tagInput.trim()) addTag(tagInput); }}
+                placeholder="Type a tag and press Enter..."
+                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
               />
             </div>
 

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import FoodPicker from "./FoodPicker";
 import MacroSummaryBar from "./MacroSummaryBar";
-import type { NutritionTemplate, NutritionMeal, NutritionMealItem, Food } from "@/lib/types";
+import type { NutritionTemplate, NutritionMeal, NutritionMealItem, Food, MealAlternative } from "@/lib/types";
 
 interface SavedMeal {
   id: string;
@@ -126,6 +126,7 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
 
   const [name, setName] = useState(template?.name || "");
   const [description, setDescription] = useState(template?.description || "");
+  const [planType, setPlanType] = useState<'full' | 'macro_only'>(template?.plan_type || "full");
   const [calorieRange, setCalorieRange] = useState(template?.calorie_range || "moderate");
   const [targetCalories, setTargetCalories] = useState(template?.target_calories || 0);
   const [targetProtein, setTargetProtein] = useState(template?.target_protein_g || 0);
@@ -139,7 +140,102 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
     ]
   );
   const [pickerMealId, setPickerMealId] = useState<string | null>(null);
+  // pickerAltId: "mealId:altId" when adding food to an alternative
+  const [pickerAltId, setPickerAltId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // alternatives: { [mealId]: MealAlternative[] }
+  // We store alternatives in state separately, and store them into meal.notes as JSON on save
+  // so they are persisted without DB schema changes
+  const [mealAlternatives, setMealAlternatives] = useState<Record<string, MealAlternative[]>>(() => {
+    const init: Record<string, MealAlternative[]> = {};
+    for (const meal of template?.meals || []) {
+      try {
+        const parsed = meal.notes ? JSON.parse(meal.notes) : null;
+        if (parsed?.__alternatives) {
+          init[meal.id] = parsed.__alternatives;
+        }
+      } catch {
+        // not JSON, plain notes
+      }
+    }
+    return init;
+  });
+  const [activeMealAltIndex, setActiveMealAltIndex] = useState<Record<string, number>>({});
+
+  function getMealAlts(mealId: string): MealAlternative[] {
+    return mealAlternatives[mealId] || [];
+  }
+
+  function getActiveMealAltIdx(mealId: string): number {
+    return activeMealAltIndex[mealId] ?? -1; // -1 = primary
+  }
+
+  function addAlternative(mealId: string) {
+    const alts = getMealAlts(mealId);
+    const newAlt: MealAlternative = {
+      id: crypto.randomUUID(),
+      name: `Option ${alts.length + 2}`,
+      items: [],
+    };
+    setMealAlternatives((prev) => ({ ...prev, [mealId]: [...alts, newAlt] }));
+    setActiveMealAltIndex((prev) => ({ ...prev, [mealId]: alts.length }));
+  }
+
+  function removeAlternative(mealId: string, altId: string) {
+    const alts = getMealAlts(mealId).filter((a) => a.id !== altId);
+    setMealAlternatives((prev) => ({ ...prev, [mealId]: alts }));
+    setActiveMealAltIndex((prev) => ({ ...prev, [mealId]: -1 }));
+  }
+
+  function updateAlternativeName(mealId: string, altId: string, name: string) {
+    setMealAlternatives((prev) => ({
+      ...prev,
+      [mealId]: (prev[mealId] || []).map((a) => a.id === altId ? { ...a, name } : a),
+    }));
+  }
+
+  function addFoodToAlternative(mealId: string, altId: string, food: Food) {
+    const newItem: NutritionMealItem = {
+      id: crypto.randomUUID(),
+      meal_id: mealId,
+      food_id: food.id,
+      food,
+      quantity: 1,
+      order_index: 0,
+    };
+    setMealAlternatives((prev) => ({
+      ...prev,
+      [mealId]: (prev[mealId] || []).map((a) =>
+        a.id === altId
+          ? { ...a, items: [...a.items, { ...newItem, order_index: a.items.length }] }
+          : a
+      ),
+    }));
+    setPickerAltId(null);
+  }
+
+  function removeFoodFromAlternative(mealId: string, altId: string, itemId: string) {
+    setMealAlternatives((prev) => ({
+      ...prev,
+      [mealId]: (prev[mealId] || []).map((a) =>
+        a.id === altId
+          ? { ...a, items: a.items.filter((i) => i.id !== itemId).map((i, idx) => ({ ...i, order_index: idx })) }
+          : a
+      ),
+    }));
+  }
+
+  function updateAltFoodQuantity(mealId: string, altId: string, itemId: string, quantity: number) {
+    setMealAlternatives((prev) => ({
+      ...prev,
+      [mealId]: (prev[mealId] || []).map((a) =>
+        a.id === altId
+          ? { ...a, items: a.items.map((i) => i.id === itemId ? { ...i, quantity } : i) }
+          : a
+      ),
+    }));
+  }
 
   // Day variations state
   const [setupComplete, setSetupComplete] = useState(!!template); // true when editing existing
@@ -402,17 +498,26 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
   const handleSave = async () => {
     if (!name.trim()) return;
     setSaving(true);
+    // Serialize alternatives into meal notes as JSON metadata
+    const mealsWithAlts = meals.map((meal) => {
+      const alts = getMealAlts(meal.id);
+      if (alts.length === 0) return meal;
+      // Store alternatives in notes as JSON (preserving existing plain notes separately)
+      const notesData = { __alternatives: alts, __plain_notes: meal.notes };
+      return { ...meal, notes: JSON.stringify(notesData) };
+    });
     const tpl: NutritionTemplate = {
       id: template?.id || crypto.randomUUID(),
       name: name.trim(),
       description: description.trim() || undefined,
       calorie_range: calorieRange,
+      plan_type: planType,
       target_calories: targetCalories || undefined,
       target_protein_g: targetProtein || undefined,
       target_carbs_g: targetCarbs || undefined,
       target_fat_g: targetFat || undefined,
       is_active: true,
-      meals,
+      meals: mealsWithAlts,
       created_at: template?.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -605,6 +710,41 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
               rows={2}
               className="w-full px-4 py-2 rounded-xl border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] bg-transparent text-text-primary text-[13px] resize-none"
             />
+
+            {/* Plan Type selector */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPlanType("full")}
+                className={`flex-1 flex items-center gap-2.5 px-4 py-3 rounded-xl border transition-all cursor-pointer text-left ${
+                  planType === "full"
+                    ? "border-accent-bright/40 bg-accent/10 text-text-primary"
+                    : "border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] text-text-secondary hover:border-accent-bright/20"
+                }`}
+              >
+                <div className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 ${planType === "full" ? "border-accent-bright bg-accent-bright" : "border-text-muted"}`} />
+                <div>
+                  <div className="text-[13px] font-semibold">Full Meal Plan</div>
+                  <div className="text-[11px] text-text-secondary">Detailed foods with quantities and macros</div>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlanType("macro_only")}
+                className={`flex-1 flex items-center gap-2.5 px-4 py-3 rounded-xl border transition-all cursor-pointer text-left ${
+                  planType === "macro_only"
+                    ? "border-accent-bright/40 bg-accent/10 text-text-primary"
+                    : "border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] text-text-secondary hover:border-accent-bright/20"
+                }`}
+              >
+                <div className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 ${planType === "macro_only" ? "border-accent-bright bg-accent-bright" : "border-text-muted"}`} />
+                <div>
+                  <div className="text-[13px] font-semibold">Macro Only</div>
+                  <div className="text-[11px] text-text-secondary">Calorie and macro targets per meal</div>
+                </div>
+              </button>
+            </div>
+
             <div className="flex gap-3">
               <select
                 value={calorieRange}
@@ -839,6 +979,31 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
                 : meal.name;
               const isEmpty = baseName.trim() === "" || baseName.startsWith("Meal ");
 
+              const alts = getMealAlts(meal.id);
+              const activeAltIdx = getActiveMealAltIdx(meal.id); // -1 = primary
+              const activeAlt = activeAltIdx >= 0 ? alts[activeAltIdx] : null;
+
+              // Items to display: primary or active alternative
+              const displayItems = activeAlt ? activeAlt.items : meal.items;
+
+              // Macro totals for displayed items
+              const displayMacros = activeAlt
+                ? activeAlt.items.reduce(
+                    (acc, item) => {
+                      const f = item.food;
+                      if (!f) return acc;
+                      const qty = Number(item.quantity) || 1;
+                      return {
+                        calories: acc.calories + f.calories * qty,
+                        protein_g: acc.protein_g + f.protein_g * qty,
+                        carbs_g: acc.carbs_g + f.carbs_g * qty,
+                        fat_g: acc.fat_g + f.fat_g * qty,
+                      };
+                    },
+                    { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 }
+                  )
+                : mealMacros;
+
               return (
                 <div
                   key={meal.id}
@@ -857,7 +1022,7 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
                         className="flex-1 px-2 py-1 rounded-lg border border-transparent hover:border-[rgba(0,0,0,0.08)] dark:hover:border-[rgba(255,255,255,0.08)] bg-transparent text-text-primary font-semibold text-[14px] focus:border-accent-bright focus:outline-none placeholder:text-text-secondary/40 placeholder:font-normal"
                       />
                       <span className="text-[13px] text-text-secondary flex-shrink-0">
-                        {Math.round(mealMacros.calories)} kcal
+                        {Math.round(displayMacros.calories)} kcal
                       </span>
                       {saveMealConfirm === meal.id ? (
                         <span className="text-[12px] text-green-500 flex-shrink-0">Saved!</span>
@@ -930,74 +1095,189 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
                         ))}
                       </div>
                     )}
-                  </div>
 
-                  {/* Food items */}
-                  <div className="divide-y divide-[rgba(0,0,0,0.03)] dark:divide-[rgba(255,255,255,0.03)]">
-                    {meal.items.map((item) => {
-                      const food = item.food;
-                      if (!food) return null;
-                      const qty = Number(item.quantity) || 1;
-                      return (
-                        <div key={item.id} className="flex items-center gap-2 px-3 py-2">
-                          <div className="flex-1 min-w-0">
-                            <span className="text-[13px] text-text-primary">{food.name}</span>
-                            <span className="text-[13px] text-text-secondary/50 ml-1">
-                              ({Math.round(parseGrams(food.serving_size) * item.quantity)}g)
-                            </span>
-                          </div>
-                          {(() => {
-                            const baseGrams = parseGrams(food.serving_size);
-                            const actualGrams = Math.round(baseGrams * item.quantity);
-                            return (
-                              <div className="flex items-center gap-1">
+                    {/* Alternative meal tabs */}
+                    {(alts.length > 0 || planType === "full") && (
+                      <div className="flex items-center gap-1.5 pt-1.5 flex-wrap">
+                        {/* Primary tab */}
+                        <button
+                          onClick={() => setActiveMealAltIndex((prev) => ({ ...prev, [meal.id]: -1 }))}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                            activeAltIdx === -1
+                              ? "bg-accent-bright text-black"
+                              : "bg-[rgba(0,0,0,0.04)] dark:bg-[rgba(255,255,255,0.04)] text-text-secondary hover:text-text-primary"
+                          }`}
+                        >
+                          {meal.name.includes(" - ") ? meal.name.split(" - ").slice(1).join(" - ") : meal.name}
+                        </button>
+
+                        {/* Alternative tabs */}
+                        {alts.map((alt, idx) => (
+                          <div key={alt.id} className="flex items-center">
+                            {activeAltIdx === idx ? (
+                              <div className="flex items-center gap-1 bg-accent-bright/15 border border-accent-bright/30 rounded-lg px-1.5 py-0.5">
                                 <input
-                                  type="number"
-                                  value={actualGrams}
-                                  onChange={(e) => {
-                                    const newGrams = Number(e.target.value) || baseGrams;
-                                    updateFoodQuantity(meal.id, item.id, newGrams / baseGrams);
-                                  }}
-                                  min={1}
-                                  step={5}
-                                  className="w-16 px-2 py-1 rounded-lg border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] bg-transparent text-text-primary text-[13px] text-center"
+                                  type="text"
+                                  value={alt.name}
+                                  onChange={(e) => updateAlternativeName(meal.id, alt.id, e.target.value)}
+                                  className="bg-transparent text-[11px] font-semibold text-accent-bright focus:outline-none w-24"
+                                  onClick={(e) => e.stopPropagation()}
                                 />
-                                <span className="text-[11px] text-text-secondary/50">g</span>
+                                <button
+                                  onClick={() => removeAlternative(meal.id, alt.id)}
+                                  className="text-text-muted hover:text-red-400 cursor-pointer"
+                                >
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
                               </div>
-                            );
-                          })()}
-                          <span className="text-[13px] text-text-secondary w-16 text-right flex-shrink-0">
-                            {Math.round(food.calories * qty)} kcal
-                          </span>
-                          <input
-                            type="text"
-                            value={item.notes || ""}
-                            onChange={(e) => updateFoodNotes(meal.id, item.id, e.target.value)}
-                            placeholder="Note..."
-                            className="w-24 px-2 py-1 rounded-lg border border-transparent hover:border-[rgba(0,0,0,0.08)] dark:hover:border-[rgba(255,255,255,0.08)] bg-transparent text-[13px] text-accent-bright/70 italic"
-                          />
-                          <button
-                            onClick={() => removeFoodFromMeal(meal.id, item.id)}
-                            className="text-text-secondary/40 hover:text-red-400 flex-shrink-0"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      );
-                    })}
+                            ) : (
+                              <button
+                                onClick={() => setActiveMealAltIndex((prev) => ({ ...prev, [meal.id]: idx }))}
+                                className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[rgba(0,0,0,0.04)] dark:bg-[rgba(255,255,255,0.04)] text-text-secondary hover:text-text-primary transition-all cursor-pointer"
+                              >
+                                {alt.name}
+                              </button>
+                            )}
+                          </div>
+                        ))}
+
+                        {/* Add alternative button */}
+                        <button
+                          onClick={() => addAlternative(meal.id)}
+                          className="px-2 py-1 rounded-lg text-[11px] font-medium text-accent-bright/70 hover:text-accent-bright border border-dashed border-accent-bright/25 hover:border-accent-bright/50 transition-all cursor-pointer"
+                        >
+                          + Alt
+                        </button>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Add food button */}
-                  <div className="p-2">
-                    <button
-                      onClick={() => setPickerMealId(meal.id)}
-                      className="w-full py-2 rounded-xl border border-dashed border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] text-[13px] text-text-secondary hover:text-accent-bright hover:border-accent-bright/30 transition-colors"
-                    >
-                      + Add Food
-                    </button>
-                  </div>
+                  {/* Food items - primary or active alternative */}
+                  {planType === "full" ? (
+                    <>
+                      <div className="divide-y divide-[rgba(0,0,0,0.03)] dark:divide-[rgba(255,255,255,0.03)]">
+                        {displayItems.map((item) => {
+                          const food = item.food;
+                          if (!food) return null;
+                          const qty = Number(item.quantity) || 1;
+                          return (
+                            <div key={item.id} className="flex items-center gap-2 px-3 py-2">
+                              <div className="flex-1 min-w-0">
+                                <span className="text-[13px] text-text-primary">{food.name}</span>
+                                <span className="text-[13px] text-text-secondary/50 ml-1">
+                                  ({Math.round(parseGrams(food.serving_size) * item.quantity)}g)
+                                </span>
+                              </div>
+                              {(() => {
+                                const baseGrams = parseGrams(food.serving_size);
+                                const actualGrams = Math.round(baseGrams * item.quantity);
+                                return (
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="number"
+                                      value={actualGrams}
+                                      onChange={(e) => {
+                                        const newGrams = Number(e.target.value) || baseGrams;
+                                        const newQty = newGrams / baseGrams;
+                                        if (activeAlt) {
+                                          updateAltFoodQuantity(meal.id, activeAlt.id, item.id, newQty);
+                                        } else {
+                                          updateFoodQuantity(meal.id, item.id, newQty);
+                                        }
+                                      }}
+                                      min={1}
+                                      step={5}
+                                      className="w-16 px-2 py-1 rounded-lg border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] bg-transparent text-text-primary text-[13px] text-center"
+                                    />
+                                    <span className="text-[11px] text-text-secondary/50">g</span>
+                                  </div>
+                                );
+                              })()}
+                              <span className="text-[13px] text-text-secondary w-16 text-right flex-shrink-0">
+                                {Math.round(food.calories * qty)} kcal
+                              </span>
+                              <input
+                                type="text"
+                                value={item.notes || ""}
+                                onChange={(e) => {
+                                  if (!activeAlt) updateFoodNotes(meal.id, item.id, e.target.value);
+                                }}
+                                placeholder="Note..."
+                                className="w-24 px-2 py-1 rounded-lg border border-transparent hover:border-[rgba(0,0,0,0.08)] dark:hover:border-[rgba(255,255,255,0.08)] bg-transparent text-[13px] text-accent-bright/70 italic"
+                              />
+                              <button
+                                onClick={() => {
+                                  if (activeAlt) {
+                                    removeFoodFromAlternative(meal.id, activeAlt.id, item.id);
+                                  } else {
+                                    removeFoodFromMeal(meal.id, item.id);
+                                  }
+                                }}
+                                className="text-text-secondary/40 hover:text-red-400 flex-shrink-0"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Add food button */}
+                      <div className="p-2">
+                        <button
+                          onClick={() => {
+                            if (activeAlt) {
+                              setPickerAltId(`${meal.id}:${activeAlt.id}`);
+                            } else {
+                              setPickerMealId(meal.id);
+                            }
+                          }}
+                          className="w-full py-2 rounded-xl border border-dashed border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] text-[13px] text-text-secondary hover:text-accent-bright hover:border-accent-bright/30 transition-colors"
+                        >
+                          + Add Food
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    /* Macro Only mode - show macro targets per meal */
+                    <div className="p-3 grid grid-cols-4 gap-2">
+                      {(["calories", "protein_g", "carbs_g", "fat_g"] as const).map((macro) => {
+                        const labels = { calories: "Calories", protein_g: "Protein", carbs_g: "Carbs", fat_g: "Fat" };
+                        const units = { calories: "kcal", protein_g: "g", carbs_g: "g", fat_g: "g" };
+                        const colors = { calories: "text-text-primary", protein_g: "text-blue-400", carbs_g: "text-accent-bright", fat_g: "text-red-400" };
+                        const noteKey = `__macro_${macro}_${meal.id}`;
+                        const stored = meal.notes ? (() => { try { const p = JSON.parse(meal.notes); return p[noteKey] || ""; } catch { return ""; } })() : "";
+                        return (
+                          <div key={macro}>
+                            <label className={`text-[10px] font-semibold uppercase tracking-wider mb-1 block ${colors[macro]}`}>{labels[macro]}</label>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                defaultValue={stored}
+                                placeholder="0"
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setMeals((prev) => prev.map((m) => {
+                                    if (m.id !== meal.id) return m;
+                                    let notesObj: Record<string, string> = {};
+                                    try { notesObj = m.notes ? JSON.parse(m.notes) : {}; } catch { notesObj = {}; }
+                                    notesObj[noteKey] = val;
+                                    return { ...m, notes: JSON.stringify(notesObj) };
+                                  }));
+                                }}
+                                className="w-full px-2 py-1.5 rounded-lg border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] bg-transparent text-text-primary text-[13px] text-center"
+                              />
+                              <span className="text-[10px] text-text-muted">{units[macro]}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -1005,13 +1285,24 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
         </div>
       </div>
 
-      {/* Food picker modal */}
+      {/* Food picker modal - primary meal */}
       {pickerMealId && (
         <FoodPicker
           onPick={(food) => addFoodToMeal(pickerMealId, food)}
           onClose={() => setPickerMealId(null)}
         />
       )}
+
+      {/* Food picker modal - alternative meal */}
+      {pickerAltId && (() => {
+        const [mealId, altId] = pickerAltId.split(":");
+        return (
+          <FoodPicker
+            onPick={(food) => addFoodToAlternative(mealId, altId, food)}
+            onClose={() => setPickerAltId(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

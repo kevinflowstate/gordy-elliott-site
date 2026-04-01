@@ -104,6 +104,8 @@ export async function POST(request: Request) {
       id: template.id || undefined,
       name: template.name.trim(),
       description: template.description?.trim() || null,
+      overview: template.overview?.trim() || null,
+      tags: template.tags || [],
       category: template.category || "general",
       duration_weeks: template.duration_weeks || null,
       is_active: true,

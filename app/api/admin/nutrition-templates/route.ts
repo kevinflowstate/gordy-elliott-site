@@ -81,6 +81,7 @@ export async function POST(request: Request) {
       name: template.name,
       description: template.description || null,
       calorie_range: template.calorie_range || "moderate",
+      plan_type: template.plan_type || "full",
       target_calories: template.target_calories || null,
       target_protein_g: template.target_protein_g || null,
       target_carbs_g: template.target_carbs_g || null,
