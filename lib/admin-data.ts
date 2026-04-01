@@ -34,6 +34,8 @@ export interface AdminClient {
   training_plan: TrainingPlan[];
   internal_notes?: string;
   checkin_day?: string;
+  coach_notes?: string;
+  start_weight?: number;
 }
 
 // ============================================
@@ -77,6 +79,7 @@ export async function getClients(): Promise<AdminClient[]> {
       id, user_id, phone, business_name, business_type, goals,
       primary_goal, target_date, goal_notes,
       start_date, last_login, last_checkin, created_at, checkin_day,
+      coach_notes, start_weight,
       user:users!client_profiles_user_id_fkey(email, full_name)
     `)
     .order("created_at", { ascending: true });
@@ -190,6 +193,8 @@ export async function getClients(): Promise<AdminClient[]> {
       checkins: checkinsByClient.get(p.id) || [],
       training_plan: plansByClient.get(p.id) || [],
       checkin_day: p.checkin_day || undefined,
+      coach_notes: p.coach_notes || undefined,
+      start_weight: p.start_weight ?? undefined,
     };
   });
 
@@ -213,6 +218,7 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
       id, user_id, phone, business_name, business_type, goals,
       primary_goal, target_date, goal_notes,
       start_date, last_login, last_checkin, created_at, checkin_day,
+      coach_notes, start_weight,
       user:users!client_profiles_user_id_fkey(email, full_name)
     `)
     .eq("id", id)
@@ -337,6 +343,8 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
     training_plan: trainingPlans,
     internal_notes: notes?.content || "",
     checkin_day: p.checkin_day || undefined,
+    coach_notes: p.coach_notes || undefined,
+    start_weight: p.start_weight ?? undefined,
   };
 }
 

@@ -31,7 +31,7 @@ export async function PATCH(
   const body = await request.json();
 
   // Only allow safe profile fields to be patched
-  const allowed = ["checkin_day"];
+  const allowed = ["checkin_day", "coach_notes", "start_weight"];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in body) updates[key] = body[key];

@@ -9,6 +9,8 @@ import TrainingPlanBuilder from "@/components/admin/TrainingPlanBuilder";
 import ExerciseTemplatePicker from "@/components/admin/ExerciseTemplatePicker";
 import NutritionTemplatePicker from "@/components/admin/NutritionTemplatePicker";
 
+type TabId = "dashboard" | "checkins" | "training" | "nutrition" | "gallery";
+
 const glowClass: Record<TrafficLight, string> = {
   green: "glow-green",
   amber: "glow-amber",
@@ -57,23 +59,40 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(diffDays / 7)} weeks ago`;
 }
 
+function timeAgoDetailed(dateStr: string): string {
+  const now = new Date();
+  const d = new Date(dateStr);
+  const diffMs = now.getTime() - d.getTime();
+  const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffHrs < 1) return "Just now";
+  if (diffHrs < 24) return `${diffHrs}hr ago`;
+  if (diffDays === 1) return "1 day ago";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 14) return "1 week ago";
+  return `${Math.floor(diffDays / 7)} weeks ago`;
+}
+
 export default function ClientDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const [client, setClient] = useState<AdminClient | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [plans, setPlans] = useState<TrainingPlan[]>([]);
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
   const [showHistory, setShowHistory] = useState(false);
   const [expandedHistoryPlan, setExpandedHistoryPlan] = useState<string | null>(null);
   const [builderMode, setBuilderMode] = useState<"closed" | "create" | "edit">("closed");
-  const [notesOpen, setNotesOpen] = useState(false);
   const [internalNotes, setInternalNotes] = useState("");
   const [notesSaving, setNotesSaving] = useState(false);
+  const [coachNotes, setCoachNotes] = useState("");
+  const [coachNotesSaving, setCoachNotesSaving] = useState(false);
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
   const [sentReplies, setSentReplies] = useState<Record<string, string>>({});
   const [sendingReply, setSendingReply] = useState<string | null>(null);
   const [replyError, setReplyError] = useState<string | null>(null);
+  const [expandedCheckins, setExpandedCheckins] = useState<Set<string>>(new Set());
   const [contentLookup, setContentLookup] = useState<Map<string, { title: string; moduleName: string; moduleId: string; duration?: number }>>(new Map());
   const [checkinConfig, setCheckinConfig] = useState<CheckinFormConfig | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -118,6 +137,7 @@ export default function ClientDetailPage() {
         const activePlan = (data.client?.training_plan || []).find((p: TrainingPlan) => p.status === "active");
         setExpandedPhases(new Set(activePlan?.phases.map((ph: TrainingPlanPhase) => ph.id) || []));
         setInternalNotes(data.client?.internal_notes || "");
+        setCoachNotes(data.client?.coach_notes || "");
         setCheckinDay(data.client?.checkin_day || "");
         setGoalPrimary(data.client?.primary_goal || "");
         setGoalTargetDate(data.client?.target_date || "");
@@ -140,7 +160,6 @@ export default function ClientDetailPage() {
         setCheckinConfig(cfgData.config);
       }
 
-      // Fetch exercise and nutrition plans for this client
       if (id) {
         const [exRes, nutRes] = await Promise.all([
           fetch(`/api/admin/client-exercise-plans?clientId=${id}`),
@@ -154,7 +173,6 @@ export default function ClientDetailPage() {
           const nutData = await nutRes.json();
           setNutritionPlans(nutData.plans || []);
         }
-        // Fetch recent exercise logs
         const logsRes = await fetch(`/api/admin/client-exercise-logs?clientId=${id}`);
         if (logsRes.ok) {
           const logsData = await logsRes.json();
@@ -176,13 +194,8 @@ export default function ClientDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ client_id: id, template_id: templateId }),
       });
-      if (res.ok) {
-        setShowExercisePicker(false);
-        loadClient();
-      }
-    } finally {
-      setAssigningExercise(false);
-    }
+      if (res.ok) { setShowExercisePicker(false); loadClient(); }
+    } finally { setAssigningExercise(false); }
   }
 
   async function handleAssignNutritionPlan(templateId: string) {
@@ -193,13 +206,8 @@ export default function ClientDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ client_id: id, template_id: templateId }),
       });
-      if (res.ok) {
-        setShowNutritionPicker(false);
-        loadClient();
-      }
-    } finally {
-      setAssigningNutrition(false);
-    }
+      if (res.ok) { setShowNutritionPicker(false); loadClient(); }
+    } finally { setAssigningNutrition(false); }
   }
 
   async function handleArchiveExercisePlan(planId: string) {
@@ -245,19 +253,16 @@ export default function ClientDetailPage() {
     if (!text?.trim()) return;
     setSendingReply(checkinId);
     setReplyError(null);
-
     try {
       const res = await fetch("/api/admin/reply-checkin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ checkin_id: checkinId, reply_text: text }),
       });
-
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || "Failed to send reply");
       }
-
       setSentReplies((prev) => ({ ...prev, [checkinId]: text }));
       setReplyTexts((prev) => ({ ...prev, [checkinId]: "" }));
     } catch (err) {
@@ -265,6 +270,17 @@ export default function ClientDetailPage() {
     } finally {
       setSendingReply(null);
     }
+  }
+
+  async function saveCoachNotes() {
+    if (!client) return;
+    setCoachNotesSaving(true);
+    await fetch(`/api/admin/clients/${client.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ coach_notes: coachNotes }),
+    });
+    setCoachNotesSaving(false);
   }
 
   if (loading) {
@@ -286,20 +302,43 @@ export default function ClientDetailPage() {
     );
   }
 
-  // Prefer the active plan that has phases (in case of duplicates)
   const activePlans = plans.filter((p) => p.status === "active");
   const activePlan = activePlans.find((p) => p.phases.length > 0) || activePlans[0];
   const completedPlans = plans.filter((p) => p.status === "completed");
   const sc = statusConfig[client.status];
 
-  // Calculate plan stats from active plan
   const allItems = activePlan?.phases.flatMap((ph) => ph.items) || [];
   const planTotal = allItems.length;
   const planDone = allItems.filter((p) => p.completed).length;
   const planPct = planTotal > 0 ? Math.round((planDone / planTotal) * 100) : 0;
 
+  const now = new Date();
+  const lastLoginDays = Math.floor((now.getTime() - new Date(client.last_login).getTime()) / (1000 * 60 * 60 * 24));
+  const lastCheckinDays = Math.floor((now.getTime() - new Date(client.last_checkin).getTime()) / (1000 * 60 * 60 * 24));
+  const weeksSinceStart = Math.floor((now.getTime() - new Date(client.start_date).getTime()) / (1000 * 60 * 60 * 24 * 7));
+  const totalWeeksCount = Math.max(weeksSinceStart, client.current_week);
+  const expectedCheckins = weeksSinceStart;
+  const actualCheckins = client.checkins.length;
+  const missedCheckins = Math.max(0, expectedCheckins - actualCheckins);
+
+  // Weight trend from check-ins
+  const checkinsWithWeight = client.checkins
+    .filter((c) => {
+      const w = c.responses?.weight || c.responses?.current_weight;
+      return w && !isNaN(parseFloat(w));
+    })
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+  const latestWeight = checkinsWithWeight.length > 0
+    ? parseFloat(checkinsWithWeight[checkinsWithWeight.length - 1].responses?.weight || checkinsWithWeight[checkinsWithWeight.length - 1].responses?.current_weight || "0")
+    : null;
+  const prevWeight = checkinsWithWeight.length > 1
+    ? parseFloat(checkinsWithWeight[checkinsWithWeight.length - 2].responses?.weight || checkinsWithWeight[checkinsWithWeight.length - 2].responses?.current_weight || "0")
+    : null;
+  const startWeightVal = client.start_weight || (checkinsWithWeight.length > 0 ? parseFloat(checkinsWithWeight[0].responses?.weight || checkinsWithWeight[0].responses?.current_weight || "0") : null);
+  const weightTrend = latestWeight && prevWeight ? latestWeight - prevWeight : null;
+
   async function toggleItem(phaseId: string, itemId: string) {
-    // Optimistic update
     setPlans((prev) =>
       prev.map((plan) => {
         if (plan.status !== "active") return plan;
@@ -319,10 +358,8 @@ export default function ClientDetailPage() {
         };
       })
     );
-    // Persist - rollback on failure
     const res = await fetch(`/api/admin/plan-items/${itemId}`, { method: "PATCH" });
     if (!res.ok) {
-      // Reverse the optimistic update
       setPlans((prev) =>
         prev.map((plan) => {
           if (plan.status !== "active") return plan;
@@ -355,7 +392,6 @@ export default function ClientDetailPage() {
   }
 
   async function handleSavePlan(plan: TrainingPlan) {
-    // If new plan, mark any active plan as completed first
     const existingActive = plans.find((p) => p.status === "active" && p.id !== plan.id);
     if (existingActive && !plans.find((p) => p.id === plan.id)) {
       await fetch("/api/admin/training-plans", {
@@ -364,21 +400,13 @@ export default function ClientDetailPage() {
         body: JSON.stringify({ action: "complete", plan_id: existingActive.id }),
       });
     }
-
-    // Save the plan
     await fetch("/api/admin/training-plans", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ plan }),
     });
-
-    // Refresh data
     await loadClient();
     setBuilderMode("closed");
-  }
-
-  function handleNewPlan() {
-    setBuilderMode("create");
   }
 
   async function saveNotes() {
@@ -410,21 +438,17 @@ export default function ClientDetailPage() {
     loadClient();
   }
 
-  // Week progress
-  const totalWeeks = 12;
-  const currentWeek = client.current_week;
-
-  // Calculate alert context for red/amber clients
-  const now = new Date();
-  const lastLoginDays = Math.floor((now.getTime() - new Date(client.last_login).getTime()) / (1000 * 60 * 60 * 24));
-  const lastCheckinDays = Math.floor((now.getTime() - new Date(client.last_checkin).getTime()) / (1000 * 60 * 60 * 24));
-  const weeksSinceStart = Math.floor((now.getTime() - new Date(client.start_date).getTime()) / (1000 * 60 * 60 * 24 * 7));
-  const expectedCheckins = weeksSinceStart;
-  const actualCheckins = client.checkins.length;
-  const missedCheckins = Math.max(0, expectedCheckins - actualCheckins);
+  const tabs: { id: TabId; label: string }[] = [
+    { id: "dashboard", label: "Dashboard" },
+    { id: "checkins", label: "Check-ins" },
+    { id: "training", label: "Training" },
+    { id: "nutrition", label: "Nutrition" },
+    { id: "gallery", label: "Gallery" },
+  ];
 
   return (
     <>
+      {/* Back link */}
       <Link
         href="/admin"
         className="text-text-muted text-sm hover:text-text-secondary transition-colors no-underline inline-flex items-center gap-1 mb-6"
@@ -435,216 +459,172 @@ export default function ClientDetailPage() {
         Back to Dashboard
       </Link>
 
-      {/* Header with glow */}
+      {/* Top bar - client identity */}
       <div className={`bg-bg-card border rounded-2xl p-6 mb-6 transition-all duration-300 overflow-visible ${glowClass[client.status]}`}>
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          {/* Left: avatar + name */}
           <div className="flex items-center gap-4">
-            <div className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold ${sc.bgClass} ${sc.textClass} border ${
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0 ${sc.bgClass} ${sc.textClass} border ${
               client.status === "red" ? "border-red-500/30" : client.status === "amber" ? "border-amber-500/30" : "border-emerald-500/30"
             }`}>
               {client.name.split(" ").map((n) => n[0]).join("")}
             </div>
             <div>
-              <h1 className="text-2xl font-heading font-bold text-text-primary">{client.name}</h1>
-              <p className="text-text-secondary text-sm">{client.email}{client.phone ? ` - ${client.phone}` : ""}</p>
+              <h1 className="text-2xl font-heading font-bold text-text-primary leading-tight">{client.name}</h1>
+              <p className="text-text-secondary text-sm mt-0.5">{client.email}</p>
               {(client.business_name || client.business_type) && (
                 <p className="text-text-muted text-xs mt-0.5">{[client.business_name, client.business_type].filter(Boolean).join(" - ")}</p>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${sc.bgClass} ${sc.textClass}`}>
-              <span className={`w-2 h-2 rounded-full ${sc.dotClass}`} />
-              {sc.label}
-            </span>
-            <div className="relative">
+
+          {/* Right: last active + actions */}
+          <div className="flex flex-col items-start sm:items-end gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${sc.bgClass} ${sc.textClass}`}>
+                <span className={`w-2 h-2 rounded-full ${sc.dotClass}`} />
+                {sc.label}
+              </span>
+              <span className="text-xs text-text-muted bg-[rgba(0,0,0,0.04)] px-2.5 py-1.5 rounded-full">
+                Last active: {timeAgoDetailed(client.last_login)}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => setSettingsOpen(!settingsOpen)}
-                className="p-1.5 rounded-lg text-text-muted hover:text-text-secondary hover:bg-white/5 transition-colors"
+                onClick={() => { setShowExercisePicker(true); }}
+                className="px-3 py-1.5 text-xs font-semibold text-white bg-[#E2B830] hover:bg-[#c9a228] rounded-lg transition-colors"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
+                Assign Workout
               </button>
-              {settingsOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setSettingsOpen(false)} />
-                  <div className="absolute right-0 top-full mt-1 z-50 bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-xl shadow-xl py-1 min-w-[180px]">
-                    <button
-                      onClick={() => { setSettingsOpen(false); setPasswordModalOpen(true); setNewClientPassword(""); setPasswordResult(null); }}
-                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-text-secondary hover:bg-white/5 transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                      </svg>
-                      Set Password
-                    </button>
-                    <button
-                      onClick={() => { setSettingsOpen(false); setRevokeModalOpen(true); }}
-                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                      Revoke Access
-                    </button>
-                  </div>
-                </>
-              )}
+              <button
+                onClick={() => { setShowNutritionPicker(true); }}
+                className="px-3 py-1.5 text-xs font-medium text-text-secondary border border-[rgba(0,0,0,0.08)] hover:border-[rgba(0,0,0,0.15)] rounded-lg transition-colors"
+              >
+                Nutrition Plan
+              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setSettingsOpen(!settingsOpen)}
+                  className="p-1.5 rounded-lg text-text-muted hover:text-text-secondary hover:bg-white/5 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </button>
+                {settingsOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setSettingsOpen(false)} />
+                    <div className="absolute right-0 top-full mt-1 z-50 bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-xl shadow-xl py-1 min-w-[180px]">
+                      <button
+                        onClick={() => { setSettingsOpen(false); setPasswordModalOpen(true); setNewClientPassword(""); setPasswordResult(null); }}
+                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-text-secondary hover:bg-white/5 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                        </svg>
+                        Set Password
+                      </button>
+                      <button
+                        onClick={() => { setSettingsOpen(false); setRevokeModalOpen(true); }}
+                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                        Revoke Access
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Revoke Access Modal */}
-      {revokeModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
-                <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-heading font-bold text-text-primary">Revoke Client Access</h3>
+      {/* Stat Cards Row */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        {/* Check-in Day */}
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-4">
+          <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1.5">Check-in Day</div>
+          <div className="flex items-center gap-1.5">
+            <select
+              value={checkinDay}
+              onChange={async (e) => {
+                const day = e.target.value;
+                setCheckinDay(day);
+                await saveCheckinDay(day);
+              }}
+              className="text-sm font-bold text-text-primary bg-transparent border-none outline-none cursor-pointer w-full"
+            >
+              <option value="">Not set</option>
+              {["monday","tuesday","wednesday","thursday","friday","saturday","sunday"].map((d) => (
+                <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
+              ))}
+            </select>
+          </div>
+          {checkinDaySaving && <div className="text-[10px] text-text-muted mt-1">Saving...</div>}
+        </div>
+
+        {/* Total Weeks */}
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-4">
+          <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1.5">Total Weeks</div>
+          <div className="text-2xl font-heading font-bold text-text-primary">{totalWeeksCount}</div>
+          <div className="text-[11px] text-text-muted">since {new Date(client.start_date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</div>
+        </div>
+
+        {/* Start Weight */}
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-4">
+          <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1.5">Start Weight</div>
+          {startWeightVal ? (
+            <div className="text-2xl font-heading font-bold text-text-primary">{startWeightVal}<span className="text-sm font-normal text-text-muted ml-1">kg</span></div>
+          ) : (
+            <div className="text-sm text-text-muted">—</div>
+          )}
+        </div>
+
+        {/* Current Weight */}
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-4">
+          <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1.5">Current Weight</div>
+          {latestWeight ? (
+            <div className="flex items-center gap-1.5">
+              <div className="text-2xl font-heading font-bold text-text-primary">{latestWeight}<span className="text-sm font-normal text-text-muted ml-1">kg</span></div>
+              {weightTrend !== null && (
+                <span className={`text-xs font-semibold ${weightTrend < 0 ? "text-emerald-400" : weightTrend > 0 ? "text-red-400" : "text-text-muted"}`}>
+                  {weightTrend < 0 ? "▼" : weightTrend > 0 ? "▲" : "—"}{Math.abs(weightTrend).toFixed(1)}
+                </span>
+              )}
             </div>
-            <p className="text-sm text-text-secondary mb-4 leading-relaxed">
-              This will permanently remove <span className="text-text-primary font-semibold">{client.name}</span> and all their data (training plans, check-ins, progress). This cannot be undone.
-            </p>
-            <input
-              type="text"
-              value={revokeConfirmText}
-              onChange={(e) => setRevokeConfirmText(e.target.value)}
-              placeholder='Type "confirm" to proceed'
-              className="w-full px-4 py-2.5 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-red-500/50 mb-4"
-            />
-            <div className="flex gap-3">
-              <button
-                onClick={() => { setRevokeModalOpen(false); setRevokeConfirmText(""); }}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-white/5 hover:bg-white/10 rounded-xl transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                disabled={revokeConfirmText !== "confirm" || revoking}
-                onClick={async () => {
-                  setRevoking(true);
-                  try {
-                    const res = await fetch(`/api/admin/clients/${id}`, {
-                      method: "DELETE",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ user_id: client.user_id }),
-                    });
-                    if (res.ok) {
-                      router.push("/admin/clients");
-                    } else {
-                      const data = await res.json().catch(() => ({}));
-                      alert(data.error || "Failed to revoke access");
-                    }
-                  } finally {
-                    setRevoking(false);
-                  }
-                }}
-                className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {revoking ? "Revoking..." : "Revoke Access"}
-              </button>
-            </div>
+          ) : (
+            <div className="text-sm text-text-muted">—</div>
+          )}
+        </div>
+
+        {/* Goal */}
+        <div className="bg-bg-card border border-[#E2B830]/20 rounded-xl p-4 cursor-pointer hover:border-[#E2B830]/40 transition-colors" onClick={() => { setGoalPrimary(client.primary_goal || ""); setGoalTargetDate(client.target_date || ""); setGoalNotes(client.goal_notes || ""); setGoalsModalOpen(true); }}>
+          <div className="text-[10px] text-[#E2B830] font-semibold uppercase tracking-wider mb-1.5">Goal</div>
+          {client.primary_goal ? (
+            <div className="text-sm font-semibold text-text-primary leading-snug line-clamp-2">{client.primary_goal}</div>
+          ) : (
+            <div className="text-sm text-text-muted">Tap to set</div>
+          )}
+        </div>
+
+        {/* Status */}
+        <div className={`border rounded-xl p-4 ${sc.bgClass}`}>
+          <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1.5">Status</div>
+          <div className={`flex items-center gap-1.5`}>
+            <span className={`w-2 h-2 rounded-full ${sc.dotClass}`} />
+            <span className={`text-sm font-bold ${sc.textClass}`}>{sc.label}</span>
+          </div>
+          <div className="text-[11px] text-text-muted mt-1">
+            {lastCheckinDays === 0 ? "Checked in today" : `${lastCheckinDays}d since check-in`}
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Set Password Modal */}
-      {passwordModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
-                <svg className="w-5 h-5 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-lg font-heading font-bold text-text-primary">Set Password</h3>
-                <p className="text-xs text-text-muted">Set login password for {client.name}</p>
-              </div>
-            </div>
-
-            {passwordResult?.type === "success" ? (
-              <>
-                <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 mb-4">
-                  <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-sm text-emerald-400 font-medium">Password set - client can log in now</span>
-                </div>
-                <button
-                  onClick={() => setPasswordModalOpen(false)}
-                  className="w-full px-4 py-2.5 text-sm font-semibold text-white gradient-accent rounded-xl cursor-pointer"
-                >
-                  Done
-                </button>
-              </>
-            ) : (
-              <>
-                {passwordResult?.type === "error" && (
-                  <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-4">
-                    <span className="text-sm text-red-400">{passwordResult.text}</span>
-                  </div>
-                )}
-                <div className="mb-4">
-                  <label className="block text-xs font-medium text-text-secondary mb-1.5">New Password</label>
-                  <input
-                    type="password"
-                    value={newClientPassword}
-                    onChange={(e) => setNewClientPassword(e.target.value)}
-                    placeholder="Min 8 characters"
-                    className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setPasswordModalOpen(false)}
-                    className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-white/5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    disabled={newClientPassword.length < 8 || passwordSaving}
-                    onClick={async () => {
-                      setPasswordSaving(true);
-                      setPasswordResult(null);
-                      try {
-                        const res = await fetch("/api/admin/set-password", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ user_id: client.user_id, password: newClientPassword }),
-                        });
-                        const data = await res.json();
-                        if (res.ok) {
-                          setPasswordResult({ type: "success", text: "Password set" });
-                        } else {
-                          setPasswordResult({ type: "error", text: data.error || "Failed to set password" });
-                        }
-                      } catch {
-                        setPasswordResult({ type: "error", text: "Something went wrong" });
-                      } finally {
-                        setPasswordSaving(false);
-                      }
-                    }}
-                    className="flex-1 px-4 py-2.5 text-sm font-semibold text-white gradient-accent rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    {passwordSaving ? "Setting..." : "Set Password"}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Status alert banner */}
+      {/* Alert banners */}
       {client.status === "red" && (
         <div className="bg-red-500/[0.06] border border-red-500/20 rounded-2xl px-5 py-4 mb-6">
           <div className="flex items-start gap-3">
@@ -707,72 +687,704 @@ export default function ClientDetailPage() {
         </div>
       )}
 
-      {/* Stat cards row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-[rgba(255,255,255,0.07)] border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
-          <div className="text-white/70 text-sm font-semibold uppercase tracking-wider mb-2">Current Week</div>
-          <div className="text-3xl font-heading font-bold text-white">{currentWeek}</div>
-          <div className="text-white/60 text-sm font-medium">of {totalWeeks} weeks</div>
-        </div>
-        <div className="bg-[rgba(255,255,255,0.07)] border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
-          <div className="text-white/70 text-sm font-semibold uppercase tracking-wider mb-2">Plan Progress</div>
-          <div className="text-3xl font-heading font-bold text-white">{planDone}/{planTotal}</div>
-          <div className="text-white/60 text-sm font-medium">{planPct}% complete</div>
-        </div>
-        <div className="bg-[rgba(255,255,255,0.07)] border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
-          <div className="text-white/70 text-sm font-semibold uppercase tracking-wider mb-2">Check-Ins</div>
-          <div className="text-3xl font-heading font-bold text-white">{client.checkins.length}</div>
-          <div className="text-white/60 text-sm font-medium">Last: {timeAgo(client.last_checkin)}</div>
-        </div>
-        <div className="bg-[rgba(255,255,255,0.07)] border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
-          <div className="text-white/70 text-sm font-semibold uppercase tracking-wider mb-2">Last Login</div>
-          <div className={`text-3xl font-heading font-bold ${
-            new Date().getTime() - new Date(client.last_login).getTime() > 7 * 24 * 60 * 60 * 1000 ? "text-red-400" : "text-white"
-          }`}>
-            {timeAgo(client.last_login)}
-          </div>
-          <div className="text-white/60 text-sm font-medium">
-            {new Date(client.last_login).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-          </div>
-        </div>
+      {/* Tab Navigation */}
+      <div className="flex items-center gap-1 mb-6 border-b border-[rgba(0,0,0,0.06)]">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-4 py-3 text-sm font-semibold transition-colors relative ${
+              activeTab === tab.id
+                ? "text-[#E2B830]"
+                : "text-text-muted hover:text-text-secondary"
+            }`}
+          >
+            {tab.label}
+            {activeTab === tab.id && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#E2B830] rounded-t-full" />
+            )}
+          </button>
+        ))}
       </div>
 
-      {/* Goals card */}
-      <div className="bg-bg-card border border-[#E2B830]/20 rounded-2xl p-5 mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[#E2B830]/10 border border-[#E2B830]/20 flex items-center justify-center flex-shrink-0">
-              <svg className="w-4 h-4 text-[#E2B830]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <h2 className="text-sm font-heading font-bold text-text-primary">Client Goal</h2>
-          </div>
-          <button
-            onClick={() => { setGoalPrimary(client.primary_goal || ""); setGoalTargetDate(client.target_date || ""); setGoalNotes(client.goal_notes || ""); setGoalsModalOpen(true); }}
-            className="px-3 py-1.5 text-xs font-semibold text-[#E2B830] bg-[#E2B830]/10 hover:bg-[#E2B830]/20 border border-[#E2B830]/20 rounded-lg transition-colors cursor-pointer"
-          >
-            {client.primary_goal ? "Edit Goal" : "Set Goal"}
-          </button>
-        </div>
-        {client.primary_goal ? (
+      {/* ── Dashboard Tab ── */}
+      {activeTab === "dashboard" && (
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Left: Activity Log */}
           <div>
-            <div className="text-xl font-heading font-bold text-[#E2B830] leading-snug mb-1">{client.primary_goal}</div>
-            {client.target_date && (
-              <div className="text-xs text-text-muted">
-                Target: {new Date(client.target_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+            <h3 className="text-sm font-heading font-bold text-text-primary mb-3">Activity</h3>
+            <ActivityTimeline client={client} />
+
+            {/* Programme Timeline */}
+            <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mt-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-heading font-bold text-text-primary">Programme Timeline</h3>
+                <span className="text-xs text-text-muted">
+                  Wk {client.current_week} of {totalWeeksCount}
+                </span>
+              </div>
+              <div className="flex gap-1">
+                {Array.from({ length: Math.min(totalWeeksCount, 16) }).map((_, i) => {
+                  const weekNum = i + 1;
+                  const isCurrent = weekNum === client.current_week;
+                  const isComplete = weekNum < client.current_week;
+                  return (
+                    <div
+                      key={i}
+                      className={`flex-1 h-6 rounded flex items-center justify-center text-[9px] font-semibold transition-all relative ${
+                        isCurrent
+                          ? "bg-[#E2B830]/20 text-[#E2B830] border border-[#E2B830]/40"
+                          : isComplete
+                          ? "bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/10"
+                          : "bg-[rgba(0,0,0,0.02)] text-text-muted border border-[rgba(0,0,0,0.03)]"
+                      }`}
+                    >
+                      {weekNum}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Middle: Coach Notes + Latest Check-ins */}
+          <div>
+            {/* Coach Notes */}
+            <h3 className="text-sm font-heading font-bold text-text-primary mb-3">Coach Notes</h3>
+            <div className="bg-bg-card border border-amber-500/20 rounded-2xl p-4 mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                <span className="text-[10px] text-text-muted">Private - never visible to client</span>
+              </div>
+              <textarea
+                value={coachNotes}
+                onChange={(e) => setCoachNotes(e.target.value)}
+                onBlur={saveCoachNotes}
+                rows={5}
+                placeholder="Add private coaching notes... context, follow-up items, personal circumstances"
+                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-amber-400/40 transition-colors resize-y"
+              />
+              <div className="flex items-center justify-between mt-1.5">
+                <span className="text-[10px] text-text-muted">Auto-saves on blur</span>
+                <button
+                  onClick={saveCoachNotes}
+                  disabled={coachNotesSaving}
+                  className="text-[10px] font-medium text-amber-400 hover:text-amber-300 transition-colors disabled:opacity-50"
+                >
+                  {coachNotesSaving ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </div>
+
+            {/* Latest Check-ins */}
+            <h3 className="text-sm font-heading font-bold text-text-primary mb-3">Latest Check-ins</h3>
+            {client.checkins.length === 0 ? (
+              <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 text-center">
+                <p className="text-sm text-text-muted">No check-ins yet.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {client.checkins.slice(0, 3).map((c) => {
+                  const mc = moodConfig[c.mood] || moodConfig.okay;
+                  const isExpanded = expandedCheckins.has(c.id);
+                  return (
+                    <div key={c.id} className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl overflow-hidden">
+                      <button
+                        onClick={() => setExpandedCheckins((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                          return next;
+                        })}
+                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-[rgba(0,0,0,0.02)] transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-text-primary">Week {c.week_number}</span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase ${mc.bgClass} ${mc.textClass}`}>{c.mood}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-text-muted">{timeAgo(c.created_at)}</span>
+                          <svg className={`w-3.5 h-3.5 text-text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </button>
+                      {isExpanded && (
+                        <div className="px-4 pb-3 border-t border-[rgba(0,0,0,0.04)] pt-3 space-y-2">
+                          {c.responses && checkinConfig ? (
+                            checkinConfig.questions.map((q: FormQuestion) => {
+                              const answer = c.responses?.[q.id];
+                              if (!answer) return null;
+                              return (
+                                <div key={q.id}>
+                                  <span className="text-[10px] text-text-muted font-semibold uppercase tracking-wider">{q.label}</span>
+                                  <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">{answer}</p>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <>
+                              {c.wins && <div><span className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider">Wins</span><p className="text-xs text-text-secondary mt-0.5">{c.wins}</p></div>}
+                              {c.challenges && <div><span className="text-[10px] text-amber-400 font-semibold uppercase tracking-wider">Challenges</span><p className="text-xs text-text-secondary mt-0.5">{c.challenges}</p></div>}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {client.checkins.length > 3 && (
+                  <button onClick={() => setActiveTab("checkins")} className="text-xs text-[#E2B830] hover:text-[#c9a228] transition-colors w-full text-center py-2">
+                    View all {client.checkins.length} check-ins
+                  </button>
+                )}
               </div>
             )}
-            {client.goal_notes && (
-              <div className="text-sm text-text-secondary mt-2 leading-relaxed">{client.goal_notes}</div>
+          </div>
+
+          {/* Right: Client Data */}
+          <div>
+            <h3 className="text-sm font-heading font-bold text-text-primary mb-3">Client Data</h3>
+
+            {/* Weight card */}
+            <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] text-text-muted font-semibold uppercase tracking-wider">Weight Tracker</span>
+                {checkinsWithWeight.length > 0 && (
+                  <span className="text-[10px] text-text-muted">
+                    Latest: {new Date(checkinsWithWeight[checkinsWithWeight.length - 1].created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-end gap-4">
+                <div>
+                  <div className="text-[10px] text-text-muted mb-0.5">Current</div>
+                  <div className="text-2xl font-heading font-bold text-text-primary">
+                    {latestWeight ? `${latestWeight}kg` : "—"}
+                  </div>
+                  {weightTrend !== null && (
+                    <div className={`text-xs font-semibold mt-0.5 ${weightTrend < 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      {weightTrend < 0 ? "▼" : "▲"} {Math.abs(weightTrend).toFixed(1)}kg vs last
+                    </div>
+                  )}
+                </div>
+                {startWeightVal && latestWeight && startWeightVal !== latestWeight && (
+                  <div>
+                    <div className="text-[10px] text-text-muted mb-0.5">Total change</div>
+                    <div className={`text-lg font-heading font-bold ${latestWeight < startWeightVal ? "text-emerald-400" : "text-red-400"}`}>
+                      {latestWeight < startWeightVal ? "▼" : "▲"} {Math.abs(latestWeight - startWeightVal).toFixed(1)}kg
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Goal card */}
+            <div
+              className="bg-bg-card border border-[#E2B830]/20 rounded-2xl p-4 mb-3 cursor-pointer hover:border-[#E2B830]/40 transition-colors"
+              onClick={() => { setGoalPrimary(client.primary_goal || ""); setGoalTargetDate(client.target_date || ""); setGoalNotes(client.goal_notes || ""); setGoalsModalOpen(true); }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] text-[#E2B830] font-semibold uppercase tracking-wider">Primary Goal</span>
+                <span className="text-[10px] text-text-muted">{client.primary_goal ? "Edit" : "Set goal"}</span>
+              </div>
+              {client.primary_goal ? (
+                <>
+                  <div className="text-base font-heading font-bold text-[#E2B830] leading-snug">{client.primary_goal}</div>
+                  {client.target_date && (
+                    <div className="text-xs text-text-muted mt-1">
+                      Target: {new Date(client.target_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+                    </div>
+                  )}
+                  {client.goal_notes && <p className="text-xs text-text-secondary mt-1 leading-relaxed">{client.goal_notes}</p>}
+                </>
+              ) : (
+                <p className="text-sm text-text-muted">No goal set yet.</p>
+              )}
+            </div>
+
+            {/* Internal notes (coach-only) */}
+            <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4">
+              <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-2">Internal Notes</div>
+              <textarea
+                value={internalNotes}
+                onChange={(e) => setInternalNotes(e.target.value)}
+                rows={3}
+                placeholder="Follow-up items, context..."
+                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none"
+              />
+              <button
+                onClick={saveNotes}
+                disabled={notesSaving}
+                className="text-[10px] font-medium text-accent-bright hover:text-accent-light transition-colors disabled:opacity-50 mt-1"
+              >
+                {notesSaving ? "Saving..." : "Save Notes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Check-ins Tab ── */}
+      {activeTab === "checkins" && (
+        <div>
+          <h2 className="text-lg font-heading font-bold text-text-primary mb-4">Check-In History</h2>
+          {client.checkins.length === 0 ? (
+            <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
+              <p className="text-text-muted text-sm">No check-ins submitted yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {client.checkins.map((c) => {
+                const mc = moodConfig[c.mood] || moodConfig.okay;
+                return (
+                  <div key={c.id} className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-text-primary">Week {c.week_number}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${mc.bgClass} ${mc.textClass}`}>{c.mood}</span>
+                      </div>
+                      <span className="text-xs text-text-muted">{timeAgo(c.created_at)}</span>
+                    </div>
+
+                    {c.responses && checkinConfig ? (
+                      checkinConfig.questions.map((q: FormQuestion) => {
+                        const answer = c.responses?.[q.id];
+                        if (!answer) return null;
+                        return (
+                          <div key={q.id} className="mb-2">
+                            <span className="text-[10px] text-text-muted font-semibold uppercase tracking-wider">{q.label}</span>
+                            <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">{answer}</p>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <>
+                        {c.wins && (
+                          <div className="mb-2">
+                            <span className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider">Wins</span>
+                            <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">{c.wins}</p>
+                          </div>
+                        )}
+                        {c.challenges && (
+                          <div className="mb-2">
+                            <span className="text-[10px] text-amber-400 font-semibold uppercase tracking-wider">Challenges</span>
+                            <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">{c.challenges}</p>
+                          </div>
+                        )}
+                        {c.questions && (
+                          <div className="mb-2">
+                            <span className="text-[10px] text-accent-bright font-semibold uppercase tracking-wider">Questions</span>
+                            <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">{c.questions}</p>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {c.admin_reply || sentReplies[c.id] ? (
+                      <div className="mt-3 pl-3 border-l-2 border-[#E2B830]/30 bg-[#E2B830]/5 rounded-r-lg py-2 pr-3">
+                        <div className="text-[10px] text-[#E2B830] font-semibold uppercase tracking-wider mb-1">
+                          Gordy&apos;s Reply
+                          {sentReplies[c.id] && !c.admin_reply && <span className="text-emerald-400/60 ml-2">Just sent</span>}
+                        </div>
+                        <p className="text-xs text-text-secondary leading-relaxed">{sentReplies[c.id] || c.admin_reply}</p>
+                      </div>
+                    ) : (
+                      <div className="mt-3 pt-3 border-t border-[rgba(0,0,0,0.06)]">
+                        <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-2">Reply to this check-in</div>
+                        <textarea
+                          value={replyTexts[c.id] || ""}
+                          onChange={(e) => setReplyTexts((prev) => ({ ...prev, [c.id]: e.target.value }))}
+                          rows={3}
+                          placeholder="Type your reply..."
+                          disabled={sendingReply === c.id}
+                          className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#E2B830]/40 transition-colors resize-none disabled:opacity-50"
+                        />
+                        {replyError && sendingReply === null && (
+                          <div className="text-xs text-red-400 mt-1">{replyError}</div>
+                        )}
+                        <div className="flex justify-end mt-2">
+                          <button
+                            onClick={() => handleReply(c.id)}
+                            disabled={!replyTexts[c.id]?.trim() || sendingReply === c.id}
+                            className="px-4 py-2 bg-[#E2B830] hover:bg-[#c9a228] text-[#1a1a1a] rounded-lg text-xs font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1.5"
+                          >
+                            {sendingReply === c.id ? "Sending..." : "Send Reply"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Training Tab ── */}
+      {activeTab === "training" && (
+        <div className="grid lg:grid-cols-[1.3fr_1fr] gap-6">
+          {/* Business/milestone training plan */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-heading font-bold text-text-primary">Training Plan</h2>
+              <div className="flex items-center gap-2">
+                {activePlan ? (
+                  <>
+                    <button
+                      onClick={() => setBuilderMode("edit")}
+                      className="px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary border border-[rgba(0,0,0,0.08)] hover:border-[rgba(0,0,0,0.1)] rounded-lg transition-colors inline-flex items-center gap-1.5"
+                    >
+                      Edit Plan
+                    </button>
+                    <button
+                      onClick={() => setBuilderMode("create")}
+                      className="px-3 py-1.5 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      New Plan
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setBuilderMode("create")}
+                    className="px-3 py-1.5 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Create Training Plan
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {activePlan ? (
+              <>
+                <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 mb-3">
+                  <p className="text-text-secondary text-sm leading-relaxed">{activePlan.summary}</p>
+                  <div className="flex items-center gap-2 mt-3">
+                    <div className="h-2 w-24 bg-[rgba(0,0,0,0.03)] rounded-full overflow-hidden">
+                      <div className="h-full gradient-accent rounded-full transition-all duration-500" style={{ width: `${planPct}%` }} />
+                    </div>
+                    <span className="text-xs text-accent-bright font-semibold">{planPct}%</span>
+                    <span className="text-[10px] text-text-muted">({planDone}/{planTotal} items)</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {activePlan.phases.map((phase) => {
+                    const isExpanded = expandedPhases.has(phase.id);
+                    const phaseDone = phase.items.filter((i) => i.completed).length;
+                    const phaseTotal = phase.items.length;
+                    const phasePct = phaseTotal > 0 ? Math.round((phaseDone / phaseTotal) * 100) : 0;
+                    const iconPath = getPhaseIcon(phase.name);
+                    return (
+                      <div key={phase.id} className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
+                        <button onClick={() => togglePhase(phase.id)} className="w-full flex items-center justify-between p-4 hover:bg-[rgba(0,0,0,0.02)] transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                              <svg className="w-4 h-4 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={iconPath} />
+                              </svg>
+                            </div>
+                            <div className="text-left">
+                              <div className="text-sm font-semibold text-text-primary">{phase.name}</div>
+                              <div className="text-xs text-text-muted">{phaseDone}/{phaseTotal} completed</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
+                              <div className="h-1.5 w-16 bg-[rgba(0,0,0,0.03)] rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full transition-all duration-300 ${phasePct === 100 ? "bg-emerald-500" : "gradient-accent"}`} style={{ width: `${phasePct}%` }} />
+                              </div>
+                              <span className="text-[10px] text-text-muted w-8 text-right">{phasePct}%</span>
+                            </div>
+                            <svg className={`w-4 h-4 text-text-muted transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </button>
+                        {isExpanded && (
+                          <div className="border-t border-[rgba(0,0,0,0.03)] px-4 pb-3">
+                            {phase.notes && (
+                              <div className="py-3 border-b border-[rgba(0,0,0,0.03)] mb-1">
+                                <p className="text-xs text-text-muted leading-relaxed italic">{phase.notes}</p>
+                              </div>
+                            )}
+                            {phase.items.map((item) => (
+                              <button
+                                key={item.id}
+                                onClick={() => toggleItem(phase.id, item.id)}
+                                className="w-full flex items-center gap-3 py-3 px-2 rounded-lg hover:bg-[rgba(0,0,0,0.02)] transition-colors text-left group"
+                              >
+                                <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${item.completed ? "bg-emerald-500 border-emerald-500" : "border-[rgba(0,0,0,0.1)] group-hover:border-accent/50"}`}>
+                                  {item.completed && (
+                                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  )}
+                                </div>
+                                <span className={`text-sm transition-all duration-200 ${item.completed ? "text-text-muted line-through" : "text-text-secondary group-hover:text-text-primary"}`}>{item.title}</span>
+                                {item.completed && item.completed_at && (
+                                  <span className="text-[10px] text-text-muted ml-auto flex-shrink-0">
+                                    {new Date(item.completed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                                  </span>
+                                )}
+                              </button>
+                            ))}
+                            {phase.linked_trainings.length > 0 && (
+                              <div className="mt-2 pt-2 border-t border-[rgba(0,0,0,0.03)]">
+                                <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-2 px-2">Linked Training</div>
+                                <div className="space-y-1">
+                                  {phase.linked_trainings.map((contentId) => {
+                                    const info = contentLookup.get(contentId);
+                                    if (!info) return null;
+                                    return (
+                                      <Link key={contentId} href={`/admin/training/${info.moduleId}`} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-accent/5 transition-colors no-underline group">
+                                        <div className="w-5 h-5 rounded bg-accent/10 flex items-center justify-center flex-shrink-0">
+                                          <svg className="w-3 h-3 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                          </svg>
+                                        </div>
+                                        <div className="min-w-0">
+                                          <div className="text-xs text-text-secondary group-hover:text-text-primary transition-colors truncate">{info.title}</div>
+                                          <div className="text-[10px] text-text-muted">{info.moduleName}{info.duration ? ` - ${info.duration}m` : ""}</div>
+                                        </div>
+                                      </Link>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {completedPlans.length > 0 && (
+                  <div className="mt-4">
+                    <button onClick={() => setShowHistory(!showHistory)} className="flex items-center gap-2 text-xs text-text-muted hover:text-text-secondary transition-colors mb-2">
+                      <svg className={`w-3.5 h-3.5 transition-transform ${showHistory ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                      Previous Plans ({completedPlans.length})
+                    </button>
+                    {showHistory && (
+                      <div className="space-y-3">
+                        {completedPlans.map((plan) => {
+                          const prevItems = plan.phases.flatMap((ph) => ph.items);
+                          const prevDone = prevItems.filter((i) => i.completed).length;
+                          const prevTotal = prevItems.length;
+                          const isOpen = expandedHistoryPlan === plan.id;
+                          return (
+                            <div key={plan.id} className="bg-bg-card/40 border border-[rgba(0,0,0,0.03)] rounded-2xl overflow-hidden">
+                              <button onClick={() => setExpandedHistoryPlan(isOpen ? null : plan.id)} className="w-full p-4 text-left hover:bg-[rgba(0,0,0,0.02)] transition-colors">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-xs font-semibold text-text-muted">{new Date(plan.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
+                                  <span className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full font-semibold">
+                                    Completed {plan.completed_at ? new Date(plan.completed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : ""}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-text-muted leading-relaxed mb-1">{plan.summary}</p>
+                                <div className="text-[10px] text-text-muted">{prevDone}/{prevTotal} items across {plan.phases.length} phases</div>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
+                <p className="text-sm text-text-muted mb-4">No active training plan.</p>
+                <button onClick={() => setBuilderMode("create")} className="px-4 py-2 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                  Create Training Plan
+                </button>
+              </div>
             )}
           </div>
-        ) : (
-          <p className="text-sm text-text-muted">No goal set yet. Add a primary goal to keep this client focused and motivated.</p>
-        )}
-      </div>
 
-      {/* Goals modal */}
+          {/* Exercise Plan */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-heading font-bold text-text-primary">Exercise Plan</h2>
+              <button
+                onClick={() => setShowExercisePicker(true)}
+                disabled={assigningExercise}
+                className="px-3 py-1.5 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                {exercisePlans.some((p) => p.status === "active") ? "Replace" : "Assign"}
+              </button>
+            </div>
+            {(() => {
+              const activeExPlan = exercisePlans.find((p) => p.status === "active");
+              if (!activeExPlan) return (
+                <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 text-center">
+                  <p className="text-text-muted text-sm">No exercise plan assigned.</p>
+                </div>
+              );
+              return (
+                <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h3 className="font-semibold text-text-primary">{activeExPlan.name}</h3>
+                      {activeExPlan.description && <p className="text-[13px] text-text-secondary mt-0.5">{activeExPlan.description}</p>}
+                      <span className="text-[13px] text-accent-bright">{activeExPlan.sessions.length} sessions</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => handleUnassignExercisePlan(activeExPlan.id)} className="text-[13px] text-text-secondary hover:text-amber-400 transition-colors">Remove</button>
+                      <button onClick={() => handleArchiveExercisePlan(activeExPlan.id)} className="text-[13px] text-text-secondary hover:text-red-400 transition-colors">Archive</button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {activeExPlan.sessions.map((session) => (
+                      <div key={session.id} className="bg-[rgba(0,0,0,0.02)] rounded-xl p-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="w-6 h-6 rounded-lg bg-accent-bright/10 text-accent-bright font-bold text-[11px] flex items-center justify-center">{session.day_number}</span>
+                          <span className="font-medium text-text-primary text-[13px]">{session.name}</span>
+                          <span className="text-[13px] text-text-secondary/50 ml-auto">{session.items.length} exercises</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {recentExerciseLogs.length > 0 && (() => {
+                    const byDate = recentExerciseLogs.reduce((acc, log) => {
+                      if (!acc[log.log_date]) acc[log.log_date] = [];
+                      acc[log.log_date].push(log);
+                      return acc;
+                    }, {} as Record<string, typeof recentExerciseLogs>);
+                    const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a)).slice(0, 5);
+                    return (
+                      <div className="mt-4 pt-4 border-t border-[rgba(0,0,0,0.06)]">
+                        <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-3">Recent Training Logs</h4>
+                        <div className="space-y-2">
+                          {dates.map((date) => {
+                            const dayLogs = byDate[date];
+                            const completedCount = dayLogs.filter((l) => l.completed).length;
+                            const sessionId = dayLogs[0]?.session_id;
+                            const sessionName = sessionId ? activeExPlan.sessions.find((s) => s.id === sessionId)?.name : null;
+                            return (
+                              <div key={date} className="bg-[rgba(0,0,0,0.02)] rounded-xl p-3">
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[13px] font-semibold text-text-primary">
+                                      {new Date(date + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
+                                    </span>
+                                    {sessionName && <span className="text-xs text-accent-bright font-medium">{sessionName}</span>}
+                                  </div>
+                                  <span className="text-xs text-emerald-500 font-semibold">{completedCount}/{dayLogs.length} logged</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {dayLogs.slice(0, 6).map((log) => {
+                                    const exerciseItem = activeExPlan.sessions.flatMap((s) => s.items).find((i) => i.id === log.exercise_item_id);
+                                    const topSet = log.sets_data?.[0];
+                                    return (
+                                      <span key={log.id} className={`text-xs px-2 py-0.5 rounded-lg font-medium ${log.completed ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-[rgba(0,0,0,0.04)] text-text-secondary"}`}>
+                                        {exerciseItem?.exercise?.name || "Exercise"}
+                                        {topSet?.weight && ` ${topSet.weight}kg`}
+                                        {topSet?.reps && ` x${topSet.reps}`}
+                                      </span>
+                                    );
+                                  })}
+                                  {dayLogs.length > 6 && (
+                                    <span className="text-xs px-2 py-0.5 rounded-lg bg-[rgba(0,0,0,0.04)] text-text-secondary">+{dayLogs.length - 6} more</span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* ── Nutrition Tab ── */}
+      {activeTab === "nutrition" && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-heading font-bold text-text-primary">Nutrition Plan</h2>
+            <button
+              onClick={() => setShowNutritionPicker(true)}
+              disabled={assigningNutrition}
+              className="px-3 py-1.5 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+              {nutritionPlans.some((p) => p.status === "active") ? "Replace Plan" : "Assign Nutrition Plan"}
+            </button>
+          </div>
+          {(() => {
+            const activeNutPlan = nutritionPlans.find((p) => p.status === "active");
+            if (!activeNutPlan) return (
+              <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
+                <p className="text-text-muted text-sm">No nutrition plan assigned.</p>
+              </div>
+            );
+            return (
+              <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="font-semibold text-text-primary">{activeNutPlan.name}</h3>
+                    <div className="flex gap-3 mt-1 text-[13px]">
+                      {activeNutPlan.target_calories && <span className="text-text-primary font-medium">{activeNutPlan.target_calories} kcal</span>}
+                      {activeNutPlan.target_protein_g && <span className="text-blue-500">{activeNutPlan.target_protein_g}g P</span>}
+                      {activeNutPlan.target_carbs_g && <span className="text-accent-bright">{activeNutPlan.target_carbs_g}g C</span>}
+                      {activeNutPlan.target_fat_g && <span className="text-red-500">{activeNutPlan.target_fat_g}g F</span>}
+                    </div>
+                    <span className="text-[13px] text-accent-bright">{activeNutPlan.meals.length} meals</span>
+                  </div>
+                  <button onClick={() => handleArchiveNutritionPlan(activeNutPlan.id)} className="text-[13px] text-text-secondary hover:text-red-400 transition-colors">Archive</button>
+                </div>
+                <div className="space-y-2">
+                  {activeNutPlan.meals.map((meal) => (
+                    <div key={meal.id} className="bg-[rgba(0,0,0,0.02)] rounded-xl p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-text-primary text-[13px]">{meal.name}</span>
+                        <span className="text-[13px] text-text-secondary/50">{meal.items.length} items</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ── Gallery Tab ── */}
+      {activeTab === "gallery" && (
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-12 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-[rgba(0,0,0,0.03)] flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h3 className="text-base font-heading font-bold text-text-primary mb-2">Progress Photos</h3>
+          <p className="text-sm text-text-muted max-w-sm mx-auto">Progress photos will appear here once the client uploads photos during check-ins.</p>
+        </div>
+      )}
+
+      {/* ── Modals ── */}
+
+      {/* Goals Modal */}
       {goalsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
@@ -819,12 +1431,7 @@ export default function ClientDetailPage() {
               </div>
             </div>
             <div className="flex gap-3 mt-5">
-              <button
-                onClick={() => setGoalsModalOpen(false)}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-white/5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
+              <button onClick={() => setGoalsModalOpen(false)} className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-white/5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer">Cancel</button>
               <button
                 disabled={goalsSaving || !goalPrimary.trim()}
                 onClick={handleSaveGoals}
@@ -837,810 +1444,127 @@ export default function ClientDetailPage() {
         </div>
       )}
 
-      {/* Week timeline */}
-      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-heading font-bold text-text-primary">Programme Timeline</h2>
-          <span className="text-xs text-text-muted">
-            Started {new Date(client.start_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-          </span>
-        </div>
-        <div className="flex gap-1.5">
-          {Array.from({ length: totalWeeks }).map((_, i) => {
-            const weekNum = i + 1;
-            const isCurrent = weekNum === currentWeek;
-            const isComplete = weekNum < currentWeek;
-            return (
-              <div
-                key={i}
-                className={`flex-1 h-8 rounded-lg flex items-center justify-center text-[10px] font-semibold transition-all relative ${
-                  isCurrent
-                    ? "bg-accent/20 text-accent-bright border border-accent/40"
-                    : isComplete
-                    ? "bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/10"
-                    : "bg-[rgba(0,0,0,0.02)] text-text-muted border border-[rgba(0,0,0,0.03)]"
-                }`}
-              >
-                {weekNum}
-                {isCurrent && (
-                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-accent-bright" />
-                )}
+      {/* Revoke Access Modal */}
+      {revokeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
+                <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
               </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Goals */}
-      {client.goals && (
-        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mb-6">
-          <h2 className="text-sm font-heading font-bold text-text-primary mb-2">Goals</h2>
-          <p className="text-text-secondary text-sm leading-relaxed">{client.goals}</p>
+              <h3 className="text-lg font-heading font-bold text-text-primary">Revoke Client Access</h3>
+            </div>
+            <p className="text-sm text-text-secondary mb-4 leading-relaxed">
+              This will permanently remove <span className="text-text-primary font-semibold">{client.name}</span> and all their data. This cannot be undone.
+            </p>
+            <input
+              type="text"
+              value={revokeConfirmText}
+              onChange={(e) => setRevokeConfirmText(e.target.value)}
+              placeholder='Type "confirm" to proceed'
+              className="w-full px-4 py-2.5 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-red-500/50 mb-4"
+            />
+            <div className="flex gap-3">
+              <button onClick={() => { setRevokeModalOpen(false); setRevokeConfirmText(""); }} className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-white/5 hover:bg-white/10 rounded-xl transition-colors">Cancel</button>
+              <button
+                disabled={revokeConfirmText !== "confirm" || revoking}
+                onClick={async () => {
+                  setRevoking(true);
+                  try {
+                    const res = await fetch(`/api/admin/clients/${id}`, {
+                      method: "DELETE",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ user_id: client.user_id }),
+                    });
+                    if (res.ok) router.push("/admin/clients");
+                    else { const data = await res.json().catch(() => ({})); alert(data.error || "Failed to revoke access"); }
+                  } finally { setRevoking(false); }
+                }}
+                className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {revoking ? "Revoking..." : "Revoke Access"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Activity Timeline */}
-      <ActivityTimeline client={client} />
-
-      {/* Internal Notes */}
-      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl mb-6 overflow-hidden">
-        <button
-          onClick={() => setNotesOpen(!notesOpen)}
-          className="w-full flex items-center justify-between p-5 hover:bg-[rgba(0,0,0,0.02)] transition-colors"
-        >
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
-              <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
+      {/* Set Password Modal */}
+      {passwordModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
+                <svg className="w-5 h-5 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-heading font-bold text-text-primary">Set Password</h3>
+                <p className="text-xs text-text-muted">For {client.name}</p>
+              </div>
             </div>
-            <div className="text-left">
-              <h2 className="text-sm font-heading font-bold text-text-primary">Internal Notes</h2>
-              <p className="text-[10px] text-text-muted">Private - never visible to the client</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {internalNotes.trim() && !notesOpen && (
-              <span className="w-2 h-2 rounded-full bg-amber-400" />
-            )}
-            <svg
-              className={`w-4 h-4 text-text-muted transition-transform duration-200 ${notesOpen ? "rotate-180" : ""}`}
-              fill="none" stroke="currentColor" viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
-        </button>
-        {notesOpen && (
-          <div className="px-5 pb-5 border-t border-[rgba(0,0,0,0.03)]">
-            <textarea
-              value={internalNotes}
-              onChange={(e) => setInternalNotes(e.target.value)}
-              rows={4}
-              placeholder="Add private notes about this client... e.g. follow-up items, context for next session, personal circumstances"
-              className="w-full mt-3 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-y"
-            />
-            <div className="flex items-center gap-2 mt-1.5">
-              <button
-                onClick={saveNotes}
-                disabled={notesSaving}
-                className="text-[10px] font-medium text-accent-bright hover:text-accent-light transition-colors disabled:opacity-50"
-              >
-                {notesSaving ? "Saving..." : "Save Notes"}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Per-client check-in day */}
-      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mb-6 flex items-center gap-4">
-        <div className="flex-1">
-          <h2 className="text-sm font-heading font-bold text-text-primary">Check-In Day</h2>
-          <p className="text-[10px] text-text-muted mt-0.5">Which day this client submits their weekly check-in</p>
-        </div>
-        <select
-          value={checkinDay}
-          onChange={async (e) => {
-            const day = e.target.value;
-            setCheckinDay(day);
-            await saveCheckinDay(day);
-          }}
-          className="bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent/40 transition-colors cursor-pointer"
-        >
-          <option value="">Not set</option>
-          {["monday","tuesday","wednesday","thursday","friday","saturday","sunday"].map((d) => (
-            <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
-          ))}
-        </select>
-        {checkinDaySaving && <span className="text-xs text-text-muted">Saving...</span>}
-      </div>
-
-      <div className="grid lg:grid-cols-[1.3fr_1fr] gap-6">
-        {/* Training Plan */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-heading font-bold text-text-primary">Training Plan</h2>
-            <div className="flex items-center gap-2">
-              {activePlan ? (
-                <>
-                  <button
-                    onClick={() => setBuilderMode("edit")}
-                    className="px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary border border-[rgba(0,0,0,0.08)] hover:border-[rgba(0,0,0,0.1)] rounded-lg transition-colors inline-flex items-center gap-1.5"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    Edit Plan
-                  </button>
-                  <button
-                    onClick={handleNewPlan}
-                    className="px-3 py-1.5 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    New Plan
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={() => setBuilderMode("create")}
-                  className="px-3 py-1.5 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            {passwordResult?.type === "success" ? (
+              <>
+                <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 mb-4">
+                  <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  Create Training Plan
-                </button>
-              )}
-            </div>
-          </div>
-
-          {activePlan ? (
-            <>
-              {/* Plan summary (phases-based) */}
-              <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 mb-3">
-                <p className="text-text-secondary text-sm leading-relaxed">{activePlan.summary}</p>
-                <div className="flex items-center gap-2 mt-3">
-                  <div className="h-2 w-24 bg-[rgba(0,0,0,0.03)] rounded-full overflow-hidden">
-                    <div
-                      className="h-full gradient-accent rounded-full transition-all duration-500"
-                      style={{ width: `${planPct}%` }}
-                    />
-                  </div>
-                  <span className="text-xs text-accent-bright font-semibold">{planPct}%</span>
-                  <span className="text-[10px] text-text-muted">({planDone}/{planTotal} items)</span>
+                  <span className="text-sm text-emerald-400 font-medium">Password set - client can log in now</span>
                 </div>
-              </div>
-
-              {/* Phases */}
-              <div className="space-y-3">
-                {activePlan.phases.map((phase) => {
-                  const isExpanded = expandedPhases.has(phase.id);
-                  const phaseDone = phase.items.filter((i) => i.completed).length;
-                  const phaseTotal = phase.items.length;
-                  const phasePct = phaseTotal > 0 ? Math.round((phaseDone / phaseTotal) * 100) : 0;
-                  const iconPath = getPhaseIcon(phase.name);
-
-                  return (
-                    <div key={phase.id} className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
-                      <button
-                        onClick={() => togglePhase(phase.id)}
-                        className="w-full flex items-center justify-between p-4 hover:bg-[rgba(0,0,0,0.02)] transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
-                            <svg className="w-4 h-4 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={iconPath} />
-                            </svg>
-                          </div>
-                          <div className="text-left">
-                            <div className="text-sm font-semibold text-text-primary">{phase.name}</div>
-                            <div className="text-xs text-text-muted">{phaseDone}/{phaseTotal} completed</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-2">
-                            <div className="h-1.5 w-16 bg-[rgba(0,0,0,0.03)] rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all duration-300 ${phasePct === 100 ? "bg-emerald-500" : "gradient-accent"}`}
-                                style={{ width: `${phasePct}%` }}
-                              />
-                            </div>
-                            <span className="text-[10px] text-text-muted w-8 text-right">{phasePct}%</span>
-                          </div>
-                          <svg
-                            className={`w-4 h-4 text-text-muted transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
-                            fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </div>
-                      </button>
-
-                      {isExpanded && (
-                        <div className="border-t border-[rgba(0,0,0,0.03)] px-4 pb-3">
-                          {/* Phase notes */}
-                          {phase.notes && (
-                            <div className="py-3 border-b border-[rgba(0,0,0,0.03)] mb-1">
-                              <p className="text-xs text-text-muted leading-relaxed italic">{phase.notes}</p>
-                            </div>
-                          )}
-
-                          {/* Checklist items */}
-                          {phase.items.map((item) => (
-                            <button
-                              key={item.id}
-                              onClick={() => toggleItem(phase.id, item.id)}
-                              className="w-full flex items-center gap-3 py-3 px-2 rounded-lg hover:bg-[rgba(0,0,0,0.02)] transition-colors text-left group"
-                            >
-                              <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${
-                                item.completed
-                                  ? "bg-emerald-500 border-emerald-500"
-                                  : "border-[rgba(0,0,0,0.1)] group-hover:border-accent/50"
-                              }`}>
-                                {item.completed && (
-                                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                  </svg>
-                                )}
-                              </div>
-                              <span className={`text-sm transition-all duration-200 ${
-                                item.completed ? "text-text-muted line-through" : "text-text-secondary group-hover:text-text-primary"
-                              }`}>
-                                {item.title}
-                              </span>
-                              {item.completed && item.completed_at && (
-                                <span className="text-[10px] text-text-muted ml-auto flex-shrink-0">
-                                  {new Date(item.completed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                                </span>
-                              )}
-                            </button>
-                          ))}
-
-                          {/* Linked trainings */}
-                          {phase.linked_trainings.length > 0 && (
-                            <div className="mt-2 pt-2 border-t border-[rgba(0,0,0,0.03)]">
-                              <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-2 px-2">Linked Training</div>
-                              <div className="space-y-1">
-                                {phase.linked_trainings.map((contentId) => {
-                                  const info = contentLookup.get(contentId);
-                                  if (!info) return null;
-                                  return (
-                                    <Link
-                                      key={contentId}
-                                      href={`/admin/training/${info.moduleId}`}
-                                      className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-accent/5 transition-colors no-underline group"
-                                    >
-                                      <div className="w-5 h-5 rounded bg-accent/10 flex items-center justify-center flex-shrink-0">
-                                        <svg className="w-3 h-3 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                      </div>
-                                      <div className="min-w-0">
-                                        <div className="text-xs text-text-secondary group-hover:text-text-primary transition-colors truncate">{info.title}</div>
-                                        <div className="text-[10px] text-text-muted">{info.moduleName}{info.duration ? ` - ${info.duration}m` : ""}</div>
-                                      </div>
-                                    </Link>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Previous Plans */}
-              {completedPlans.length > 0 && (
-                <div className="mt-4">
+                <button onClick={() => setPasswordModalOpen(false)} className="w-full px-4 py-2.5 text-sm font-semibold text-white gradient-accent rounded-xl cursor-pointer">Done</button>
+              </>
+            ) : (
+              <>
+                {passwordResult?.type === "error" && (
+                  <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-4">
+                    <span className="text-sm text-red-400">{passwordResult.text}</span>
+                  </div>
+                )}
+                <div className="mb-4">
+                  <label className="block text-xs font-medium text-text-secondary mb-1.5">New Password</label>
+                  <input
+                    type="password"
+                    value={newClientPassword}
+                    onChange={(e) => setNewClientPassword(e.target.value)}
+                    placeholder="Min 8 characters"
+                    className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={() => setPasswordModalOpen(false)} className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-white/5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer">Cancel</button>
                   <button
-                    onClick={() => setShowHistory(!showHistory)}
-                    className="flex items-center gap-2 text-xs text-text-muted hover:text-text-secondary transition-colors mb-2"
+                    disabled={newClientPassword.length < 8 || passwordSaving}
+                    onClick={async () => {
+                      setPasswordSaving(true);
+                      setPasswordResult(null);
+                      try {
+                        const res = await fetch("/api/admin/set-password", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ user_id: client.user_id, password: newClientPassword }),
+                        });
+                        const data = await res.json();
+                        if (res.ok) setPasswordResult({ type: "success", text: "Password set" });
+                        else setPasswordResult({ type: "error", text: data.error || "Failed to set password" });
+                      } catch {
+                        setPasswordResult({ type: "error", text: "Something went wrong" });
+                      } finally {
+                        setPasswordSaving(false);
+                      }
+                    }}
+                    className="flex-1 px-4 py-2.5 text-sm font-semibold text-white gradient-accent rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   >
-                    <svg
-                      className={`w-3.5 h-3.5 transition-transform ${showHistory ? "rotate-180" : ""}`}
-                      fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                    Previous Plans ({completedPlans.length})
-                  </button>
-
-                  {showHistory && (
-                    <div className="space-y-3">
-                      {completedPlans.map((plan) => {
-                        const prevItems = plan.phases.flatMap((ph) => ph.items);
-                        const prevDone = prevItems.filter((i) => i.completed).length;
-                        const prevTotal = prevItems.length;
-                        const isOpen = expandedHistoryPlan === plan.id;
-                        return (
-                          <div key={plan.id} className="bg-bg-card/40 border border-[rgba(0,0,0,0.03)] rounded-2xl overflow-hidden">
-                            <button
-                              onClick={() => setExpandedHistoryPlan(isOpen ? null : plan.id)}
-                              className="w-full p-4 text-left hover:bg-[rgba(0,0,0,0.02)] transition-colors"
-                            >
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-semibold text-text-muted">
-                                  {new Date(plan.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                                </span>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full font-semibold">
-                                    Completed {plan.completed_at ? new Date(plan.completed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : ""}
-                                  </span>
-                                  <svg
-                                    className={`w-3.5 h-3.5 text-text-muted transition-transform ${isOpen ? "rotate-180" : ""}`}
-                                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                  >
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                  </svg>
-                                </div>
-                              </div>
-                              <p className="text-xs text-text-muted leading-relaxed mb-1">{plan.summary}</p>
-                              <div className="text-[10px] text-text-muted">
-                                {prevDone}/{prevTotal} items completed across {plan.phases.length} phases
-                              </div>
-                            </button>
-                            {isOpen && (
-                              <div className="border-t border-[rgba(0,0,0,0.03)] px-4 pb-4 space-y-3 pt-3">
-                                {plan.phases.map((phase) => {
-                                  const phDone = phase.items.filter((i) => i.completed).length;
-                                  const phTotal = phase.items.length;
-                                  return (
-                                    <div key={phase.id}>
-                                      <div className="flex items-center justify-between mb-1.5">
-                                        <span className="text-xs font-semibold text-text-secondary">{phase.name}</span>
-                                        <span className="text-[10px] text-text-muted">{phDone}/{phTotal}</span>
-                                      </div>
-                                      {phase.notes && (
-                                        <p className="text-[11px] text-text-muted italic mb-1.5">{phase.notes}</p>
-                                      )}
-                                      {phase.items.map((item) => (
-                                        <div key={item.id} className="flex items-center gap-2 py-1 px-1">
-                                          <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 ${
-                                            item.completed ? "bg-emerald-500/20" : "border border-[rgba(0,0,0,0.06)]"
-                                          }`}>
-                                            {item.completed && (
-                                              <svg className="w-2.5 h-2.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                              </svg>
-                                            )}
-                                          </div>
-                                          <span className={`text-xs ${item.completed ? "text-text-muted line-through" : "text-text-secondary"}`}>
-                                            {item.title}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          ) : !exercisePlans.some((p) => p.status === "active") ? (
-            <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
-              <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-3">
-                <svg className="w-6 h-6 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <p className="text-sm text-text-muted mb-4">No active training plan for this client.</p>
-              <button
-                onClick={() => setBuilderMode("create")}
-                className="px-4 py-2 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Create Training Plan
-              </button>
-
-              {/* Show history even when no active plan */}
-              {completedPlans.length > 0 && (
-                <div className="mt-6 text-left">
-                  <button
-                    onClick={() => setShowHistory(!showHistory)}
-                    className="flex items-center gap-2 text-xs text-text-muted hover:text-text-secondary transition-colors mb-2"
-                  >
-                    <svg
-                      className={`w-3.5 h-3.5 transition-transform ${showHistory ? "rotate-180" : ""}`}
-                      fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                    Previous Plans ({completedPlans.length})
-                  </button>
-                  {showHistory && completedPlans.map((plan) => {
-                    const prevItems = plan.phases.flatMap((ph) => ph.items);
-                    const prevDone = prevItems.filter((i) => i.completed).length;
-                    const prevTotal = prevItems.length;
-                    const isOpen = expandedHistoryPlan === plan.id;
-                    return (
-                      <div key={plan.id} className="bg-bg-card/40 border border-[rgba(0,0,0,0.03)] rounded-2xl overflow-hidden mt-2">
-                        <button
-                          onClick={() => setExpandedHistoryPlan(isOpen ? null : plan.id)}
-                          className="w-full p-4 text-left hover:bg-[rgba(0,0,0,0.02)] transition-colors"
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-semibold text-text-muted">
-                              {new Date(plan.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full font-semibold">
-                                Completed {plan.completed_at ? new Date(plan.completed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : ""}
-                              </span>
-                              <svg
-                                className={`w-3.5 h-3.5 text-text-muted transition-transform ${isOpen ? "rotate-180" : ""}`}
-                                fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                              </svg>
-                            </div>
-                          </div>
-                          <p className="text-xs text-text-muted leading-relaxed mb-1">{plan.summary}</p>
-                          <div className="text-[10px] text-text-muted">
-                            {prevDone}/{prevTotal} items completed across {plan.phases.length} phases
-                          </div>
-                        </button>
-                        {isOpen && (
-                          <div className="border-t border-[rgba(0,0,0,0.03)] px-4 pb-4 space-y-3 pt-3">
-                            {plan.phases.map((phase) => {
-                              const phDone = phase.items.filter((i) => i.completed).length;
-                              const phTotal = phase.items.length;
-                              return (
-                                <div key={phase.id}>
-                                  <div className="flex items-center justify-between mb-1.5">
-                                    <span className="text-xs font-semibold text-text-secondary">{phase.name}</span>
-                                    <span className="text-[10px] text-text-muted">{phDone}/{phTotal}</span>
-                                  </div>
-                                  {phase.notes && (
-                                    <p className="text-[11px] text-text-muted italic mb-1.5">{phase.notes}</p>
-                                  )}
-                                  {phase.items.map((item) => (
-                                    <div key={item.id} className="flex items-center gap-2 py-1 px-1">
-                                      <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 ${
-                                        item.completed ? "bg-emerald-500/20" : "border border-[rgba(0,0,0,0.06)]"
-                                      }`}>
-                                        {item.completed && (
-                                          <svg className="w-2.5 h-2.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                          </svg>
-                                        )}
-                                      </div>
-                                      <span className={`text-xs ${item.completed ? "text-text-muted line-through" : "text-text-secondary"}`}>
-                                        {item.title}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ) : null}
-        </div>
-
-        {/* Exercise Plan */}
-        <div className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-heading font-bold text-text-primary">Training Plan</h2>
-            <button
-              onClick={() => setShowExercisePicker(true)}
-              disabled={assigningExercise}
-              className="px-3 py-1.5 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              {exercisePlans.some((p) => p.status === "active") ? "Replace Plan" : "Assign Training Plan"}
-            </button>
-          </div>
-          {(() => {
-            const activeExPlan = exercisePlans.find((p) => p.status === "active");
-            if (!activeExPlan) {
-              return (
-                <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 text-center">
-                  <p className="text-text-muted text-sm">No exercise plan assigned.</p>
-                </div>
-              );
-            }
-            return (
-              <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h3 className="font-semibold text-text-primary">{activeExPlan.name}</h3>
-                    {activeExPlan.description && <p className="text-[13px] text-text-secondary mt-0.5">{activeExPlan.description}</p>}
-                    <span className="text-[13px] text-accent-bright">{activeExPlan.sessions.length} sessions</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => handleUnassignExercisePlan(activeExPlan.id)}
-                      className="text-[13px] text-text-secondary hover:text-amber-400 transition-colors"
-                    >
-                      Remove
-                    </button>
-                    <button
-                      onClick={() => handleArchiveExercisePlan(activeExPlan.id)}
-                      className="text-[13px] text-text-secondary hover:text-red-400 transition-colors"
-                    >
-                      Archive
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {activeExPlan.sessions.map((session) => (
-                    <div key={session.id} className="bg-[rgba(0,0,0,0.02)] dark:bg-[rgba(255,255,255,0.02)] rounded-xl p-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="w-6 h-6 rounded-lg bg-accent-bright/10 text-accent-bright font-bold text-[11px] flex items-center justify-center">{session.day_number}</span>
-                        <span className="font-medium text-text-primary text-[13px]">{session.name}</span>
-                        <span className="text-[13px] text-text-secondary/50 ml-auto">{session.items.length} exercises</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Recent Training Logs */}
-                {recentExerciseLogs.length > 0 && (() => {
-                  // Group logs by date
-                  const byDate = recentExerciseLogs.reduce((acc, log) => {
-                    if (!acc[log.log_date]) acc[log.log_date] = [];
-                    acc[log.log_date].push(log);
-                    return acc;
-                  }, {} as Record<string, typeof recentExerciseLogs>);
-                  const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a)).slice(0, 5);
-                  return (
-                    <div className="mt-4 pt-4 border-t border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)]">
-                      <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-3">Recent Training Logs</h4>
-                      <div className="space-y-2">
-                        {dates.map((date) => {
-                          const dayLogs = byDate[date];
-                          const completedCount = dayLogs.filter((l) => l.completed).length;
-                          const sessionId = dayLogs[0]?.session_id;
-                          const sessionName = sessionId
-                            ? activeExPlan.sessions.find((s) => s.id === sessionId)?.name
-                            : null;
-                          return (
-                            <div key={date} className="bg-[rgba(0,0,0,0.02)] dark:bg-[rgba(255,255,255,0.02)] rounded-xl p-3">
-                              <div className="flex items-center justify-between mb-1.5">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[13px] font-semibold text-text-primary">
-                                    {new Date(date + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
-                                  </span>
-                                  {sessionName && (
-                                    <span className="text-xs text-accent-bright font-medium">{sessionName}</span>
-                                  )}
-                                </div>
-                                <span className="text-xs text-emerald-500 font-semibold">
-                                  {completedCount}/{dayLogs.length} logged
-                                </span>
-                              </div>
-                              <div className="flex flex-wrap gap-1.5">
-                                {dayLogs.slice(0, 6).map((log) => {
-                                  const exerciseItem = activeExPlan.sessions
-                                    .flatMap((s) => s.items)
-                                    .find((i) => i.id === log.exercise_item_id);
-                                  const topSet = log.sets_data?.[0];
-                                  return (
-                                    <span key={log.id} className={`text-xs px-2 py-0.5 rounded-lg font-medium ${
-                                      log.completed
-                                        ? "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400"
-                                        : "bg-[rgba(0,0,0,0.04)] dark:bg-[rgba(255,255,255,0.05)] text-text-secondary"
-                                    }`}>
-                                      {exerciseItem?.exercise?.name || "Exercise"}
-                                      {topSet?.weight && ` ${topSet.weight}kg`}
-                                      {topSet?.reps && ` x${topSet.reps}`}
-                                    </span>
-                                  );
-                                })}
-                                {dayLogs.length > 6 && (
-                                  <span className="text-xs px-2 py-0.5 rounded-lg bg-[rgba(0,0,0,0.04)] dark:bg-[rgba(255,255,255,0.05)] text-text-secondary">
-                                    +{dayLogs.length - 6} more
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            );
-          })()}
-        </div>
-
-        {/* Nutrition Plan */}
-        <div className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-heading font-bold text-text-primary">Nutrition Plan</h2>
-            <button
-              onClick={() => setShowNutritionPicker(true)}
-              disabled={assigningNutrition}
-              className="px-3 py-1.5 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              {nutritionPlans.some((p) => p.status === "active") ? "Replace Plan" : "Assign Nutrition Plan"}
-            </button>
-          </div>
-          {(() => {
-            const activeNutPlan = nutritionPlans.find((p) => p.status === "active");
-            if (!activeNutPlan) {
-              return (
-                <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 text-center">
-                  <p className="text-text-muted text-sm">No nutrition plan assigned.</p>
-                </div>
-              );
-            }
-            return (
-              <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h3 className="font-semibold text-text-primary">{activeNutPlan.name}</h3>
-                    <div className="flex gap-3 mt-1 text-[13px]">
-                      {activeNutPlan.target_calories && <span className="text-text-primary font-medium">{activeNutPlan.target_calories} kcal</span>}
-                      {activeNutPlan.target_protein_g && <span className="text-blue-500">{activeNutPlan.target_protein_g}g P</span>}
-                      {activeNutPlan.target_carbs_g && <span className="text-accent-bright">{activeNutPlan.target_carbs_g}g C</span>}
-                      {activeNutPlan.target_fat_g && <span className="text-red-500">{activeNutPlan.target_fat_g}g F</span>}
-                    </div>
-                    <span className="text-[13px] text-accent-bright">{activeNutPlan.meals.length} meals</span>
-                  </div>
-                  <button
-                    onClick={() => handleArchiveNutritionPlan(activeNutPlan.id)}
-                    className="text-[13px] text-text-secondary hover:text-red-400 transition-colors"
-                  >
-                    Archive
+                    {passwordSaving ? "Setting..." : "Set Password"}
                   </button>
                 </div>
-                <div className="space-y-2">
-                  {activeNutPlan.meals.map((meal) => (
-                    <div key={meal.id} className="bg-[rgba(0,0,0,0.02)] dark:bg-[rgba(255,255,255,0.02)] rounded-xl p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-text-primary text-[13px]">{meal.name}</span>
-                        <span className="text-[13px] text-text-secondary/50">{meal.items.length} items</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
+              </>
+            )}
+          </div>
         </div>
-
-        {/* Check-in History */}
-        <div>
-          <h2 className="text-lg font-heading font-bold text-text-primary mb-4">Check-In History</h2>
-          {client.checkins.length === 0 ? (
-            <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-6">
-              <p className="text-text-muted text-sm">No check-ins submitted yet.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {client.checkins.map((c) => {
-                const mc = moodConfig[c.mood];
-                return (
-                  <div key={c.id} className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-text-primary">Week {c.week_number}</span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${mc.bgClass} ${mc.textClass}`}>
-                          {c.mood}
-                        </span>
-                      </div>
-                      <span className="text-xs text-text-muted">{timeAgo(c.created_at)}</span>
-                    </div>
-
-                    {c.responses && checkinConfig ? (
-                      /* Dynamic responses - render using config labels */
-                      checkinConfig.questions.map((q: FormQuestion) => {
-                        const answer = c.responses?.[q.id];
-                        if (!answer) return null;
-                        return (
-                          <div key={q.id} className="mb-2">
-                            <span className="text-[10px] text-text-muted font-semibold uppercase tracking-wider">{q.label}</span>
-                            <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">{answer}</p>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      /* Legacy format - backward compatibility */
-                      <>
-                        {c.wins && (
-                          <div className="mb-2">
-                            <span className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider">Wins</span>
-                            <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">{c.wins}</p>
-                          </div>
-                        )}
-                        {c.challenges && (
-                          <div className="mb-2">
-                            <span className="text-[10px] text-amber-400 font-semibold uppercase tracking-wider">Challenges</span>
-                            <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">{c.challenges}</p>
-                          </div>
-                        )}
-                        {c.questions && (
-                          <div className="mb-2">
-                            <span className="text-[10px] text-accent-bright font-semibold uppercase tracking-wider">Questions</span>
-                            <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">{c.questions}</p>
-                          </div>
-                        )}
-                      </>
-                    )}
-
-                    {c.admin_reply || sentReplies[c.id] ? (
-                      <div className="mt-3 pl-3 border-l-2 border-accent/30 bg-accent/5 rounded-r-lg py-2 pr-3">
-                        <div className="text-[10px] text-accent-bright font-semibold uppercase tracking-wider mb-1">
-                          Gordy&apos;s Reply
-                          {sentReplies[c.id] && !c.admin_reply && <span className="text-emerald-400/60 ml-2">Just sent</span>}
-                        </div>
-                        <p className="text-xs text-text-secondary leading-relaxed">{sentReplies[c.id] || c.admin_reply}</p>
-                      </div>
-                    ) : (
-                      <div className="mt-3 pt-3 border-t border-[rgba(0,0,0,0.06)]">
-                        <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-2">Reply to this check-in</div>
-                        <textarea
-                          value={replyTexts[c.id] || ""}
-                          onChange={(e) => setReplyTexts((prev) => ({ ...prev, [c.id]: e.target.value }))}
-                          rows={3}
-                          placeholder="Type your reply..."
-                          disabled={sendingReply === c.id}
-                          className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none disabled:opacity-50"
-                        />
-                        {replyError && sendingReply === null && (
-                          <div className="text-xs text-red-400 mt-1">{replyError}</div>
-                        )}
-                        <div className="flex justify-end mt-2">
-                          <button
-                            onClick={() => handleReply(c.id)}
-                            disabled={!replyTexts[c.id]?.trim() || sendingReply === c.id}
-                            className="px-4 py-2 gradient-accent text-[#1a1a1a] rounded-lg text-xs font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition-opacity inline-flex items-center gap-1.5"
-                          >
-                            {sendingReply === c.id ? (
-                              <>
-                                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                </svg>
-                                Sending...
-                              </>
-                            ) : (
-                              <>
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                                </svg>
-                                Send Reply
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* Nudge Modal */}
       {nudgeOpen && (
@@ -1657,7 +1581,6 @@ export default function ClientDetailPage() {
                 <p className="text-xs text-text-muted">Send a push notification to their device</p>
               </div>
             </div>
-
             {nudgeSent ? (
               <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 mb-4">
                 <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1674,12 +1597,8 @@ export default function ClientDetailPage() {
                 className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50 mb-4 resize-none"
               />
             )}
-
             <div className="flex gap-3">
-              <button
-                onClick={() => setNudgeOpen(false)}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-white/5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
-              >
+              <button onClick={() => setNudgeOpen(false)} className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-white/5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer">
                 {nudgeSent ? "Done" : "Cancel"}
               </button>
               {!nudgeSent && (
@@ -1691,35 +1610,18 @@ export default function ClientDetailPage() {
                       const res = await fetch("/api/push/send", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          userId: client.user_id,
-                          title: "Gordy Elliott",
-                          body: nudgeMessage,
-                          url: "/portal",
-                          tag: "nudge",
-                        }),
+                        body: JSON.stringify({ userId: client.user_id, title: "Gordy Elliott", body: nudgeMessage, url: "/portal", tag: "nudge" }),
                       });
                       const result = await res.json().catch(() => ({}));
-                      if (res.ok && result.sent > 0) {
-                        setNudgeSent(true);
-                      } else {
-                        alert("Push notification could not be delivered. Client may not have notifications enabled.");
-                      }
+                      if (res.ok && result.sent > 0) setNudgeSent(true);
+                      else alert("Push notification could not be delivered. Client may not have notifications enabled.");
                     } finally {
                       setNudgeSending(false);
                     }
                   }}
                   className="flex-1 px-4 py-2.5 text-sm font-semibold text-white gradient-accent rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  {nudgeSending ? (
-                    <>
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Sending...
-                    </>
-                  ) : "Send Nudge"}
+                  {nudgeSending ? "Sending..." : "Send Nudge"}
                 </button>
               )}
             </div>
@@ -1757,9 +1659,6 @@ export default function ClientDetailPage() {
 }
 
 function ActivityTimeline({ client }: { client: AdminClient }) {
-  const [expanded, setExpanded] = useState(true);
-
-  // Build unified timeline from checkins, plan items, and modules
   interface TimelineEvent {
     type: "checkin" | "plan_item" | "module_started" | "module_completed" | "reply";
     date: string;
@@ -1771,7 +1670,6 @@ function ActivityTimeline({ client }: { client: AdminClient }) {
 
   const events: TimelineEvent[] = [];
 
-  // Check-ins
   for (const c of client.checkins) {
     events.push({
       type: "checkin",
@@ -1792,7 +1690,6 @@ function ActivityTimeline({ client }: { client: AdminClient }) {
     }
   }
 
-  // Business plan items completed
   const activePlan = client.training_plan?.find((p) => p.status === "active");
   if (activePlan) {
     for (const phase of activePlan.phases) {
@@ -1811,68 +1708,42 @@ function ActivityTimeline({ client }: { client: AdminClient }) {
     }
   }
 
-  // Sort newest first
   events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  if (events.length === 0) return null;
+  if (events.length === 0) {
+    return (
+      <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 text-center">
+        <p className="text-xs text-text-muted">No activity yet.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl mb-6 overflow-hidden">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between p-5 hover:bg-[rgba(0,0,0,0.02)] transition-colors cursor-pointer"
-      >
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
-            <svg className="w-4 h-4 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <div className="text-left">
-            <h2 className="text-sm font-heading font-bold text-text-primary">Activity Timeline</h2>
-            <p className="text-[10px] text-text-muted">{events.length} events</p>
-          </div>
-        </div>
-        <svg className={`w-4 h-4 text-text-muted transition-transform ${expanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-
-      {expanded && (
-        <div className="px-5 pb-5">
-          <div className="relative border-l border-[rgba(0,0,0,0.08)] ml-4 space-y-0">
-            {events.slice(0, 15).map((event, i) => (
-              <div key={i} className="relative pl-6 pb-4 last:pb-0">
-                <div className={`absolute -left-[5px] top-1 w-2.5 h-2.5 rounded-full border-2 border-bg-card ${
-                  event.type === "checkin" ? "bg-blue-400" :
-                  event.type === "reply" ? "bg-accent" :
-                  event.type === "plan_item" ? "bg-emerald-400" :
-                  "bg-purple-400"
-                }`} />
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <svg className={`w-3.5 h-3.5 flex-shrink-0 ${event.color}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={event.icon} />
-                    </svg>
-                    <div className="min-w-0">
-                      <span className="text-xs text-text-primary">{event.title}</span>
-                      {event.detail && <span className="text-[10px] text-text-muted ml-2">{event.detail}</span>}
-                    </div>
-                  </div>
-                  <span className="text-[10px] text-text-muted whitespace-nowrap flex-shrink-0">
-                    {new Date(event.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                  </span>
-                </div>
+    <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4">
+      <div className="relative border-l border-[rgba(0,0,0,0.08)] ml-3 space-y-0">
+        {events.slice(0, 12).map((event, i) => (
+          <div key={i} className="relative pl-5 pb-4 last:pb-0">
+            <div className={`absolute -left-[5px] top-1 w-2.5 h-2.5 rounded-full border-2 border-bg-card ${
+              event.type === "checkin" ? "bg-blue-400" :
+              event.type === "reply" ? "bg-[#E2B830]" :
+              event.type === "plan_item" ? "bg-emerald-400" :
+              "bg-purple-400"
+            }`} />
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <span className="text-xs text-text-primary">{event.title}</span>
+                {event.detail && <span className="text-[10px] text-text-muted ml-1.5">{event.detail}</span>}
               </div>
-            ))}
-            {events.length > 15 && (
-              <div className="pl-6 pt-2 text-[10px] text-text-muted">
-                + {events.length - 15} more events
-              </div>
-            )}
+              <span className="text-[10px] text-text-muted whitespace-nowrap flex-shrink-0">
+                {new Date(event.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        ))}
+        {events.length > 12 && (
+          <div className="pl-5 pt-1 text-[10px] text-text-muted">+ {events.length - 12} more</div>
+        )}
+      </div>
     </div>
   );
 }
