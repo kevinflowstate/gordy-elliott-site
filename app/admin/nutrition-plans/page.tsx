@@ -134,14 +134,19 @@ export default function NutritionPlansPage() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] rounded-2xl p-12 text-center">
-          <p className="text-text-secondary">No nutrition templates yet.</p>
-          <p className="text-text-secondary/60 text-[13px] mt-1">Create your first template to get started.</p>
+        <div className="bg-gradient-to-br from-[#1a1a1a] via-[#222222] to-[#1a1a1a] border border-accent/20 rounded-2xl overflow-hidden">
+          <div className="h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent" />
+          <div className="p-12 text-center">
+            <p className="text-white/60">No nutrition templates yet.</p>
+            <p className="text-white/40 text-[13px] mt-1">Create your first template to get started.</p>
+          </div>
         </div>
       ) : (
-        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] rounded-2xl overflow-hidden">
+        <div className="bg-gradient-to-br from-[#1a1a1a] via-[#222222] to-[#1a1a1a] border border-accent/20 rounded-2xl overflow-hidden hover:border-accent/40 hover:shadow-[0_8px_32px_rgba(226,184,48,0.12)] transition-all">
+          {/* Gold top accent line */}
+          <div className="h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent" />
           {/* Table header */}
-          <div className="grid grid-cols-[1fr_100px_80px_120px_120px_120px_80px] gap-2 px-5 py-3 border-b border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.02)] dark:bg-[rgba(255,255,255,0.02)]">
+          <div className="grid grid-cols-[1fr_100px_80px_120px_120px_120px_80px] gap-2 px-5 py-3 border-b border-white/[0.06] bg-white/[0.02]">
             <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider">Plan Name</span>
             <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider text-center">Calories</span>
             <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider text-center">Meals</span>
@@ -167,7 +172,7 @@ export default function NutritionPlansPage() {
               <div
                 key={t.id}
                 onClick={() => { setEditingTemplate(t); setShowBuilder(true); }}
-                className={`grid grid-cols-[1fr_100px_80px_120px_120px_120px_80px] gap-2 px-5 py-4 items-center cursor-pointer transition-colors border-b border-[rgba(0,0,0,0.03)] dark:border-[rgba(255,255,255,0.03)] last:border-0 ${rowColor}`}
+                className={`grid grid-cols-[1fr_100px_80px_120px_120px_120px_80px] gap-2 px-5 py-4 items-center cursor-pointer transition-colors border-b border-white/[0.04] last:border-0 ${rowColor}`}
               >
                 {/* Name + description */}
                 <div className="min-w-0">

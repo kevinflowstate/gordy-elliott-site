@@ -189,30 +189,33 @@ export default function ExercisePlansPage() {
 
       {/* Empty state */}
       {filtered.length === 0 ? (
-        <div className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl p-12 text-center">
-          <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-4">
-            <svg className="w-6 h-6 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
+        <div className="bg-gradient-to-br from-[#1a1a1a] via-[#222222] to-[#1a1a1a] border border-accent/20 rounded-2xl overflow-hidden">
+          <div className="h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent" />
+          <div className="p-12 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <p className="text-white/50 text-sm mb-4">
+              {search || categoryFilter !== "all" ? "No training plans match your filters." : "No training plans yet."}
+            </p>
+            {search || categoryFilter !== "all" ? (
+              <button
+                onClick={() => { setSearch(""); setCategoryFilter("all"); }}
+                className="text-xs text-accent-bright hover:underline cursor-pointer"
+              >
+                Clear filters
+              </button>
+            ) : (
+              <button
+                onClick={openCreate}
+                className="px-4 py-2 bg-accent-bright text-black rounded-xl text-sm font-semibold cursor-pointer"
+              >
+                Create your first template
+              </button>
+            )}
           </div>
-          <p className="text-text-muted text-sm mb-4">
-            {search || categoryFilter !== "all" ? "No training plans match your filters." : "No training plans yet."}
-          </p>
-          {search || categoryFilter !== "all" ? (
-            <button
-              onClick={() => { setSearch(""); setCategoryFilter("all"); }}
-              className="text-xs text-accent-bright hover:underline cursor-pointer"
-            >
-              Clear filters
-            </button>
-          ) : (
-            <button
-              onClick={openCreate}
-              className="px-4 py-2 bg-accent-bright text-black rounded-xl text-sm font-semibold cursor-pointer"
-            >
-              Create your first template
-            </button>
-          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -261,7 +264,10 @@ function TemplateCard({ template, onView, onEdit, onDelete }: TemplateCardProps)
   const totalExercises = template.sessions.reduce((sum, s) => sum + s.items.length, 0);
 
   return (
-    <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden hover:border-accent/20 transition-colors group">
+    <div className="bg-gradient-to-br from-[#1a1a1a] via-[#222222] to-[#1a1a1a] border border-accent/20 rounded-2xl overflow-hidden hover:border-accent/40 hover:shadow-[0_8px_32px_rgba(226,184,48,0.12)] transition-all group">
+      {/* Gold top accent line */}
+      <div className="h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent" />
+
       {/* Card body - clickable to preview */}
       <button
         type="button"
@@ -269,7 +275,7 @@ function TemplateCard({ template, onView, onEdit, onDelete }: TemplateCardProps)
         className="w-full text-left p-5 cursor-pointer"
       >
         <div className="flex items-start justify-between gap-3 mb-3">
-          <h3 className="text-sm font-semibold text-text-primary leading-snug group-hover:text-accent-bright transition-colors">
+          <h3 className="text-sm font-semibold text-white leading-snug group-hover:text-accent-bright transition-colors">
             {template.name}
           </h3>
           <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border flex-shrink-0 capitalize ${categoryColor}`}>
@@ -278,10 +284,10 @@ function TemplateCard({ template, onView, onEdit, onDelete }: TemplateCardProps)
         </div>
 
         {template.description && (
-          <p className="text-xs text-text-muted leading-relaxed mb-4 line-clamp-2">{template.description}</p>
+          <p className="text-xs text-white/50 leading-relaxed mb-4 line-clamp-2">{template.description}</p>
         )}
 
-        <div className="flex items-center gap-3 text-[10px] text-text-muted">
+        <div className="flex items-center gap-3 text-[10px] text-white/40">
           {template.duration_weeks && (
             <span className="inline-flex items-center gap-1">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -306,11 +312,11 @@ function TemplateCard({ template, onView, onEdit, onDelete }: TemplateCardProps)
       </button>
 
       {/* Card footer actions */}
-      <div className="px-5 py-3 border-t border-[rgba(0,0,0,0.04)] flex items-center justify-between">
+      <div className="px-5 py-3 border-t border-white/[0.06] flex items-center justify-between">
         <button
           type="button"
           onClick={onEdit}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary border border-[rgba(0,0,0,0.06)] hover:border-[rgba(0,0,0,0.1)] rounded-lg transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent-bright hover:text-white border border-accent/20 hover:border-accent/40 rounded-lg transition-colors cursor-pointer"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -320,7 +326,7 @@ function TemplateCard({ template, onView, onEdit, onDelete }: TemplateCardProps)
         <button
           type="button"
           onClick={onDelete}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-muted hover:text-red-400 border border-[rgba(0,0,0,0.06)] hover:border-red-400/20 rounded-lg transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white/40 hover:text-red-400 border border-white/[0.06] hover:border-red-400/20 rounded-lg transition-colors cursor-pointer"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
