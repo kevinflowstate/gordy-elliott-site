@@ -147,13 +147,13 @@ export default function NutritionPlansPage() {
           <div className="h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent" />
           {/* Table header */}
           <div className="grid grid-cols-[1fr_100px_80px_120px_120px_120px_80px] gap-2 px-5 py-3 border-b border-white/[0.06] bg-white/[0.02]">
-            <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider">Plan Name</span>
-            <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider text-center">Calories</span>
-            <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider text-center">Meals</span>
-            <span className="text-[11px] font-semibold text-blue-500 uppercase tracking-wider text-center">Protein</span>
+            <span className="text-[11px] font-semibold text-white/40 uppercase tracking-wider">Plan Name</span>
+            <span className="text-[11px] font-semibold text-white/40 uppercase tracking-wider text-center">Calories</span>
+            <span className="text-[11px] font-semibold text-white/40 uppercase tracking-wider text-center">Meals</span>
+            <span className="text-[11px] font-semibold text-blue-400 uppercase tracking-wider text-center">Protein</span>
             <span className="text-[11px] font-semibold text-accent-bright uppercase tracking-wider text-center">Carbs</span>
-            <span className="text-[11px] font-semibold text-red-500 uppercase tracking-wider text-center">Fat</span>
-            <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider text-center">Actions</span>
+            <span className="text-[11px] font-semibold text-red-400 uppercase tracking-wider text-center">Fat</span>
+            <span className="text-[11px] font-semibold text-white/40 uppercase tracking-wider text-center">Actions</span>
           </div>
 
           {/* Table rows */}
@@ -176,21 +176,21 @@ export default function NutritionPlansPage() {
               >
                 {/* Name + description */}
                 <div className="min-w-0">
-                  <h3 className="font-semibold text-text-primary text-[14px] truncate">{t.name}</h3>
+                  <h3 className="font-semibold text-white text-[14px] truncate">{t.name}</h3>
                   {t.description && (
-                    <p className="text-[12px] text-text-secondary/60 truncate mt-0.5">{t.description}</p>
+                    <p className="text-[12px] text-white/40 truncate mt-0.5">{t.description}</p>
                   )}
                 </div>
 
                 {/* Calories */}
                 <div className="text-center">
-                  <span className="text-[14px] font-bold text-text-primary">{macros.calories}</span>
-                  <span className="text-[11px] text-text-secondary/50 ml-0.5">kcal</span>
+                  <span className="text-[14px] font-bold text-white">{macros.calories}</span>
+                  <span className="text-[11px] text-white/40 ml-0.5">kcal</span>
                 </div>
 
                 {/* Meals */}
                 <div className="text-center">
-                  <span className="text-[14px] font-semibold text-text-primary">{t.meals.length}</span>
+                  <span className="text-[14px] font-semibold text-white">{t.meals.length}</span>
                 </div>
 
                 {/* Protein */}
@@ -218,7 +218,7 @@ export default function NutritionPlansPage() {
                 <div className="flex items-center justify-center gap-1">
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }}
-                    className="p-1.5 text-text-secondary/30 hover:text-red-400 transition-colors rounded-lg hover:bg-red-500/10"
+                    className="p-1.5 text-white/30 hover:text-red-400 transition-colors rounded-lg hover:bg-red-500/10"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
