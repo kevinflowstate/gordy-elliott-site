@@ -115,7 +115,7 @@ export default function TrainingPlansPage() {
         </div>
         <button
           onClick={() => setClientPickerOpen(true)}
-          className="px-4 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
+          className="px-4 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     description: "Online fitness coaching by Gordy Elliott. Transform your training, nutrition, and mindset with SHIFT Coaching.",
     images: [
       {
-        url: "/images/shift-logo.png",
+        url: "/images/shift-logo.svg",
         width: 800,
         height: 900,
         alt: "SHIFT Coaching by Gordy Elliott",
@@ -53,7 +53,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "SHIFT Coaching | Gordy Elliott",
     description: "Online fitness coaching by Gordy Elliott. Transform your training, nutrition, and mindset with SHIFT Coaching.",
-    images: ["/images/shift-logo.png"],
+    images: ["/images/shift-logo.svg"],
   },
   robots: {
     index: true,

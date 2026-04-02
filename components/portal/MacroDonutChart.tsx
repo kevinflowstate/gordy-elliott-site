@@ -12,7 +12,7 @@ interface MacroDonutChartProps {
 
 const COLORS = {
   protein: "#3B82F6",  // blue
-  carbs: "#E2B830",    // gold
+  carbs: "#E040D0",    // hot pink
   fat: "#EF4444",      // red
   remaining: "rgba(0,0,0,0.06)",
   remainingDark: "rgba(255,255,255,0.06)",

@@ -31,10 +31,15 @@ export async function PATCH(
   const body = await request.json();
 
   // Only allow safe profile fields to be patched
-  const allowed = ["checkin_day", "coach_notes", "start_weight"];
+  const allowed = ["checkin_day", "coach_notes", "start_weight", "tier"];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in body) updates[key] = body[key];
+  }
+
+  // Validate tier value if present
+  if ("tier" in updates && updates.tier !== "coached" && updates.tier !== "ai_only") {
+    return NextResponse.json({ error: "Invalid tier value" }, { status: 400 });
   }
 
   if (Object.keys(updates).length === 0) {

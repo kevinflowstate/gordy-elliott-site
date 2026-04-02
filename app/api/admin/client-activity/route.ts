@@ -86,7 +86,7 @@ export async function GET(request: Request) {
       type: "training_plan_assigned",
       description: `Training plan assigned — ${p.name || "Exercise Plan"}`,
       timestamp: p.created_at,
-      color: "bg-[#E2B830]",
+      color: "bg-[#E040D0]",
     });
   }
 
@@ -102,7 +102,7 @@ export async function GET(request: Request) {
       type: "nutrition_plan_assigned",
       description: `Nutrition plan assigned — ${p.name || "Nutrition Plan"}`,
       timestamp: p.created_at,
-      color: "bg-[#E2B830]",
+      color: "bg-[#E040D0]",
     });
   }
 

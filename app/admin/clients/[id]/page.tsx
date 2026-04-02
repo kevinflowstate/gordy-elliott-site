@@ -4,14 +4,14 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { AdminClient } from "@/lib/admin-data";
-import type { TrafficLight, CheckInMood, TrainingPlan, TrainingPlanPhase, CheckinFormConfig, FormQuestion, ClientExercisePlan, ClientNutritionPlan, ProgressMetric } from "@/lib/types";
+import type { TrafficLight, CheckInMood, TrainingPlan, TrainingPlanPhase, CheckinFormConfig, FormQuestion, ClientExercisePlan, ClientNutritionPlan, ProgressMetric, ClientTask } from "@/lib/types";
 import TrainingPlanBuilder from "@/components/admin/TrainingPlanBuilder";
 import ExerciseTemplatePicker from "@/components/admin/ExerciseTemplatePicker";
 import NutritionTemplatePicker from "@/components/admin/NutritionTemplatePicker";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Dot } from "recharts";
 import PhotoGallery from "@/components/portal/PhotoGallery";
 
-type TabId = "dashboard" | "checkins" | "training" | "nutrition" | "gallery";
+type TabId = "dashboard" | "checkins" | "training" | "nutrition" | "gallery" | "tasks";
 
 const glowClass: Record<TrafficLight, string> = {
   green: "glow-green",
@@ -158,6 +158,8 @@ export default function ClientDetailPage() {
   const [nudgeSent, setNudgeSent] = useState(false);
   const [checkinDay, setCheckinDay] = useState<string>("");
   const [checkinDaySaving, setCheckinDaySaving] = useState(false);
+  const [clientTier, setClientTier] = useState<string>("coached");
+  const [tierSaving, setTierSaving] = useState(false);
   const [goalsModalOpen, setGoalsModalOpen] = useState(false);
   const [goalPrimary, setGoalPrimary] = useState("");
   const [goalTargetDate, setGoalTargetDate] = useState("");
@@ -166,6 +168,8 @@ export default function ClientDetailPage() {
   const [galleryGroups, setGalleryGroups] = useState<Array<{ date: string; front?: string; back?: string; side?: string; signedUrls: Record<string, string> }>>([]);
   const [galleryLoading, setGalleryLoading] = useState(false);
   const [galleryLoaded, setGalleryLoaded] = useState(false);
+  const [tasks, setTasks] = useState<ClientTask[]>([]);
+  const [newTaskText, setNewTaskText] = useState("");
 
   const loadClient = useCallback(async () => {
     try {
@@ -184,6 +188,7 @@ export default function ClientDetailPage() {
         setInternalNotes(data.client?.internal_notes || "");
         setCoachNotes(data.client?.coach_notes || "");
         setCheckinDay(data.client?.checkin_day || "");
+        setClientTier(data.client?.tier || "coached");
         setGoalPrimary(data.client?.primary_goal || "");
         setGoalTargetDate(data.client?.target_date || "");
         setGoalNotes(data.client?.goal_notes || "");
@@ -230,6 +235,29 @@ export default function ClientDetailPage() {
   }, [id]);
 
   useEffect(() => { loadClient(); }, [loadClient]);
+
+  async function loadTasks() {
+    if (!client) return;
+    const res = await fetch(`/api/admin/client-tasks?clientId=${client.id}`);
+    if (res.ok) { const data = await res.json(); setTasks(data.tasks || []); }
+  }
+
+  useEffect(() => { if (activeTab === "tasks" && client) { loadTasks(); } }, [activeTab, client?.id]);
+
+  async function addTask() {
+    if (!newTaskText.trim() || !client) return;
+    const res = await fetch("/api/admin/client-tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id: client.id, task_text: newTaskText.trim() }),
+    });
+    if (res.ok) { setNewTaskText(""); loadTasks(); }
+  }
+
+  async function deleteTask(taskId: string) {
+    await fetch(`/api/admin/client-tasks?id=${taskId}`, { method: "DELETE" });
+    loadTasks();
+  }
 
   async function handleAssignExercisePlan(templateId: string) {
     setAssigningExercise(true);
@@ -282,6 +310,17 @@ export default function ClientDetailPage() {
       body: JSON.stringify({ checkin_day: day }),
     });
     setCheckinDaySaving(false);
+  }
+
+  async function saveTier(tier: string) {
+    if (!client) return;
+    setTierSaving(true);
+    await fetch(`/api/admin/clients/${client.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tier }),
+    });
+    setTierSaving(false);
   }
 
   async function handleArchiveNutritionPlan(planId: string) {
@@ -515,6 +554,7 @@ export default function ClientDetailPage() {
     { id: "training", label: "Training" },
     { id: "nutrition", label: "Nutrition" },
     { id: "gallery", label: "Gallery" },
+    { id: "tasks", label: "Tasks" },
   ];
 
   return (
@@ -563,7 +603,7 @@ export default function ClientDetailPage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => { setShowExercisePicker(true); }}
-                className="px-3 py-1.5 text-xs font-semibold text-white bg-[#E2B830] hover:bg-[#c9a228] rounded-lg transition-colors"
+                className="px-3 py-1.5 text-xs font-semibold text-white bg-[#E040D0] hover:bg-[#b830a8] rounded-lg transition-colors"
               >
                 Assign Workout
               </button>
@@ -638,6 +678,26 @@ export default function ClientDetailPage() {
           {checkinDaySaving && <div className="text-[10px] text-text-muted mt-1">Saving...</div>}
         </div>
 
+        {/* Tier */}
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-4">
+          <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1.5">Tier</div>
+          <div className="flex items-center gap-1.5">
+            <select
+              value={clientTier}
+              onChange={async (e) => {
+                const t = e.target.value;
+                setClientTier(t);
+                await saveTier(t);
+              }}
+              className="text-sm font-bold text-text-primary bg-transparent border-none outline-none cursor-pointer w-full"
+            >
+              <option value="coached">Coached</option>
+              <option value="ai_only">AI Only</option>
+            </select>
+          </div>
+          {tierSaving && <div className="text-[10px] text-text-muted mt-1">Saving...</div>}
+        </div>
+
         {/* Total Weeks */}
         <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-4">
           <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1.5">Total Weeks</div>
@@ -673,8 +733,8 @@ export default function ClientDetailPage() {
         </div>
 
         {/* Goal */}
-        <div className="bg-bg-card border border-[#E2B830]/20 rounded-xl p-4 cursor-pointer hover:border-[#E2B830]/40 transition-colors" onClick={() => { setGoalPrimary(client.primary_goal || ""); setGoalTargetDate(client.target_date || ""); setGoalNotes(client.goal_notes || ""); setGoalsModalOpen(true); }}>
-          <div className="text-[10px] text-[#E2B830] font-semibold uppercase tracking-wider mb-1.5">Goal</div>
+        <div className="bg-bg-card border border-[#E040D0]/20 rounded-xl p-4 cursor-pointer hover:border-[#E040D0]/40 transition-colors" onClick={() => { setGoalPrimary(client.primary_goal || ""); setGoalTargetDate(client.target_date || ""); setGoalNotes(client.goal_notes || ""); setGoalsModalOpen(true); }}>
+          <div className="text-[10px] text-[#E040D0] font-semibold uppercase tracking-wider mb-1.5">Goal</div>
           {client.primary_goal ? (
             <div className="text-sm font-semibold text-text-primary leading-snug line-clamp-2">{client.primary_goal}</div>
           ) : (
@@ -766,13 +826,13 @@ export default function ClientDetailPage() {
             onClick={() => setActiveTab(tab.id)}
             className={`px-4 py-3 text-sm font-semibold transition-colors relative ${
               activeTab === tab.id
-                ? "text-[#E2B830]"
+                ? "text-[#E040D0]"
                 : "text-text-muted hover:text-text-secondary"
             }`}
           >
             {tab.label}
             {activeTab === tab.id && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#E2B830] rounded-t-full" />
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#E040D0] rounded-t-full" />
             )}
           </button>
         ))}
@@ -804,7 +864,7 @@ export default function ClientDetailPage() {
                       key={i}
                       className={`flex-1 h-6 rounded flex items-center justify-center text-[9px] font-semibold transition-all relative ${
                         isCurrent
-                          ? "bg-[#E2B830]/20 text-[#E2B830] border border-[#E2B830]/40"
+                          ? "bg-[#E040D0]/20 text-[#E040D0] border border-[#E040D0]/40"
                           : isComplete
                           ? "bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/10"
                           : "bg-[rgba(0,0,0,0.02)] text-text-muted border border-[rgba(0,0,0,0.03)]"
@@ -906,7 +966,7 @@ export default function ClientDetailPage() {
                   );
                 })}
                 {client.checkins.length > 3 && (
-                  <button onClick={() => setActiveTab("checkins")} className="text-xs text-[#E2B830] hover:text-[#c9a228] transition-colors w-full text-center py-2">
+                  <button onClick={() => setActiveTab("checkins")} className="text-xs text-[#E040D0] hover:text-[#b830a8] transition-colors w-full text-center py-2">
                     View all {client.checkins.length} check-ins
                   </button>
                 )}
@@ -966,10 +1026,10 @@ export default function ClientDetailPage() {
                     <Line
                       type="monotone"
                       dataKey="value"
-                      stroke="#E2B830"
+                      stroke="#E040D0"
                       strokeWidth={2}
-                      dot={<Dot r={3} fill="#E2B830" stroke="#E2B830" />}
-                      activeDot={{ r: 4, fill: "#E2B830" }}
+                      dot={<Dot r={3} fill="#E040D0" stroke="#E040D0" />}
+                      activeDot={{ r: 4, fill: "#E040D0" }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -993,10 +1053,10 @@ export default function ClientDetailPage() {
                     <Line
                       type="monotone"
                       dataKey="value"
-                      stroke="#E2B830"
+                      stroke="#E040D0"
                       strokeWidth={2}
-                      dot={<Dot r={3} fill="#E2B830" stroke="#E2B830" />}
-                      activeDot={{ r: 4, fill: "#E2B830" }}
+                      dot={<Dot r={3} fill="#E040D0" stroke="#E040D0" />}
+                      activeDot={{ r: 4, fill: "#E040D0" }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -1005,16 +1065,16 @@ export default function ClientDetailPage() {
 
             {/* Goal card */}
             <div
-              className="bg-bg-card border border-[#E2B830]/20 rounded-2xl p-4 mb-3 cursor-pointer hover:border-[#E2B830]/40 transition-colors"
+              className="bg-bg-card border border-[#E040D0]/20 rounded-2xl p-4 mb-3 cursor-pointer hover:border-[#E040D0]/40 transition-colors"
               onClick={() => { setGoalPrimary(client.primary_goal || ""); setGoalTargetDate(client.target_date || ""); setGoalNotes(client.goal_notes || ""); setGoalsModalOpen(true); }}
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] text-[#E2B830] font-semibold uppercase tracking-wider">Primary Goal</span>
+                <span className="text-[10px] text-[#E040D0] font-semibold uppercase tracking-wider">Primary Goal</span>
                 <span className="text-[10px] text-text-muted">{client.primary_goal ? "Edit" : "Set goal"}</span>
               </div>
               {client.primary_goal ? (
                 <>
-                  <div className="text-base font-heading font-bold text-[#E2B830] leading-snug">{client.primary_goal}</div>
+                  <div className="text-base font-heading font-bold text-[#E040D0] leading-snug">{client.primary_goal}</div>
                   {client.target_date && (
                     <div className="text-xs text-text-muted mt-1">
                       Target: {new Date(client.target_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
@@ -1106,8 +1166,8 @@ export default function ClientDetailPage() {
                     )}
 
                     {c.admin_reply || sentReplies[c.id] ? (
-                      <div className="mt-3 pl-3 border-l-2 border-[#E2B830]/30 bg-[#E2B830]/5 rounded-r-lg py-2 pr-3">
-                        <div className="text-[10px] text-[#E2B830] font-semibold uppercase tracking-wider mb-1">
+                      <div className="mt-3 pl-3 border-l-2 border-[#E040D0]/30 bg-[#E040D0]/5 rounded-r-lg py-2 pr-3">
+                        <div className="text-[10px] text-[#E040D0] font-semibold uppercase tracking-wider mb-1">
                           Gordy&apos;s Reply
                           {sentReplies[c.id] && !c.admin_reply && <span className="text-emerald-400/60 ml-2">Just sent</span>}
                         </div>
@@ -1122,7 +1182,7 @@ export default function ClientDetailPage() {
                           rows={3}
                           placeholder="Type your reply..."
                           disabled={sendingReply === c.id}
-                          className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#E2B830]/40 transition-colors resize-none disabled:opacity-50"
+                          className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40 transition-colors resize-none disabled:opacity-50"
                         />
                         {replyError && sendingReply === null && (
                           <div className="text-xs text-red-400 mt-1">{replyError}</div>
@@ -1131,7 +1191,7 @@ export default function ClientDetailPage() {
                           <button
                             onClick={() => handleReply(c.id)}
                             disabled={!replyTexts[c.id]?.trim() || sendingReply === c.id}
-                            className="px-4 py-2 bg-[#E2B830] hover:bg-[#c9a228] text-[#1a1a1a] rounded-lg text-xs font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1.5"
+                            className="px-4 py-2 bg-[#E040D0] hover:bg-[#b830a8] text-white rounded-lg text-xs font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1.5"
                           >
                             {sendingReply === c.id ? "Sending..." : "Send Reply"}
                           </button>
@@ -1497,6 +1557,67 @@ export default function ClientDetailPage() {
         <AdminGalleryTab clientId={id as string} groups={galleryGroups} loading={galleryLoading} loaded={galleryLoaded} onLoad={(groups) => { setGalleryGroups(groups); setGalleryLoaded(true); setGalleryLoading(false); }} onLoadStart={() => setGalleryLoading(true)} />
       )}
 
+      {/* ── Tasks Tab ── */}
+      {activeTab === "tasks" && (
+        <div className="space-y-4">
+          {/* Add task input */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newTaskText}
+              onChange={(e) => setNewTaskText(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addTask()}
+              placeholder="Add a task for this client..."
+              maxLength={500}
+              className="flex-1 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40 transition-colors"
+            />
+            <button
+              onClick={addTask}
+              disabled={!newTaskText.trim()}
+              className="px-5 py-3 bg-[#E040D0] hover:bg-[#b830a8] text-white rounded-xl text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            >
+              Add
+            </button>
+          </div>
+
+          {/* Task list */}
+          {tasks.length === 0 ? (
+            <div className="text-center py-12 text-text-muted text-sm">No tasks assigned yet</div>
+          ) : (
+            <div className="space-y-2">
+              {tasks.filter(t => !t.completed).map(task => (
+                <div key={task.id} className="flex items-center gap-3 bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl px-4 py-3">
+                  <div className="w-2 h-2 rounded-full bg-[#E040D0]" />
+                  <span className="flex-1 text-sm text-text-primary">{task.task_text}</span>
+                  <span className="text-[10px] text-text-muted">{new Date(task.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
+                  <button onClick={() => deleteTask(task.id)} className="text-text-muted hover:text-red-400 transition-colors cursor-pointer">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+              {tasks.filter(t => t.completed).length > 0 && (
+                <>
+                  <div className="text-[10px] text-text-muted uppercase tracking-wider mt-4 mb-2">Completed</div>
+                  {tasks.filter(t => t.completed).map(task => (
+                    <div key={task.id} className="flex items-center gap-3 bg-bg-card/50 border border-[rgba(0,0,0,0.04)] rounded-xl px-4 py-3 opacity-50">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <span className="flex-1 text-sm text-text-secondary line-through">{task.task_text}</span>
+                      <button onClick={() => deleteTask(task.id)} className="text-text-muted hover:text-red-400 transition-colors cursor-pointer">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Modals ── */}
 
       {/* Goals Modal */}
@@ -1504,8 +1625,8 @@ export default function ClientDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
             <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 rounded-xl bg-[#E2B830]/10 border border-[#E2B830]/20 flex items-center justify-center">
-                <svg className="w-5 h-5 text-[#E2B830]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 rounded-xl bg-[#E040D0]/10 border border-[#E040D0]/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-[#E040D0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
@@ -1522,7 +1643,7 @@ export default function ClientDetailPage() {
                   value={goalPrimary}
                   onChange={(e) => setGoalPrimary(e.target.value)}
                   placeholder="e.g. Lose 10kg, Run a 5k, Build muscle"
-                  className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-[#E2B830]/50"
+                  className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-[#E040D0]/50"
                 />
               </div>
               <div>
@@ -1531,7 +1652,7 @@ export default function ClientDetailPage() {
                   type="date"
                   value={goalTargetDate}
                   onChange={(e) => setGoalTargetDate(e.target.value)}
-                  className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-[#E2B830]/50"
+                  className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-[#E040D0]/50"
                 />
               </div>
               <div>
@@ -1541,7 +1662,7 @@ export default function ClientDetailPage() {
                   onChange={(e) => setGoalNotes(e.target.value)}
                   placeholder="Context, motivation, milestones..."
                   rows={3}
-                  className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-[#E2B830]/50 resize-none"
+                  className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-[#E040D0]/50 resize-none"
                 />
               </div>
             </div>
@@ -1550,7 +1671,7 @@ export default function ClientDetailPage() {
               <button
                 disabled={goalsSaving || !goalPrimary.trim()}
                 onClick={handleSaveGoals}
-                className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-[#E2B830] hover:bg-[#c9a228] rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-[#E040D0] hover:bg-[#b830a8] rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
                 {goalsSaving ? "Saving..." : "Save Goal"}
               </button>

@@ -32,5 +32,6 @@ export async function GET() {
     avatarUrl: userData?.avatar_url || null,
     role: userData?.role || "client",
     profile: profile || null,
+    tier: (profile?.tier as string) || "coached",
   });
 }

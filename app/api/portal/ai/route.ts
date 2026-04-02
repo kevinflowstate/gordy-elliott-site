@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
   // Get client profile
   const { data: profile } = await admin
     .from("client_profiles")
-    .select("id, business_name, business_type, goals")
+    .select("id, business_name, business_type, goals, tier, consultation_data")
     .eq("user_id", userId)
     .single();
 
@@ -185,6 +185,21 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const clientTier = (profile?.tier as string) || "coached";
+  const consultationData = profile?.consultation_data as Record<string, unknown> | null;
+
+  const tierContext = clientTier === "ai_only"
+    ? `
+TIER: AI Only Client
+This client does not have direct access to Gordy for coaching. You are their primary AI coach.
+Be detailed and prescriptive in your advice. Help them build training programmes, meal plans, and set goals.
+When they ask about updating their programme, help them directly rather than deferring to a coach.${consultationData ? `\nTheir consultation data: ${JSON.stringify(consultationData)}` : ""}`
+    : `
+TIER: Full Coaching Client
+This client works directly with Gordy. You are a supplementary tool for quick questions.
+For programme changes or major coaching decisions, remind them to discuss with Gordy on their next call.
+Help with quick questions: meal ideas, short workouts, sleep tips, finding Education Hub content.`;
+
   const systemPrompt = `You are SHIFT AI, a fitness coaching assistant for Gordy Elliott's SHIFT Coaching client portal. You help clients navigate their training, plans, and coaching journey. You have access to Gordy's actual training content and coaching advice from his recorded sessions.
 
 CLIENT CONTEXT:
@@ -192,6 +207,7 @@ CLIENT CONTEXT:
 - Details: ${profile?.business_name || "Unknown"} (${profile?.business_type || "Unknown"})
 - Goals: ${profile?.goals || "Not specified"}
 - Plan Summary: ${plans?.[0]?.summary || "No active plan"}
+${tierContext}
 
 ASSIGNED TRAINING MODULES:
 ${JSON.stringify(trainingContext, null, 2)}

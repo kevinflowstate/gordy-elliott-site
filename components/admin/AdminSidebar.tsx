@@ -5,7 +5,6 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import ThemeToggle from "@/components/portal/ThemeToggle";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: "M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" },
@@ -41,11 +40,11 @@ export default function AdminSidebar() {
         </svg>
       </button>
 
-      <aside className={`fixed top-0 left-0 h-full w-[260px] bg-[#fafaf8] border-r border-[rgba(0,0,0,0.1)] backdrop-blur-[20px] z-50 flex flex-col transition-transform duration-300 ${collapsed ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}>
-        <div className="px-6 py-7 border-b border-[rgba(0,0,0,0.08)]">
+      <aside className={`fixed top-0 left-0 h-full w-[260px] bg-[#fafaf8] dark:bg-[#0A0A0A] border-r border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.06)] backdrop-blur-[20px] z-50 flex flex-col transition-transform duration-300 ${collapsed ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}>
+        <div className="px-6 py-7 border-b border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.06)]">
           <Link href="/admin" className="flex items-center gap-3 no-underline">
-            <Image src="/images/shift-logo.png" alt="SHIFT" width={32} height={32} className="h-8 w-auto" />
-            <span className="font-heading font-extrabold text-base text-text-primary tracking-wide">Admin Panel</span>
+            <Image src="/images/shift-logo.svg" alt="SHIFT" width={32} height={32} className="h-8 w-auto" />
+            <span className="font-heading font-extrabold text-base text-text-primary dark:text-white tracking-wide">Admin Panel</span>
           </Link>
         </div>
 
@@ -60,7 +59,7 @@ export default function AdminSidebar() {
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm no-underline transition-all duration-200 ${
                   isActive
                     ? "border-l-2 border-accent bg-accent/8 text-accent font-semibold pl-[14px]"
-                    : "font-medium text-text-secondary hover:text-text-primary hover:bg-[rgba(0,0,0,0.04)]"
+                    : "font-medium text-text-secondary dark:text-[#c0c0c8] hover:text-text-primary dark:hover:text-white hover:bg-[rgba(0,0,0,0.04)] dark:hover:bg-[rgba(255,255,255,0.04)]"
                 }`}
               >
                 <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -72,11 +71,7 @@ export default function AdminSidebar() {
           })}
         </nav>
 
-        <div className="p-4 border-t border-[rgba(0,0,0,0.06)]">
-          <div className="flex items-center justify-between px-4 py-2">
-            <span className="text-xs text-text-muted">Theme</span>
-            <ThemeToggle />
-          </div>
+        <div className="p-4 border-t border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)]">
           <Link href="/" className="block px-4 py-2 text-xs text-text-muted hover:text-text-secondary transition-colors no-underline">
             View Public Site
           </Link>

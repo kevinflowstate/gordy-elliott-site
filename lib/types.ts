@@ -3,6 +3,7 @@ export type TrafficLight = 'green' | 'amber' | 'red';
 export type ModuleStatus = 'locked' | 'in_progress' | 'completed';
 export type ContentType = 'video' | 'pdf' | 'text' | 'checklist';
 export type CheckInMood = 'great' | 'good' | 'okay' | 'struggling' | string;
+export type ClientTier = 'coached' | 'ai_only';
 
 export interface User {
   id: string;
@@ -30,6 +31,8 @@ export interface ClientProfile {
   last_checkin?: string;
   created_at: string;
   user?: User;
+  tier?: ClientTier;
+  consultation_data?: Record<string, unknown>;
 }
 
 export interface TrainingModule {
@@ -192,11 +195,12 @@ export interface MoodOption {
 export interface ProgressMetric {
   id: string;
   label: string;
-  type: 'number' | 'scale';
+  type: 'number' | 'scale' | 'select';
   unit?: string;
   min?: number;
   max?: number;
   enabled: boolean;
+  options?: string[];
 }
 
 export interface CheckinFormConfig {
@@ -416,4 +420,13 @@ export interface ClientSavedMeal {
   carbs_g: number;
   fat_g: number;
   created_at: string;
+}
+
+export interface ClientTask {
+  id: string;
+  client_id: string;
+  task_text: string;
+  completed: boolean;
+  created_at: string;
+  completed_at?: string;
 }

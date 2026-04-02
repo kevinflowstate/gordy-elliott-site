@@ -83,7 +83,7 @@ export default function PhotoGallery({ groups, loading }: PhotoGalleryProps) {
             }}
             className={`px-4 py-2 rounded-xl text-sm font-medium border transition-all cursor-pointer ${
               showCompare
-                ? "bg-[#E2B830]/10 border-[#E2B830]/40 text-[#E2B830]"
+                ? "bg-[#E040D0]/10 border-[#E040D0]/40 text-[#E040D0]"
                 : "border-[rgba(0,0,0,0.08)] text-text-muted hover:border-[rgba(0,0,0,0.12)]"
             }`}
           >
@@ -102,7 +102,7 @@ export default function PhotoGallery({ groups, loading }: PhotoGalleryProps) {
               <select
                 value={compareA}
                 onChange={(e) => setCompareA(e.target.value)}
-                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-[#E2B830]/40"
+                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-[#E040D0]/40"
               >
                 {dates.map((d) => (
                   <option key={d} value={d}>{formatDate(d)}</option>
@@ -114,7 +114,7 @@ export default function PhotoGallery({ groups, loading }: PhotoGalleryProps) {
               <select
                 value={compareB}
                 onChange={(e) => setCompareB(e.target.value)}
-                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-[#E2B830]/40"
+                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-[#E040D0]/40"
               >
                 {dates.map((d) => (
                   <option key={d} value={d}>{formatDate(d)}</option>

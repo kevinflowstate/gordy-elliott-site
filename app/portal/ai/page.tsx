@@ -126,7 +126,7 @@ export default function ShiftAIPage() {
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 mb-4 bg-[rgba(255,255,255,0.01)] rounded-2xl border border-[rgba(0,0,0,0.03)] flex flex-col">
         {messages.length === 0 && !loading && (
           <div className="flex flex-col items-center justify-center h-full text-center px-4">
-            <div className="w-14 h-14 rounded-2xl bg-[rgba(226,184,48,0.1)] border border-[rgba(226,184,48,0.2)] flex items-center justify-center mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-[rgba(224,64,208,0.1)] border border-[rgba(224,64,208,0.2)] flex items-center justify-center mb-4">
               <svg className="w-7 h-7 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
@@ -145,7 +145,7 @@ export default function ShiftAIPage() {
                 <button
                   key={q}
                   onClick={() => handleSend(q)}
-                  className="text-left text-xs text-text-secondary px-3 py-2.5 rounded-xl border border-[rgba(0,0,0,0.08)] hover:border-[rgba(226,184,48,0.2)] hover:bg-[rgba(226,184,48,0.05)] transition-all duration-200 cursor-pointer"
+                  className="text-left text-xs text-text-secondary px-3 py-2.5 rounded-xl border border-[rgba(0,0,0,0.08)] hover:border-[rgba(224,64,208,0.2)] hover:bg-[rgba(224,64,208,0.05)] transition-all duration-200 cursor-pointer"
                 >
                   {q}
                 </button>
@@ -198,7 +198,7 @@ export default function ShiftAIPage() {
           onKeyDown={handleKeyDown}
           placeholder="Ask SHIFT AI..."
           rows={1}
-          className="w-full resize-none rounded-2xl border border-[rgba(0,0,0,0.08)] bg-[rgba(0,0,0,0.02)] px-4 py-3.5 pr-12 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[rgba(226,184,48,0.3)] transition-colors"
+          className="w-full resize-none rounded-2xl border border-[rgba(0,0,0,0.08)] bg-[rgba(0,0,0,0.02)] px-4 py-3.5 pr-12 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[rgba(224,64,208,0.3)] transition-colors"
           style={{ minHeight: "48px", maxHeight: "120px" }}
         />
         <button

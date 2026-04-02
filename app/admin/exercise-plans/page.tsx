@@ -298,7 +298,7 @@ function TemplateCard({ template, onView, onEdit, onDelete }: TemplateCardProps)
   const totalExercises = template.sessions.reduce((sum, s) => sum + s.items.length, 0);
 
   return (
-    <div className="bg-gradient-to-br from-[#1a1a1a] via-[#222222] to-[#1a1a1a] border border-accent/20 rounded-2xl overflow-hidden hover:border-accent/40 hover:shadow-[0_8px_32px_rgba(226,184,48,0.12)] transition-all group">
+    <div className="bg-gradient-to-br from-[#1a1a1a] via-[#222222] to-[#1a1a1a] border border-accent/20 rounded-2xl overflow-hidden hover:border-accent/40 hover:shadow-[0_8px_32px_rgba(224,64,208,0.12)] transition-all group">
       {/* Gold top accent line */}
       <div className="h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent" />
 

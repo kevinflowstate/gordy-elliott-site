@@ -73,10 +73,19 @@ export default function PortalCalendarPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [tier, setTier] = useState<string>("coached");
+  const [tierLoaded, setTierLoaded] = useState(false);
 
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
+
+  useEffect(() => {
+    fetch("/api/portal/me")
+      .then((r) => r.json())
+      .then((d) => { setTier(d.tier || "coached"); setTierLoaded(true); })
+      .catch(() => setTierLoaded(true));
+  }, []);
 
   const loadEvents = useCallback(async () => {
     try {
@@ -126,6 +135,25 @@ export default function PortalCalendarPage() {
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const selectedEvents = selectedDay ? (dayEventsMap.get(selectedDay) || []) : [];
 
+  if (tierLoaded && tier === "ai_only") {
+    return (
+      <div className="max-w-2xl">
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
+          <div className="w-16 h-16 bg-[#E040D0]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-[#E040D0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-heading font-bold text-text-primary mb-2">Not Available on Your Plan</h2>
+          <p className="text-sm text-text-secondary mb-6">The calendar is available on the Coached plan. Use SHIFT AI to plan your schedule.</p>
+          <a href="/portal" className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white rounded-xl" style={{ background: "linear-gradient(135deg, #E040D0 0%, #b830a8 100%)" }}>
+            Back to Dashboard
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -165,7 +193,7 @@ export default function PortalCalendarPage() {
                 href={upNext.event.link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-medium no-underline inline-flex items-center gap-2 hover:opacity-90 transition-opacity"
+                className="px-4 py-2.5 gradient-accent text-white rounded-xl text-sm font-medium no-underline inline-flex items-center gap-2 hover:opacity-90 transition-opacity"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -228,7 +256,7 @@ export default function PortalCalendarPage() {
                 }`}
               >
                 <span className={`text-xs font-medium inline-flex items-center justify-center w-6 h-6 rounded-full ${
-                  isToday ? "bg-accent text-[#1a1a1a]" : "text-text-secondary"
+                  isToday ? "bg-accent text-white" : "text-text-secondary"
                 }`}>
                   {dayNum}
                 </span>
@@ -284,7 +312,7 @@ export default function PortalCalendarPage() {
                       href={ev.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-4 py-2 gradient-accent text-[#1a1a1a] rounded-lg text-xs font-semibold no-underline inline-flex items-center gap-1.5 hover:opacity-90 transition-opacity"
+                      className="px-4 py-2 gradient-accent text-white rounded-lg text-xs font-semibold no-underline inline-flex items-center gap-1.5 hover:opacity-90 transition-opacity"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />

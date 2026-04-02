@@ -171,7 +171,7 @@ export default function CreditsPage() {
                 key={client.id}
                 className={`bg-bg-card/80 border rounded-2xl p-5 transition-all cursor-pointer ${
                   isSelected
-                    ? "border-[rgba(226,184,48,0.3)] bg-[rgba(226,184,48,0.04)]"
+                    ? "border-[rgba(224,64,208,0.3)] bg-[rgba(224,64,208,0.04)]"
                     : "border-[rgba(0,0,0,0.06)] hover:border-[rgba(0,0,0,0.08)]"
                 }`}
                 onClick={() => loadDetail(client.user_id)}
@@ -206,7 +206,7 @@ export default function CreditsPage() {
                         setTopUpAmount("");
                         setTopUpMessage(null);
                       }}
-                      className="px-3 py-1.5 text-xs font-semibold gradient-accent text-[#1a1a1a] rounded-lg cursor-pointer"
+                      className="px-3 py-1.5 text-xs font-semibold gradient-accent text-white rounded-lg cursor-pointer"
                     >
                       Top Up
                     </button>

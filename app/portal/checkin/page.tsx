@@ -28,8 +28,8 @@ function ScaleInput({ metric, value, onChange }: { metric: ProgressMetric; value
             onClick={() => onChange(String(p))}
             className={`w-9 h-9 rounded-lg text-sm font-semibold transition-all cursor-pointer border ${
               selected === p
-                ? "bg-[#E2B830] text-[#1a1a1a] border-[#E2B830]"
-                : "bg-bg-card border-[rgba(0,0,0,0.08)] text-text-muted hover:border-[#E2B830]/40 hover:text-text-primary"
+                ? "bg-[#E040D0] text-[#1a1a1a] border-[#E040D0]"
+                : "bg-bg-card border-[rgba(0,0,0,0.08)] text-text-muted hover:border-[#E040D0]/40 hover:text-text-primary"
             }`}
           >
             {p}
@@ -55,6 +55,15 @@ export default function CheckInPage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState(false);
   const [photos, setPhotos] = useState<Record<string, File>>({});
+  const [tier, setTier] = useState<string>("coached");
+  const [tierLoaded, setTierLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/portal/me")
+      .then((r) => r.json())
+      .then((d) => { setTier(d.tier || "coached"); setTierLoaded(true); })
+      .catch(() => setTierLoaded(true));
+  }, []);
 
   useEffect(() => {
     async function loadConfig() {
@@ -141,6 +150,25 @@ export default function CheckInPage() {
     setPhotos({});
   }
 
+  if (tierLoaded && tier === "ai_only") {
+    return (
+      <div className="max-w-2xl">
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
+          <div className="w-16 h-16 bg-[#E040D0]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-[#E040D0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-heading font-bold text-text-primary mb-2">Not Available on Your Plan</h2>
+          <p className="text-sm text-text-secondary mb-6">Check-ins are available on the Coached plan. Your AI coach is available to help you track progress instead.</p>
+          <a href="/portal" className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white rounded-xl" style={{ background: "linear-gradient(135deg, #E040D0 0%, #b830a8 100%)" }}>
+            Back to Dashboard
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   if (submitted) {
     return (
       <div className="max-w-2xl">
@@ -154,7 +182,7 @@ export default function CheckInPage() {
           <p className="text-text-secondary">Gordy will review your check-in and respond shortly.</p>
           <button
             onClick={resetForm}
-            className="mt-6 px-6 py-3 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-medium cursor-pointer"
+            className="mt-6 px-6 py-3 gradient-accent text-white rounded-xl text-sm font-medium cursor-pointer"
           >
             Submit Another
           </button>
@@ -246,7 +274,7 @@ export default function CheckInPage() {
                       onClick={() => setResponses((prev) => ({ ...prev, [q.id]: opt }))}
                       className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all cursor-pointer ${
                         responses[q.id] === opt
-                          ? "bg-[#E2B830]/10 border-[#E2B830]/40 text-[#E2B830]"
+                          ? "bg-[#E040D0]/10 border-[#E040D0]/40 text-[#E040D0]"
                           : "border-[rgba(0,0,0,0.08)] text-text-muted hover:border-[rgba(0,0,0,0.12)]"
                       }`}
                     >
@@ -288,6 +316,17 @@ export default function CheckInPage() {
                       value={progressData[m.id] || ""}
                       onChange={(v) => setProgressData((prev) => ({ ...prev, [m.id]: v }))}
                     />
+                  ) : m.type === "select" && m.options?.length ? (
+                    <select
+                      value={progressData[m.id] || ""}
+                      onChange={(e) => setProgressData((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                      className="w-full bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-[#E040D0]/40 transition-colors"
+                    >
+                      <option value="" disabled>Select an option</option>
+                      {m.options.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
                   ) : (
                     <input
                       type="number"
@@ -295,7 +334,7 @@ export default function CheckInPage() {
                       value={progressData[m.id] || ""}
                       onChange={(e) => setProgressData((prev) => ({ ...prev, [m.id]: e.target.value }))}
                       placeholder={m.unit ? `e.g. 75${m.unit}` : "Enter value"}
-                      className="w-full bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-[#E2B830]/40 transition-colors"
+                      className="w-full bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40 transition-colors"
                     />
                   )}
                 </div>
@@ -307,7 +346,7 @@ export default function CheckInPage() {
         <button
           type="submit"
           disabled={(config.mood_enabled && !mood) || submitting}
-          className="w-full py-4 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-opacity"
+          className="w-full py-4 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-opacity"
         >
           {submitting ? "Submitting..." : "Submit Check-In"}
         </button>

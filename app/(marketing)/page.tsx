@@ -14,7 +14,7 @@ export default function HomePage() {
         </p>
         <Link
           href="/login"
-          className="inline-block gradient-accent text-[#1a1a1a] font-semibold px-8 py-4 rounded-xl text-lg no-underline hover:opacity-90 transition-opacity"
+          className="inline-block gradient-accent text-white font-semibold px-8 py-4 rounded-xl text-lg no-underline hover:opacity-90 transition-opacity"
         >
           Client Login
         </Link>

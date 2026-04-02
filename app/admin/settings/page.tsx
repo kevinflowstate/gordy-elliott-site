@@ -74,7 +74,7 @@ export default function AdminSettingsPage() {
           <button
             type="submit"
             disabled={creating || !email.trim() || !fullName.trim()}
-            className="px-6 py-3 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold disabled:opacity-40 cursor-pointer transition-opacity"
+            className="px-6 py-3 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-40 cursor-pointer transition-opacity"
           >
             {creating ? "Creating..." : "Create Client"}
           </button>

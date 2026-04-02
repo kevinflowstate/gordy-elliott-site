@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   const auth = await requireAdmin();
   if (!auth.authorized) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { name, email, password } = await request.json();
+  const { name, email, password, tier } = await request.json();
 
   if (!name?.trim() || !email?.trim()) {
     return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
@@ -59,6 +59,11 @@ export async function POST(request: Request) {
 
   if (!profile) {
     return NextResponse.json({ error: "Client profile was not created" }, { status: 500 });
+  }
+
+  // Set tier if specified
+  if (tier && (tier === "coached" || tier === "ai_only")) {
+    await admin.from("client_profiles").update({ tier }).eq("id", profile.id);
   }
 
   // Auto-assign published training modules

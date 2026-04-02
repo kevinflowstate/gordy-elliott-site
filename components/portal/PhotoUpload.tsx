@@ -105,7 +105,7 @@ export default function PhotoUpload({ date, onPhotosChange }: PhotoUploadProps) 
             <div key={angle} className="flex flex-col gap-1.5">
               <span className="text-xs font-medium text-text-secondary">{label}</span>
               {preview ? (
-                <div className="relative aspect-[3/4] rounded-xl overflow-hidden border border-[#E2B830]/30">
+                <div className="relative aspect-[3/4] rounded-xl overflow-hidden border border-[#E040D0]/30">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={preview} alt={label} className="w-full h-full object-cover" />
                   <button
@@ -122,8 +122,8 @@ export default function PhotoUpload({ date, onPhotosChange }: PhotoUploadProps) 
                 <div
                   className={`aspect-[3/4] rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors cursor-pointer ${
                     isDragging
-                      ? "border-[#E2B830] bg-[#E2B830]/10"
-                      : "border-[rgba(0,0,0,0.12)] hover:border-[#E2B830]/40 hover:bg-[rgba(0,0,0,0.02)]"
+                      ? "border-[#E040D0] bg-[#E040D0]/10"
+                      : "border-[rgba(0,0,0,0.12)] hover:border-[#E040D0]/40 hover:bg-[rgba(0,0,0,0.02)]"
                   }`}
                   onDragOver={(e) => { e.preventDefault(); setDragging(angle); }}
                   onDragLeave={() => setDragging(null)}

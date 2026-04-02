@@ -37,6 +37,7 @@ export default function ClientsPage() {
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [invitePassword, setInvitePassword] = useState("");
+  const [inviteTier, setInviteTier] = useState<"coached" | "ai_only">("coached");
   const [inviteSending, setInviteSending] = useState(false);
   const [inviteResult, setInviteResult] = useState<{ success: boolean; emailSent?: boolean; passwordSet?: boolean; setupUrl?: string; error?: string } | null>(null);
 
@@ -92,7 +93,7 @@ export default function ClientsPage() {
         </div>
         <button
           onClick={() => { setInviteOpen(true); setInviteResult(null); setInviteName(""); setInviteEmail(""); setInvitePassword(""); }}
-          className="px-4 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
+          className="px-4 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -178,6 +179,25 @@ export default function ClientsPage() {
                     />
                   </div>
                   <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1.5">Client Tier</label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setInviteTier("coached")}
+                        className={`flex-1 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer border ${inviteTier === "coached" ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600" : "bg-bg-primary border-[rgba(0,0,0,0.08)] text-text-muted hover:border-[rgba(0,0,0,0.15)]"}`}
+                      >
+                        Coached
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInviteTier("ai_only")}
+                        className={`flex-1 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer border ${inviteTier === "ai_only" ? "bg-[#E040D0]/10 border-[#E040D0]/30 text-[#E040D0]" : "bg-bg-primary border-[rgba(0,0,0,0.08)] text-text-muted hover:border-[rgba(0,0,0,0.15)]"}`}
+                      >
+                        AI Only
+                      </button>
+                    </div>
+                  </div>
+                  <div>
                     <label className="block text-xs font-medium text-text-secondary mb-1.5">Set Password <span className="text-text-muted font-normal">(optional - or they set via email)</span></label>
                     <input
                       type="password"
@@ -204,7 +224,7 @@ export default function ClientsPage() {
                         const res = await fetch("/api/admin/invite-client", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ name: inviteName, email: inviteEmail, ...(invitePassword.trim() ? { password: invitePassword.trim() } : {}) }),
+                          body: JSON.stringify({ name: inviteName, email: inviteEmail, tier: inviteTier, ...(invitePassword.trim() ? { password: invitePassword.trim() } : {}) }),
                         });
                         const data = await res.json();
                         if (res.ok) {
@@ -245,7 +265,7 @@ export default function ClientsPage() {
             onClick={() => setFilter(f)}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer ${
               filter === f
-                ? "bg-[rgba(226,184,48,0.1)] text-accent-bright border border-[rgba(226,184,48,0.2)]"
+                ? "bg-[rgba(224,64,208,0.1)] text-accent-bright border border-[rgba(224,64,208,0.2)]"
                 : "text-text-muted hover:text-text-secondary border border-[rgba(0,0,0,0.08)]"
             }`}
           >
@@ -287,7 +307,14 @@ export default function ClientsPage() {
                       {client.name.split(" ").map((n) => n[0]).join("")}
                     </div>
                     <div>
-                      <div className="text-sm font-semibold text-text-primary">{client.name}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-text-primary">{client.name}</span>
+                        {client.tier === "ai_only" ? (
+                          <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#E040D0]/10 text-[#E040D0]">AI Only</span>
+                        ) : (
+                          <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">Coached</span>
+                        )}
+                      </div>
                       <div className="text-xs text-text-muted">{client.business_name} - {client.business_type}</div>
                     </div>
                   </div>

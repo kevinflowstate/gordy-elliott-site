@@ -13,7 +13,7 @@ export default function HeroCanvas() {
 
     let w: number, h: number;
     let animationId: number;
-    const blue = [226, 184, 48];
+    const blue = [224, 64, 208];
 
     function resize() {
       w = canvas!.width = window.innerWidth;

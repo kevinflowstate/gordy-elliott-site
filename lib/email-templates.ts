@@ -26,7 +26,7 @@ function wrap(content: string): string {
 }
 
 function button(href: string, label: string): string {
-  return `<a href="${href}" style="display: inline-block; background: #E2B830; color: #1a1a1a; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">${label}</a>`;
+  return `<a href="${href}" style="display: inline-block; background: #E040D0; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">${label}</a>`;
 }
 
 export async function sendWelcomeEmail(to: string, name: string, setupUrl: string) {
@@ -56,7 +56,7 @@ export async function sendCheckinReplyEmail(to: string, clientName: string, repl
       <p style="color: #555; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
         Gordy has replied to your latest check-in.
       </p>
-      <div style="background: #f8f8f6; border-left: 3px solid #E2B830; border-radius: 0 8px 8px 0; padding: 16px 20px; margin: 0 0 24px;">
+      <div style="background: #f8f8f6; border-left: 3px solid #E040D0; border-radius: 0 8px 8px 0; padding: 16px 20px; margin: 0 0 24px;">
         <p style="margin: 0; color: #333; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">${escapeHtml(replyText)}</p>
       </div>
       ${button(`${getSiteUrl()}/portal`, "View in Portal")}
@@ -106,7 +106,7 @@ export async function sendWeeklySummaryEmail(to: string, summary: {
     html: wrap(`
       <h2 style="margin: 0 0 16px; font-size: 20px; color: #111;">Weekly Client Summary</h2>
 
-      <h3 style="margin: 16px 0 8px; font-size: 14px; color: #C9A228; text-transform: uppercase; letter-spacing: 1px;">Checked In This Week</h3>
+      <h3 style="margin: 16px 0 8px; font-size: 14px; color: #B830A8; text-transform: uppercase; letter-spacing: 1px;">Checked In This Week</h3>
       <ul style="margin: 0 0 16px; padding-left: 20px;">${checkedInList}</ul>
 
       <h3 style="margin: 16px 0 8px; font-size: 14px; color: #e74c3c; text-transform: uppercase; letter-spacing: 1px;">Missed Check-In</h3>

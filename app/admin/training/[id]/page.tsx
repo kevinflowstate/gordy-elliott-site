@@ -286,7 +286,7 @@ export default function ModuleEditorPage() {
                 className="flex-1 bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-xl px-4 py-3 text-xl font-heading font-bold text-text-primary focus:outline-none focus:border-accent/40"
                 autoFocus
               />
-              <button onClick={() => { saveModule({ title: moduleTitle }); setEditingTitle(false); }} disabled={saving} className="px-4 py-2 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-medium disabled:opacity-50">{saving ? "Saving..." : "Save"}</button>
+              <button onClick={() => { saveModule({ title: moduleTitle }); setEditingTitle(false); }} disabled={saving} className="px-4 py-2 gradient-accent text-white rounded-xl text-sm font-medium disabled:opacity-50">{saving ? "Saving..." : "Save"}</button>
               <button onClick={() => { setModuleTitle(module.title); setEditingTitle(false); }} className="px-4 py-2 text-text-muted text-sm">Cancel</button>
             </div>
           ) : (
@@ -313,7 +313,7 @@ export default function ModuleEditorPage() {
                 autoFocus
               />
               <div className="flex gap-2 mt-2">
-                <button onClick={() => { saveModule({ description: moduleDesc }); setEditingDesc(false); }} disabled={saving} className="px-3 py-1.5 gradient-accent text-[#1a1a1a] rounded-lg text-xs font-medium disabled:opacity-50">{saving ? "..." : "Save"}</button>
+                <button onClick={() => { saveModule({ description: moduleDesc }); setEditingDesc(false); }} disabled={saving} className="px-3 py-1.5 gradient-accent text-white rounded-lg text-xs font-medium disabled:opacity-50">{saving ? "..." : "Save"}</button>
                 <button onClick={() => { setModuleDesc(module.description); setEditingDesc(false); }} className="px-3 py-1.5 text-text-muted text-xs">Cancel</button>
               </div>
             </div>
@@ -360,7 +360,7 @@ export default function ModuleEditorPage() {
         <h2 className="text-lg font-heading font-bold text-text-primary">Lessons</h2>
         <button
           onClick={() => setShowAddLesson(!showAddLesson)}
-          className="px-4 py-2 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-medium inline-flex items-center gap-2"
+          className="px-4 py-2 gradient-accent text-white rounded-xl text-sm font-medium inline-flex items-center gap-2"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -463,7 +463,7 @@ export default function ModuleEditorPage() {
             </div>
           </div>
           <div className="flex gap-3 mt-4">
-            <button onClick={addLesson} className="px-5 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-medium cursor-pointer">Add Lesson</button>
+            <button onClick={addLesson} className="px-5 py-2.5 gradient-accent text-white rounded-xl text-sm font-medium cursor-pointer">Add Lesson</button>
             <button onClick={() => setShowAddLesson(false)} className="px-5 py-2.5 text-text-muted text-sm hover:text-text-secondary cursor-pointer">Cancel</button>
           </div>
         </div>
@@ -574,7 +574,7 @@ function LessonCard({
   const ct = contentTypeLabels[lesson.content_type];
 
   return (
-    <div className="group/lesson relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(226,184,48,0.15)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.2),0_0_30px_rgba(226,184,48,0.04)] will-change-transform">
+    <div className="group/lesson relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(224,64,208,0.15)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.2),0_0_30px_rgba(224,64,208,0.04)] will-change-transform">
       <div className="absolute inset-0 opacity-0 group-hover/lesson:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] z-10 pointer-events-none" />
       <div className="absolute inset-0 -z-10 rounded-2xl p-px bg-gradient-to-br from-transparent via-white/10 to-transparent opacity-0 group-hover/lesson:opacity-100 transition-opacity duration-300 pointer-events-none" />
       {/* Collapsed row */}
@@ -686,7 +686,7 @@ function LessonCard({
                     setSavingLesson(false);
                     setEditing(false);
                   }}
-                  className="px-5 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-medium cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2.5 gradient-accent text-white rounded-xl text-sm font-medium cursor-pointer disabled:opacity-50"
                 >
                   {savingLesson ? "Saving..." : "Save Changes"}
                 </button>

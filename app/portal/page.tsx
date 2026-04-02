@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { ClientProfile, TrainingModule, CheckIn, CalendarEvent, TrainingPlanPhase } from "@/lib/types";
+import type { ClientProfile, TrainingModule, CheckIn, CalendarEvent, TrainingPlanPhase, ClientTask } from "@/lib/types";
 
 function ProgressBar({ value, max }: { value: number; max: number }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
@@ -79,6 +79,7 @@ export default function PortalDashboard() {
   const [trainingProgress, setTrainingProgress] = useState<{ completedLessons: number; totalLessons: number }>({ completedLessons: 0, totalLessons: 0 });
   const [currentTime] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
+  const [tasks, setTasks] = useState<ClientTask[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -95,12 +96,24 @@ export default function PortalDashboard() {
           setRecentModules(data.recentModules || []);
           setTrainingProgress(data.trainingProgress || { completedLessons: 0, totalLessons: 0 });
         }
+        fetch("/api/portal/tasks").then(r => r.ok ? r.json() : { tasks: [] }).then(d => setTasks(d.tasks || []));
       } finally {
         setLoading(false);
       }
     }
     load();
   }, []);
+
+  async function toggleTask(taskId: string, completed: boolean) {
+    const res = await fetch("/api/portal/tasks", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: taskId, completed }),
+    });
+    if (res.ok) {
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed, completed_at: completed ? new Date().toISOString() : undefined } : t));
+    }
+  }
 
   const allPlanItems = planPhases.flatMap((p) => p.items || []);
   const completedPlanItems = allPlanItems.filter((item) => item.completed).length;
@@ -129,15 +142,15 @@ export default function PortalDashboard() {
 
       {/* Goal banner */}
       {!loading && profile?.primary_goal && (
-        <div className="mb-6 bg-bg-card border border-[#E2B830]/20 rounded-2xl px-5 py-4">
+        <div className="mb-6 bg-bg-card border border-[#E040D0]/20 rounded-2xl px-5 py-4">
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#E2B830]/10 border border-[#E2B830]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <svg className="w-4 h-4 text-[#E2B830]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-8 h-8 rounded-lg bg-[#E040D0]/10 border border-[#E040D0]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <svg className="w-4 h-4 text-[#E040D0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
             <div>
-              <div className="text-xs text-[#E2B830] font-semibold uppercase tracking-wider mb-0.5">Your Goal</div>
+              <div className="text-xs text-[#E040D0] font-semibold uppercase tracking-wider mb-0.5">Your Goal</div>
               <div className="text-lg font-heading font-bold text-text-primary leading-snug">{profile.primary_goal}</div>
               {profile.target_date && (
                 <div className="text-xs text-text-muted mt-0.5">
@@ -196,6 +209,32 @@ export default function PortalDashboard() {
           </div>
         )}
       </div>
+
+      {/* Action Items */}
+      {tasks.length > 0 && (
+        <div className="mb-8 bg-bg-card border border-[#E040D0]/20 rounded-2xl p-5 overflow-hidden relative">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#B830A8] via-[#E040D0] to-[#F060E0] rounded-t-2xl" />
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs text-text-muted uppercase tracking-wider font-semibold">Your Action Items</h3>
+            <span className="text-xs text-text-muted">{tasks.filter(t => t.completed).length} of {tasks.length} done</span>
+          </div>
+          <div className="space-y-2">
+            {tasks.map(task => (
+              <label key={task.id} className="flex items-center gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={task.completed}
+                  onChange={(e) => toggleTask(task.id, e.target.checked)}
+                  className="w-4 h-4 rounded border-2 border-[rgba(0,0,0,0.15)] accent-[#E040D0] cursor-pointer"
+                />
+                <span className={`text-sm transition-all ${task.completed ? "line-through text-text-muted" : "text-text-primary"}`}>
+                  {task.task_text}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -294,7 +333,7 @@ export default function PortalDashboard() {
           <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
           <div className="flex items-center justify-between mb-4 relative z-10">
             <h2 className="text-lg font-heading font-bold text-text-primary">Training Plan</h2>
-            <Link href="/portal/plan" className="px-4 py-2 gradient-accent text-[#1a1a1a] rounded-xl text-xs font-semibold no-underline hover:opacity-90 transition-opacity">
+            <Link href="/portal/plan" className="px-4 py-2 gradient-accent text-white rounded-xl text-xs font-semibold no-underline hover:opacity-90 transition-opacity">
               Go To Plan
             </Link>
           </div>
@@ -336,7 +375,7 @@ export default function PortalDashboard() {
           <div className="flex items-center justify-between mb-4 relative z-10">
             <h2 className="text-lg font-heading font-bold text-text-primary">Check-Ins</h2>
             {isCheckinToday ? (
-              <Link href="/portal/checkin" className="px-4 py-2 gradient-accent text-[#1a1a1a] rounded-xl text-xs font-semibold no-underline hover:opacity-90 transition-opacity">
+              <Link href="/portal/checkin" className="px-4 py-2 gradient-accent text-white rounded-xl text-xs font-semibold no-underline hover:opacity-90 transition-opacity">
                 Submit Check-In
               </Link>
             ) : (
@@ -500,7 +539,7 @@ function BriefingBanner({
   return (
     <div className="relative bg-gradient-to-r from-accent/8 via-accent/4 to-transparent border border-accent/15 rounded-2xl p-6 mb-8 overflow-hidden">
       <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-accent-dark via-accent to-transparent rounded-t-2xl" />
-      <div className="absolute inset-0 pointer-events-none rounded-2xl bg-[radial-gradient(ellipse_at_top_left,rgba(226,184,48,0.06)_0%,transparent_60%)]" />
+      <div className="absolute inset-0 pointer-events-none rounded-2xl bg-[radial-gradient(ellipse_at_top_left,rgba(224,64,208,0.06)_0%,transparent_60%)]" />
       <div className="relative">
         <div className="flex items-center gap-2 mb-4">
           <svg className="w-5 h-5 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -518,7 +557,7 @@ function BriefingBanner({
                 <span className={`text-sm ${item.accent ? "text-text-primary font-semibold" : "text-text-primary"}`}>{item.text}</span>
               </div>
               {item.href && item.accent && (
-                <Link href={item.href} className="flex-shrink-0 px-4 py-2 gradient-accent text-[#1a1a1a] rounded-xl text-xs font-bold no-underline hover:opacity-90 transition-opacity">
+                <Link href={item.href} className="flex-shrink-0 px-4 py-2 gradient-accent text-white rounded-xl text-xs font-bold no-underline hover:opacity-90 transition-opacity">
                   Go Now
                 </Link>
               )}
@@ -579,10 +618,10 @@ function JourneyTracker({
     : Math.min(100, Math.round((currentWeek / 12) * 100));
 
   return (
-    <div className="group relative bg-gradient-to-br from-[#1a1a1a] via-[#222222] to-[#1a1a1a] border border-accent/20 rounded-2xl p-6 mb-8 overflow-hidden transition-all duration-300 hover:border-accent/40 hover:shadow-[0_8px_40px_rgba(226,184,48,0.15)]">
+    <div className="group relative bg-gradient-to-br from-[#1a1a1a] via-[#222222] to-[#1a1a1a] border border-accent/20 rounded-2xl p-6 mb-8 overflow-hidden transition-all duration-300 hover:border-accent/40 hover:shadow-[0_8px_40px_rgba(224,64,208,0.15)]">
       <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-accent to-transparent rounded-t-2xl" />
-      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_top_right,rgba(226,184,48,0.08)_0%,transparent_50%)]" />
-      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_bottom_left,rgba(226,184,48,0.05)_0%,transparent_50%)]" />
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_top_right,rgba(224,64,208,0.08)_0%,transparent_50%)]" />
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_bottom_left,rgba(224,64,208,0.05)_0%,transparent_50%)]" />
       <div className="relative z-10">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-xl font-heading font-extrabold text-white uppercase tracking-wide">Your Journey</h2>
@@ -595,7 +634,7 @@ function JourneyTracker({
         {/* Progress bar with milestones */}
         <div className="relative mb-6">
           <div className="h-4 bg-[rgba(255,255,255,0.08)] rounded-full overflow-hidden border border-[rgba(255,255,255,0.05)]">
-            <div className="h-4 rounded-full gradient-accent transition-all duration-700 shadow-[0_0_16px_rgba(226,184,48,0.6)]" style={{ width: `${progressPct}%` }} />
+            <div className="h-4 rounded-full gradient-accent transition-all duration-700 shadow-[0_0_16px_rgba(224,64,208,0.6)]" style={{ width: `${progressPct}%` }} />
           </div>
           <div className="flex justify-between mt-4">
             {milestones.map((m, i) => {
@@ -609,7 +648,7 @@ function JourneyTracker({
                 <div key={m.index} className={`flex flex-col items-center flex-1 ${isFirst ? "items-start" : isLast ? "items-end" : "items-center"}`}>
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
                     reached
-                      ? "bg-accent border-accent-bright shadow-[0_0_16px_rgba(226,184,48,0.6)]"
+                      ? "bg-accent border-accent-bright shadow-[0_0_16px_rgba(224,64,208,0.6)]"
                       : "bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.15)]"
                   }`}>
                     {reached && (
@@ -713,8 +752,8 @@ function NextEventCard() {
   const recurrenceText: Record<string, string> = { weekly: `Every ${dayName}`, biweekly: `Every other ${dayName}`, monthly: "Monthly", none: nextDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }) };
 
   return (
-    <div className="group relative bg-bg-card border border-accent/10 rounded-2xl p-5 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-accent/20 hover:shadow-[0_2px_12px_rgba(226,184,48,0.06)]">
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(226,184,48,0.03)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
+    <div className="group relative bg-bg-card border border-accent/10 rounded-2xl p-5 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-accent/20 hover:shadow-[0_2px_12px_rgba(224,64,208,0.06)]">
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(224,64,208,0.03)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
       <div className="relative flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center group-hover:bg-accent/15 transition-colors duration-300">
@@ -732,7 +771,7 @@ function NextEventCard() {
           </div>
         </div>
         {event.link && (
-          <a href={event.link} target="_blank" rel="noopener noreferrer" className="px-4 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-medium no-underline inline-flex items-center gap-2 hover:opacity-90 transition-opacity flex-shrink-0">
+          <a href={event.link} target="_blank" rel="noopener noreferrer" className="px-4 py-2.5 gradient-accent text-white rounded-xl text-sm font-medium no-underline inline-flex items-center gap-2 hover:opacity-90 transition-opacity flex-shrink-0">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>

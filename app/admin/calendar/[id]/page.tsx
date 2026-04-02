@@ -138,7 +138,7 @@ export default function EventEditorPage() {
           {editingTitle ? (
             <div className="flex items-center gap-3 mb-3">
               <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="flex-1 bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-xl px-4 py-3 text-xl font-heading font-bold text-text-primary focus:outline-none focus:border-accent/40" autoFocus />
-              <button onClick={() => { setEditingTitle(false); saveField({ title }); }} className="px-4 py-2 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-medium">Save</button>
+              <button onClick={() => { setEditingTitle(false); saveField({ title }); }} className="px-4 py-2 gradient-accent text-white rounded-xl text-sm font-medium">Save</button>
               <button onClick={() => { setTitle(event.title); setEditingTitle(false); }} className="px-4 py-2 text-text-muted text-sm">Cancel</button>
             </div>
           ) : (
@@ -156,7 +156,7 @@ export default function EventEditorPage() {
             <div className="mb-4">
               <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="w-full bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-xl px-4 py-3 text-sm text-text-secondary focus:outline-none focus:border-accent/40 resize-none" autoFocus />
               <div className="flex gap-2 mt-2">
-                <button onClick={() => { setEditingDesc(false); saveField({ description }); }} className="px-3 py-1.5 gradient-accent text-[#1a1a1a] rounded-lg text-xs font-medium">Save</button>
+                <button onClick={() => { setEditingDesc(false); saveField({ description }); }} className="px-3 py-1.5 gradient-accent text-white rounded-lg text-xs font-medium">Save</button>
                 <button onClick={() => { setDescription(event.description || ""); setEditingDesc(false); }} className="px-3 py-1.5 text-text-muted text-xs">Cancel</button>
               </div>
             </div>

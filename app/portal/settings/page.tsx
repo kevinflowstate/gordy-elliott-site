@@ -249,7 +249,7 @@ function SettingsContent() {
                 setPasswordSaving(false);
               }
             }}
-            className="px-6 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-opacity"
+            className="px-6 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-opacity"
           >
             {passwordSaving ? "Updating..." : isSetup ? "Set Password" : "Update Password"}
           </button>
@@ -259,7 +259,7 @@ function SettingsContent() {
           <button
             type="submit"
             disabled={saving}
-            className="px-8 py-3 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold disabled:opacity-40 cursor-pointer transition-opacity"
+            className="px-8 py-3 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-40 cursor-pointer transition-opacity"
           >
             {saving ? "Saving..." : saved ? (
               <span className="inline-flex items-center gap-1.5">

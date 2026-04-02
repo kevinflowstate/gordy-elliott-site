@@ -209,7 +209,7 @@ export default function FoodLibraryPage() {
         </div>
         <button
           onClick={openAdd}
-          className="px-5 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
+          className="px-5 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -491,7 +491,7 @@ export default function FoodLibraryPage() {
               <button
                 onClick={handleSave}
                 disabled={saving || !form.name.trim() || !form.serving_size.trim() || !form.calories}
-                className="flex-1 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-opacity"
+                className="flex-1 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-opacity"
               >
                 {saving ? "Saving..." : editingFood ? "Save Changes" : "Add Food"}
               </button>

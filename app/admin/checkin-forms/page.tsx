@@ -29,6 +29,16 @@ const DEFAULT_PROGRESS_METRICS: ProgressMetric[] = [
   { id: "glucose", label: "Glucose level", type: "number", enabled: false },
   { id: "waist", label: "Waist", type: "number", unit: "cm", enabled: false },
   { id: "exercise_minutes", label: "Exercise Minutes", type: "number", enabled: false },
+  { id: "sleep_hours", label: "Sleep Hours", type: "number", unit: "hrs", enabled: false },
+  { id: "water_intake", label: "Water Intake", type: "number", unit: "litres", enabled: false },
+  { id: "alcohol", label: "Alcohol Consumption", type: "select", options: ["None", "1-2 drinks", "3-5 drinks", "6+"], enabled: false },
+  { id: "supplement_adherence", label: "Supplement Adherence", type: "select", options: ["Yes", "Mostly", "No"], enabled: false },
+  { id: "menstrual_cycle", label: "Menstrual Cycle Phase", type: "select", options: ["N/A", "Follicular", "Ovulation", "Luteal", "Menstrual"], enabled: false },
+  { id: "joint_comfort", label: "Joint / Injury Status", type: "scale", min: 1, max: 10, enabled: false },
+  { id: "confidence", label: "Confidence Level", type: "scale", min: 1, max: 10, enabled: false },
+  { id: "training_adherence", label: "Training Adherence", type: "scale", min: 1, max: 10, enabled: false },
+  { id: "cardio_completed", label: "Cardio Completed", type: "select", options: ["Yes", "Partial", "No"], enabled: false },
+  { id: "daily_habits", label: "Daily Habits Score", type: "scale", min: 1, max: 10, enabled: false },
 ];
 
 function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
@@ -36,7 +46,7 @@ function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void 
     <button
       type="button"
       onClick={onToggle}
-      className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer flex-shrink-0 ${enabled ? "bg-[#E2B830]" : "bg-[rgba(0,0,0,0.1)]"}`}
+      className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer flex-shrink-0 ${enabled ? "bg-[#E040D0]" : "bg-[rgba(0,0,0,0.1)]"}`}
     >
       <span
         className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${enabled ? "translate-x-5" : ""}`}
@@ -241,7 +251,7 @@ export default function CheckinFormsPage() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Weekly Check-in"
-          className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-[#E2B830]/40 transition-colors"
+          className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40 transition-colors"
         />
       </div>
 
@@ -296,7 +306,7 @@ export default function CheckinFormsPage() {
             <button
               type="button"
               onClick={addCustomQuestion}
-              className="w-full flex items-center justify-center gap-2 py-2.5 border border-dashed border-[rgba(0,0,0,0.08)] hover:border-[#E2B830]/30 rounded-xl text-xs text-text-muted hover:text-[#E2B830] transition-colors cursor-pointer mt-2"
+              className="w-full flex items-center justify-center gap-2 py-2.5 border border-dashed border-[rgba(0,0,0,0.08)] hover:border-[#E040D0]/30 rounded-xl text-xs text-text-muted hover:text-[#E040D0] transition-colors cursor-pointer mt-2"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -337,7 +347,7 @@ export default function CheckinFormsPage() {
                     className="w-full bg-transparent text-sm text-text-primary placeholder:text-text-muted focus:outline-none"
                   />
                   <div className="text-[10px] text-text-muted mt-0.5">
-                    {m.type === "scale" ? `Scale ${m.min ?? 1}–${m.max ?? 10}` : `Number${m.unit ? ` (${m.unit})` : ""}`}
+                    {m.type === "scale" ? `Scale ${m.min ?? 1}–${m.max ?? 10}` : m.type === "select" ? `Select: ${m.options?.join(" / ") ?? ""}` : `Number${m.unit ? ` (${m.unit})` : ""}`}
                   </div>
                 </div>
                 {!DEFAULT_PROGRESS_METRICS.find((dm) => dm.id === m.id) && (
@@ -357,7 +367,7 @@ export default function CheckinFormsPage() {
             <button
               type="button"
               onClick={addCustomMetric}
-              className="w-full flex items-center justify-center gap-2 py-2.5 border border-dashed border-[rgba(0,0,0,0.08)] hover:border-[#E2B830]/30 rounded-xl text-xs text-text-muted hover:text-[#E2B830] transition-colors cursor-pointer mt-2"
+              className="w-full flex items-center justify-center gap-2 py-2.5 border border-dashed border-[rgba(0,0,0,0.08)] hover:border-[#E040D0]/30 rounded-xl text-xs text-text-muted hover:text-[#E040D0] transition-colors cursor-pointer mt-2"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -374,7 +384,7 @@ export default function CheckinFormsPage() {
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="px-6 py-3 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold disabled:opacity-40 cursor-pointer transition-opacity"
+          className="px-6 py-3 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-40 cursor-pointer transition-opacity"
         >
           {saving ? "Saving..." : "Save Form Config"}
         </button>

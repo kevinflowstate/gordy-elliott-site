@@ -179,7 +179,7 @@ export default function TrainingPlanPage() {
               href={plan.pdf_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold no-underline inline-flex items-center gap-2 hover:opacity-90 transition-opacity"
+              className="px-4 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold no-underline inline-flex items-center gap-2 hover:opacity-90 transition-opacity"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -211,7 +211,7 @@ export default function TrainingPlanPage() {
           const phasePct = phaseTotal > 0 ? Math.round((phaseCompleted / phaseTotal) * 100) : 0;
 
           return (
-            <div key={phase.id} className="group/phase relative bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(226,184,48,0.15)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.2),0_0_30px_rgba(226,184,48,0.04)] will-change-transform">
+            <div key={phase.id} className="group/phase relative bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(224,64,208,0.15)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.2),0_0_30px_rgba(224,64,208,0.04)] will-change-transform">
                 {/* Bento dot pattern */}
                 <div className="absolute inset-0 opacity-0 group-hover/phase:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] z-10 pointer-events-none" />
                 {/* Bento gradient border */}

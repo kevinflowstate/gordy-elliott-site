@@ -380,7 +380,7 @@ export default function AdminDashboard() {
                 <p className="text-text-secondary text-sm">They will receive an email to set up their account.</p>
                 <button
                   onClick={() => { setInviteOpen(false); setInviteSuccess(false); setInviteForm({ firstName: "", lastName: "", email: "" }); }}
-                  className="mt-4 px-6 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold cursor-pointer"
+                  className="mt-4 px-6 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold cursor-pointer"
                 >
                   Done
                 </button>
@@ -455,7 +455,7 @@ export default function AdminDashboard() {
                 <button
                   type="submit"
                   disabled={inviteSending}
-                  className="w-full py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold disabled:opacity-40 cursor-pointer transition-opacity"
+                  className="w-full py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-40 cursor-pointer transition-opacity"
                 >
                   {inviteSending ? "Sending Invite..." : "Send Invite"}
                 </button>
@@ -995,7 +995,7 @@ function CheckInRow({
                   <button
                     onClick={(e) => { e.stopPropagation(); onReplySubmit(); }}
                     disabled={!replyText.trim() || isSending}
-                    className="px-4 py-2 gradient-accent text-[#1a1a1a] rounded-lg text-xs font-semibold disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-opacity inline-flex items-center gap-1.5"
+                    className="px-4 py-2 gradient-accent text-white rounded-lg text-xs font-semibold disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-opacity inline-flex items-center gap-1.5"
                   >
                     {isSending ? (
                       <>

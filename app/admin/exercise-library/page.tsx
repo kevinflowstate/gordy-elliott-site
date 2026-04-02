@@ -242,7 +242,7 @@ export default function ExerciseLibraryPage() {
         </div>
         <button
           onClick={() => { setShowAdd(true); setEditingId(null); }}
-          className="px-5 py-2.5 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
+          className="px-5 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -316,7 +316,7 @@ export default function ExerciseLibraryPage() {
             <button
               onClick={handleAdd}
               disabled={saving}
-              className="px-5 py-2 gradient-accent text-[#1a1a1a] rounded-xl text-sm font-semibold disabled:opacity-40 cursor-pointer"
+              className="px-5 py-2 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-40 cursor-pointer"
             >
               {saving ? "Saving..." : "Add Exercise"}
             </button>
@@ -495,7 +495,7 @@ export default function ExerciseLibraryPage() {
                           <button
                             onClick={handleSaveEdit}
                             disabled={saving}
-                            className="px-3.5 py-1.5 gradient-accent text-[#1a1a1a] rounded-lg text-xs font-semibold disabled:opacity-40 cursor-pointer"
+                            className="px-3.5 py-1.5 gradient-accent text-white rounded-lg text-xs font-semibold disabled:opacity-40 cursor-pointer"
                           >
                             {saving ? "Saving..." : "Save"}
                           </button>
