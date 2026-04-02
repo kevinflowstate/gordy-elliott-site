@@ -334,7 +334,7 @@ export default function PortalDashboard() {
           <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
           <div className="flex items-center justify-between mb-4 relative z-10">
             <h2 className="text-lg font-heading font-bold text-text-primary">Training Plan</h2>
-            <Link href="/portal/plan" className="px-4 py-2 gradient-accent text-white rounded-xl text-xs font-semibold no-underline hover:opacity-90 transition-opacity">
+            <Link href="/portal/exercise-plan" className="px-4 py-2 gradient-accent text-white rounded-xl text-xs font-semibold no-underline hover:opacity-90 transition-opacity">
               Go To Plan
             </Link>
           </div>
@@ -536,7 +536,7 @@ function BriefingBanner({
   }
 
   if (planPct > 0 && planPct < 100) {
-    items.push({ icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z", text: `Training plan ${planPct}% complete`, href: "/portal/plan" });
+    items.push({ icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z", text: `Training plan ${planPct}% complete`, href: "/portal/exercise-plan" });
   }
 
   if (items.length === 0) return null;
@@ -606,10 +606,8 @@ function JourneyTracker({
       })
     : [
         { index: 0, label: "Kickoff" },
-        { index: 1, label: "Foundation" },
-        { index: 2, label: "Halfway" },
-        { index: 3, label: "Systems" },
-        { index: 4, label: "Review" },
+        ...Array.from({ length: 10 }, (_, i) => ({ index: i + 1, label: `Week ${i + 1}` })),
+        { index: 11, label: "Review" },
       ];
 
   // Calculate progress based on completed plan items per phase
