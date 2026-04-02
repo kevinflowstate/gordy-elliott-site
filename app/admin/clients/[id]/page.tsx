@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { AdminClient } from "@/lib/admin-data";
 import type { TrafficLight, CheckInMood, TrainingPlan, TrainingPlanPhase, CheckinFormConfig, FormQuestion, ClientExercisePlan, ClientNutritionPlan, ProgressMetric, ClientTask } from "@/lib/types";
 import TrainingPlanBuilder from "@/components/admin/TrainingPlanBuilder";
+import ExerciseTemplateBuilder from "@/components/admin/ExerciseTemplateBuilder";
 import ExerciseTemplatePicker from "@/components/admin/ExerciseTemplatePicker";
 import NutritionTemplatePicker from "@/components/admin/NutritionTemplatePicker";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Dot } from "recharts";
@@ -151,6 +152,7 @@ export default function ClientDetailPage() {
   const [nutritionPlans, setNutritionPlans] = useState<ClientNutritionPlan[]>([]);
   const [recentExerciseLogs, setRecentExerciseLogs] = useState<Array<{ id: string; exercise_item_id: string; session_id: string | null; log_date: string; sets_data: Array<{ set_number: number; weight: string; reps: string; notes: string }>; completed: boolean }>>([]);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
+  const [showExerciseBuilder, setShowExerciseBuilder] = useState(false);
   const [showNutritionPicker, setShowNutritionPicker] = useState(false);
   const [assigningExercise, setAssigningExercise] = useState(false);
   const [assigningNutrition, setAssigningNutrition] = useState(false);
@@ -1229,6 +1231,7 @@ export default function ClientDetailPage() {
           onSetExpandedHistoryPlan={setExpandedHistoryPlan}
           onSetBuilderMode={setBuilderMode}
           onShowExercisePicker={() => setShowExercisePicker(true)}
+          onEditExercisePlan={() => setShowExerciseBuilder(true)}
           onUnassignExercisePlan={handleUnassignExercisePlan}
           onArchiveExercisePlan={handleArchiveExercisePlan}
         />
@@ -1576,6 +1579,47 @@ export default function ClientDetailPage() {
         />
       )}
 
+      {/* Exercise Plan Builder (edit workout) */}
+      {showExerciseBuilder && (() => {
+        const activeExPlan = exercisePlans.find((p) => p.status === "active");
+        const templateFromPlan = activeExPlan ? {
+          id: activeExPlan.id,
+          name: activeExPlan.name,
+          description: activeExPlan.description || "",
+          category: "strength" as const,
+          is_active: true,
+          sessions: activeExPlan.sessions || [],
+          created_at: activeExPlan.created_at,
+          updated_at: activeExPlan.updated_at,
+        } : undefined;
+        return (
+          <ExerciseTemplateBuilder
+            existingTemplate={templateFromPlan}
+            onSave={async (template) => {
+              try {
+                await fetch("/api/admin/client-exercise-plans", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    plan: {
+                      id: activeExPlan?.id,
+                      client_id: client.id,
+                      name: template.name,
+                      description: template.description,
+                      status: "active",
+                      sessions: template.sessions,
+                    },
+                  }),
+                });
+                setShowExerciseBuilder(false);
+                loadClient();
+              } catch { /* silently fail */ }
+            }}
+            onCancel={() => setShowExerciseBuilder(false)}
+          />
+        );
+      })()}
+
       {/* Nutrition Template Picker Modal */}
       {showNutritionPicker && (
         <NutritionTemplatePicker
@@ -1610,6 +1654,7 @@ interface TrainingTabContentProps {
   onSetExpandedHistoryPlan: (v: string | null) => void;
   onSetBuilderMode: (m: "closed" | "create" | "edit") => void;
   onShowExercisePicker: () => void;
+  onEditExercisePlan: () => void;
   onUnassignExercisePlan: (id: string) => void;
   onArchiveExercisePlan: (id: string) => void;
 }
@@ -1635,6 +1680,7 @@ function TrainingTabContent({
   onSetExpandedHistoryPlan,
   onSetBuilderMode,
   onShowExercisePicker,
+  onEditExercisePlan,
   onUnassignExercisePlan,
   onArchiveExercisePlan,
 }: TrainingTabContentProps) {
@@ -1704,7 +1750,7 @@ function TrainingTabContent({
             {activeExPlan ? (
               <>
                 <button
-                  onClick={() => onSetBuilderMode("edit")}
+                  onClick={onEditExercisePlan}
                   className="px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary border border-[rgba(0,0,0,0.08)] hover:border-[rgba(0,0,0,0.15)] rounded-lg transition-colors cursor-pointer"
                 >
                   Edit
