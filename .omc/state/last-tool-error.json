@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"git add \\\\\\n  app/(marketing)/page.tsx \\\\\\n  app/admin/ \\\\\\n  app/api/ \\\\\\n  app/globals.css \\\\\\n  app/layout.tsx \\\\\\n  app/login/page.tsx \\\\\\n  app/portal/ \\\\\\n  components/ \\\\\\n  lib/ \\\\...",
+  "error": "Exit code 1\n(eval):1: no matches found: app/(marketing)/page.tsx",
+  "timestamp": "2026-04-02T12:35:45.806Z",
+  "retry_count": 1
+}

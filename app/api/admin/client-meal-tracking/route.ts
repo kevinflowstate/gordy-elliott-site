@@ -2,7 +2,7 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
-// GET: Fetch exercise logs for a client (recent 7 days or by date range)
+// GET: Fetch meal tracking records for a client for a date range
 export async function GET(request: Request) {
   const auth = await requireAdmin();
   if (!auth.authorized) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -21,22 +21,18 @@ export async function GET(request: Request) {
   })();
 
   const toDate = searchParams.get("to") || (() => {
-    return new Date().toISOString().split("T")[0];
+    const d = new Date();
+    return d.toISOString().split("T")[0];
   })();
 
-  let query = admin
-    .from("client_exercise_logs")
+  const { data: tracking, error } = await admin
+    .from("client_meal_tracking")
     .select("*")
     .eq("client_id", clientId)
-    .gte("log_date", fromDate)
-    .order("log_date", { ascending: false });
-
-  if (toDate) {
-    query = query.lte("log_date", toDate);
-  }
-
-  const { data: logs, error } = await query;
+    .gte("tracked_date", fromDate)
+    .lte("tracked_date", toDate)
+    .order("tracked_date", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ logs: logs || [] });
+  return NextResponse.json({ tracking: tracking || [] });
 }

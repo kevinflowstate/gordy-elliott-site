@@ -1208,348 +1208,41 @@ export default function ClientDetailPage() {
 
       {/* ── Training Tab ── */}
       {activeTab === "training" && (
-        <div className="grid lg:grid-cols-[1.3fr_1fr] gap-6">
-          {/* Business/milestone training plan */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-heading font-bold text-text-primary">Training Plan</h2>
-              <div className="flex items-center gap-2">
-                {activePlan ? (
-                  <>
-                    <button
-                      onClick={() => setBuilderMode("edit")}
-                      className="px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary border border-[rgba(0,0,0,0.08)] hover:border-[rgba(0,0,0,0.1)] rounded-lg transition-colors inline-flex items-center gap-1.5"
-                    >
-                      Edit Plan
-                    </button>
-                    <button
-                      onClick={() => setBuilderMode("create")}
-                      className="px-3 py-1.5 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                      New Plan
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => setBuilderMode("create")}
-                    className="px-3 py-1.5 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Create Training Plan
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {activePlan ? (
-              <>
-                <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 mb-3">
-                  <p className="text-text-secondary text-sm leading-relaxed">{activePlan.summary}</p>
-                  <div className="flex items-center gap-2 mt-3">
-                    <div className="h-2 w-24 bg-[rgba(0,0,0,0.03)] rounded-full overflow-hidden">
-                      <div className="h-full gradient-accent rounded-full transition-all duration-500" style={{ width: `${planPct}%` }} />
-                    </div>
-                    <span className="text-xs text-accent-bright font-semibold">{planPct}%</span>
-                    <span className="text-[10px] text-text-muted">({planDone}/{planTotal} items)</span>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {activePlan.phases.map((phase) => {
-                    const isExpanded = expandedPhases.has(phase.id);
-                    const phaseDone = phase.items.filter((i) => i.completed).length;
-                    const phaseTotal = phase.items.length;
-                    const phasePct = phaseTotal > 0 ? Math.round((phaseDone / phaseTotal) * 100) : 0;
-                    const iconPath = getPhaseIcon(phase.name);
-                    return (
-                      <div key={phase.id} className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
-                        <button onClick={() => togglePhase(phase.id)} className="w-full flex items-center justify-between p-4 hover:bg-[rgba(0,0,0,0.02)] transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
-                              <svg className="w-4 h-4 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={iconPath} />
-                              </svg>
-                            </div>
-                            <div className="text-left">
-                              <div className="text-sm font-semibold text-text-primary">{phase.name}</div>
-                              <div className="text-xs text-text-muted">{phaseDone}/{phaseTotal} completed</div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2">
-                              <div className="h-1.5 w-16 bg-[rgba(0,0,0,0.03)] rounded-full overflow-hidden">
-                                <div className={`h-full rounded-full transition-all duration-300 ${phasePct === 100 ? "bg-emerald-500" : "gradient-accent"}`} style={{ width: `${phasePct}%` }} />
-                              </div>
-                              <span className="text-[10px] text-text-muted w-8 text-right">{phasePct}%</span>
-                            </div>
-                            <svg className={`w-4 h-4 text-text-muted transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </div>
-                        </button>
-                        {isExpanded && (
-                          <div className="border-t border-[rgba(0,0,0,0.03)] px-4 pb-3">
-                            {phase.notes && (
-                              <div className="py-3 border-b border-[rgba(0,0,0,0.03)] mb-1">
-                                <p className="text-xs text-text-muted leading-relaxed italic">{phase.notes}</p>
-                              </div>
-                            )}
-                            {phase.items.map((item) => (
-                              <button
-                                key={item.id}
-                                onClick={() => toggleItem(phase.id, item.id)}
-                                className="w-full flex items-center gap-3 py-3 px-2 rounded-lg hover:bg-[rgba(0,0,0,0.02)] transition-colors text-left group"
-                              >
-                                <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${item.completed ? "bg-emerald-500 border-emerald-500" : "border-[rgba(0,0,0,0.1)] group-hover:border-accent/50"}`}>
-                                  {item.completed && (
-                                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                  )}
-                                </div>
-                                <span className={`text-sm transition-all duration-200 ${item.completed ? "text-text-muted line-through" : "text-text-secondary group-hover:text-text-primary"}`}>{item.title}</span>
-                                {item.completed && item.completed_at && (
-                                  <span className="text-[10px] text-text-muted ml-auto flex-shrink-0">
-                                    {new Date(item.completed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                                  </span>
-                                )}
-                              </button>
-                            ))}
-                            {phase.linked_trainings.length > 0 && (
-                              <div className="mt-2 pt-2 border-t border-[rgba(0,0,0,0.03)]">
-                                <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-2 px-2">Linked Training</div>
-                                <div className="space-y-1">
-                                  {phase.linked_trainings.map((contentId) => {
-                                    const info = contentLookup.get(contentId);
-                                    if (!info) return null;
-                                    return (
-                                      <Link key={contentId} href={`/admin/training/${info.moduleId}`} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-accent/5 transition-colors no-underline group">
-                                        <div className="w-5 h-5 rounded bg-accent/10 flex items-center justify-center flex-shrink-0">
-                                          <svg className="w-3 h-3 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                          </svg>
-                                        </div>
-                                        <div className="min-w-0">
-                                          <div className="text-xs text-text-secondary group-hover:text-text-primary transition-colors truncate">{info.title}</div>
-                                          <div className="text-[10px] text-text-muted">{info.moduleName}{info.duration ? ` - ${info.duration}m` : ""}</div>
-                                        </div>
-                                      </Link>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {completedPlans.length > 0 && (
-                  <div className="mt-4">
-                    <button onClick={() => setShowHistory(!showHistory)} className="flex items-center gap-2 text-xs text-text-muted hover:text-text-secondary transition-colors mb-2">
-                      <svg className={`w-3.5 h-3.5 transition-transform ${showHistory ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                      Previous Plans ({completedPlans.length})
-                    </button>
-                    {showHistory && (
-                      <div className="space-y-3">
-                        {completedPlans.map((plan) => {
-                          const prevItems = plan.phases.flatMap((ph) => ph.items);
-                          const prevDone = prevItems.filter((i) => i.completed).length;
-                          const prevTotal = prevItems.length;
-                          const isOpen = expandedHistoryPlan === plan.id;
-                          return (
-                            <div key={plan.id} className="bg-bg-card/40 border border-[rgba(0,0,0,0.03)] rounded-2xl overflow-hidden">
-                              <button onClick={() => setExpandedHistoryPlan(isOpen ? null : plan.id)} className="w-full p-4 text-left hover:bg-[rgba(0,0,0,0.02)] transition-colors">
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="text-xs font-semibold text-text-muted">{new Date(plan.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
-                                  <span className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full font-semibold">
-                                    Completed {plan.completed_at ? new Date(plan.completed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : ""}
-                                  </span>
-                                </div>
-                                <p className="text-xs text-text-muted leading-relaxed mb-1">{plan.summary}</p>
-                                <div className="text-[10px] text-text-muted">{prevDone}/{prevTotal} items across {plan.phases.length} phases</div>
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
-                <p className="text-sm text-text-muted mb-4">No active training plan.</p>
-                <button onClick={() => setBuilderMode("create")} className="px-4 py-2 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                  Create Training Plan
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Exercise Plan */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-heading font-bold text-text-primary">Exercise Plan</h2>
-              <button
-                onClick={() => setShowExercisePicker(true)}
-                disabled={assigningExercise}
-                className="px-3 py-1.5 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                {exercisePlans.some((p) => p.status === "active") ? "Replace" : "Assign"}
-              </button>
-            </div>
-            {(() => {
-              const activeExPlan = exercisePlans.find((p) => p.status === "active");
-              if (!activeExPlan) return (
-                <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 text-center">
-                  <p className="text-text-muted text-sm">No exercise plan assigned.</p>
-                </div>
-              );
-              return (
-                <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h3 className="font-semibold text-text-primary">{activeExPlan.name}</h3>
-                      {activeExPlan.description && <p className="text-[13px] text-text-secondary mt-0.5">{activeExPlan.description}</p>}
-                      <span className="text-[13px] text-accent-bright">{activeExPlan.sessions.length} sessions</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button onClick={() => handleUnassignExercisePlan(activeExPlan.id)} className="text-[13px] text-text-secondary hover:text-amber-400 transition-colors">Remove</button>
-                      <button onClick={() => handleArchiveExercisePlan(activeExPlan.id)} className="text-[13px] text-text-secondary hover:text-red-400 transition-colors">Archive</button>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    {activeExPlan.sessions.map((session) => (
-                      <div key={session.id} className="bg-[rgba(0,0,0,0.02)] rounded-xl p-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="w-6 h-6 rounded-lg bg-accent-bright/10 text-accent-bright font-bold text-[11px] flex items-center justify-center">{session.day_number}</span>
-                          <span className="font-medium text-text-primary text-[13px]">{session.name}</span>
-                          <span className="text-[13px] text-text-secondary/50 ml-auto">{session.items.length} exercises</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {recentExerciseLogs.length > 0 && (() => {
-                    const byDate = recentExerciseLogs.reduce((acc, log) => {
-                      if (!acc[log.log_date]) acc[log.log_date] = [];
-                      acc[log.log_date].push(log);
-                      return acc;
-                    }, {} as Record<string, typeof recentExerciseLogs>);
-                    const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a)).slice(0, 5);
-                    return (
-                      <div className="mt-4 pt-4 border-t border-[rgba(0,0,0,0.06)]">
-                        <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-3">Recent Training Logs</h4>
-                        <div className="space-y-2">
-                          {dates.map((date) => {
-                            const dayLogs = byDate[date];
-                            const completedCount = dayLogs.filter((l) => l.completed).length;
-                            const sessionId = dayLogs[0]?.session_id;
-                            const sessionName = sessionId ? activeExPlan.sessions.find((s) => s.id === sessionId)?.name : null;
-                            return (
-                              <div key={date} className="bg-[rgba(0,0,0,0.02)] rounded-xl p-3">
-                                <div className="flex items-center justify-between mb-1.5">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[13px] font-semibold text-text-primary">
-                                      {new Date(date + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
-                                    </span>
-                                    {sessionName && <span className="text-xs text-accent-bright font-medium">{sessionName}</span>}
-                                  </div>
-                                  <span className="text-xs text-emerald-500 font-semibold">{completedCount}/{dayLogs.length} logged</span>
-                                </div>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {dayLogs.slice(0, 6).map((log) => {
-                                    const exerciseItem = activeExPlan.sessions.flatMap((s) => s.items).find((i) => i.id === log.exercise_item_id);
-                                    const topSet = log.sets_data?.[0];
-                                    return (
-                                      <span key={log.id} className={`text-xs px-2 py-0.5 rounded-lg font-medium ${log.completed ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-[rgba(0,0,0,0.04)] text-text-secondary"}`}>
-                                        {exerciseItem?.exercise?.name || "Exercise"}
-                                        {topSet?.weight && ` ${topSet.weight}kg`}
-                                        {topSet?.reps && ` x${topSet.reps}`}
-                                      </span>
-                                    );
-                                  })}
-                                  {dayLogs.length > 6 && (
-                                    <span className="text-xs px-2 py-0.5 rounded-lg bg-[rgba(0,0,0,0.04)] text-text-secondary">+{dayLogs.length - 6} more</span>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              );
-            })()}
-          </div>
-        </div>
+        <TrainingTabContent
+          client={client}
+          exercisePlans={exercisePlans}
+          recentExerciseLogs={recentExerciseLogs}
+          activePlan={activePlan}
+          plans={plans}
+          expandedPhases={expandedPhases}
+          showHistory={showHistory}
+          expandedHistoryPlan={expandedHistoryPlan}
+          planPct={planPct}
+          planDone={planDone}
+          planTotal={planTotal}
+          completedPlans={completedPlans}
+          contentLookup={contentLookup}
+          assigningExercise={assigningExercise}
+          onTogglePhase={togglePhase}
+          onToggleItem={toggleItem}
+          onSetShowHistory={setShowHistory}
+          onSetExpandedHistoryPlan={setExpandedHistoryPlan}
+          onSetBuilderMode={setBuilderMode}
+          onShowExercisePicker={() => setShowExercisePicker(true)}
+          onUnassignExercisePlan={handleUnassignExercisePlan}
+          onArchiveExercisePlan={handleArchiveExercisePlan}
+        />
       )}
 
       {/* ── Nutrition Tab ── */}
       {activeTab === "nutrition" && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-heading font-bold text-text-primary">Nutrition Plan</h2>
-            <button
-              onClick={() => setShowNutritionPicker(true)}
-              disabled={assigningNutrition}
-              className="px-3 py-1.5 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-              {nutritionPlans.some((p) => p.status === "active") ? "Replace Plan" : "Assign Nutrition Plan"}
-            </button>
-          </div>
-          {(() => {
-            const activeNutPlan = nutritionPlans.find((p) => p.status === "active");
-            if (!activeNutPlan) return (
-              <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
-                <p className="text-text-muted text-sm">No nutrition plan assigned.</p>
-              </div>
-            );
-            return (
-              <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h3 className="font-semibold text-text-primary">{activeNutPlan.name}</h3>
-                    <div className="flex gap-3 mt-1 text-[13px]">
-                      {activeNutPlan.target_calories && <span className="text-text-primary font-medium">{activeNutPlan.target_calories} kcal</span>}
-                      {activeNutPlan.target_protein_g && <span className="text-blue-500">{activeNutPlan.target_protein_g}g P</span>}
-                      {activeNutPlan.target_carbs_g && <span className="text-accent-bright">{activeNutPlan.target_carbs_g}g C</span>}
-                      {activeNutPlan.target_fat_g && <span className="text-red-500">{activeNutPlan.target_fat_g}g F</span>}
-                    </div>
-                    <span className="text-[13px] text-accent-bright">{activeNutPlan.meals.length} meals</span>
-                  </div>
-                  <button onClick={() => handleArchiveNutritionPlan(activeNutPlan.id)} className="text-[13px] text-text-secondary hover:text-red-400 transition-colors">Archive</button>
-                </div>
-                <div className="space-y-2">
-                  {activeNutPlan.meals.map((meal) => (
-                    <div key={meal.id} className="bg-[rgba(0,0,0,0.02)] rounded-xl p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-text-primary text-[13px]">{meal.name}</span>
-                        <span className="text-[13px] text-text-secondary/50">{meal.items.length} items</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-        </div>
+        <NutritionTabContent
+          client={client}
+          nutritionPlans={nutritionPlans}
+          assigningNutrition={assigningNutrition}
+          onShowNutritionPicker={() => setShowNutritionPicker(true)}
+          onArchiveNutritionPlan={handleArchiveNutritionPlan}
+        />
       )}
 
       {/* ── Gallery Tab ── */}
@@ -1891,6 +1584,567 @@ export default function ClientDetailPage() {
         />
       )}
     </>
+  );
+}
+
+// ── TrainingTabContent ─────────────────────────────────────────────────────
+
+interface TrainingTabContentProps {
+  client: AdminClient;
+  exercisePlans: ClientExercisePlan[];
+  recentExerciseLogs: Array<{ id: string; exercise_item_id: string; session_id: string | null; log_date: string; sets_data: Array<{ set_number: number; weight: string; reps: string; notes: string }>; completed: boolean }>;
+  activePlan: TrainingPlan | undefined;
+  plans: TrainingPlan[];
+  expandedPhases: Set<string>;
+  showHistory: boolean;
+  expandedHistoryPlan: string | null;
+  planPct: number;
+  planDone: number;
+  planTotal: number;
+  completedPlans: TrainingPlan[];
+  contentLookup: Map<string, { title: string; moduleName: string; moduleId: string; duration?: number }>;
+  assigningExercise: boolean;
+  onTogglePhase: (phaseId: string) => void;
+  onToggleItem: (phaseId: string, itemId: string) => void;
+  onSetShowHistory: (v: boolean) => void;
+  onSetExpandedHistoryPlan: (v: string | null) => void;
+  onSetBuilderMode: (m: "closed" | "create" | "edit") => void;
+  onShowExercisePicker: () => void;
+  onUnassignExercisePlan: (id: string) => void;
+  onArchiveExercisePlan: (id: string) => void;
+}
+
+function TrainingTabContent({
+  client,
+  exercisePlans,
+  recentExerciseLogs,
+  activePlan,
+  plans,
+  expandedPhases,
+  showHistory,
+  expandedHistoryPlan,
+  planPct,
+  planDone,
+  planTotal,
+  completedPlans,
+  contentLookup,
+  assigningExercise,
+  onTogglePhase,
+  onToggleItem,
+  onSetShowHistory,
+  onSetExpandedHistoryPlan,
+  onSetBuilderMode,
+  onShowExercisePicker,
+  onUnassignExercisePlan,
+  onArchiveExercisePlan,
+}: TrainingTabContentProps) {
+  const activeExPlan = exercisePlans.find((p) => p.status === "active");
+
+  // Week selector state - weeks since client start_date
+  const startDate = new Date(client.start_date);
+  const now = new Date();
+  const totalWeeks = Math.max(1, Math.ceil((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 7)));
+  const [selectedWeek, setSelectedWeek] = useState(totalWeeks);
+
+  // Expanded sessions for assigned plan
+  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
+
+  // Training logs for the selected week
+  const [weekLogs, setWeekLogs] = useState<Array<{ id: string; exercise_item_id: string; session_id: string | null; log_date: string; sets_data: Array<{ set_number: number; weight: string; reps: string; notes: string }>; completed: boolean }>>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+
+  const getWeekRange = (weekNum: number) => {
+    const weekStart = new Date(startDate);
+    weekStart.setDate(weekStart.getDate() + (weekNum - 1) * 7);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    return {
+      from: weekStart.toISOString().split("T")[0],
+      to: weekEnd.toISOString().split("T")[0],
+    };
+  };
+
+  useEffect(() => {
+    const { from, to } = getWeekRange(selectedWeek);
+    setLogsLoading(true);
+    fetch(`/api/admin/client-exercise-logs?clientId=${client.id}&from=${from}&to=${to}`)
+      .then((r) => r.json())
+      .then((data) => setWeekLogs(data.logs || []))
+      .catch(() => setWeekLogs([]))
+      .finally(() => setLogsLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client.id, selectedWeek]);
+
+  function toggleSession(sessionId: string) {
+    setExpandedSessions((prev) => {
+      const next = new Set(prev);
+      if (next.has(sessionId)) next.delete(sessionId);
+      else next.add(sessionId);
+      return next;
+    });
+  }
+
+  // Group week logs by date
+  const logsByDate = weekLogs.reduce((acc, log) => {
+    if (!acc[log.log_date]) acc[log.log_date] = [];
+    acc[log.log_date].push(log);
+    return acc;
+  }, {} as Record<string, typeof weekLogs>);
+  const logDates = Object.keys(logsByDate).sort((a, b) => a.localeCompare(b));
+
+  const { from: weekFrom, to: weekTo } = getWeekRange(selectedWeek);
+
+  return (
+    <div className="space-y-6">
+      {/* ── Section 1: Assigned Plan ── */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-heading font-bold text-text-primary">Assigned Plan</h2>
+          <div className="flex items-center gap-2">
+            {activeExPlan ? (
+              <>
+                <button
+                  onClick={() => onSetBuilderMode("edit")}
+                  className="px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary border border-[rgba(0,0,0,0.08)] hover:border-[rgba(0,0,0,0.15)] rounded-lg transition-colors cursor-pointer"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={onShowExercisePicker}
+                  disabled={assigningExercise}
+                  className="px-3 py-1.5 text-xs font-semibold text-white bg-[#E040D0] hover:bg-[#b830a8] rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  Replace
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={onShowExercisePicker}
+                disabled={assigningExercise}
+                className="px-3 py-1.5 text-xs font-semibold text-white bg-[#E040D0] hover:bg-[#b830a8] rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                Assign Training Plan
+              </button>
+            )}
+          </div>
+        </div>
+
+        {activeExPlan ? (
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
+            {/* Plan header */}
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="font-heading font-bold text-text-primary text-base">{activeExPlan.name}</h3>
+                {activeExPlan.description && (
+                  <p className="text-sm text-text-secondary mt-1">{activeExPlan.description}</p>
+                )}
+                <span className="text-xs text-[#E040D0] font-medium mt-1 inline-block">{activeExPlan.sessions.length} sessions</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onUnassignExercisePlan(activeExPlan.id)}
+                  className="text-xs text-text-secondary hover:text-amber-400 transition-colors cursor-pointer"
+                >
+                  Remove
+                </button>
+                <button
+                  onClick={() => onArchiveExercisePlan(activeExPlan.id)}
+                  className="text-xs text-text-secondary hover:text-red-400 transition-colors cursor-pointer"
+                >
+                  Archive
+                </button>
+              </div>
+            </div>
+
+            {/* Sessions list */}
+            <div className="space-y-2">
+              {activeExPlan.sessions.map((session) => {
+                const isExpanded = expandedSessions.has(session.id);
+                return (
+                  <div key={session.id} className="border border-[rgba(0,0,0,0.06)] rounded-xl overflow-hidden">
+                    <button
+                      onClick={() => toggleSession(session.id)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[rgba(0,0,0,0.02)] transition-colors cursor-pointer"
+                    >
+                      <span className="w-6 h-6 rounded-lg bg-[#E040D0]/10 text-[#E040D0] font-bold text-[11px] flex items-center justify-center flex-shrink-0">
+                        {session.day_number}
+                      </span>
+                      <span className="font-medium text-text-primary text-sm flex-1 text-left">{session.name}</span>
+                      <span className="text-xs text-text-muted">{session.items.length} exercises</span>
+                      <svg
+                        className={`w-4 h-4 text-text-muted transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {isExpanded && session.items.length > 0 && (
+                      <div className="border-t border-[rgba(0,0,0,0.04)] px-4 pb-3 pt-2 space-y-1.5">
+                        {session.items.map((item) => (
+                          <div key={item.id} className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-[rgba(0,0,0,0.02)] transition-colors">
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm text-text-primary">{item.exercise?.name || "Exercise"}</span>
+                              {item.section_label && (
+                                <span className="text-[10px] text-text-muted ml-2">{item.section_label}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-text-secondary flex-shrink-0">
+                              <span>{item.sets} sets</span>
+                              <span className="text-text-muted">x</span>
+                              <span>{item.reps}</span>
+                              {item.rest_seconds && (
+                                <span className="text-text-muted">{item.rest_seconds}s rest</span>
+                              )}
+                              {item.tempo && (
+                                <span className="text-text-muted">{item.tempo}</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
+            <p className="text-sm text-text-muted mb-4">No training plan assigned yet.</p>
+            <button
+              onClick={onShowExercisePicker}
+              className="px-4 py-2 text-xs font-semibold text-white bg-[#E040D0] hover:bg-[#b830a8] rounded-lg transition-colors cursor-pointer"
+            >
+              Assign Training Plan
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Section 2: Training Logs ── */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-heading font-bold text-text-primary">Training Logs</h2>
+          <select
+            value={selectedWeek}
+            onChange={(e) => setSelectedWeek(Number(e.target.value))}
+            className="text-sm text-text-primary bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#E040D0]/40 cursor-pointer"
+          >
+            {Array.from({ length: totalWeeks }, (_, i) => {
+              const wk = totalWeeks - i;
+              const { from } = getWeekRange(wk);
+              const label = new Date(from + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+              return (
+                <option key={wk} value={wk}>
+                  Week {wk} ({label})
+                </option>
+              );
+            })}
+          </select>
+        </div>
+
+        {logsLoading ? (
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 text-center">
+            <p className="text-sm text-text-muted">Loading logs...</p>
+          </div>
+        ) : logDates.length === 0 ? (
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
+            <p className="text-sm text-text-muted">No training logged for Week {selectedWeek} ({weekFrom} to {weekTo}).</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {logDates.map((date) => {
+              const dayLogs = logsByDate[date];
+              const completedCount = dayLogs.filter((l) => l.completed).length;
+              const sessionId = dayLogs[0]?.session_id;
+              const sessionName = sessionId && activeExPlan
+                ? activeExPlan.sessions.find((s) => s.id === sessionId)?.name
+                : null;
+              return (
+                <div key={date} className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-heading font-bold text-text-primary text-sm">
+                        {new Date(date + "T00:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}
+                      </span>
+                      {sessionName && (
+                        <span className="text-xs text-[#E040D0] font-medium bg-[#E040D0]/10 px-2 py-0.5 rounded-full">
+                          {sessionName}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs font-semibold text-emerald-500">{completedCount}/{dayLogs.length} logged</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {dayLogs.map((log) => {
+                      const exerciseItem = activeExPlan
+                        ? activeExPlan.sessions.flatMap((s) => s.items).find((i) => i.id === log.exercise_item_id)
+                        : null;
+                      return (
+                        <div key={log.id} className={`rounded-xl px-3 py-2 ${log.completed ? "bg-emerald-500/5 border border-emerald-500/10" : "bg-[rgba(0,0,0,0.02)]"}`}>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`text-sm font-medium ${log.completed ? "text-text-primary" : "text-text-secondary"}`}>
+                              {exerciseItem?.exercise?.name || "Exercise"}
+                            </span>
+                            {log.completed && (
+                              <svg className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                          {log.sets_data && log.sets_data.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-1">
+                              {log.sets_data.map((set) => (
+                                <span
+                                  key={set.set_number}
+                                  className="text-[11px] px-2 py-0.5 rounded-lg bg-[rgba(0,0,0,0.04)] text-text-secondary"
+                                >
+                                  Set {set.set_number}: {set.weight ? `${set.weight}kg` : "—"} x {set.reps || "—"}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── NutritionTabContent ────────────────────────────────────────────────────
+
+interface NutritionTabContentProps {
+  client: AdminClient;
+  nutritionPlans: ClientNutritionPlan[];
+  assigningNutrition: boolean;
+  onShowNutritionPicker: () => void;
+  onArchiveNutritionPlan: (id: string) => void;
+}
+
+function NutritionTabContent({
+  client,
+  nutritionPlans,
+  assigningNutrition,
+  onShowNutritionPicker,
+  onArchiveNutritionPlan,
+}: NutritionTabContentProps) {
+  const activeNutPlan = nutritionPlans.find((p) => p.status === "active");
+
+  // Week selector
+  const startDate = new Date(client.start_date);
+  const now = new Date();
+  const totalWeeks = Math.max(1, Math.ceil((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 7)));
+  const [selectedWeek, setSelectedWeek] = useState(totalWeeks);
+
+  // Meal tracking for selected week
+  const [mealTracking, setMealTracking] = useState<Array<{ id: string; meal_id: string; tracked_date: string; completed: boolean }>>([]);
+  const [trackingLoading, setTrackingLoading] = useState(false);
+
+  const getWeekRange = (weekNum: number) => {
+    const weekStart = new Date(startDate);
+    weekStart.setDate(weekStart.getDate() + (weekNum - 1) * 7);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    return {
+      from: weekStart.toISOString().split("T")[0],
+      to: weekEnd.toISOString().split("T")[0],
+    };
+  };
+
+  useEffect(() => {
+    const { from, to } = getWeekRange(selectedWeek);
+    setTrackingLoading(true);
+    fetch(`/api/admin/client-meal-tracking?clientId=${client.id}&from=${from}&to=${to}`)
+      .then((r) => r.json())
+      .then((data) => setMealTracking(data.tracking || []))
+      .catch(() => setMealTracking([]))
+      .finally(() => setTrackingLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client.id, selectedWeek]);
+
+  const { from: weekFrom, to: weekTo } = getWeekRange(selectedWeek);
+
+  // Build list of dates in the selected week
+  const weekDates: string[] = [];
+  const wkStart = new Date(weekFrom + "T00:00:00");
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(wkStart);
+    d.setDate(d.getDate() + i);
+    weekDates.push(d.toISOString().split("T")[0]);
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* ── Section 1: Assigned Plan ── */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-heading font-bold text-text-primary">Assigned Plan</h2>
+          <button
+            onClick={onShowNutritionPicker}
+            disabled={assigningNutrition}
+            className="px-3 py-1.5 text-xs font-semibold text-white bg-[#E040D0] hover:bg-[#b830a8] rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            {activeNutPlan ? "Replace" : "Assign Nutrition Plan"}
+          </button>
+        </div>
+
+        {activeNutPlan ? (
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="font-heading font-bold text-text-primary text-base">{activeNutPlan.name}</h3>
+                <span className="text-xs text-[#E040D0] font-medium mt-1 inline-block">{activeNutPlan.meals.length} meals</span>
+              </div>
+              <button
+                onClick={() => onArchiveNutritionPlan(activeNutPlan.id)}
+                className="text-xs text-text-secondary hover:text-red-400 transition-colors cursor-pointer"
+              >
+                Archive
+              </button>
+            </div>
+
+            {/* Macro summary */}
+            {(activeNutPlan.target_calories || activeNutPlan.target_protein_g || activeNutPlan.target_carbs_g || activeNutPlan.target_fat_g) && (
+              <div className="grid grid-cols-4 gap-3 mb-4">
+                {activeNutPlan.target_calories && (
+                  <div className="bg-[rgba(0,0,0,0.02)] rounded-xl p-3 text-center">
+                    <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1">Calories</div>
+                    <div className="text-base font-heading font-bold text-text-primary">{activeNutPlan.target_calories}</div>
+                    <div className="text-[10px] text-text-muted">kcal</div>
+                  </div>
+                )}
+                {activeNutPlan.target_protein_g && (
+                  <div className="bg-blue-500/5 rounded-xl p-3 text-center">
+                    <div className="text-[10px] text-blue-400 font-semibold uppercase tracking-wider mb-1">Protein</div>
+                    <div className="text-base font-heading font-bold text-text-primary">{activeNutPlan.target_protein_g}</div>
+                    <div className="text-[10px] text-text-muted">g</div>
+                  </div>
+                )}
+                {activeNutPlan.target_carbs_g && (
+                  <div className="bg-[#E040D0]/5 rounded-xl p-3 text-center">
+                    <div className="text-[10px] text-[#E040D0] font-semibold uppercase tracking-wider mb-1">Carbs</div>
+                    <div className="text-base font-heading font-bold text-text-primary">{activeNutPlan.target_carbs_g}</div>
+                    <div className="text-[10px] text-text-muted">g</div>
+                  </div>
+                )}
+                {activeNutPlan.target_fat_g && (
+                  <div className="bg-amber-500/5 rounded-xl p-3 text-center">
+                    <div className="text-[10px] text-amber-400 font-semibold uppercase tracking-wider mb-1">Fat</div>
+                    <div className="text-base font-heading font-bold text-text-primary">{activeNutPlan.target_fat_g}</div>
+                    <div className="text-[10px] text-text-muted">g</div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Meals list */}
+            <div className="space-y-2">
+              {activeNutPlan.meals.map((meal) => (
+                <div key={meal.id} className="bg-[rgba(0,0,0,0.02)] rounded-xl px-4 py-3 flex items-center justify-between">
+                  <span className="font-medium text-text-primary text-sm">{meal.name}</span>
+                  <span className="text-xs text-text-muted">{meal.items.length} items</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
+            <p className="text-sm text-text-muted mb-4">No nutrition plan assigned yet.</p>
+            <button
+              onClick={onShowNutritionPicker}
+              className="px-4 py-2 text-xs font-semibold text-white bg-[#E040D0] hover:bg-[#b830a8] rounded-lg transition-colors cursor-pointer"
+            >
+              Assign Nutrition Plan
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Section 2: Nutrition Logs ── */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-heading font-bold text-text-primary">Nutrition Logs</h2>
+          <select
+            value={selectedWeek}
+            onChange={(e) => setSelectedWeek(Number(e.target.value))}
+            className="text-sm text-text-primary bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#E040D0]/40 cursor-pointer"
+          >
+            {Array.from({ length: totalWeeks }, (_, i) => {
+              const wk = totalWeeks - i;
+              const { from } = getWeekRange(wk);
+              const label = new Date(from + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+              return (
+                <option key={wk} value={wk}>
+                  Week {wk} ({label})
+                </option>
+              );
+            })}
+          </select>
+        </div>
+
+        {trackingLoading ? (
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 text-center">
+            <p className="text-sm text-text-muted">Loading logs...</p>
+          </div>
+        ) : !activeNutPlan ? (
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
+            <p className="text-sm text-text-muted">Assign a nutrition plan to view logs.</p>
+          </div>
+        ) : (
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[rgba(0,0,0,0.06)]">
+                    <th className="text-left px-4 py-3 text-[10px] font-semibold text-text-muted uppercase tracking-wider">Meal</th>
+                    {weekDates.map((date) => (
+                      <th key={date} className="px-3 py-3 text-center text-[10px] font-semibold text-text-muted uppercase tracking-wider whitespace-nowrap">
+                        {new Date(date + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric" })}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeNutPlan.meals.map((meal, mealIdx) => (
+                    <tr key={meal.id} className={`border-b border-[rgba(0,0,0,0.04)] last:border-0 ${mealIdx % 2 === 0 ? "" : "bg-[rgba(0,0,0,0.01)]"}`}>
+                      <td className="px-4 py-3 font-medium text-text-primary text-sm whitespace-nowrap">{meal.name}</td>
+                      {weekDates.map((date) => {
+                        const tracked = mealTracking.find(
+                          (t) => t.meal_id === meal.id && t.tracked_date === date
+                        );
+                        return (
+                          <td key={date} className="px-3 py-3 text-center">
+                            {tracked?.completed ? (
+                              <svg className="w-4 h-4 text-emerald-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <span className="w-4 h-4 rounded-full border border-[rgba(0,0,0,0.1)] inline-block" />
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {mealTracking.length === 0 && (
+              <div className="px-4 py-4 text-center border-t border-[rgba(0,0,0,0.04)]">
+                <p className="text-xs text-text-muted">No nutrition logged for Week {selectedWeek} ({weekFrom} to {weekTo}).</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
