@@ -86,5 +86,26 @@ export async function POST(request: Request) {
     .update({ last_checkin: new Date().toISOString() })
     .eq("id", profile.id);
 
+  // Auto-sync progress metrics to body measurements table
+  if (responses) {
+    const measurement: Record<string, unknown> = {
+      client_id: profile.id,
+      measured_date: new Date().toISOString().split("T")[0],
+    };
+    let hasData = false;
+    // Map check-in metric IDs to body measurement columns
+    if (responses.weight && !isNaN(Number(responses.weight))) { measurement.weight_kg = Number(responses.weight); hasData = true; }
+    if (responses.waist && !isNaN(Number(responses.waist))) { measurement.waist_cm = Number(responses.waist); hasData = true; }
+    if (responses.chest && !isNaN(Number(responses.chest))) { measurement.chest_cm = Number(responses.chest); hasData = true; }
+    if (responses.hips && !isNaN(Number(responses.hips))) { measurement.hips_cm = Number(responses.hips); hasData = true; }
+    if (responses.left_arm && !isNaN(Number(responses.left_arm))) { measurement.left_arm_cm = Number(responses.left_arm); hasData = true; }
+    if (responses.right_arm && !isNaN(Number(responses.right_arm))) { measurement.right_arm_cm = Number(responses.right_arm); hasData = true; }
+    if (responses.left_thigh && !isNaN(Number(responses.left_thigh))) { measurement.left_thigh_cm = Number(responses.left_thigh); hasData = true; }
+    if (responses.right_thigh && !isNaN(Number(responses.right_thigh))) { measurement.right_thigh_cm = Number(responses.right_thigh); hasData = true; }
+    if (hasData) {
+      await admin.from("client_body_measurements").upsert(measurement, { onConflict: "client_id,measured_date", ignoreDuplicates: false });
+    }
+  }
+
   return NextResponse.json({ success: true, week_number: weekNumber });
 }
