@@ -22,14 +22,25 @@ export async function GET(request: Request) {
   if (!profile) return NextResponse.json({ error: "No profile found" }, { status: 404 });
 
   const { searchParams } = new URL(request.url);
-  const date = searchParams.get("date") || new Date().toISOString().split("T")[0];
+  const date = searchParams.get("date");
+  const from = searchParams.get("from");
+  const to = searchParams.get("to");
 
   const admin = createAdminClient();
-  const { data, error } = await admin
+
+  let query = admin
     .from("client_exercise_logs")
     .select("*")
-    .eq("client_id", profile.id)
-    .eq("log_date", date);
+    .eq("client_id", profile.id);
+
+  if (from && to) {
+    query = query.gte("log_date", from).lte("log_date", to);
+  } else {
+    const targetDate = date || new Date().toISOString().split("T")[0];
+    query = query.eq("log_date", targetDate);
+  }
+
+  const { data, error } = await query;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ logs: data || [] });

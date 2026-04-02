@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import type { ClientExercisePlan } from "@/lib/types";
+import type { ClientExercisePlan, ExerciseSession } from "@/lib/types";
 
 interface SetData {
   set_number: number;
@@ -20,6 +20,8 @@ interface ExerciseLog {
   notes: string | null;
 }
 
+// ---- date helpers ----
+
 function formatDate(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -27,146 +29,243 @@ function formatDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function formatDateDisplay(date: Date): string {
-  return date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+function getWeekStart(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay(); // 0=Sun
+  const diff = day === 0 ? -6 : 1 - day; // Monday anchor
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function getWeekDays(weekStart: Date): Date[] {
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
 }
 
 function isToday(date: Date): boolean {
   return date.toDateString() === new Date().toDateString();
 }
 
+function isFuture(date: Date): boolean {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return date > today;
+}
+
+function weekLabel(weekStart: Date): string {
+  const end = new Date(weekStart);
+  end.setDate(end.getDate() + 6);
+  const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+  return `${weekStart.toLocaleDateString("en-GB", opts)} - ${end.toLocaleDateString("en-GB", opts)}`;
+}
+
+const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+// ---- rotation logic ----
+
+function getNextSession(sessions: ExerciseSession[], allLogs: ExerciseLog[]): ExerciseSession {
+  const sortedLogs = allLogs
+    .filter((l) => l.session_id)
+    .sort((a, b) => b.log_date.localeCompare(a.log_date));
+
+  if (sortedLogs.length === 0) return sessions[0];
+
+  const lastSessionId = sortedLogs[0].session_id;
+  const lastIndex = sessions.findIndex((s) => s.id === lastSessionId);
+  const nextIndex = (lastIndex + 1) % sessions.length;
+  return sessions[nextIndex];
+}
+
+// ---- component ----
+
 export default function PortalExercisePlanPage() {
   const [plan, setPlan] = useState<ClientExercisePlan | null>(null);
   const [loading, setLoading] = useState(true);
-  const [expandedSession, setExpandedSession] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [logs, setLogs] = useState<ExerciseLog[]>([]);
-  const [logsLoading, setLogsLoading] = useState(false);
-  // exerciseItemId -> open log panel
-  const [openLogPanel, setOpenLogPanel] = useState<string | null>(null);
-  // exerciseItemId -> draft sets data
+  const [allLogs, setAllLogs] = useState<ExerciseLog[]>([]);
+
+  // Calendar state
+  const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  });
+
+  // Per-day session view
+  const [activeSession, setActiveSession] = useState<ExerciseSession | null>(null);
+  const [viewMode, setViewMode] = useState<"log" | "readonly">("log");
+
+  // Draft inputs: exerciseItemId -> SetData[]
   const [draftSets, setDraftSets] = useState<Record<string, SetData[]>>({});
-  const [savingLog, setSavingLog] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [savedToast, setSavedToast] = useState(false);
 
-  const dateStr = formatDate(selectedDate);
-
+  // Fetch plan once
   useEffect(() => {
     fetch("/api/portal/exercise-plan")
       .then((r) => r.json())
       .then((data) => {
-        setPlan(data.plan);
-        if (data.plan?.sessions?.length > 0) {
-          setExpandedSession(data.plan.sessions[0].id);
-        }
+        setPlan(data.plan ?? null);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
-  const fetchLogs = useCallback(() => {
-    setLogsLoading(true);
-    fetch(`/api/portal/exercise-log?date=${dateStr}`)
-      .then((r) => r.json())
-      .then((data) => setLogs(data.logs || []))
-      .catch(console.error)
-      .finally(() => setLogsLoading(false));
-  }, [dateStr]);
+  // Fetch logs for the visible week
+  const fetchWeekLogs = useCallback(
+    (ws: Date) => {
+      const from = formatDate(ws);
+      const end = new Date(ws);
+      end.setDate(end.getDate() + 6);
+      const to = formatDate(end);
+      fetch(`/api/portal/exercise-log?from=${from}&to=${to}`)
+        .then((r) => r.json())
+        .then((data) => {
+          setAllLogs((prev) => {
+            // Merge: remove old logs in this range, add new ones
+            const filtered = prev.filter((l) => l.log_date < from || l.log_date > to);
+            return [...filtered, ...(data.logs || [])];
+          });
+        })
+        .catch(console.error);
+    },
+    []
+  );
 
   useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
+    fetchWeekLogs(weekStart);
+  }, [weekStart, fetchWeekLogs]);
 
-  const navigateDate = (delta: number) => {
-    setSelectedDate((prev) => {
-      const d = new Date(prev);
-      d.setDate(d.getDate() + delta);
-      return d;
-    });
-    setOpenLogPanel(null);
-  };
+  // When selected date changes, figure out what session to show
+  useEffect(() => {
+    if (!plan?.sessions?.length) return;
 
-  const getLog = (exerciseItemId: string) =>
-    logs.find((l) => l.exercise_item_id === exerciseItemId);
+    const dateStr = formatDate(selectedDate);
+    const dayLogs = allLogs.filter((l) => l.log_date === dateStr && l.session_id);
 
-  const openLog = (exerciseItemId: string, defaultSetsCount: number) => {
-    if (openLogPanel === exerciseItemId) {
-      setOpenLogPanel(null);
-      return;
-    }
-    setOpenLogPanel(exerciseItemId);
-    const existing = getLog(exerciseItemId);
-    if (existing && existing.sets_data?.length > 0) {
-      setDraftSets((prev) => ({ ...prev, [exerciseItemId]: existing.sets_data }));
+    if (dayLogs.length > 0) {
+      // Day already has a logged session — find which session
+      const sessionId = dayLogs[0].session_id;
+      const session = plan.sessions.find((s) => s.id === sessionId) ?? plan.sessions[0];
+      setActiveSession(session);
+      setViewMode("readonly");
     } else {
-      // Pre-populate empty rows for each set
-      const rows: SetData[] = Array.from({ length: defaultSetsCount || 1 }, (_, i) => ({
+      // No log for this day — work out next session
+      const next = getNextSession(plan.sessions, allLogs);
+      setActiveSession(next);
+      setViewMode("log");
+      // Pre-populate draft sets
+      initDrafts(next);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate, allLogs, plan]);
+
+  function initDrafts(session: ExerciseSession) {
+    const drafts: Record<string, SetData[]> = {};
+    for (const item of session.items) {
+      if (item.exercise_id === "__section__") continue;
+      const setsCount = Number(item.sets) || 3;
+      drafts[item.id] = Array.from({ length: setsCount }, (_, i) => ({
         set_number: i + 1,
         weight: "",
         reps: "",
         notes: "",
       }));
-      setDraftSets((prev) => ({ ...prev, [exerciseItemId]: rows }));
     }
-  };
+    setDraftSets(drafts);
+  }
 
-  const updateSet = (exerciseItemId: string, setIdx: number, field: keyof SetData, value: string) => {
+  function updateSet(itemId: string, setIdx: number, field: keyof SetData, value: string) {
     setDraftSets((prev) => {
-      const sets = [...(prev[exerciseItemId] || [])];
+      const sets = [...(prev[itemId] || [])];
       sets[setIdx] = { ...sets[setIdx], [field]: value };
-      return { ...prev, [exerciseItemId]: sets };
+      return { ...prev, [itemId]: sets };
     });
-  };
+  }
 
-  const addSet = (exerciseItemId: string) => {
+  function addSet(itemId: string) {
     setDraftSets((prev) => {
-      const sets = prev[exerciseItemId] || [];
+      const sets = prev[itemId] || [];
       return {
         ...prev,
-        [exerciseItemId]: [
-          ...sets,
-          { set_number: sets.length + 1, weight: "", reps: "", notes: "" },
-        ],
+        [itemId]: [...sets, { set_number: sets.length + 1, weight: "", reps: "", notes: "" }],
       };
     });
-  };
+  }
 
-  const saveLog = async (exerciseItemId: string, sessionId: string) => {
-    const sets = draftSets[exerciseItemId] || [];
-    const completed = sets.some((s) => s.reps.trim() !== "");
-    setSavingLog(exerciseItemId);
+  async function saveSession() {
+    if (!activeSession) return;
+    const dateStr = formatDate(selectedDate);
+    setSaving(true);
     try {
-      const res = await fetch("/api/portal/exercise-log", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          exercise_item_id: exerciseItemId,
-          session_id: sessionId,
-          date: dateStr,
-          sets_data: sets,
-          completed,
-        }),
-      });
-      const data = await res.json();
-      if (data.log) {
-        setLogs((prev) => {
-          const filtered = prev.filter((l) => l.exercise_item_id !== exerciseItemId);
-          return [...filtered, data.log];
-        });
-        setOpenLogPanel(null);
-      }
+      const exercises = activeSession.items.filter((i) => i.exercise_id !== "__section__");
+      await Promise.all(
+        exercises.map((item) => {
+          const sets = draftSets[item.id] || [];
+          const completed = sets.some((s) => s.reps.trim() !== "");
+          return fetch("/api/portal/exercise-log", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              exercise_item_id: item.id,
+              session_id: activeSession.id,
+              date: dateStr,
+              sets_data: sets,
+              completed,
+            }),
+          }).then((r) => r.json());
+        })
+      );
+      // Refresh week logs
+      await fetchWeekLogs(weekStart);
+      setSavedToast(true);
+      setTimeout(() => setSavedToast(false), 2500);
     } catch (err) {
-      console.error("Failed to save log:", err);
+      console.error("Failed to save session:", err);
     } finally {
-      setSavingLog(null);
+      setSaving(false);
     }
-  };
+  }
+
+  // Derived
+  const weekDays = getWeekDays(weekStart);
+
+  function hasLogOnDay(date: Date): boolean {
+    const dateStr = formatDate(date);
+    return allLogs.some((l) => l.log_date === dateStr && l.completed);
+  }
+
+  function navigateWeek(delta: number) {
+    setWeekStart((prev) => {
+      const d = new Date(prev);
+      d.setDate(d.getDate() + delta * 7);
+      return d;
+    });
+  }
+
+  function selectDay(day: Date) {
+    const d = new Date(day);
+    d.setHours(0, 0, 0, 0);
+    setSelectedDate(d);
+  }
+
+  const selectedDateStr = formatDate(selectedDate);
+  const dayLogs = allLogs.filter((l) => l.log_date === selectedDateStr);
+  const isPast = !isToday(selectedDate) && !isFuture(selectedDate);
+
+  // ---- render ----
 
   if (loading) {
     return (
       <div className="p-6">
         <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-[rgba(0,0,0,0.06)] dark:bg-[rgba(255,255,255,0.06)] rounded-xl w-48" />
-          <div className="h-64 bg-[rgba(0,0,0,0.06)] dark:bg-[rgba(255,255,255,0.06)] rounded-2xl" />
+          <div className="h-8 bg-[rgba(0,0,0,0.06)] rounded-xl w-48" />
+          <div className="h-32 bg-[rgba(0,0,0,0.06)] rounded-2xl" />
+          <div className="h-64 bg-[rgba(0,0,0,0.06)] rounded-2xl" />
         </div>
       </div>
     );
@@ -176,399 +275,343 @@ export default function PortalExercisePlanPage() {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold text-text-primary mb-4">My Training Plan</h1>
-        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] rounded-2xl p-8 text-center">
-          <svg className="w-16 h-16 mx-auto mb-4 text-text-secondary/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-10 text-center">
+          <svg className="w-16 h-16 mx-auto mb-4 text-text-secondary/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
           </svg>
-          <p className="text-text-secondary text-lg">No exercise plan assigned yet.</p>
-          <p className="text-text-secondary/60 mt-2">Your coach will set one up for you soon.</p>
+          <p className="text-text-secondary text-lg font-medium">No workout plan assigned yet</p>
+          <p className="text-text-secondary/60 mt-1 text-sm">Your coach will set one up for you soon.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-3xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
+    <div className="p-4 sm:p-6 max-w-2xl mx-auto relative">
+      {/* Toast */}
+      {savedToast && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-[#E040D0] text-white px-5 py-2.5 rounded-xl font-semibold shadow-lg text-sm">
+          Session saved!
+        </div>
+      )}
+
+      {/* Page header */}
+      <div className="mb-5">
         <h1 className="text-2xl font-bold text-text-primary">{plan.name}</h1>
         {plan.description && (
-          <p className="text-text-secondary mt-1 text-base">{plan.description}</p>
+          <p className="text-text-secondary mt-1 text-sm">{plan.description}</p>
         )}
-        <div className="flex gap-3 mt-3 flex-wrap">
-          <span className="text-sm px-3 py-1.5 rounded-full bg-accent-bright/15 text-accent-bright font-semibold">
-            {plan.sessions.length} {plan.sessions.length === 1 ? "session" : "sessions"}
-          </span>
-          {plan.start_date && (
-            <span className="text-sm px-3 py-1.5 rounded-full bg-[rgba(0,0,0,0.04)] dark:bg-[rgba(255,255,255,0.06)] text-text-secondary font-medium">
-              Started {new Date(plan.start_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-            </span>
-          )}
-        </div>
       </div>
 
-      {/* Date Navigator for logging */}
-      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] rounded-2xl p-3 mb-6 flex items-center justify-between">
-        <button
-          onClick={() => navigateDate(-1)}
-          className="p-2 rounded-xl hover:bg-[rgba(0,0,0,0.04)] dark:hover:bg-[rgba(255,255,255,0.04)] transition-colors"
-        >
-          <svg className="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <div className="text-center">
-          <p className="text-sm font-semibold text-text-primary">
-            {isToday(selectedDate) ? "Today" : formatDateDisplay(selectedDate)}
-          </p>
-          <p className="text-xs text-text-secondary mt-0.5">
-            {isToday(selectedDate) ? formatDateDisplay(selectedDate) : ""}
-          </p>
-          {!isToday(selectedDate) && (
-            <button onClick={() => setSelectedDate(new Date())} className="text-xs text-accent-bright hover:underline">
-              Back to today
-            </button>
-          )}
+      {/* ---- Week Calendar Strip ---- */}
+      <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 mb-5">
+        {/* Week nav */}
+        <div className="flex items-center justify-between mb-3">
+          <button
+            onClick={() => navigateWeek(-1)}
+            className="p-1.5 rounded-lg hover:bg-[rgba(0,0,0,0.05)] transition-colors cursor-pointer"
+            aria-label="Previous week"
+          >
+            <svg className="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <span className="text-xs font-semibold text-text-secondary">{weekLabel(weekStart)}</span>
+          <button
+            onClick={() => navigateWeek(1)}
+            className="p-1.5 rounded-lg hover:bg-[rgba(0,0,0,0.05)] transition-colors cursor-pointer"
+            aria-label="Next week"
+          >
+            <svg className="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
-        <button
-          onClick={() => navigateDate(1)}
-          className="p-2 rounded-xl hover:bg-[rgba(0,0,0,0.04)] dark:hover:bg-[rgba(255,255,255,0.04)] transition-colors"
-        >
-          <svg className="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-      </div>
 
-      {/* Session Cards */}
-      <div className="space-y-4">
-        {plan.sessions.map((session) => {
-          const isExpanded = expandedSession === session.id;
-          // Count logged exercises for this session on selected date
-          const sessionExerciseIds = session.items
-            .filter((i) => i.exercise_id !== "__section__")
-            .map((i) => i.id);
-          const loggedCount = sessionExerciseIds.filter((id) => {
-            const log = getLog(id);
-            return log?.completed;
-          }).length;
-          const hasAnyLog = sessionExerciseIds.some((id) => getLog(id));
+        {/* Day buttons */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+          {weekDays.map((day, i) => {
+            const isSelected = formatDate(day) === selectedDateStr;
+            const todayDay = isToday(day);
+            const hasLog = hasLogOnDay(day);
 
-          return (
-            <div
-              key={session.id}
-              className="bg-bg-card/90 backdrop-blur-sm border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.08)] rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-            >
-              {/* Session header */}
+            return (
               <button
-                onClick={() => setExpandedSession(isExpanded ? null : session.id)}
-                className="w-full flex items-center justify-between p-5 text-left hover:bg-[rgba(0,0,0,0.02)] dark:hover:bg-[rgba(255,255,255,0.02)] transition-colors"
+                key={i}
+                onClick={() => selectDay(day)}
+                className={`flex flex-col items-center justify-center flex-1 min-w-[40px] py-2.5 px-1 rounded-xl transition-all cursor-pointer relative
+                  ${todayDay
+                    ? "bg-[#E040D0] text-white"
+                    : isSelected
+                    ? "border-2 border-[#E040D0] text-text-primary bg-[rgba(224,64,208,0.06)]"
+                    : "hover:bg-[rgba(0,0,0,0.04)] text-text-secondary border-2 border-transparent"
+                  }`}
               >
-                <div className="flex items-center gap-4">
-                  <span className="w-10 h-10 rounded-xl bg-accent-bright/15 text-accent-bright font-bold text-base flex items-center justify-center flex-shrink-0">
-                    {session.day_number}
-                  </span>
-                  <div>
-                    <h3 className="font-bold text-text-primary text-base">{session.name}</h3>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <p className="text-sm text-text-secondary">
-                        {session.items.filter(i => i.exercise_id !== "__section__").length} exercises
-                      </p>
-                      {hasAnyLog && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 font-semibold">
-                          {loggedCount}/{sessionExerciseIds.length} logged
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {hasAnyLog && loggedCount === sessionExerciseIds.length && sessionExerciseIds.length > 0 && (
-                    <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  )}
-                  <svg
-                    className={`w-5 h-5 text-text-secondary transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
+                <span className="text-[10px] font-semibold uppercase tracking-wide mb-0.5">
+                  {DAY_NAMES[i]}
+                </span>
+                <span className="text-sm font-bold leading-none">{day.getDate()}</span>
+                {/* Dot indicator */}
+                <div className={`mt-1.5 w-1.5 h-1.5 rounded-full transition-all ${hasLog ? "bg-[#E040D0] opacity-100" : "opacity-0"} ${todayDay ? "bg-white" : ""}`} />
               </button>
+            );
+          })}
+        </div>
+      </div>
 
-              {/* Session notes */}
-              {isExpanded && session.notes && (
-                <div className="mx-4 mb-3 px-4 py-3 bg-accent-bright/8 border border-accent-bright/15 rounded-xl text-sm text-text-secondary italic">
-                  {session.notes}
-                </div>
-              )}
+      {/* ---- Selected Day Content ---- */}
+      {activeSession && (
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
+          {/* Session header */}
+          <div className="p-5 border-b border-[rgba(0,0,0,0.06)]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold text-[#E040D0] uppercase tracking-wider mb-1">
+                  {isToday(selectedDate)
+                    ? "Today"
+                    : selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}
+                </p>
+                <h2 className="text-xl font-bold text-text-primary">{activeSession.name}</h2>
+                {activeSession.notes && (
+                  <p className="text-sm text-text-secondary mt-1 italic">{activeSession.notes}</p>
+                )}
+              </div>
+              <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                <span className="text-xs px-3 py-1 rounded-full bg-[rgba(224,64,208,0.12)] text-[#E040D0] font-semibold">
+                  {activeSession.items.filter((i) => i.exercise_id !== "__section__").length} exercises
+                </span>
+                {/* Toggle between log and readonly for past days */}
+                {isPast && viewMode === "readonly" && (
+                  <button
+                    onClick={() => {
+                      setViewMode("log");
+                      initDrafts(activeSession);
+                    }}
+                    className="text-xs text-text-secondary hover:text-text-primary underline cursor-pointer"
+                  >
+                    Edit
+                  </button>
+                )}
+                {isPast && viewMode === "log" && dayLogs.length > 0 && (
+                  <button
+                    onClick={() => setViewMode("readonly")}
+                    className="text-xs text-text-secondary hover:text-text-primary underline cursor-pointer"
+                  >
+                    View logged
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
 
-              {/* Exercise list */}
-              {isExpanded && (
-                <div className="border-t border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] divide-y divide-[rgba(0,0,0,0.04)] dark:divide-[rgba(255,255,255,0.04)]">
-                  {session.items.map((item, idx) => {
-                    // Section divider
-                    if (item.exercise_id === "__section__") {
-                      return (
-                        <div key={item.id} className="flex items-center gap-3 px-5 pt-5 pb-2">
-                          <div className="w-1 h-5 rounded-full bg-accent-bright flex-shrink-0" />
-                          <span className="text-sm font-bold text-text-primary uppercase tracking-wider">
-                            {item.section_label || "Section"}
+          {/* Past day — no log */}
+          {isPast && dayLogs.length === 0 && viewMode === "log" && (
+            <div className="px-5 pt-4">
+              <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-[rgba(0,0,0,0.03)] rounded-xl">
+                <svg className="w-4 h-4 text-text-secondary/60 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm text-text-secondary">Logging retroactively for this date</p>
+              </div>
+            </div>
+          )}
+
+          {/* Readonly view (logged session) */}
+          {viewMode === "readonly" && dayLogs.length > 0 && (
+            <div className="divide-y divide-[rgba(0,0,0,0.04)]">
+              {activeSession.items.map((item) => {
+                if (item.exercise_id === "__section__") {
+                  return (
+                    <div key={item.id} className="flex items-center gap-3 px-5 pt-5 pb-2">
+                      <div className="w-1 h-4 rounded-full bg-[#E040D0]" />
+                      <span className="text-xs font-bold text-text-primary uppercase tracking-wider">
+                        {item.section_label || "Section"}
+                      </span>
+                    </div>
+                  );
+                }
+                const log = dayLogs.find((l) => l.exercise_item_id === item.id);
+                return (
+                  <div key={item.id} className="px-5 py-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-text-primary text-sm">{item.exercise?.name || "Unknown"}</p>
+                        {item.exercise?.muscle_group && (
+                          <p className="text-xs text-text-secondary mt-0.5 capitalize">{item.exercise.muscle_group}</p>
+                        )}
+                      </div>
+                      <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-[rgba(224,64,208,0.10)] text-[#E040D0] flex-shrink-0">
+                        {item.sets} x {item.reps}
+                      </span>
+                    </div>
+                    {(log?.sets_data?.length ?? 0) > 0 && (
+                      <div className="mt-2.5 flex flex-wrap gap-2">
+                        {(log?.sets_data ?? []).map((s, i) => (
+                          <span
+                            key={i}
+                            className="text-xs px-2.5 py-1 rounded-lg bg-[rgba(0,0,0,0.04)] text-text-secondary font-medium"
+                          >
+                            {s.weight ? `${s.weight}kg` : "--"} x {s.reps || "--"}
                           </span>
-                          <div className="flex-1 border-t border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)]" />
-                        </div>
-                      );
-                    }
+                        ))}
+                      </div>
+                    )}
+                    {!log && (
+                      <p className="text-xs text-text-secondary/50 mt-1">Not logged</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
-                    const exercise = item.exercise;
-                    const nextItem = session.items[idx + 1];
-                    const inSuperset = !!item.superset_group;
-                    const isLastInSuperset = inSuperset && (!nextItem || nextItem.superset_group !== item.superset_group);
-                    const exerciseNumber = session.items.slice(0, idx).filter(i => i.exercise_id !== "__section__").length + 1;
-                    const log = getLog(item.id);
-                    const isLogged = log?.completed;
-                    const isLogOpen = openLogPanel === item.id;
-                    const isSaving = savingLog === item.id;
+          {/* Past day, no logs, no session found */}
+          {isPast && dayLogs.length === 0 && viewMode === "readonly" && (
+            <div className="px-5 py-10 text-center">
+              <p className="text-text-secondary text-sm">No session logged for this day.</p>
+              <button
+                onClick={() => {
+                  setViewMode("log");
+                  initDrafts(activeSession);
+                }}
+                className="mt-3 text-sm text-[#E040D0] hover:underline font-semibold cursor-pointer"
+              >
+                Log a session retroactively
+              </button>
+            </div>
+          )}
 
-                    return (
-                      <div key={item.id} className={`${inSuperset ? "border-l-4 border-accent-bright/40 ml-5" : ""} ${isLastInSuperset ? "mb-1" : ""}`}>
-                        <div className={`px-5 py-4 ${isLogged ? "bg-emerald-500/5" : ""}`}>
-                          {/* Exercise header row */}
-                          <div className="flex items-start gap-3">
-                            {/* Number or check */}
-                            <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 font-bold text-sm transition-all ${
-                              isLogged
-                                ? "bg-emerald-500 text-white"
-                                : "bg-[rgba(0,0,0,0.05)] dark:bg-[rgba(255,255,255,0.08)] text-text-secondary"
-                            }`}>
-                              {isLogged ? (
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                              ) : exerciseNumber}
-                            </div>
+          {/* Log form (today, future, or retroactive) */}
+          {viewMode === "log" && (
+            <div className="divide-y divide-[rgba(0,0,0,0.04)]">
+              {activeSession.items.map((item) => {
+                if (item.exercise_id === "__section__") {
+                  return (
+                    <div key={item.id} className="flex items-center gap-3 px-5 pt-5 pb-2">
+                      <div className="w-1 h-4 rounded-full bg-[#E040D0]" />
+                      <span className="text-xs font-bold text-text-primary uppercase tracking-wider">
+                        {item.section_label || "Section"}
+                      </span>
+                    </div>
+                  );
+                }
 
-                            <div className="flex-1 min-w-0">
-                              {/* Exercise name row */}
-                              <div className="flex items-start justify-between gap-2 flex-wrap">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <h4 className="font-bold text-text-primary text-base leading-tight">
-                                    {exercise?.name || "Unknown Exercise"}
-                                  </h4>
-                                  {inSuperset && (
-                                    <span className="text-xs font-bold text-accent-bright bg-accent-bright/12 px-2 py-0.5 rounded-full flex-shrink-0">
-                                      Superset
-                                    </span>
-                                  )}
-                                </div>
-                                {/* Sets x Reps badge - prominent */}
-                                <span className="text-sm font-bold px-3 py-1 rounded-xl bg-accent-bright/15 text-accent-bright flex-shrink-0">
-                                  {item.sets} x {item.reps}
-                                </span>
-                              </div>
+                const sets = draftSets[item.id] || [];
 
-                              {/* Meta badges row */}
-                              <div className="flex flex-wrap gap-2 mt-2">
-                                {item.rest_seconds && (
-                                  <span className="text-xs px-2.5 py-1 rounded-lg bg-[rgba(0,0,0,0.05)] dark:bg-[rgba(255,255,255,0.07)] text-text-secondary font-medium">
-                                    {item.rest_seconds}s rest
-                                  </span>
-                                )}
-                                {item.tempo && (
-                                  <span className="text-xs px-2.5 py-1 rounded-lg bg-[rgba(0,0,0,0.05)] dark:bg-[rgba(255,255,255,0.07)] text-text-secondary font-medium">
-                                    Tempo: {item.tempo}
-                                  </span>
-                                )}
-                                {exercise?.muscle_group && (
-                                  <span className="text-xs px-2.5 py-1 rounded-lg bg-[rgba(0,0,0,0.04)] dark:bg-[rgba(255,255,255,0.05)] text-text-secondary capitalize font-medium border border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.06)]">
-                                    {exercise.muscle_group}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Coach notes */}
-                              {item.notes && (
-                                <p className="text-sm text-text-secondary mt-2 italic">
-                                  {item.notes}
-                                </p>
-                              )}
-
-                              {/* Action row: demo link + log button */}
-                              <div className="flex items-center gap-2 mt-3">
-                                {exercise && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const url = exercise.video_url || `https://musclewiki.com/exercises?search=${encodeURIComponent(exercise.name)}`;
-                                      window.open(url, "_blank", "noopener");
-                                    }}
-                                    className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-xl border border-accent-bright/30 text-accent-bright hover:bg-accent-bright/10 transition-colors font-medium"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    Demo
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => openLog(item.id, Number(item.sets) || 3)}
-                                  className={`inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-xl font-semibold transition-colors ${
-                                    isLogged
-                                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/20"
-                                      : "bg-[rgba(0,0,0,0.05)] dark:bg-[rgba(255,255,255,0.07)] text-text-secondary hover:bg-[rgba(0,0,0,0.08)] dark:hover:bg-[rgba(255,255,255,0.10)] border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.08)]"
-                                  }`}
-                                >
-                                  {isLogged ? (
-                                    <>
-                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                      </svg>
-                                      Logged
-                                    </>
-                                  ) : (
-                                    <>
-                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                                      </svg>
-                                      Log
-                                    </>
-                                  )}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Log Panel */}
-                          {isLogOpen && (
-                            <div className="mt-4 ml-10 bg-[rgba(0,0,0,0.03)] dark:bg-[rgba(255,255,255,0.04)] border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.07)] rounded-xl p-4">
-                              <div className="flex items-center justify-between mb-3">
-                                <h5 className="text-sm font-bold text-text-primary">Log Sets</h5>
-                                <span className="text-xs text-text-secondary">
-                                  {isToday(selectedDate) ? "Today" : formatDateDisplay(selectedDate)}
-                                </span>
-                              </div>
-
-                              {/* Sets table */}
-                              <div className="space-y-2 mb-3">
-                                {/* Header */}
-                                <div className="grid grid-cols-[32px_1fr_1fr_1fr] gap-2 px-1">
-                                  <span className="text-xs text-text-secondary font-medium text-center">#</span>
-                                  <span className="text-xs text-text-secondary font-medium">Weight</span>
-                                  <span className="text-xs text-text-secondary font-medium">Reps</span>
-                                  <span className="text-xs text-text-secondary font-medium">Notes</span>
-                                </div>
-                                {(draftSets[item.id] || []).map((set, setIdx) => (
-                                  <div key={setIdx} className="grid grid-cols-[32px_1fr_1fr_1fr] gap-2 items-center">
-                                    <span className="text-xs text-text-secondary font-semibold text-center">{set.set_number}</span>
-                                    <input
-                                      type="text"
-                                      inputMode="decimal"
-                                      placeholder="kg"
-                                      value={set.weight}
-                                      onChange={(e) => updateSet(item.id, setIdx, "weight", e.target.value)}
-                                      className="w-full px-2 py-1.5 text-sm bg-bg-card border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.1)] rounded-lg text-text-primary placeholder:text-text-secondary/40 focus:outline-none focus:border-accent-bright/50"
-                                    />
-                                    <input
-                                      type="text"
-                                      inputMode="numeric"
-                                      placeholder={item.reps}
-                                      value={set.reps}
-                                      onChange={(e) => updateSet(item.id, setIdx, "reps", e.target.value)}
-                                      className="w-full px-2 py-1.5 text-sm bg-bg-card border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.1)] rounded-lg text-text-primary placeholder:text-text-secondary/40 focus:outline-none focus:border-accent-bright/50"
-                                    />
-                                    <input
-                                      type="text"
-                                      placeholder="note"
-                                      value={set.notes}
-                                      onChange={(e) => updateSet(item.id, setIdx, "notes", e.target.value)}
-                                      className="w-full px-2 py-1.5 text-sm bg-bg-card border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.1)] rounded-lg text-text-primary placeholder:text-text-secondary/40 focus:outline-none focus:border-accent-bright/50"
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => addSet(item.id)}
-                                  className="text-xs px-3 py-1.5 rounded-lg border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.1)] text-text-secondary hover:text-text-primary transition-colors"
-                                >
-                                  + Add set
-                                </button>
-                                <button
-                                  onClick={() => saveLog(item.id, session.id)}
-                                  disabled={isSaving}
-                                  className="flex-1 text-sm px-4 py-1.5 rounded-lg bg-accent-bright text-black font-bold hover:bg-accent-bright/90 transition-colors disabled:opacity-50"
-                                >
-                                  {isSaving ? "Saving..." : "Save"}
-                                </button>
-                                <button
-                                  onClick={() => setOpenLogPanel(null)}
-                                  className="text-xs px-3 py-1.5 rounded-lg text-text-secondary hover:text-text-primary transition-colors"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-
-                              {/* Show previously logged data if exists */}
-                              {log && log.sets_data?.length > 0 && !draftSets[item.id]?.some(s => s.reps || s.weight) && (
-                                <div className="mt-3 pt-3 border-t border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)]">
-                                  <p className="text-xs text-text-secondary mb-1 font-medium">Previously logged:</p>
-                                  {log.sets_data.map((s, i) => (
-                                    <span key={i} className="text-xs text-text-secondary mr-3">
-                                      Set {s.set_number}: {s.weight && `${s.weight}kg`} {s.reps && `x ${s.reps}`}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
+                return (
+                  <div key={item.id} className="px-5 py-4">
+                    {/* Exercise header */}
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <div>
+                        <p className="font-bold text-text-primary">{item.exercise?.name || "Unknown"}</p>
+                        {item.exercise?.muscle_group && (
+                          <p className="text-xs text-text-secondary mt-0.5 capitalize">{item.exercise.muscle_group}</p>
+                        )}
+                        {item.notes && (
+                          <p className="text-xs text-text-secondary/70 mt-1 italic">{item.notes}</p>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-[rgba(224,64,208,0.10)] text-[#E040D0]">
+                          {item.sets} x {item.reps}
+                        </span>
+                        <div className="flex gap-1.5">
+                          {item.rest_seconds && (
+                            <span className="text-xs px-2 py-0.5 rounded-md bg-[rgba(0,0,0,0.04)] text-text-secondary font-medium">
+                              {item.rest_seconds}s rest
+                            </span>
+                          )}
+                          {item.tempo && (
+                            <span className="text-xs px-2 py-0.5 rounded-md bg-[rgba(0,0,0,0.04)] text-text-secondary font-medium">
+                              {item.tempo}
+                            </span>
                           )}
                         </div>
                       </div>
-                    );
-                  })}
+                    </div>
 
-                  {/* Session log summary */}
-                  {session.items.filter(i => i.exercise_id !== "__section__").length > 0 && (
-                    <div className="px-5 py-3 bg-[rgba(0,0,0,0.02)] dark:bg-[rgba(255,255,255,0.02)] flex items-center justify-between">
-                      <span className="text-sm text-text-secondary">
-                        Session progress
-                      </span>
-                      <div className="flex items-center gap-3">
-                        <div className="flex gap-1">
-                          {session.items.filter(i => i.exercise_id !== "__section__").map((item) => {
-                            const log = getLog(item.id);
-                            return (
-                              <div
-                                key={item.id}
-                                className={`w-2 h-2 rounded-full ${log?.completed ? "bg-emerald-500" : "bg-[rgba(0,0,0,0.1)] dark:bg-[rgba(255,255,255,0.12)]"}`}
-                              />
-                            );
-                          })}
-                        </div>
-                        <span className="text-sm font-semibold text-text-primary">
-                          {loggedCount}/{sessionExerciseIds.length}
-                        </span>
+                    {/* Demo link */}
+                    {item.exercise && (
+                      <button
+                        onClick={() => {
+                          const url =
+                            item.exercise?.video_url ||
+                            `https://musclewiki.com/exercises?search=${encodeURIComponent(item.exercise?.name ?? "")}`;
+                          window.open(url, "_blank", "noopener");
+                        }}
+                        className="inline-flex items-center gap-1 text-xs text-[#E040D0] border border-[rgba(224,64,208,0.25)] px-2.5 py-1 rounded-lg hover:bg-[rgba(224,64,208,0.08)] transition-colors cursor-pointer mb-3"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Demo
+                      </button>
+                    )}
+
+                    {/* Sets input grid */}
+                    <div className="space-y-1.5">
+                      <div className="grid grid-cols-[28px_1fr_1fr_1fr] gap-2 px-1">
+                        <span className="text-[10px] text-text-secondary font-medium text-center">#</span>
+                        <span className="text-[10px] text-text-secondary font-medium">Weight (kg)</span>
+                        <span className="text-[10px] text-text-secondary font-medium">Reps</span>
+                        <span className="text-[10px] text-text-secondary font-medium">Notes</span>
                       </div>
+                      {sets.map((set, setIdx) => (
+                        <div key={setIdx} className="grid grid-cols-[28px_1fr_1fr_1fr] gap-2 items-center">
+                          <span className="text-xs text-text-secondary font-semibold text-center">{set.set_number}</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="kg"
+                            value={set.weight}
+                            onChange={(e) => updateSet(item.id, setIdx, "weight", e.target.value)}
+                            className="w-full px-2 py-1.5 text-sm bg-[rgba(0,0,0,0.03)] border border-[rgba(0,0,0,0.07)] rounded-lg text-text-primary placeholder:text-text-secondary/40 focus:outline-none focus:border-[#E040D0]/50 transition-colors"
+                          />
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder={item.reps}
+                            value={set.reps}
+                            onChange={(e) => updateSet(item.id, setIdx, "reps", e.target.value)}
+                            className="w-full px-2 py-1.5 text-sm bg-[rgba(0,0,0,0.03)] border border-[rgba(0,0,0,0.07)] rounded-lg text-text-primary placeholder:text-text-secondary/40 focus:outline-none focus:border-[#E040D0]/50 transition-colors"
+                          />
+                          <input
+                            type="text"
+                            placeholder="note"
+                            value={set.notes}
+                            onChange={(e) => updateSet(item.id, setIdx, "notes", e.target.value)}
+                            className="w-full px-2 py-1.5 text-sm bg-[rgba(0,0,0,0.03)] border border-[rgba(0,0,0,0.07)] rounded-lg text-text-primary placeholder:text-text-secondary/40 focus:outline-none focus:border-[#E040D0]/50 transition-colors"
+                          />
+                        </div>
+                      ))}
                     </div>
-                  )}
 
-                  {session.items.length === 0 && (
-                    <div className="px-5 py-6 text-center text-text-secondary text-sm">
-                      No exercises in this session yet.
-                    </div>
-                  )}
-                </div>
-              )}
+                    <button
+                      onClick={() => addSet(item.id)}
+                      className="mt-2 text-xs text-text-secondary hover:text-text-primary border border-[rgba(0,0,0,0.07)] px-3 py-1 rounded-lg transition-colors cursor-pointer"
+                    >
+                      + Add set
+                    </button>
+                  </div>
+                );
+              })}
+
+              {/* Save button */}
+              <div className="p-5">
+                <button
+                  onClick={saveSession}
+                  disabled={saving}
+                  className="w-full py-3 rounded-xl font-semibold text-white text-sm transition-all cursor-pointer disabled:opacity-60"
+                  style={{ background: "linear-gradient(135deg, #E040D0 0%, #b020a0 100%)" }}
+                >
+                  {saving ? "Saving..." : "Save Session"}
+                </button>
+              </div>
             </div>
-          );
-        })}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
