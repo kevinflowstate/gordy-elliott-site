@@ -146,8 +146,14 @@
   "hotPaths": [
     {
       "path": "app/admin/clients/[id]/page.tsx",
-      "accessCount": 166,
-      "lastAccessed": 1775133862796,
+      "accessCount": 168,
+      "lastAccessed": 1775134142936,
+      "type": "file"
+    },
+    {
+      "path": "app/portal/page.tsx",
+      "accessCount": 54,
+      "lastAccessed": 1775134382636,
       "type": "file"
     },
     {
@@ -157,21 +163,15 @@
       "type": "file"
     },
     {
-      "path": "app/portal/page.tsx",
-      "accessCount": 34,
-      "lastAccessed": 1775132155297,
-      "type": "file"
-    },
-    {
       "path": "lib/types.ts",
-      "accessCount": 29,
-      "lastAccessed": 1775133558283,
+      "accessCount": 30,
+      "lastAccessed": 1775134013606,
       "type": "file"
     },
     {
       "path": "",
-      "accessCount": 21,
-      "lastAccessed": 1775133554154,
+      "accessCount": 29,
+      "lastAccessed": 1775134320110,
       "type": "directory"
     },
     {
@@ -199,6 +199,12 @@
       "type": "file"
     },
     {
+      "path": "components/portal/Sidebar.tsx",
+      "accessCount": 13,
+      "lastAccessed": 1775134292474,
+      "type": "file"
+    },
+    {
       "path": "components/admin/ExerciseTemplateBuilder.tsx",
       "accessCount": 12,
       "lastAccessed": 1775046464749,
@@ -217,12 +223,6 @@
       "type": "file"
     },
     {
-      "path": "components/portal/Sidebar.tsx",
-      "accessCount": 10,
-      "lastAccessed": 1775132078219,
-      "type": "file"
-    },
-    {
       "path": "app/portal/nutrition-plan/page.tsx",
       "accessCount": 9,
       "lastAccessed": 1775043306807,
@@ -232,6 +232,12 @@
       "path": "app/admin/clients/page.tsx",
       "accessCount": 9,
       "lastAccessed": 1775132971228,
+      "type": "file"
+    },
+    {
+      "path": "app/api/portal/dashboard/route.ts",
+      "accessCount": 8,
+      "lastAccessed": 1775134286361,
       "type": "file"
     },
     {
@@ -250,12 +256,6 @@
       "path": "app/portal/settings/page.tsx",
       "accessCount": 6,
       "lastAccessed": 1775043788999,
-      "type": "file"
-    },
-    {
-      "path": "app/api/portal/dashboard/route.ts",
-      "accessCount": 6,
-      "lastAccessed": 1775131860481,
       "type": "file"
     },
     {

@@ -172,6 +172,7 @@ export default function PortalDashboard() {
           latestReply={checkins.find((c) => c.admin_reply)}
           planPct={planPct}
           currentTime={currentTime}
+          tier={profile?.tier}
         />
       )}
 
@@ -326,8 +327,8 @@ export default function PortalDashboard() {
         phases={planPhases}
       />
 
-      {/* Split columns: Training Plan Progress (left) + Check-ins (right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Split columns: Training Plan Progress (left) + Check-ins (right, coached only) */}
+      <div className={`grid grid-cols-1 ${profile?.tier !== 'ai_only' ? 'lg:grid-cols-2' : ''} gap-6`}>
         {/* Training Plan Summary */}
         <div className="group relative bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:border-[rgba(0,0,0,0.08)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
           <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
@@ -369,8 +370,8 @@ export default function PortalDashboard() {
           )}
         </div>
 
-        {/* Check-ins */}
-        <div className="group relative bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:border-[rgba(0,0,0,0.08)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
+        {/* Check-ins - coached tier only */}
+        {profile?.tier !== 'ai_only' && <div className="group relative bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:border-[rgba(0,0,0,0.08)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
           <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
           <div className="flex items-center justify-between mb-4 relative z-10">
             <h2 className="text-lg font-heading font-bold text-text-primary">Check-Ins</h2>
@@ -444,7 +445,7 @@ export default function PortalDashboard() {
               })}
             </div>
           )}
-        </div>
+        </div>}
       </div>
       </>
       )}
@@ -500,6 +501,7 @@ function BriefingBanner({
   latestReply,
   planPct,
   currentTime,
+  tier,
 }: {
   isCheckinToday: boolean;
   nextCheckinDate: Date;
@@ -508,21 +510,24 @@ function BriefingBanner({
   latestReply?: CheckIn;
   planPct: number;
   currentTime: number;
+  tier?: string;
 }) {
   const items: { icon: string; text: string; href?: string; accent?: boolean }[] = [];
 
-  if (isCheckinToday) {
-    items.push({ icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4", text: "Your weekly check-in is due today", href: "/portal/checkin", accent: true });
-  } else {
-    const dayStr = nextCheckinDate.toLocaleDateString("en-GB", { weekday: "long" });
-    items.push({ icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", text: `Next check-in: ${dayStr}` });
+  if (tier !== 'ai_only') {
+    if (isCheckinToday) {
+      items.push({ icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4", text: "Your weekly check-in is due today", href: "/portal/checkin", accent: true });
+    } else {
+      const dayStr = nextCheckinDate.toLocaleDateString("en-GB", { weekday: "long" });
+      items.push({ icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", text: `Next check-in: ${dayStr}` });
+    }
   }
 
   if (uncompletedModules > 0) {
     items.push({ icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253", text: `${uncompletedModules} training module${uncompletedModules > 1 ? "s" : ""} available`, href: "/portal/training" });
   }
 
-  if (latestReply?.admin_reply && latestReply.replied_at) {
+  if (tier !== 'ai_only' && latestReply?.admin_reply && latestReply.replied_at) {
     const replyDate = new Date(latestReply.replied_at);
     const daysDiff = Math.floor((currentTime - replyDate.getTime()) / (1000 * 60 * 60 * 24));
     if (daysDiff <= 3) {
