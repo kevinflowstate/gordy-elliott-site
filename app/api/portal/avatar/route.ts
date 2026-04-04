@@ -24,6 +24,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "File too large. Maximum 2MB." }, { status: 400 });
   }
 
+  const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
+    return NextResponse.json({ error: `File type not allowed: ${file.type}` }, { status: 400 });
+  }
+
   const ext = file.name.split(".").pop() || "jpg";
   const filePath = `${userId}.${ext}`;
 

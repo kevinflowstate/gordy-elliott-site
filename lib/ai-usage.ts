@@ -69,6 +69,7 @@ export async function trackAIUsage({
     remainingCredits = rpcResult;
   } else {
     // Fallback: read-then-write (non-atomic, acceptable for low concurrency)
+    // Prefer deploying the deduct_ai_credits RPC (see supabase/migration-audit-fixes.sql)
     const { data: profile } = await admin
       .from("client_profiles")
       .select("ai_credits")

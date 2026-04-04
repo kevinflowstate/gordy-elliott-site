@@ -13,7 +13,7 @@ export async function sendPushToUser(
   }
 
   webpush.setVapidDetails(
-    "mailto:marc@marcwatters.com",
+    "mailto:kevin.flowstate@gmail.com",
     vapidPublicKey,
     vapidPrivateKey
   );

@@ -7,6 +7,9 @@ const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", 
 
 export async function GET(request: Request) {
   // Verify cron secret to prevent unauthorized calls
+  if (!process.env.CRON_SECRET) {
+    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
+  }
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

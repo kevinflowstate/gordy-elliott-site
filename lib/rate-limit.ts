@@ -1,3 +1,4 @@
+// In-memory rate limiter -- state does not persist across Vercel serverless instances.
 interface RateLimitEntry {
   count: number;
   resetAt: number;

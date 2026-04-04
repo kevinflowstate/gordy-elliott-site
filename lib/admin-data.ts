@@ -61,6 +61,70 @@ function computeStatus(lastLogin: string | null, lastCheckin: string | null, cre
   return "green";
 }
 
+interface RawPhase { id: string; plan_id: string; name: string; notes: string; order_index: number }
+interface RawItem { id: string; phase_id: string; title: string; completed: boolean; completed_at: string | null }
+interface RawLink { phase_id: string; content_id: string }
+interface RawPlan { id: string; client_id: string; summary: string; status: string; created_at: string; completed_at: string | null; discovery_answers?: Record<string, unknown> }
+
+function buildPlanTree(
+  plans: RawPlan[],
+  phases: RawPhase[],
+  items: RawItem[],
+  links: RawLink[],
+): Map<string, TrainingPlan[]> {
+  const itemsByPhase = new Map<string, TrainingPlanItem[]>();
+  for (const item of items) {
+    const list = itemsByPhase.get(item.phase_id) || [];
+    list.push({
+      id: item.id,
+      category: "",
+      title: item.title,
+      completed: item.completed,
+      completed_at: item.completed_at ?? undefined,
+    });
+    itemsByPhase.set(item.phase_id, list);
+  }
+
+  const linksByPhase = new Map<string, string[]>();
+  for (const link of links) {
+    const list = linksByPhase.get(link.phase_id) || [];
+    list.push(link.content_id);
+    linksByPhase.set(link.phase_id, list);
+  }
+
+  const phasesByPlan = new Map<string, TrainingPlanPhase[]>();
+  for (const phase of phases) {
+    const list = phasesByPlan.get(phase.plan_id) || [];
+    list.push({
+      id: phase.id,
+      name: phase.name,
+      notes: phase.notes,
+      order_index: phase.order_index,
+      items: itemsByPhase.get(phase.id) || [],
+      linked_trainings: linksByPhase.get(phase.id) || [],
+    });
+    phasesByPlan.set(phase.plan_id, list);
+  }
+
+  const plansByClient = new Map<string, TrainingPlan[]>();
+  for (const plan of plans) {
+    const list = plansByClient.get(plan.client_id) || [];
+    list.push({
+      id: plan.id,
+      client_id: plan.client_id,
+      summary: plan.summary,
+      status: plan.status as "active" | "completed",
+      created_at: plan.created_at,
+      completed_at: plan.completed_at ?? undefined,
+      phases: phasesByPlan.get(plan.id) || [],
+      discovery_answers: (plan.discovery_answers as Record<string, string>) || undefined,
+    });
+    plansByClient.set(plan.client_id, list);
+  }
+
+  return plansByClient;
+}
+
 function computeCurrentWeek(startDate: string): number {
   const now = Date.now();
   const start = new Date(startDate).getTime();
@@ -88,10 +152,12 @@ export async function getClients(): Promise<AdminClient[]> {
 
   if (error || !profiles) return [];
 
-  // Fetch all checkins
+  // Fetch checkins from the last 90 days
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
   const { data: allCheckins } = await admin
     .from("checkins")
     .select("*")
+    .gte("created_at", ninetyDaysAgo)
     .order("created_at", { ascending: false });
 
   // Fetch all business plans with phases + items + training links
@@ -122,55 +188,7 @@ export async function getClients(): Promise<AdminClient[]> {
     checkinsByClient.set(ck.client_id, list);
   }
 
-  const itemsByPhase = new Map<string, TrainingPlanItem[]>();
-  for (const item of items || []) {
-    const list = itemsByPhase.get(item.phase_id) || [];
-    list.push({
-      id: item.id,
-      category: "",
-      title: item.title,
-      completed: item.completed,
-      completed_at: item.completed_at,
-    });
-    itemsByPhase.set(item.phase_id, list);
-  }
-
-  const linksByPhase = new Map<string, string[]>();
-  for (const link of links || []) {
-    const list = linksByPhase.get(link.phase_id) || [];
-    list.push(link.content_id);
-    linksByPhase.set(link.phase_id, list);
-  }
-
-  const phasesByPlan = new Map<string, TrainingPlanPhase[]>();
-  for (const phase of phases || []) {
-    const list = phasesByPlan.get(phase.plan_id) || [];
-    list.push({
-      id: phase.id,
-      name: phase.name,
-      notes: phase.notes,
-      order_index: phase.order_index,
-      items: itemsByPhase.get(phase.id) || [],
-      linked_trainings: linksByPhase.get(phase.id) || [],
-    });
-    phasesByPlan.set(phase.plan_id, list);
-  }
-
-  const plansByClient = new Map<string, TrainingPlan[]>();
-  for (const plan of plans || []) {
-    const list = plansByClient.get(plan.client_id) || [];
-    list.push({
-      id: plan.id,
-      client_id: plan.client_id,
-      summary: plan.summary,
-      status: plan.status,
-      created_at: plan.created_at,
-      completed_at: plan.completed_at,
-      phases: phasesByPlan.get(plan.id) || [],
-      discovery_answers: plan.discovery_answers || undefined,
-    });
-    plansByClient.set(plan.client_id, list);
-  }
+  const plansByClient = buildPlanTree(plans || [], phases || [], items || [], links || []);
 
   // Assemble clients
   const clients: AdminClient[] = profiles.map((p) => {
@@ -277,51 +295,9 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
     .eq("client_id", id)
     .single();
 
-  // Build nested structures
-  const itemsByPhase = new Map<string, TrainingPlanItem[]>();
-  for (const item of items || []) {
-    const list = itemsByPhase.get(item.phase_id) || [];
-    list.push({
-      id: item.id,
-      category: "",
-      title: item.title,
-      completed: item.completed,
-      completed_at: item.completed_at,
-    });
-    itemsByPhase.set(item.phase_id, list);
-  }
-
-  const linksByPhase = new Map<string, string[]>();
-  for (const link of links || []) {
-    const list = linksByPhase.get(link.phase_id) || [];
-    list.push(link.content_id);
-    linksByPhase.set(link.phase_id, list);
-  }
-
-  const phasesByPlan = new Map<string, TrainingPlanPhase[]>();
-  for (const phase of phases || []) {
-    const list = phasesByPlan.get(phase.plan_id) || [];
-    list.push({
-      id: phase.id,
-      name: phase.name,
-      notes: phase.notes,
-      order_index: phase.order_index,
-      items: itemsByPhase.get(phase.id) || [],
-      linked_trainings: linksByPhase.get(phase.id) || [],
-    });
-    phasesByPlan.set(phase.plan_id, list);
-  }
-
-  const trainingPlans: TrainingPlan[] = (plans || []).map((plan) => ({
-    id: plan.id,
-    client_id: plan.client_id,
-    summary: plan.summary,
-    status: plan.status,
-    created_at: plan.created_at,
-    completed_at: plan.completed_at,
-    phases: phasesByPlan.get(plan.id) || [],
-    discovery_answers: plan.discovery_answers || undefined,
-  }));
+  // Build nested structures using shared helper
+  const plansByClient = buildPlanTree(plans || [], phases || [], items || [], links || []);
+  const trainingPlans: TrainingPlan[] = plansByClient.get(id) || [];
 
   const user = Array.isArray(p.user) ? p.user[0] : p.user;
 
@@ -408,10 +384,14 @@ export async function savePlan(plan: TrainingPlan): Promise<{ error?: string }> 
   if (planError) return { error: planError.message };
 
   // Delete existing phases for this plan (cascade deletes items + links)
-  await admin
+  const { error: deleteError } = await admin
     .from("business_plan_phases")
     .delete()
     .eq("plan_id", plan.id);
+
+  if (deleteError) {
+    return { error: `Failed to delete existing phases: ${deleteError.message}` };
+  }
 
   // Insert phases
   for (const phase of plan.phases) {

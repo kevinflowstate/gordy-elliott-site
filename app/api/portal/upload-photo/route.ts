@@ -31,12 +31,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "file, angle, and date are required" }, { status: 400 });
   }
 
+  if (!file.type.startsWith("image/")) {
+    return NextResponse.json({ error: "Only image files are allowed" }, { status: 400 });
+  }
+
   const validAngles = ["front", "back", "side"];
   if (!validAngles.includes(angle)) {
     return NextResponse.json({ error: "angle must be front, back, or side" }, { status: 400 });
   }
 
-  const path = `${profile.id}/${date}/${angle}.jpg`;
+  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `${profile.id}/${date}/${angle}.${ext}`;
 
   const arrayBuffer = await file.arrayBuffer();
   const buffer = new Uint8Array(arrayBuffer);
@@ -44,7 +49,7 @@ export async function POST(request: Request) {
   const { error: uploadError } = await admin.storage
     .from("progress-photos")
     .upload(path, buffer, {
-      contentType: "image/jpeg",
+      contentType: file.type,
       upsert: true,
     });
 

@@ -14,6 +14,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No file provided" }, { status: 400 });
   }
 
+  const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf", "video/mp4"];
+  const MAX_SIZE = 50 * 1024 * 1024; // 50MB
+
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    return NextResponse.json({ error: `File type not allowed: ${file.type}` }, { status: 400 });
+  }
+
+  if (file.size > MAX_SIZE) {
+    return NextResponse.json({ error: "File too large. Maximum 50MB." }, { status: 400 });
+  }
+
   const allowedBuckets = ["training-resources", "plan-documents"];
   if (!allowedBuckets.includes(bucket)) {
     return NextResponse.json({ error: "Invalid bucket" }, { status: 400 });
