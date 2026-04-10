@@ -12,56 +12,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const userId = user.id;
-
+  // Get client profile
   const { data: profile } = await admin
     .from("client_profiles")
     .select("id")
-    .eq("user_id", userId)
+    .eq("user_id", user.id)
     .single();
-
-  // Check this module is linked in the client's business plan
-  if (profile) {
-    const { data: plans } = await admin
-      .from("business_plans")
-      .select("id")
-      .eq("client_id", profile.id)
-      .eq("status", "active");
-
-    const planIds = (plans || []).map(p => p.id);
-    let hasAccess = false;
-
-    if (planIds.length > 0) {
-      const { data: phases } = await admin
-        .from("business_plan_phases")
-        .select("id")
-        .in("plan_id", planIds);
-
-      const phaseIds = (phases || []).map(p => p.id);
-
-      if (phaseIds.length > 0) {
-        const { data: links } = await admin
-          .from("phase_training_links")
-          .select("content_id")
-          .in("phase_id", phaseIds);
-
-        if (links && links.length > 0) {
-          const contentIds = links.map(l => l.content_id);
-          const { data: contentItems } = await admin
-            .from("module_content")
-            .select("module_id")
-            .in("id", contentIds)
-            .eq("module_id", id);
-
-          hasAccess = (contentItems || []).length > 0;
-        }
-      }
-    }
-
-    if (!hasAccess) {
-      return NextResponse.json({ error: "Not assigned to this module" }, { status: 403 });
-    }
-  }
 
   // Get module with content (only if published)
   const { data: mod } = await admin
@@ -70,6 +26,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     .eq("id", id)
     .eq("is_published", true)
     .single();
+
+  if (!mod) {
+    return NextResponse.json({ error: "Module not found" }, { status: 404 });
+  }
 
   // Get progress
   const progress: Record<string, boolean> = {};

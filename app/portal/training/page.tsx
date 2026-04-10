@@ -72,11 +72,13 @@ export default function TrainingLibrary() {
           {modules.map((mod, i) => {
             const lessonCount = mod.content?.length || 0;
             const totalDuration = mod.content?.reduce((sum: number, c: ModuleContent) => sum + (c.duration_minutes || 0), 0) || 0;
+            const isInteractive = mod.slug === "values-determination";
+            const moduleHref = isInteractive ? "/portal/values-determination" : `/portal/training/${mod.id}`;
 
             return (
               <Link
                 key={mod.id}
-                href={`/portal/training/${mod.id}`}
+                href={moduleHref}
                 className="group relative block bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden transition-all duration-300 no-underline hover:-translate-y-1 hover:border-[rgba(224,64,208,0.2)] hover:shadow-[0_15px_40px_rgba(0,0,0,0.3),0_0_40px_rgba(224,64,208,0.06)] will-change-transform cursor-pointer"
               >
                 {/* Bento dot pattern */}
@@ -95,7 +97,7 @@ export default function TrainingLibrary() {
                   {/* Lesson count badge */}
                   <div className="absolute top-4 right-4 z-10">
                     <span className="text-[10px] px-2.5 py-1 rounded-full font-semibold bg-accent/20 text-accent-dark border border-accent/30">
-                      {lessonCount} {lessonCount === 1 ? "lesson" : "lessons"}
+                      {isInteractive ? "Interactive" : `${lessonCount} ${lessonCount === 1 ? "lesson" : "lessons"}`}
                     </span>
                   </div>
                 </div>

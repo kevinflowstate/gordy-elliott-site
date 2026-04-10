@@ -1,7 +1,7 @@
 export type UserRole = 'client' | 'admin';
 export type TrafficLight = 'green' | 'amber' | 'red';
 export type ModuleStatus = 'locked' | 'in_progress' | 'completed';
-export type ContentType = 'video' | 'pdf' | 'text' | 'checklist';
+export type ContentType = 'video' | 'pdf' | 'text' | 'checklist' | 'interactive';
 export type CheckInMood = 'great' | 'good' | 'okay' | 'struggling' | string;
 export type ClientTier = 'coached' | 'ai_only';
 
@@ -40,6 +40,7 @@ export interface TrainingModule {
   title: string;
   description: string;
   order_index: number;
+  slug?: string;
   thumbnail_url?: string;
   is_published: boolean;
   created_at: string;

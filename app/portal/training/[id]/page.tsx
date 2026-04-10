@@ -17,6 +17,10 @@ function getVideoEmbed(url: string): { type: string; embedUrl: string } {
     return { type: "vimeo", embedUrl: `https://player.vimeo.com/video/${vimeoMatch[1]}${h}color=2272DE&title=0&byline=0&portrait=0` };
   }
 
+  // Loom (share link -> embed link)
+  const loomMatch = url.match(/loom\.com\/share\/([a-zA-Z0-9_-]+)/);
+  if (loomMatch) return { type: "loom", embedUrl: `https://www.loom.com/embed/${loomMatch[1]}` };
+
   // Fathom (share link -> embed link)
   const fathomShareMatch = url.match(/fathom\.video\/share\/([a-zA-Z0-9_-]+)/);
   if (fathomShareMatch) return { type: "fathom", embedUrl: `https://fathom.video/embed/${fathomShareMatch[1]}` };
@@ -46,6 +50,11 @@ const contentTypeLabels: Record<ContentType, { label: string; icon: string; colo
     label: "Checklist",
     icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
     color: "text-emerald-400 bg-emerald-500/10",
+  },
+  interactive: {
+    label: "Interactive",
+    icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z",
+    color: "text-purple-400 bg-purple-500/10",
   },
 };
 
@@ -227,6 +236,24 @@ export default function ModuleView() {
                         />
                       </div>
                     </div>
+                  )}
+
+                  {/* Interactive tool link */}
+                  {lesson.content_type === "interactive" && lesson.content_url && (
+                    <Link href={lesson.content_url} className="flex items-center gap-3 px-5 py-4 bg-accent/10 border border-accent/20 rounded-xl no-underline hover:bg-accent/15 transition-colors group/launch">
+                      <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold text-accent-bright group-hover/launch:text-accent transition-colors">Launch Interactive Exercise</div>
+                        <div className="text-xs text-text-muted mt-0.5">Opens in a new page</div>
+                      </div>
+                      <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </Link>
                   )}
 
                   {/* PDF / Document link */}
