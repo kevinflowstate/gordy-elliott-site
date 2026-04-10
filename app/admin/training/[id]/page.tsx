@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
 import type { TrainingModule, ModuleContent, Attachment, ContentType } from "@/lib/types";
 import ModuleCover from "@/components/training/ModuleCover";
+import ValuesExercise from "@/components/portal/ValuesExercise";
 
 const attachmentIcons: Record<string, { icon: string; color: string }> = {
   pdf: { icon: "M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z", color: "text-red-400 bg-red-500/10" },
@@ -502,6 +503,9 @@ export default function ModuleEditorPage() {
         </div>
       )}
 
+      {/* Inline Values Determination exercise preview */}
+      {module.title === "Values Determination" && <ValuesExercise />}
+
       {/* Danger zone */}
       <div className="mt-12 pt-6 border-t border-[rgba(0,0,0,0.06)]">
         <button
@@ -774,6 +778,7 @@ function LessonCard({
           )}
         </div>
       )}
+
     </div>
   );
 }
