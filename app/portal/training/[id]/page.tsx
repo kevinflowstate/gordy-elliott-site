@@ -304,10 +304,8 @@ export default function ModuleView() {
         })}
       </div>
 
-      {/* Inline Values Determination exercise for the values-determination module */}
-      {(module as TrainingModule & { slug?: string }).slug === "values-determination" && (
-        <ValuesExercise />
-      )}
+      {/* Inline Values Determination exercise */}
+      {module.title === "Values Determination" && <ValuesExercise />}
     </>
   );
 }
