@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import type { TrainingModule, ModuleContent, ContentType } from "@/lib/types";
 import ModuleCover from "@/components/training/ModuleCover";
+import ValuesExercise from "@/components/portal/ValuesExercise";
 
 function getVideoEmbed(url: string): { type: string; embedUrl: string } {
   const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
@@ -228,9 +229,8 @@ export default function ModuleView() {
                         <iframe
                           src={getVideoEmbed(lesson.content_url).embedUrl}
                           className="absolute top-0 left-0 w-full h-full"
-                          allow="encrypted-media *; fullscreen *"
+                          allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media"
                           allowFullScreen
-                          scrolling="no"
                           title={lesson.title}
                           style={{ border: 0 }}
                         />
@@ -303,6 +303,11 @@ export default function ModuleView() {
           );
         })}
       </div>
+
+      {/* Inline Values Determination exercise for the values-determination module */}
+      {(module as TrainingModule & { slug?: string }).slug === "values-determination" && (
+        <ValuesExercise />
+      )}
     </>
   );
 }

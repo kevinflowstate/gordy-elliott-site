@@ -73,7 +73,7 @@ export default function TrainingLibrary() {
             const lessonCount = mod.content?.length || 0;
             const totalDuration = mod.content?.reduce((sum: number, c: ModuleContent) => sum + (c.duration_minutes || 0), 0) || 0;
             const isInteractive = mod.slug === "values-determination";
-            const moduleHref = isInteractive ? "/portal/values-determination" : `/portal/training/${mod.id}`;
+            const moduleHref = `/portal/training/${mod.id}`;
 
             return (
               <Link
