@@ -16,10 +16,14 @@ const attachmentIcons: Record<string, { icon: string; color: string }> = {
   other: { icon: "M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13", color: "text-text-muted bg-[rgba(0,0,0,0.06)]" },
 };
 
-function getVideoEmbed(url: string): { type: "youtube" | "vimeo" | "fathom" | "unknown"; embedUrl: string } {
+function getVideoEmbed(url: string): { type: "youtube" | "vimeo" | "loom" | "fathom" | "unknown"; embedUrl: string } {
   // YouTube
   const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
   if (ytMatch) return { type: "youtube", embedUrl: `https://www.youtube.com/embed/${ytMatch[1]}` };
+
+  // Loom (share link -> embed link)
+  const loomMatch = url.match(/loom\.com\/share\/([a-zA-Z0-9_-]+)/);
+  if (loomMatch) return { type: "loom", embedUrl: `https://www.loom.com/embed/${loomMatch[1]}` };
 
   // Vimeo
   const vimeoMatch = url.match(/(?:player\.)?vimeo\.com\/(?:video\/)?(\d+)/);
@@ -724,9 +728,8 @@ function LessonCard({
                     <iframe
                       src={getVideoEmbed(lesson.content_url).embedUrl}
                       className="absolute top-0 left-0 w-full h-full"
-                      allow="encrypted-media *; fullscreen *"
+                      allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media"
                       allowFullScreen
-                      scrolling="no"
                       title={lesson.title}
                       style={{ border: 0 }}
                     />
