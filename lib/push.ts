@@ -4,12 +4,12 @@ import webpush from "web-push";
 export async function sendPushToUser(
   userId: string,
   notification: { title: string; body?: string; url?: string; tag?: string }
-): Promise<{ sent: number; failed: number }> {
+): Promise<{ sent: number; failed: number; reason?: string; subscriptionCount?: number }> {
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 
   if (!vapidPublicKey || !vapidPrivateKey) {
-    return { sent: 0, failed: 0 };
+    return { sent: 0, failed: 0, reason: "Push server keys are missing in this environment.", subscriptionCount: 0 };
   }
 
   webpush.setVapidDetails(
@@ -19,13 +19,17 @@ export async function sendPushToUser(
   );
 
   const admin = createAdminClient();
-  const { data: subscriptions } = await admin
+  const { data: subscriptions, error } = await admin
     .from("push_subscriptions")
     .select("endpoint, keys")
     .eq("user_id", userId);
 
+  if (error) {
+    return { sent: 0, failed: 0, reason: error.message, subscriptionCount: 0 };
+  }
+
   if (!subscriptions || subscriptions.length === 0) {
-    return { sent: 0, failed: 0 };
+    return { sent: 0, failed: 0, reason: "No push subscription is saved for this client. Ask them to re-enable notifications while logged in.", subscriptionCount: 0 };
   }
 
   const payload = JSON.stringify(notification);
@@ -57,5 +61,12 @@ export async function sendPushToUser(
   return {
     sent: results.filter((r) => r.status === "fulfilled").length,
     failed: results.filter((r) => r.status === "rejected").length,
+    reason: results.some((r) => r.status === "rejected")
+      ? results
+          .filter((r): r is PromiseRejectedResult => r.status === "rejected")
+          .map((r) => (r.reason as { body?: string; message?: string })?.body || (r.reason as { message?: string })?.message || "Push provider rejected the notification")
+          .join("; ")
+      : undefined,
+    subscriptionCount: subscriptions.length,
   };
 }

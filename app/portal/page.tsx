@@ -55,6 +55,11 @@ function getQuickAccessCards(tier: Tier, totalPlanItems: number, completedPlanIt
       description: "Keep your daily food plan close",
     },
     {
+      href: "/portal/daily-tracker",
+      title: "Daily Tracker",
+      description: "Sleep, water, energy, stress",
+    },
+    {
       href: "/portal/progress",
       title: "Insights",
       description: "Recovery, trends, photos, and progress",
