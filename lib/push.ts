@@ -1,12 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { normalizeVapidKey } from "@/lib/vapid";
 import webpush from "web-push";
 
 export async function sendPushToUser(
   userId: string,
   notification: { title: string; body?: string; url?: string; tag?: string }
 ): Promise<{ sent: number; failed: number; reason?: string; subscriptionCount?: number }> {
-  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+  const vapidPublicKey = normalizeVapidKey(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY);
+  const vapidPrivateKey = normalizeVapidKey(process.env.VAPID_PRIVATE_KEY);
 
   if (!vapidPublicKey || !vapidPrivateKey) {
     return { sent: 0, failed: 0, reason: "Push server keys are missing in this environment.", subscriptionCount: 0 };

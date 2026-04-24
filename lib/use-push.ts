@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { normalizeVapidKey } from "@/lib/vapid";
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -39,7 +40,7 @@ export function usePush() {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.ready.then((reg) => {
         reg.pushManager.getSubscription().then(async (sub) => {
-          const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+          const vapidKey = normalizeVapidKey(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY);
           const currentKey = vapidKey ? urlBase64ToUint8Array(vapidKey) : null;
           if (sub && currentKey && !buffersMatch(sub.options.applicationServerKey, currentKey)) {
             await sub.unsubscribe();
@@ -68,7 +69,7 @@ export function usePush() {
     if (perm !== "granted") return false;
 
     const reg = await navigator.serviceWorker.ready;
-    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    const vapidKey = normalizeVapidKey(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY);
     if (!vapidKey) return false;
     const applicationServerKey = urlBase64ToUint8Array(vapidKey);
 
