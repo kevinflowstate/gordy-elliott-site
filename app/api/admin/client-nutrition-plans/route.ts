@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/admin-auth";
+import { notifyClientProfile } from "@/lib/client-notifications";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
@@ -164,6 +165,13 @@ export async function POST(request: Request) {
       }
     }
 
+    await notifyClientProfile(client_id, {
+      title: "Nutrition plan updated",
+      message: "Gordy updated your nutrition plan. Have a look before your next meal.",
+      link: "/portal/nutrition-plan",
+      tag: `nutrition-plan-${newPlan.id}`,
+    });
+
     return NextResponse.json({ success: true, plan_id: newPlan.id });
   }
 
@@ -230,6 +238,13 @@ export async function POST(request: Request) {
       }
     }
 
+    await notifyClientProfile(plan.client_id, {
+      title: "Nutrition plan updated",
+      message: "Gordy updated your nutrition plan. Have a look before your next meal.",
+      link: "/portal/nutrition-plan",
+      tag: `nutrition-plan-${savedPlan.id}`,
+    });
+
     return NextResponse.json({ success: true, plan_id: savedPlan.id });
   }
 
@@ -254,7 +269,23 @@ export async function PATCH(request: Request) {
   if (target_carbs_g !== undefined) updates.target_carbs_g = target_carbs_g;
   if (target_fat_g !== undefined) updates.target_fat_g = target_fat_g;
 
+  const { data: existingPlan } = await admin
+    .from("client_nutrition_plans")
+    .select("client_id")
+    .eq("id", id)
+    .single();
+
   const { error } = await admin.from("client_nutrition_plans").update(updates).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if (status === "active" && existingPlan?.client_id) {
+    await notifyClientProfile(existingPlan.client_id, {
+      title: "Nutrition plan updated",
+      message: "Gordy made a nutrition plan active for you.",
+      link: "/portal/nutrition-plan",
+      tag: `nutrition-plan-${id}`,
+    });
+  }
+
   return NextResponse.json({ success: true });
 }

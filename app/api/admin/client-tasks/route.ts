@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/admin-auth";
+import { notifyClientProfile } from "@/lib/client-notifications";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
@@ -42,6 +43,13 @@ export async function POST(request: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await notifyClientProfile(client_id, {
+    title: "New task from Gordy",
+    message: task_text.trim().slice(0, 160),
+    link: "/portal",
+    tag: `client-task-${data.id}`,
+  });
 
   return NextResponse.json({ task: data });
 }

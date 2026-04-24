@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
 import type { TrainingModule, ModuleContent, Attachment, ContentType } from "@/lib/types";
+import { getLessonDisplayType } from "@/lib/training-content";
 import ModuleCover from "@/components/training/ModuleCover";
 import ValuesExercise from "@/components/portal/ValuesExercise";
 
@@ -584,7 +585,8 @@ function LessonCard({
     },
   };
 
-  const ct = contentTypeLabels[lesson.content_type];
+  const displayType = getLessonDisplayType(lesson);
+  const ct = contentTypeLabels[displayType];
 
   return (
     <div className="group/lesson relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(224,64,208,0.15)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.2),0_0_30px_rgba(224,64,208,0.04)] will-change-transform">
@@ -722,7 +724,7 @@ function LessonCard({
             /* View mode */
             <>
               {/* Video embed */}
-              {lesson.content_type === "video" && lesson.content_url && (
+              {displayType === "video" && lesson.content_url && (
                 <div className="rounded-xl overflow-hidden border border-[rgba(0,0,0,0.08)] shadow-[0_10px_30px_rgba(0,0,0,0.3)]">
                   <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
                     <iframe
@@ -745,6 +747,12 @@ function LessonCard({
                   </svg>
                   <span className="text-xs text-text-muted truncate flex-1">{lesson.content_url}</span>
                   <button onClick={() => setEditing(true)} className="text-xs text-accent-bright hover:text-accent-light transition-colors flex-shrink-0 cursor-pointer">Edit URL</button>
+                </div>
+              )}
+
+              {lesson.content_type === "video" && !lesson.content_url && (
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-sm text-amber-600">
+                  This lesson is marked as video but has no video URL. Clients will see it as {displayType === "text" ? "an article" : "a lesson"} until a URL is added.
                 </div>
               )}
 

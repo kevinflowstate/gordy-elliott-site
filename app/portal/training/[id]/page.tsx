@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import type { TrainingModule, ModuleContent, ContentType } from "@/lib/types";
+import { getLessonDisplayType } from "@/lib/training-content";
 import ModuleCover from "@/components/training/ModuleCover";
 import ValuesExercise from "@/components/portal/ValuesExercise";
 
@@ -169,7 +170,8 @@ export default function ModuleView() {
       <h2 className="text-lg font-heading font-bold text-text-primary mb-4">Lessons</h2>
       <div className="space-y-2">
         {lessons.map((lesson, i) => {
-          const ct = contentTypeLabels[lesson.content_type];
+          const displayType = getLessonDisplayType(lesson);
+          const ct = contentTypeLabels[displayType];
           const isExpanded = expandedLesson === lesson.id;
           const isCompleted = progress[lesson.id];
 
@@ -223,7 +225,7 @@ export default function ModuleView() {
               {isExpanded && (
                 <div className="border-t border-[rgba(0,0,0,0.06)] p-5 space-y-4">
                   {/* Video embed */}
-                  {lesson.content_type === "video" && lesson.content_url && (
+                  {displayType === "video" && lesson.content_url && (
                     <div className="rounded-xl overflow-hidden border border-[rgba(0,0,0,0.08)] shadow-[0_10px_30px_rgba(0,0,0,0.3)]">
                       <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
                         <iframe
@@ -239,7 +241,7 @@ export default function ModuleView() {
                   )}
 
                   {/* Interactive tool link */}
-                  {lesson.content_type === "interactive" && lesson.content_url && (
+                  {displayType === "interactive" && lesson.content_url && (
                     <Link href={lesson.content_url} className="flex items-center gap-3 px-5 py-4 bg-accent/10 border border-accent/20 rounded-xl no-underline hover:bg-accent/15 transition-colors group/launch">
                       <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center flex-shrink-0">
                         <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -257,7 +259,7 @@ export default function ModuleView() {
                   )}
 
                   {/* PDF / Document link */}
-                  {lesson.content_type === "pdf" && lesson.content_url && (
+                  {displayType === "pdf" && lesson.content_url && (
                     <a href={lesson.content_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-3 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl text-sm text-accent-bright no-underline hover:border-accent/30 transition-colors">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
+import { normalizeLessonType } from "@/lib/training-content";
 import { NextRequest, NextResponse } from "next/server";
 
 // POST - Create a new lesson within a module
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
     .insert({
       module_id,
       title,
-      content_type: content_type ?? "video",
+      content_type: normalizeLessonType(content_type, content_url, content_text),
       content_url: content_url ?? null,
       content_text: content_text ?? null,
       duration_minutes: duration_minutes ?? null,
@@ -60,7 +61,7 @@ export async function PUT(req: NextRequest) {
 
   const updates: Record<string, unknown> = {};
   if (title !== undefined) updates.title = title;
-  if (content_type !== undefined) updates.content_type = content_type;
+  if (content_type !== undefined) updates.content_type = normalizeLessonType(content_type, content_url, content_text);
   if (content_url !== undefined) updates.content_url = content_url;
   if (content_text !== undefined) updates.content_text = content_text;
   if (duration_minutes !== undefined) updates.duration_minutes = duration_minutes;

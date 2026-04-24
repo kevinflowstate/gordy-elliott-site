@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
+import { notifyClientUser } from "@/lib/client-notifications";
 import { sendCheckinReplyEmail } from "@/lib/email-templates";
-import { sendPushToUser } from "@/lib/push";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -63,24 +63,12 @@ export async function POST(request: Request) {
       clientEmail = clientUser.email;
       clientName = clientUser.full_name;
 
-      // Insert notification for the client
-      await admin.from("notifications").insert({
-        user_id: clientProfile.user_id,
+      await notifyClientUser(clientProfile.user_id, {
         title: "New reply from Gordy",
         message: reply_text.trim().slice(0, 200),
         link: "/portal",
+        tag: `checkin-reply-${checkin_id}`,
       });
-
-      try {
-        await sendPushToUser(clientProfile.user_id, {
-          title: "New reply from Gordy",
-          body: reply_text.trim().slice(0, 160),
-          url: "/portal",
-          tag: `checkin-reply-${checkin_id}`,
-        });
-      } catch (pushErr) {
-        console.error("Failed to send reply push:", pushErr);
-      }
 
       // Send email
       try {

@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/admin-auth";
+import { notifyClientProfile } from "@/lib/client-notifications";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
@@ -183,6 +184,13 @@ export async function POST(request: Request) {
       }
     }
 
+    await notifyClientProfile(client_id, {
+      title: "Training plan updated",
+      message: "Gordy updated your training plan. Open it before your next session.",
+      link: "/portal/exercise-plan",
+      tag: `training-plan-${newPlan.id}`,
+    });
+
     return NextResponse.json({ success: true, plan_id: newPlan.id });
   }
 
@@ -278,6 +286,13 @@ export async function POST(request: Request) {
       }
     }
 
+    await notifyClientProfile(plan.client_id, {
+      title: "Training plan updated",
+      message: "Gordy updated your training plan. Open it before your next session.",
+      link: "/portal/exercise-plan",
+      tag: `training-plan-${savedPlan.id}`,
+    });
+
     return NextResponse.json({ success: true, plan_id: savedPlan.id });
   }
 
@@ -295,11 +310,27 @@ export async function PATCH(request: Request) {
 
   if (!id || !status) return NextResponse.json({ error: "id and status are required" }, { status: 400 });
 
+  const { data: existingPlan } = await admin
+    .from("client_exercise_plans")
+    .select("client_id")
+    .eq("id", id)
+    .single();
+
   const { error } = await admin
     .from("client_exercise_plans")
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if (status === "active" && existingPlan?.client_id) {
+    await notifyClientProfile(existingPlan.client_id, {
+      title: "Training plan updated",
+      message: "Gordy made a training plan active for you.",
+      link: "/portal/exercise-plan",
+      tag: `training-plan-${id}`,
+    });
+  }
+
   return NextResponse.json({ success: true });
 }
