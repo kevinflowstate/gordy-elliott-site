@@ -12,6 +12,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "userId and title are required" }, { status: 400 });
   }
 
-  const result = await sendPushToUser(userId, { title, body, url, tag });
-  return NextResponse.json(result);
+  try {
+    const result = await sendPushToUser(userId, { title, body, url, tag });
+    return NextResponse.json(result);
+  } catch (err) {
+    return NextResponse.json({
+      sent: 0,
+      failed: 0,
+      reason: err instanceof Error ? err.message : "Push send failed before delivery.",
+      subscriptionCount: 0,
+    }, { status: 500 });
+  }
 }

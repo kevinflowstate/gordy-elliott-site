@@ -1937,7 +1937,9 @@ export default function ClientDetailPage() {
                       });
                       const result = await res.json().catch(() => ({}));
                       if (res.ok && result.sent > 0) setNudgeSent(true);
-                      else alert(result.reason || "Push notification could not be delivered. Client may not have notifications enabled.");
+                      else alert(result.reason
+                        ? `Push notification could not be delivered. ${result.reason}`
+                        : `Push notification could not be delivered. Subscriptions found: ${result.subscriptionCount ?? 0}, failed: ${result.failed ?? 0}.`);
                     } finally {
                       setNudgeSending(false);
                     }

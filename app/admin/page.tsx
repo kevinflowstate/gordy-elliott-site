@@ -581,7 +581,9 @@ function ShiftOverview({ clients, recentCheckins }: { clients: AdminClient[]; re
         setDismissed(prev => new Set([...prev, insightId]));
         setTimeout(() => { setNudgeTarget(null); }, 1500);
       } else {
-        alert(result.reason || "Push notification could not be delivered. Client may not have notifications enabled.");
+        alert(result.reason
+          ? `Push notification could not be delivered. ${result.reason}`
+          : `Push notification could not be delivered. Subscriptions found: ${result.subscriptionCount ?? 0}, failed: ${result.failed ?? 0}.`);
       }
     } finally {
       setNudgeSending(false);
