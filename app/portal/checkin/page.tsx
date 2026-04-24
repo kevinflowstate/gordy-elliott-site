@@ -22,13 +22,15 @@ function ScaleInput({ metric, value, onChange }: { metric: ProgressMetric; value
 
   return (
     <div>
-      <div className="flex gap-1.5 flex-wrap">
+      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar" role="radiogroup" aria-label={metric.label}>
         {points.map((p) => (
           <button
             key={p}
             type="button"
             onClick={() => onChange(String(p))}
-            className={`w-9 h-9 rounded-lg text-sm font-semibold transition-all cursor-pointer border ${
+            role="radio"
+            aria-checked={selected === p}
+            className={`h-11 min-w-11 rounded-xl text-sm font-semibold transition-all cursor-pointer border ${
               selected === p
                 ? "bg-[#E040D0] text-[#1a1a1a] border-[#E040D0]"
                 : "bg-bg-card border-[rgba(0,0,0,0.08)] text-text-muted hover:border-[#E040D0]/40 hover:text-text-primary"
@@ -284,8 +286,8 @@ export default function CheckInPage() {
 
   if (submitted) {
     return (
-      <div className="max-w-2xl">
-        <div className="bg-bg-card border border-emerald-500/20 rounded-2xl p-8 text-center">
+      <div className="flex min-h-[calc(100dvh-11rem)] max-w-2xl items-center">
+        <div className="w-full bg-bg-card border border-emerald-500/20 rounded-3xl p-8 text-center shadow-lg">
           <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

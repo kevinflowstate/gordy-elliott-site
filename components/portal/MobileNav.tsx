@@ -55,7 +55,7 @@ export default function MobileNav() {
       {showMore && (
         <>
           <div className="lg:hidden fixed inset-0 z-40" onClick={() => setShowMore(false)} />
-          <div className="portal-mobile-sheet fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] left-3 right-3 z-50 rounded-3xl border border-[rgba(255,255,255,0.12)] bg-[#121212] p-2 shadow-2xl lg:hidden">
+          <div className="portal-mobile-sheet fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] left-3 right-3 z-50 max-h-[min(70dvh,34rem)] overflow-y-auto rounded-3xl border border-[rgba(255,255,255,0.12)] bg-[#121212] p-2 shadow-2xl lg:hidden">
             {moreItems.map((item) => {
               const isActive = pathname === item.href || (item.href !== "/portal" && pathname.startsWith(item.href));
               return (
@@ -63,7 +63,7 @@ export default function MobileNav() {
                   key={item.href}
                   href={item.href}
                   onClick={() => setShowMore(false)}
-                  className={`flex items-center gap-3 rounded-2xl px-4 py-3 no-underline transition-colors ${
+                  className={`flex min-h-[52px] items-center gap-3 rounded-2xl px-4 py-3 no-underline transition-colors ${
                     isActive
                       ? "bg-[rgba(224,64,208,0.1)] text-accent-bright"
                       : "text-[#d3d4dc] hover:bg-[rgba(255,255,255,0.05)] hover:text-white"

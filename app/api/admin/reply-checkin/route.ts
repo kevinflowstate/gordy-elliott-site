@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
 import { sendCheckinReplyEmail } from "@/lib/email-templates";
+import { sendPushToUser } from "@/lib/push";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -69,6 +70,17 @@ export async function POST(request: Request) {
         message: reply_text.trim().slice(0, 200),
         link: "/portal",
       });
+
+      try {
+        await sendPushToUser(clientProfile.user_id, {
+          title: "New reply from Gordy",
+          body: reply_text.trim().slice(0, 160),
+          url: "/portal",
+          tag: `checkin-reply-${checkin_id}`,
+        });
+      } catch (pushErr) {
+        console.error("Failed to send reply push:", pushErr);
+      }
 
       // Send email
       try {

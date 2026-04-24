@@ -101,6 +101,7 @@ export default function PortalExercisePlanPage() {
   const [viewMode, setViewMode] = useState<"log" | "readonly">("log");
   const [showSessionPicker, setShowSessionPicker] = useState(false);
   const [manuallyPicked, setManuallyPicked] = useState(false);
+  const [sessionOpen, setSessionOpen] = useState(false);
 
   // Draft inputs: exerciseItemId -> SetData[]
   const [draftSets, setDraftSets] = useState<Record<string, SetData[]>>({});
@@ -159,6 +160,7 @@ export default function PortalExercisePlanPage() {
       setActiveSession(session);
       setViewMode("readonly");
       setManuallyPicked(false);
+      setSessionOpen(false);
     } else {
       // No log for this day — work out next session (unless user explicitly picked one)
       if (!manuallyPicked) {
@@ -238,6 +240,8 @@ export default function PortalExercisePlanPage() {
 
       // Refresh week logs
       await fetchWeekLogs(weekStart);
+      setViewMode("readonly");
+      setSessionOpen(false);
       const stamp = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
       setLastSavedAt(`${formatDate(selectedDate)} at ${stamp}`);
       setSavedToast(true);
@@ -277,6 +281,7 @@ export default function PortalExercisePlanPage() {
     d.setHours(0, 0, 0, 0);
     setSelectedDate(d);
     setManuallyPicked(false);
+    setSessionOpen(false);
   }
 
   function pickSession(session: ExerciseSession) {
@@ -284,6 +289,7 @@ export default function PortalExercisePlanPage() {
     initDrafts(session);
     setViewMode("log");
     setManuallyPicked(true);
+    setSessionOpen(true);
     setShowSessionPicker(false);
   }
 
@@ -504,6 +510,44 @@ export default function PortalExercisePlanPage() {
       {/* ---- Selected Day Content ---- */}
       {activeSession && (
         <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setSessionOpen((open) => !open)}
+            className="w-full p-5 text-left"
+            aria-expanded={sessionOpen}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-[#E040D0] uppercase tracking-wider mb-1">
+                  {viewMode === "readonly" ? "Logged session" : isToday(selectedDate) ? "Next session" : isPast ? "Retro session" : "Planned session"}
+                </p>
+                <h2 className="text-xl font-bold text-text-primary">{activeSession.name}</h2>
+                {activeSession.notes && (
+                  <p className="text-sm text-text-secondary mt-1 italic">{activeSession.notes}</p>
+                )}
+              </div>
+              <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wider ${
+                  viewMode === "readonly"
+                    ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-500"
+                    : "border-[#E040D0]/25 bg-[#E040D0]/10 text-[#E040D0]"
+                }`}>
+                  {viewMode === "readonly" ? "Logged" : "Start"}
+                </span>
+                <span className="text-xs px-3 py-1 rounded-full bg-[rgba(224,64,208,0.12)] text-[#E040D0] font-semibold">
+                  {activeSession.items.filter((i) => i.exercise_id !== "__section__").length} exercises
+                </span>
+              </div>
+            </div>
+            {!sessionOpen && (
+              <div className="mt-4 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3 text-sm font-semibold text-text-primary">
+                {viewMode === "readonly" ? "Tap to view the logged session" : "Tap to start logging this session"}
+              </div>
+            )}
+          </button>
+
+          {sessionOpen && (
+            <>
           {/* Session header */}
           <div className="p-5 border-b border-[rgba(0,0,0,0.06)]">
             <div className="flex items-start justify-between gap-3">
@@ -527,6 +571,7 @@ export default function PortalExercisePlanPage() {
                   <button
                     onClick={() => {
                       setViewMode("log");
+                      setSessionOpen(true);
                       initDrafts(activeSession);
                     }}
                     className="text-xs text-text-secondary hover:text-text-primary underline cursor-pointer"
@@ -612,10 +657,11 @@ export default function PortalExercisePlanPage() {
             <div className="px-5 py-10 text-center">
               <p className="text-text-secondary text-sm">No session logged for this day.</p>
               <button
-                onClick={() => {
-                  setViewMode("log");
-                  initDrafts(activeSession);
-                }}
+              onClick={() => {
+                setViewMode("log");
+                setSessionOpen(true);
+                initDrafts(activeSession);
+              }}
                 className="mt-3 text-sm text-[#E040D0] hover:underline font-semibold cursor-pointer"
               >
                 Log a session retroactively
@@ -762,6 +808,8 @@ export default function PortalExercisePlanPage() {
               </div>
             </div>
           )}
+            </>
+          )}
         </div>
       )}
 
@@ -829,7 +877,7 @@ export default function PortalExercisePlanPage() {
       )}
 
       {/* Mobile sticky save — stays above bottom nav + respects iPhone home indicator */}
-      {viewMode === "log" && activeSession && (
+      {viewMode === "log" && activeSession && sessionOpen && (
         <div className="sm:hidden fixed bottom-[5rem] left-0 right-0 z-30 px-4 pb-[env(safe-area-inset-bottom)] pt-2 bg-gradient-to-t from-bg-primary via-bg-primary/95 to-transparent">
           <button
             onClick={saveSession}

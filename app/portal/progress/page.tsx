@@ -260,7 +260,7 @@ export default function ProgressPage() {
       </div>
 
       {/* Log New Entry */}
-      <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 mb-6">
+      <div className="relative bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 sm:p-6 mb-6">
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#B830A8] via-[#E040D0] to-[#F060E0] rounded-t-2xl" />
         <h2 className="text-base font-heading font-bold text-text-primary mb-4">Log New Entry</h2>
 
@@ -275,7 +275,7 @@ export default function ProgressPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 gap-4 mb-4 sm:grid-cols-2">
           <div>
             <label className={labelClass}>Date</label>
             <input
@@ -316,7 +316,7 @@ export default function ProgressPage() {
         </button>
 
         {showMeasurements && (
-          <div className="grid grid-cols-2 gap-4 mb-4 p-4 bg-[rgba(0,0,0,0.02)] rounded-xl border border-[rgba(0,0,0,0.04)]">
+          <div className="grid grid-cols-1 gap-4 mb-4 rounded-xl border border-[rgba(0,0,0,0.04)] bg-[rgba(0,0,0,0.02)] p-4 sm:grid-cols-2">
             <div>
               <label className={labelClass}>Waist (cm)</label>
               <input type="number" step="0.1" placeholder="e.g. 82" value={waistCm} onChange={(e) => setWaistCm(e.target.value)} className={inputClass} />
@@ -345,7 +345,7 @@ export default function ProgressPage() {
               <label className={labelClass}>Right Thigh (cm)</label>
               <input type="number" step="0.1" placeholder="e.g. 58" value={rightThighCm} onChange={(e) => setRightThighCm(e.target.value)} className={inputClass} />
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className={labelClass}>Notes</label>
               <input type="text" placeholder="Optional notes..." value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} />
             </div>
@@ -363,8 +363,8 @@ export default function ProgressPage() {
 
       {/* Weight Progress */}
       {!loading && weightChartData.length > 0 && (
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 sm:p-6 mb-6">
+          <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-base font-heading font-bold text-text-primary">Weight Progress</h2>
             <div className="flex gap-4">
               {latestWithWeight && (
@@ -383,7 +383,8 @@ export default function ProgressPage() {
               )}
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={160}>
+          <div className="overflow-hidden">
+          <ResponsiveContainer width="100%" height={180}>
             <LineChart data={weightChartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--color-text-muted)" }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 10, fill: "var(--color-text-muted)" }} tickLine={false} axisLine={false} domain={["auto", "auto"]} />
@@ -401,12 +402,13 @@ export default function ProgressPage() {
               />
             </LineChart>
           </ResponsiveContainer>
+          </div>
         </div>
       )}
 
       {/* Measurements Progress */}
       {!loading && measurementChartData.length > 0 && MEASUREMENT_KEYS.some((k) => sorted.some((m) => m[k] != null)) && (
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 mb-6">
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 sm:p-6 mb-6">
           <h2 className="text-base font-heading font-bold text-text-primary mb-4">Measurements Progress</h2>
 
           {/* Toggle buttons */}
@@ -460,7 +462,7 @@ export default function ProgressPage() {
       )}
 
       {/* Recent Entries */}
-      <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6">
+      <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 sm:p-6">
         <h2 className="text-base font-heading font-bold text-text-primary mb-4">Recent Entries</h2>
 
         {loading ? (

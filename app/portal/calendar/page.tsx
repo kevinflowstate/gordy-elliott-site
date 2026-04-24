@@ -194,10 +194,10 @@ export default function PortalCalendarPage() {
       {upNext && (
         <div className="bg-bg-card/80 backdrop-blur-sm border border-accent/15 rounded-2xl p-5 mb-6">
           <div className="text-[10px] font-semibold text-accent-bright uppercase tracking-wider mb-2">Up Next</div>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="text-lg font-heading font-bold text-text-primary">{upNext.event.title}</h3>
-              <div className="flex items-center gap-3 text-xs text-text-muted mt-1">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-text-muted mt-1">
                 <span>
                   {upNext.next!.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
                 </span>
@@ -212,7 +212,7 @@ export default function PortalCalendarPage() {
                 href={upNext.event.link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2.5 gradient-accent text-white rounded-xl text-sm font-medium no-underline inline-flex items-center gap-2 hover:opacity-90 transition-opacity"
+                className="w-full justify-center px-4 py-2.5 gradient-accent text-white rounded-xl text-sm font-medium no-underline inline-flex items-center gap-2 hover:opacity-90 transition-opacity sm:w-auto"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -244,7 +244,7 @@ export default function PortalCalendarPage() {
         </div>
 
         {/* Desktop: full month grid */}
-        <div className="hidden sm:block">
+        <div className="block">
           <div className="grid grid-cols-7 border-b border-[rgba(0,0,0,0.06)]">
             {dayNames.map((d) => (
               <div key={d} className="text-center py-2 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
@@ -255,7 +255,7 @@ export default function PortalCalendarPage() {
 
           <div className="grid grid-cols-7">
             {Array.from({ length: firstDay }).map((_, i) => (
-              <div key={`empty-${i}`} className="h-20 border-b border-r border-[rgba(0,0,0,0.02)] bg-[rgba(0,0,0,0.15)]" />
+              <div key={`empty-${i}`} className="h-14 sm:h-20 border-b border-r border-[rgba(0,0,0,0.02)] bg-[rgba(0,0,0,0.03)]" />
             ))}
 
             {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -270,7 +270,7 @@ export default function PortalCalendarPage() {
                 <button
                   key={key}
                   onClick={() => setSelectedDay(isSelected ? null : key)}
-                  className={`h-20 border-b border-r border-[rgba(0,0,0,0.02)] p-1.5 text-left transition-all cursor-pointer relative ${
+                  className={`h-14 sm:h-20 border-b border-r border-[rgba(0,0,0,0.02)] p-1 text-left transition-all cursor-pointer relative sm:p-1.5 ${
                     isSelected ? "bg-accent/10 border-accent/20" : hasEvents ? "hover:bg-[rgba(0,0,0,0.03)]" : "hover:bg-[rgba(0,0,0,0.02)]"
                   }`}
                 >
@@ -284,11 +284,12 @@ export default function PortalCalendarPage() {
                       {dayEvents.slice(0, 2).map((ev) => (
                         <div
                           key={ev.id}
-                          className="text-[9px] leading-tight px-1 py-0.5 rounded bg-accent/15 text-accent-bright truncate"
+                          className="hidden text-[9px] leading-tight px-1 py-0.5 rounded bg-accent/15 text-accent-bright truncate sm:block"
                         >
                           {ev.title}
                         </div>
                       ))}
+                      <div className="mx-auto h-1.5 w-1.5 rounded-full bg-accent sm:hidden" />
                       {dayEvents.length > 2 && (
                         <div className="text-[9px] text-text-muted px-1">+{dayEvents.length - 2} more</div>
                       )}

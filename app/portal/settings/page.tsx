@@ -55,8 +55,8 @@ function SettingsContent() {
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      toast("File too large. Maximum 2MB.");
+    if (file.size > 10 * 1024 * 1024) {
+      toast("File too large. Maximum 10MB.", "error");
       return;
     }
     setUploadingAvatar(true);
@@ -69,8 +69,10 @@ function SettingsContent() {
       if (res.ok) {
         const data = await res.json();
         setAvatarUrl(data.avatarUrl);
+        toast("Profile photo updated");
       } else {
-        toast("Failed to upload avatar. Please try again.");
+        const data = await res.json().catch(() => ({}));
+        toast(data.error || "Failed to upload avatar. Please try another photo.", "error");
       }
     } finally {
       setUploadingAvatar(false);
@@ -157,7 +159,7 @@ function SettingsContent() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,.heic,.heif"
                 onChange={handleAvatarUpload}
                 className="hidden"
               />
@@ -169,7 +171,7 @@ function SettingsContent() {
               >
                 {uploadingAvatar ? "Uploading..." : "Change Photo"}
               </button>
-              <p className="text-xs text-text-muted mt-1.5">JPG, PNG. Max 2MB.</p>
+              <p className="text-xs text-text-muted mt-1.5">JPG, PNG, WebP or iPhone HEIC. Max 10MB.</p>
             </div>
           </div>
         </div>

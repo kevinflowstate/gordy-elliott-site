@@ -19,12 +19,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No file provided" }, { status: 400 });
   }
 
-  // Server-side file size validation (2MB max)
-  if (file.size > 2 * 1024 * 1024) {
-    return NextResponse.json({ error: "File too large. Maximum 2MB." }, { status: 400 });
+  // iPhone camera-roll photos are often larger than old desktop avatar limits.
+  // Keep a sane cap, but don't reject normal phone photos before upload.
+  if (file.size > 10 * 1024 * 1024) {
+    return NextResponse.json({ error: "File too large. Maximum 10MB." }, { status: 400 });
   }
 
-  const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"];
   if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
     return NextResponse.json({ error: `File type not allowed: ${file.type}` }, { status: 400 });
   }

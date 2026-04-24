@@ -20,10 +20,10 @@ export const viewport: Viewport = {
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   return (
     <ToastProvider>
-      <div className="dark min-h-screen bg-bg-primary text-text-primary">
+      <div className="portal-shell dark min-h-screen bg-bg-primary text-text-primary">
         <Sidebar />
-        <main className="min-h-screen pb-28 sm:pb-32 lg:ml-[260px] lg:pb-0">
-          <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-8">
+        <main className="portal-main min-h-screen pb-28 sm:pb-32 lg:ml-[260px] lg:pb-0">
+          <div className="portal-page-frame mx-auto px-0 pb-5 sm:px-6 sm:py-8">
             <PushNotificationBanner />
             {children}
           </div>

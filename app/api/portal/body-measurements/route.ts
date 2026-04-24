@@ -57,7 +57,7 @@ export async function POST(request: Request) {
 
   const { data, error } = await admin
     .from("client_body_measurements")
-    .insert({
+    .upsert({
       client_id: profile.id,
       measured_date: date,
       weight_kg: weight_kg ?? null,
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
       left_thigh_cm: left_thigh_cm ?? null,
       right_thigh_cm: right_thigh_cm ?? null,
       notes: notes ?? null,
-    })
+    }, { onConflict: "client_id,measured_date" })
     .select()
     .single();
 

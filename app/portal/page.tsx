@@ -374,10 +374,10 @@ export default function PortalDashboard() {
 
   // Hero styling changes when check-in is due today for high-touch tiers
   const heroBg = checkinToday && !submittedThisWeek && tier === "vip"
-    ? "bg-[linear-gradient(135deg,rgba(245,158,11,0.12),rgba(255,255,255,0.02)_45%,rgba(0,0,0,0.02))] border-amber-500/25"
+    ? "bg-[radial-gradient(circle_at_20%_0%,rgba(245,158,11,0.14),transparent_42%),linear-gradient(135deg,rgba(245,158,11,0.07),rgba(224,64,208,0.04)_58%,transparent)] border-amber-500/25"
     : checkinToday && !submittedThisWeek && tier === "premium"
-      ? "bg-[linear-gradient(135deg,rgba(14,165,233,0.12),rgba(255,255,255,0.02)_45%,rgba(0,0,0,0.02))] border-sky-500/25"
-      : "bg-[linear-gradient(135deg,rgba(224,64,208,0.08),rgba(255,255,255,0.02)_45%,rgba(0,0,0,0.02))] border-[#E040D0]/15";
+      ? "bg-[radial-gradient(circle_at_20%_0%,rgba(14,165,233,0.14),transparent_42%),linear-gradient(135deg,rgba(14,165,233,0.07),rgba(224,64,208,0.04)_58%,transparent)] border-sky-500/25"
+      : "bg-[radial-gradient(circle_at_20%_0%,rgba(224,64,208,0.14),transparent_42%),linear-gradient(135deg,rgba(224,64,208,0.07),rgba(224,64,208,0.035)_58%,transparent)] border-[#E040D0]/15";
 
   return (
     <div className="space-y-6">
@@ -394,7 +394,7 @@ export default function PortalDashboard() {
         </div>
       )}
       <section className={`relative overflow-hidden rounded-[32px] border px-6 py-7 sm:px-8 ${heroBg}`}>
-        <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(224,64,208,0.16),transparent_60%)] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(224,64,208,0.12),transparent_58%)] pointer-events-none" />
         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
             <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#E040D0]">

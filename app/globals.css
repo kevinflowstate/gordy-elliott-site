@@ -21,6 +21,9 @@
 
 html {
   scroll-behavior: smooth;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 /* Pointer cursor on all interactive elements */
@@ -31,7 +34,55 @@ body {
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
   line-height: 1.7;
-  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+@supports not (overflow: clip) {
+  body { overflow-x: hidden; }
+}
+
+/* Mobile portal shell: keep every route locked to the phone viewport. */
+.portal-shell {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+
+.portal-main {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: clip;
+  padding-top: max(1.25rem, env(safe-area-inset-top, 0px));
+}
+
+.portal-page-frame {
+  width: 100%;
+  max-width: min(100%, 72rem);
+  overflow-x: clip;
+}
+
+@media (max-width: 767px) {
+  .portal-page-frame {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .portal-page-frame > * {
+    max-width: 100%;
+  }
+
+  .portal-page-frame input,
+  .portal-page-frame textarea,
+  .portal-page-frame select,
+  .portal-page-frame button,
+  .portal-page-frame a {
+    max-width: 100%;
+  }
 }
 
 /* Bump all small text to minimum 13px across admin + portal */

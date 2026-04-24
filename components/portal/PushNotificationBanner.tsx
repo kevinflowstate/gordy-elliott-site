@@ -68,7 +68,7 @@ export default function PushNotificationBanner() {
   // Show install banner if not standalone and not dismissed
   if (!installDismissed && !standalone && !installed) {
     return (
-      <div className="mb-6 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(12,12,18,0.6)] px-5 py-4">
+      <div className="mb-4 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#121212]/90 px-4 py-3 shadow-lg">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3 min-w-0">
             <svg
@@ -130,8 +130,8 @@ export default function PushNotificationBanner() {
   }
 
   return (
-    <div className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(12,12,18,0.6)] px-5 py-4">
-      <div className="flex items-center gap-3 min-w-0">
+    <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#121212]/90 px-3 py-3 shadow-lg">
+      <div className="flex items-center gap-2.5 min-w-0">
         <svg
           className="w-5 h-5 text-accent-light flex-shrink-0"
           fill="none"
@@ -145,15 +145,15 @@ export default function PushNotificationBanner() {
             d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
           />
         </svg>
-        <p className="text-sm text-white/85">
-          Enable notifications to get check-in reminders and updates.
+        <p className="min-w-0 text-xs leading-snug text-white/85">
+          Enable check-in reminders and coach updates.
         </p>
       </div>
-      <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="flex items-center gap-1.5 flex-shrink-0">
         <button
           onClick={handleEnable}
           disabled={loading}
-          className="px-4 py-2 text-sm font-medium rounded-lg bg-accent-primary text-white hover:bg-accent-light transition-colors disabled:opacity-50 cursor-pointer"
+          className="rounded-xl bg-accent-primary px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50 cursor-pointer"
         >
           {loading ? "Enabling..." : "Enable"}
         </button>
