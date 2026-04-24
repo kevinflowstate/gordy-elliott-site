@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
-import type { CheckinFormConfig, ProgressMetric } from "@/lib/types";
+import type { CheckinFormConfig, ClientTask, ProgressMetric } from "@/lib/types";
+import { buildFallbackCheckinConfig, normalizeCheckinConfig } from "@/lib/checkin-form";
 import PhotoUpload from "@/components/portal/PhotoUpload";
 
 const moodColorMap: Record<string, string> = {
@@ -57,6 +59,53 @@ export default function CheckInPage() {
   const [photos, setPhotos] = useState<Record<string, File>>({});
   const [tier, setTier] = useState<string>("coached");
   const [tierLoaded, setTierLoaded] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [currentWeekSubmitted, setCurrentWeekSubmitted] = useState(false);
+  const [currentWeekSavedAt, setCurrentWeekSavedAt] = useState<string | null>(null);
+  const [currentWeekNumber, setCurrentWeekNumber] = useState<number | null>(null);
+  const [checkinDay, setCheckinDay] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState("");
+  const [templateName, setTemplateName] = useState<string | null>(null);
+  const [openCoachTasks, setOpenCoachTasks] = useState<ClientTask[]>([]);
+  const [latestReply, setLatestReply] = useState<{ text: string; date: string | null } | null>(null);
+  const [priorityMessage, setPriorityMessage] = useState("");
+  const [supportAsk, setSupportAsk] = useState("");
+  const tierCopy = {
+    coached: {
+      line: "Let Gordy know how you're getting on this week.",
+      lane: "Standard coaching lane",
+      rhythm: "This is the weekly reflection Gordy reviews to guide your next steps.",
+    },
+    premium: {
+      line: "Use this premium check-in to surface friction, progress, and where you need extra support this week.",
+      lane: "Premium support lane",
+      rhythm: "This check-in should make your progress and support needs obvious before the week gets away from you.",
+    },
+    vip: {
+      line: "Use this VIP check-in to flag the things Gordy should see first this week.",
+      lane: "VIP priority lane",
+      rhythm: "This is your highest-priority reflection point, designed to keep support tight and visible.",
+    },
+    ai_only: {
+      line: "Use this to reflect on your week and keep your momentum moving.",
+      lane: "AI coaching lane",
+      rhythm: "This helps you stay honest with your progress even without live coaching support.",
+    },
+  } as const;
+
+  function formatDay(day: string | null) {
+    if (!day) return "your check-in day";
+    return `${day.charAt(0).toUpperCase()}${day.slice(1)}`;
+  }
+
+  function formatSavedAt(dateStr: string | null) {
+    if (!dateStr) return "";
+    return new Date(dateStr).toLocaleDateString("en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
+  }
 
   useEffect(() => {
     fetch("/api/portal/me")
@@ -66,33 +115,69 @@ export default function CheckInPage() {
   }, []);
 
   useEffect(() => {
+    if (tier !== "premium" && tier !== "vip") return;
+    fetch("/api/portal/tasks")
+      .then((r) => (r.ok ? r.json() : { tasks: [] }))
+      .then((d) => {
+        const open = (d.tasks || []).filter((t: ClientTask) => !t.completed && t.source !== "client");
+        setOpenCoachTasks(open);
+      })
+      .catch(() => setOpenCoachTasks([]));
+
+    fetch("/api/portal/dashboard")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        const withReply = (d.checkins || []).find((c: { admin_reply?: string; replied_at?: string; created_at: string }) => c.admin_reply);
+        if (withReply?.admin_reply) {
+          setLatestReply({ text: withReply.admin_reply, date: withReply.replied_at || withReply.created_at });
+        }
+      })
+      .catch(() => {});
+  }, [tier]);
+
+  useEffect(() => {
+    let cancelled = false;
     async function loadConfig() {
       try {
-        const res = await fetch("/api/admin/form-config?type=checkin");
-        if (res.ok) {
-          const data = await res.json();
-          setConfig(data.config);
+        const stateRes = await fetch("/api/portal/checkin");
+
+        if (stateRes.ok) {
+          const stateData = await stateRes.json();
+          if (cancelled) return;
+          setConfig(normalizeCheckinConfig(stateData.config));
+          setCheckinDay(stateData.checkinDay || null);
+          setTemplateName(stateData.templateName || null);
+          setLoadError("");
+          if (stateData.currentWeekCheckin) {
+            const existing = stateData.currentWeekCheckin;
+            setMood(existing.mood || null);
+            const existingResponses = existing.responses || {};
+            setResponses(existingResponses);
+            setProgressData(existingResponses);
+            if (typeof existingResponses.priority_message === "string") {
+              setPriorityMessage(existingResponses.priority_message);
+            }
+            if (typeof existingResponses.support_ask === "string") {
+              setSupportAsk(existingResponses.support_ask);
+            }
+            setCurrentWeekSubmitted(true);
+            setCurrentWeekSavedAt(existing.created_at || null);
+            setCurrentWeekNumber(existing.week_number || null);
+          }
+        } else {
+          if (cancelled) return;
+          setConfig(buildFallbackCheckinConfig());
+          setLoadError("We couldn't load your assigned check-in form, so a safe default is shown. You can still submit.");
         }
       } catch {
-        // Fallback config if fetch fails
-        setConfig({
-          checkin_day: "monday",
-          mood_enabled: true,
-          mood_options: [
-            { value: "great", label: "Great", color: "emerald" },
-            { value: "good", label: "Good", color: "blue" },
-            { value: "okay", label: "Okay", color: "amber" },
-            { value: "struggling", label: "Struggling", color: "red" },
-          ],
-          questions: [
-            { id: "wins", label: "Wins this week", placeholder: "What went well? Any progress or breakthroughs?", type: "textarea", required: false },
-            { id: "challenges", label: "Challenges", placeholder: "What are you finding difficult or stuck on?", type: "textarea", required: false },
-            { id: "questions", label: "Questions for Gordy", placeholder: "Anything you need help with or want to discuss?", type: "textarea", required: false },
-          ],
-        });
+        if (cancelled) return;
+        setConfig(buildFallbackCheckinConfig());
+        setLoadError("We couldn't load your full check-in setup, so a safe default is shown. You can still submit.");
       }
     }
     loadConfig();
+    return () => { cancelled = true; };
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -101,8 +186,15 @@ export default function CheckInPage() {
     setError(false);
     setSubmitting(true);
 
-    // Merge progress data into responses so it's stored in the responses JSONB
-    const fullResponses = { ...responses, ...progressData };
+    // Merge progress data and tier-specific priority fields into responses JSONB
+    const fullResponses: Record<string, string> = { ...responses, ...progressData };
+    const isHighTouch = tier === "premium" || tier === "vip";
+    if (isHighTouch) {
+      if (priorityMessage.trim()) fullResponses.priority_message = priorityMessage.trim();
+      else delete fullResponses.priority_message;
+      if (supportAsk.trim()) fullResponses.support_ask = supportAsk.trim();
+      else delete fullResponses.support_ask;
+    }
 
     try {
       const res = await fetch("/api/portal/checkin", {
@@ -112,21 +204,45 @@ export default function CheckInPage() {
       });
 
       if (res.ok) {
-        // Upload any progress photos
+        const data = await res.json();
+        // Upload any progress photos — surface any partial failures so the client
+        // isn't told "saved" when some photos didn't actually land.
+        const failedPhotoAngles: string[] = [];
         if (Object.keys(photos).length > 0) {
           const today = new Date().toISOString().split("T")[0];
-          await Promise.all(
+          const photoResults = await Promise.all(
             Object.entries(photos).map(async ([angle, file]) => {
-              const fd = new FormData();
-              fd.append("file", file);
-              fd.append("angle", angle);
-              fd.append("date", today);
-              await fetch("/api/portal/upload-photo", { method: "POST", body: fd });
+              try {
+                const fd = new FormData();
+                fd.append("file", file);
+                fd.append("angle", angle);
+                fd.append("date", today);
+                const photoRes = await fetch("/api/portal/upload-photo", { method: "POST", body: fd });
+                return { angle, ok: photoRes.ok };
+              } catch {
+                return { angle, ok: false };
+              }
             })
           );
+          failedPhotoAngles.push(
+            ...photoResults
+              .filter((result) => !result.ok)
+              .map((result) => `${result.angle.charAt(0).toUpperCase()}${result.angle.slice(1)}`)
+          );
         }
+        setCurrentWeekSubmitted(true);
+        setCurrentWeekSavedAt(new Date().toISOString());
+        setCurrentWeekNumber(data.week_number || currentWeekNumber);
+        setSaveMessage(data.updated ? "Your check-in for this week was updated." : "Your check-in for this week was saved.");
         setSubmitted(true);
-        toast("Check-in submitted - Gordy will review it this week");
+        if (failedPhotoAngles.length > 0) {
+          toast(
+            `Check-in saved, but these photo${failedPhotoAngles.length === 1 ? "" : "s"} didn't upload: ${failedPhotoAngles.join(", ")}. Try re-adding from Progress.`,
+            "error"
+          );
+        } else {
+          toast(data.updated ? "Check-in updated for this week" : "Check-in submitted - Gordy will review it this week");
+        }
       } else {
         const data = await res.json().catch(() => ({}));
         setError(true);
@@ -144,10 +260,7 @@ export default function CheckInPage() {
 
   function resetForm() {
     setSubmitted(false);
-    setMood(null);
-    setResponses({});
-    setProgressData({});
-    setPhotos({});
+    setSaveMessage("");
   }
 
   if (tierLoaded && tier === "ai_only") {
@@ -160,7 +273,7 @@ export default function CheckInPage() {
             </svg>
           </div>
           <h2 className="text-lg font-heading font-bold text-text-primary mb-2">Not Available on Your Plan</h2>
-          <p className="text-sm text-text-secondary mb-6">Check-ins are available on the Coached plan. Your AI coach is available to help you track progress instead.</p>
+          <p className="text-sm text-text-secondary mb-6">Check-ins are available on Gordy&apos;s coached tiers. Your AI coach is available to help you track progress instead.</p>
           <a href="/portal" className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white rounded-xl" style={{ background: "linear-gradient(135deg, #E040D0 0%, #b830a8 100%)" }}>
             Back to Dashboard
           </a>
@@ -178,14 +291,31 @@ export default function CheckInPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-2xl font-heading font-bold text-text-primary mb-2">Check-In Submitted</h2>
-          <p className="text-text-secondary">Gordy will review your check-in and respond shortly.</p>
-          <button
-            onClick={resetForm}
-            className="mt-6 px-6 py-3 gradient-accent text-white rounded-xl text-sm font-medium cursor-pointer"
-          >
-            Submit Another
-          </button>
+          <h2 className="text-2xl font-heading font-bold text-text-primary mb-2">Check-in Saved</h2>
+          <p className="text-text-secondary">{saveMessage || "Gordy will review your check-in and respond shortly."}</p>
+          {currentWeekNumber !== null && (
+            <p className="mt-2 text-sm text-text-muted">Week {currentWeekNumber} · saved {formatSavedAt(currentWeekSavedAt)}</p>
+          )}
+          <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            <button
+              onClick={resetForm}
+              className="px-6 py-3 gradient-accent text-white rounded-xl text-sm font-semibold cursor-pointer"
+            >
+              Keep Editing
+            </button>
+            <Link
+              href="/portal/progress"
+              className="px-6 py-3 rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary text-sm font-semibold text-text-primary no-underline"
+            >
+              Log your progress
+            </Link>
+            <Link
+              href="/portal"
+              className="text-xs font-semibold text-text-muted no-underline hover:text-text-secondary"
+            >
+              Back to dashboard
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -221,13 +351,93 @@ export default function CheckInPage() {
 
   const enabledQuestions = config.questions.filter((q) => q.enabled !== false);
   const enabledMetrics = (config.progress_tracking || []).filter((m) => m.enabled);
+  const tierInfo = tierCopy[(tier as keyof typeof tierCopy) || "coached"] || tierCopy.coached;
 
   return (
-    <div className="max-w-2xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-heading font-bold text-text-primary">{config.title || "Weekly Check-In"}</h1>
-        <p className="text-text-secondary mt-1">Let Gordy know how you&apos;re getting on this week.</p>
+    <div className="max-w-2xl pb-28 sm:pb-0">
+      <div className="mb-6">
+        <h1 className="text-3xl font-heading font-bold text-text-primary">{config.title || "Weekly Check-in"}</h1>
+        <p className="text-text-secondary mt-1">{tierInfo.line}</p>
+        {(tier === "premium" || tier === "vip") && (
+          <div className={`mt-4 inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${
+            tier === "vip"
+              ? "border-amber-500/20 bg-amber-500/10 text-amber-500"
+              : "border-sky-500/20 bg-sky-500/10 text-sky-500"
+          }`}>
+            {tierInfo.lane}
+          </div>
+        )}
       </div>
+
+      <div className="mb-6 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-4">
+          <div className="text-[11px] uppercase tracking-[0.16em] text-text-muted">Check-in Rhythm</div>
+          <div className="mt-2 text-lg font-heading font-bold text-text-primary">{formatDay(checkinDay)}</div>
+          <div className="mt-1 text-sm text-text-secondary">{tierInfo.rhythm}</div>
+        </div>
+        <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-4">
+          <div className="text-[11px] uppercase tracking-[0.16em] text-text-muted">This Week</div>
+          <div className="mt-2 text-lg font-heading font-bold text-text-primary">
+            {currentWeekSubmitted ? "Already saved" : "Still to submit"}
+          </div>
+          <div className="mt-1 text-sm text-text-secondary">
+            {currentWeekSubmitted
+              ? `Saved ${formatSavedAt(currentWeekSavedAt)}. You can still update it this week.`
+              : "Once submitted, you can still come back and update it before the next week begins."}
+          </div>
+          {templateName && (
+            <div className="mt-2 text-xs text-text-muted">Using form: {templateName}</div>
+          )}
+        </div>
+      </div>
+
+      {loadError && (
+        <div className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+          {loadError}
+        </div>
+      )}
+
+      {/* Coach priorities context (Premium / VIP only) */}
+      {(tier === "premium" || tier === "vip") && openCoachTasks.length > 0 && (
+        <div className={`mb-6 rounded-2xl border px-4 py-4 ${
+          tier === "vip" ? "border-amber-500/25 bg-amber-500/5" : "border-sky-500/25 bg-sky-500/5"
+        }`}>
+          <div className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${
+            tier === "vip" ? "text-amber-500" : "text-sky-500"
+          }`}>
+            Gordy&apos;s open priorities
+          </div>
+          <div className="mt-1 text-xs text-text-secondary">
+            Reflect on these as you fill in this week&apos;s check-in — it keeps your reply focused on what matters.
+          </div>
+          <ul className="mt-3 space-y-2">
+            {openCoachTasks.slice(0, 4).map((task) => (
+              <li key={task.id} className="flex items-start gap-2 text-sm text-text-primary">
+                <span className={`mt-1.5 inline-block h-1.5 w-1.5 rounded-full ${tier === "vip" ? "bg-amber-500" : "bg-sky-500"}`} />
+                <span>{task.task_text}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-3 flex gap-2">
+            <Link href="/portal" className="text-xs font-semibold text-accent-bright no-underline hover:text-accent-light">
+              Back to your dashboard
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* VIP: latest coach reply visible during check-in so the thread feels connected */}
+      {tier === "vip" && latestReply && (
+        <div className="mb-6 rounded-2xl border border-[#E040D0]/20 bg-[#E040D0]/5 px-4 py-4">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#E040D0]">Last reply from Gordy</div>
+          <p className="mt-2 text-sm leading-relaxed text-text-primary">{latestReply.text}</p>
+          {latestReply.date && (
+            <div className="mt-2 text-[10px] uppercase tracking-[0.12em] text-text-muted">
+              Sent {new Date(latestReply.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+            </div>
+          )}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Mood */}
@@ -343,13 +553,64 @@ export default function CheckInPage() {
           </div>
         )}
 
+        {/* Premium / VIP priority fields — reinforce higher-touch check-in */}
+        {(tier === "premium" || tier === "vip") && (
+          <div className="space-y-5 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-5">
+            <div>
+              <div className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                tier === "vip" ? "text-amber-500" : "text-sky-500"
+              }`}>
+                {tier === "vip" ? "Priority message for Gordy" : "Message for Gordy"}
+              </div>
+              <label className="mt-2 block text-sm font-medium text-text-primary">
+                {tier === "vip"
+                  ? "What's the one thing Gordy should see first this week?"
+                  : "What do you most want Gordy to weigh in on?"}
+              </label>
+              <textarea
+                value={priorityMessage}
+                onChange={(e) => setPriorityMessage(e.target.value)}
+                rows={3}
+                placeholder={tier === "vip"
+                  ? "Top-priority win, friction, or decision you need Gordy's eyes on."
+                  : "A specific moment or situation you want his input on."}
+                className="mt-2 w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none"
+              />
+            </div>
+            <div>
+              <div className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                tier === "vip" ? "text-amber-500" : "text-sky-500"
+              }`}>
+                Support ask
+              </div>
+              <label className="mt-2 block text-sm font-medium text-text-primary">
+                Where do you need closer support this coming week?
+              </label>
+              <textarea
+                value={supportAsk}
+                onChange={(e) => setSupportAsk(e.target.value)}
+                rows={3}
+                placeholder="Training, nutrition, habits, mindset, accountability..."
+                className="mt-2 w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none"
+              />
+            </div>
+          </div>
+        )}
+
         <button
           type="submit"
           disabled={(config.mood_enabled && !mood) || submitting}
           className="w-full py-4 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-opacity"
         >
-          {submitting ? "Submitting..." : "Submit Check-In"}
+          {submitting ? "Saving..." : currentWeekSubmitted
+            ? tier === "vip" ? "Update VIP Check-in" : tier === "premium" ? "Update Premium Check-in" : "Update This Week's Check-in"
+            : tier === "vip" ? "Submit Priority Check-in" : tier === "premium" ? "Submit Premium Check-in" : "Submit Check-in"}
         </button>
+        <div className="text-center">
+          <Link href="/portal" className="text-xs font-semibold text-text-muted no-underline hover:text-text-secondary">
+            Back to dashboard
+          </Link>
+        </div>
         {error && (
           <p className="text-red-400 text-sm text-center">Something went wrong. Please try again.</p>
         )}

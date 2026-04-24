@@ -4,6 +4,8 @@ import { sendWelcomeEmail } from "@/lib/email-templates";
 import { getSiteUrl } from "@/lib/site-url";
 import { NextResponse } from "next/server";
 
+const VALID_TIERS = ["coached", "premium", "vip", "ai_only"];
+
 function generateTemporaryPassword(): string {
   const entropy = `${crypto.randomUUID()}${crypto.randomUUID()}`.replace(/-/g, "");
   return `Tmp!${entropy.slice(0, 24)}aA1`;
@@ -80,7 +82,7 @@ export async function POST(request: Request) {
   }
 
   // Set tier if specified
-  if (tier && (tier === "coached" || tier === "ai_only")) {
+  if (tier && VALID_TIERS.includes(tier)) {
     await admin.from("client_profiles").update({ tier }).eq("id", profile.id);
   }
 

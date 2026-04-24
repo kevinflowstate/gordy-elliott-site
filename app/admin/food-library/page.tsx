@@ -20,18 +20,22 @@ const CATEGORIES = [
 
 type Category = typeof CATEGORIES[number];
 
+// Category badges use 500/10 tinted backgrounds + 500-weight text so they read
+// correctly against both the light (white) and dark (#1A1A1A) admin surfaces.
+// Tailwind utilities with opacity preserve background tints in dark mode via the
+// globals.css `revert-layer` rules, and the 500-weight text keeps contrast high.
 const CATEGORY_BADGE: Record<Category, string> = {
-  protein:     "bg-blue-100 text-blue-700 border border-blue-200",
-  dairy:       "bg-purple-100 text-purple-700 border border-purple-200",
-  grains:      "bg-amber-100 text-amber-700 border border-amber-200",
-  fruit:       "bg-pink-100 text-pink-700 border border-pink-200",
-  vegetables:  "bg-green-100 text-green-700 border border-green-200",
-  fats:        "bg-yellow-100 text-yellow-700 border border-yellow-200",
-  carbs:       "bg-orange-100 text-orange-700 border border-orange-200",
-  snacks:      "bg-red-100 text-red-700 border border-red-200",
-  drinks:      "bg-cyan-100 text-cyan-700 border border-cyan-200",
-  supplements: "bg-indigo-100 text-indigo-700 border border-indigo-200",
-  other:       "bg-gray-100 text-gray-600 border border-gray-200",
+  protein:     "bg-blue-500/10 text-blue-500 border border-blue-500/20",
+  dairy:       "bg-purple-500/10 text-purple-500 border border-purple-500/20",
+  grains:      "bg-amber-500/10 text-amber-500 border border-amber-500/20",
+  fruit:       "bg-pink-500/10 text-pink-500 border border-pink-500/20",
+  vegetables:  "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20",
+  fats:        "bg-yellow-500/10 text-yellow-600 border border-yellow-500/20",
+  carbs:       "bg-orange-500/10 text-orange-500 border border-orange-500/20",
+  snacks:      "bg-red-500/10 text-red-500 border border-red-500/20",
+  drinks:      "bg-cyan-500/10 text-cyan-500 border border-cyan-500/20",
+  supplements: "bg-indigo-500/10 text-indigo-500 border border-indigo-500/20",
+  other:       "bg-[rgba(0,0,0,0.04)] text-text-muted border border-[rgba(0,0,0,0.08)]",
 };
 
 function categoryBadgeClass(category: string): string {

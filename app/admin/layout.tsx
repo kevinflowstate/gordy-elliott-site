@@ -9,7 +9,7 @@ export const metadata = {
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <ToastProvider>
-      <div className="min-h-screen bg-bg-primary relative">
+      <div className="min-h-screen bg-bg-primary text-text-primary relative">
         <AdminBackground />
         <AdminSidebar />
         <main className="lg:ml-[260px] min-h-screen relative z-[1]">

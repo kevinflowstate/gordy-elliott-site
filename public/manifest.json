@@ -2,13 +2,14 @@
   "name": "SHIFT Client Portal",
   "short_name": "SHIFT Portal",
   "description": "Gordy Elliott - SHIFT Coaching Client Portal",
-  "id": "/",
+  "id": "/portal",
   "start_url": "/portal",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "background_color": "#0A0A0A",
+  "theme_color": "#0A0A0A",
   "orientation": "portrait-primary",
+  "categories": ["health", "fitness", "lifestyle"],
   "icons": [
     {
       "src": "/icon-192x192.png",
@@ -33,6 +34,32 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Today's training",
+      "short_name": "Training",
+      "description": "Open today's training session",
+      "url": "/portal/exercise-plan"
+    },
+    {
+      "name": "Log nutrition",
+      "short_name": "Nutrition",
+      "description": "Log meals against today's plan",
+      "url": "/portal/nutrition-plan"
+    },
+    {
+      "name": "Weekly check-in",
+      "short_name": "Check-in",
+      "description": "Submit your weekly check-in",
+      "url": "/portal/checkin"
+    },
+    {
+      "name": "Ask SHIFT AI",
+      "short_name": "AI",
+      "description": "Chat with your AI coaching assistant",
+      "url": "/portal/ai"
     }
   ]
 }

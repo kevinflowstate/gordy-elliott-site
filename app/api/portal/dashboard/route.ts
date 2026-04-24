@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeCheckinConfig } from "@/lib/checkin-form";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -36,13 +37,14 @@ export async function GET() {
     .update({ last_login: new Date().toISOString() })
     .eq("id", profile.id);
 
-  const [checkinsRes, planRes, formConfigRes, contentProgressRes] = await Promise.all([
+  const [checkinsRes, planRes, contentProgressRes, assignedCheckinFormRes, fallbackCheckinFormRes] = await Promise.all([
     admin
       .from("checkins")
-      .select("*")
+      // The dashboard computes streaks and high-touch support state from check-in history,
+      // so it needs the full history rather than a shallow recent slice.
+      .select("id, week_number, created_at, admin_reply, replied_at")
       .eq("client_id", profile.id)
-      .order("created_at", { ascending: false })
-      .limit(5),
+      .order("created_at", { ascending: false }),
     admin
       .from("business_plans")
       .select("*")
@@ -50,17 +52,26 @@ export async function GET() {
       .eq("status", "active")
       .limit(1)
       .single(),
-    admin
-      .from("form_config")
-      .select("*")
-      .eq("form_type", "checkin")
-      .single(),
     // Content progress for training completion tracking
     admin
       .from("content_progress")
       .select("content_id, completed")
       .eq("client_id", profile.id)
       .eq("completed", true),
+    profile.checkin_form_id
+      ? admin
+          .from("checkin_forms")
+          .select("config")
+          .eq("id", profile.checkin_form_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    admin
+      .from("checkin_forms")
+      .select("config")
+      .eq("is_default", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   let modules: Array<{ id: string; title: string; created_at: string; content?: { id: string }[] }> = [];
@@ -131,6 +142,12 @@ export async function GET() {
   const totalLessons = allLessons.length;
   const completedLessons = allLessons.filter((id: string) => completedContentIds.has(id)).length;
 
+  const effectiveCheckinConfig = assignedCheckinFormRes.data?.config
+    ? normalizeCheckinConfig(assignedCheckinFormRes.data.config)
+    : fallbackCheckinFormRes.data?.config
+      ? normalizeCheckinConfig(fallbackCheckinFormRes.data.config)
+      : null;
+
   return NextResponse.json({
     userName: userData?.full_name || "",
     profile,
@@ -138,7 +155,7 @@ export async function GET() {
     checkins: checkinsRes.data || [],
     businessPlan: planRes.data || null,
     planPhases,
-    checkinDay: formConfigRes.data?.config?.checkin_day || "monday",
+    checkinDay: profile.checkin_day || effectiveCheckinConfig?.checkin_day || "monday",
     recentModules,
     trainingProgress: {
       completedLessons,

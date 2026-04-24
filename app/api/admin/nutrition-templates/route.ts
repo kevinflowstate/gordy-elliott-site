@@ -73,21 +73,31 @@ export async function POST(request: Request) {
 
   if (!template) return NextResponse.json({ error: "template is required" }, { status: 400 });
 
-  // Upsert template
-  const { data: saved, error: tplError } = await admin
-    .from("nutrition_templates")
-    .upsert({
-      id: template.id || undefined,
-      name: template.name,
-      description: template.description || null,
-      calorie_range: template.calorie_range || "moderate",
-      plan_type: template.plan_type || "full",
-      target_calories: template.target_calories || null,
-      target_protein_g: template.target_protein_g || null,
-      target_carbs_g: template.target_carbs_g || null,
-      target_fat_g: template.target_fat_g || null,
-      updated_at: new Date().toISOString(),
-    })
+  const templatePayload = {
+    name: template.name,
+    description: template.description || null,
+    calorie_range: template.calorie_range || "moderate",
+    plan_type: template.plan_type || "full",
+    target_calories: template.target_calories || null,
+    target_protein_g: template.target_protein_g || null,
+    target_carbs_g: template.target_carbs_g || null,
+    target_fat_g: template.target_fat_g || null,
+    is_active: true,
+    updated_at: new Date().toISOString(),
+  };
+
+  // Use insert for duplicates/new templates so creation doesn't depend on upsert
+  // behavior for missing primary keys.
+  const templateQuery = template.id
+    ? admin
+        .from("nutrition_templates")
+        .update(templatePayload)
+        .eq("id", template.id)
+    : admin
+        .from("nutrition_templates")
+        .insert(templatePayload);
+
+  const { data: saved, error: tplError } = await templateQuery
     .select()
     .single();
 

@@ -224,17 +224,17 @@ function QuestionCard({ question, answers, onUpdate, onNext, onBack, canGoNext, 
 
 function AlignmentBadge({ score }: { score: number }) {
   const config = score >= 50
-    ? { label: "Highly aligned", desc: "Your top values show up across most areas of life. Strong foundation.", color: "#1D9E75", bg: "rgba(29,158,117,0.1)", border: "rgba(29,158,117,0.3)" }
+    ? { label: "Your values run deep", desc: "Your top three show up across most areas of your life. That's a strong base to build on.", color: "#1D9E75", bg: "rgba(29,158,117,0.1)", border: "rgba(29,158,117,0.3)" }
     : score >= 30
-    ? { label: "Room to grow", desc: "Some values are dominant in specific areas but not across the board.", color: "#EF9F27", bg: "rgba(239,159,39,0.1)", border: "rgba(239,159,39,0.3)" }
-    : { label: "Priorities scattered", desc: "Your priorities may need focusing. That's the starting point.", color: "#2424B4", bg: "rgba(36,36,180,0.1)", border: "rgba(36,36,180,0.3)" };
+    ? { label: "A few strong pillars", desc: "Your top values are clear in some areas but not yet across the board. Room to let them lead more.", color: "#EF9F27", bg: "rgba(239,159,39,0.1)", border: "rgba(239,159,39,0.3)" }
+    : { label: "Still coming into focus", desc: "No judgment here. Most people find these spread out before they find their true centre. This is the starting map.", color: "#7C5CF0", bg: "rgba(124,92,240,0.1)", border: "rgba(124,92,240,0.3)" };
 
   return (
     <div className="text-center mb-8">
       <div className="inline-flex flex-col items-center gap-3 px-8 py-6 rounded-2xl border" style={{ backgroundColor: config.bg, borderColor: config.border }}>
         <div className="text-4xl font-heading font-bold" style={{ color: config.color }}>{score}%</div>
         <div className="text-sm font-semibold" style={{ color: config.color }}>{config.label}</div>
-        <div className="text-xs text-text-muted max-w-xs">{config.desc}</div>
+        <div className="text-xs text-text-muted max-w-xs leading-relaxed">{config.desc}</div>
       </div>
     </div>
   );
@@ -253,15 +253,15 @@ function ResultsView({ values, alignmentScore, onRestart, saving }: {
 
   return (
     <div className="py-8">
-      <h1 className="text-3xl sm:text-4xl font-heading font-bold text-text-primary text-center mb-2">YOUR VALUES HIERARCHY</h1>
-      <p className="text-sm text-text-muted text-center mb-8">Based on the evidence of your 39 answers — not assumptions. This is what actually drives you.</p>
+      <h1 className="text-3xl sm:text-4xl font-heading font-bold text-text-primary text-center mb-2">Your values map</h1>
+      <p className="text-sm text-text-muted text-center mb-8 max-w-md mx-auto leading-relaxed">Built from 39 of your own answers. Not a personality test — a mirror of what already drives your days.</p>
 
       <div className="mb-8">
-        <h2 className="text-xs font-semibold text-text-muted uppercase tracking-wider text-center mb-4">ALIGNMENT SCORE</h2>
+        <h2 className="text-xs font-semibold text-text-muted uppercase tracking-wider text-center mb-4">How concentrated your values are</h2>
         <AlignmentBadge score={alignmentScore} />
       </div>
 
-      <h2 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-4">TOP 3 NON-NEGOTIABLES</h2>
+      <h2 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-4">Your top three drivers</h2>
       <div className="space-y-3 mb-8">
         {top3.map((v) => (
           <div key={v.rank} className="bg-bg-card border border-[rgba(224,64,208,0.15)] rounded-2xl overflow-hidden">
@@ -307,14 +307,14 @@ function ResultsView({ values, alignmentScore, onRestart, saving }: {
 
       {rest.length > 0 && (
         <>
-          <h2 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-4">ALSO PRESENT</h2>
+          <h2 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-4">Also showing up</h2>
           <div className="space-y-2 mb-8">
             {rest.map((v) => (
               <div key={v.rank} className="bg-bg-card/60 border border-[rgba(255,255,255,0.04)] rounded-xl p-4 flex items-center gap-3">
                 <div className="w-7 h-7 rounded-lg bg-[rgba(255,255,255,0.04)] flex items-center justify-center text-text-muted text-xs font-bold">{v.rank}</div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-text-secondary">{v.label}</div>
-                  <div className="text-[10px] text-text-muted">{v.breadth} of 13 areas</div>
+                  <div className="text-[10px] text-text-muted">Present in {v.breadth} of 13 areas</div>
                 </div>
               </div>
             ))}
@@ -323,19 +323,19 @@ function ResultsView({ values, alignmentScore, onRestart, saving }: {
       )}
 
       <div className="bg-bg-card border border-[rgba(255,255,255,0.06)] rounded-2xl p-6 mb-8">
-        <h2 className="font-heading font-bold text-text-primary mb-3">So what does this mean?</h2>
+        <h2 className="font-heading font-bold text-text-primary mb-3">Why this matters</h2>
         <div className="text-sm text-text-secondary leading-relaxed space-y-3">
-          <p>Your top values aren&apos;t about finding out something new — they&apos;re about confirming what&apos;s already running in the background.</p>
-          <p>If a goal doesn&apos;t line up with these, it&apos;ll probably slip. Not because you&apos;re lazy — because it&apos;s not wired into who you are. Yet.</p>
-          <p>Your programme is built around these. We map training, nutrition, and mindset against your values so that effort feels conscious, not forced.</p>
+          <p>This isn&apos;t a score to pass or fail. It&apos;s a mirror of what already drives you when nobody&apos;s watching.</p>
+          <p>Goals that line up with your top values rarely need willpower. Goals that don&apos;t tend to slip — not because you&apos;re weak, but because they&apos;re fighting how you&apos;re already wired.</p>
+          <p>Your programme gets built against these. Training, nutrition, and mindset start landing easier once they stop fighting the map.</p>
         </div>
       </div>
 
-      <div className="text-center space-y-4">
-        <h3 className="font-heading font-bold text-text-primary">NEXT STEP</h3>
-        <p className="text-sm text-text-muted">We&apos;ll map these against your goals in your next session. Screenshot your results or come back here any time.</p>
+      <div className="text-center space-y-3">
+        <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider">Next step</h3>
+        <p className="text-sm text-text-secondary leading-relaxed max-w-md mx-auto">Screenshot this or come back any time — we&apos;ll map it against your goals in your next session so your plan matches the wiring, not the wishlist.</p>
         <button onClick={onRestart} className="px-6 py-3 bg-bg-card border border-[rgba(255,255,255,0.08)] text-text-secondary text-sm font-medium rounded-xl hover:border-accent/30 transition-all cursor-pointer">
-          Retake Assessment
+          Retake exercise
         </button>
         {saving && <p className="text-xs text-text-muted">Saving your results...</p>}
       </div>

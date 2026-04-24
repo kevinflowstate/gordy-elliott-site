@@ -75,6 +75,7 @@ export default function PortalCalendarPage() {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [tier, setTier] = useState<string>("coached");
   const [tierLoaded, setTierLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
@@ -88,13 +89,18 @@ export default function PortalCalendarPage() {
   }, []);
 
   const loadEvents = useCallback(async () => {
+    setLoadError(null);
     try {
       const res = await fetch("/api/calendar");
       if (res.ok) {
         const data = await res.json();
         setEvents(data.events || []);
+      } else {
+        setLoadError("We couldn't load your calendar right now. Try again in a moment.");
       }
-    } catch { /* */ } finally {
+    } catch {
+      setLoadError("We couldn't reach the calendar. Check your connection and retry.");
+    } finally {
       setLoading(false);
     }
   }, []);
@@ -145,7 +151,7 @@ export default function PortalCalendarPage() {
             </svg>
           </div>
           <h2 className="text-lg font-heading font-bold text-text-primary mb-2">Not Available on Your Plan</h2>
-          <p className="text-sm text-text-secondary mb-6">The calendar is available on the Coached plan. Use SHIFT AI to plan your schedule.</p>
+          <p className="text-sm text-text-secondary mb-6">The calendar is available on Gordy&apos;s coached tiers. Use SHIFT AI to plan your schedule.</p>
           <a href="/portal" className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white rounded-xl" style={{ background: "linear-gradient(135deg, #E040D0 0%, #b830a8 100%)" }}>
             Back to Dashboard
           </a>
@@ -170,6 +176,19 @@ export default function PortalCalendarPage() {
         <h1 className="text-3xl font-heading font-bold text-text-primary">Calendar</h1>
         <p className="text-text-secondary mt-1 text-sm">Upcoming events and coaching sessions.</p>
       </div>
+
+      {loadError && (
+        <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-300 sm:flex-row sm:items-center sm:justify-between">
+          <span>{loadError}</span>
+          <button
+            type="button"
+            onClick={() => { setLoading(true); loadEvents(); }}
+            className="inline-flex w-fit items-center rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-300 transition-colors hover:bg-amber-500/20 cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Up Next card */}
       {upNext && (
@@ -205,11 +224,11 @@ export default function PortalCalendarPage() {
         </div>
       )}
 
-      {/* Calendar grid */}
+      {/* Calendar — desktop grid + mobile agenda list */}
       <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden mb-6">
         {/* Month navigation */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(0,0,0,0.06)]">
-          <button onClick={prevMonth} className="p-2 text-text-muted hover:text-text-primary transition-colors rounded-lg hover:bg-white/5 cursor-pointer">
+          <button onClick={prevMonth} aria-label="Previous month" className="p-2 text-text-muted hover:text-text-primary transition-colors rounded-lg hover:bg-white/5 cursor-pointer">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
@@ -217,67 +236,139 @@ export default function PortalCalendarPage() {
           <h2 className="text-sm font-heading font-bold text-text-primary">
             {monthNames[viewMonth]} {viewYear}
           </h2>
-          <button onClick={nextMonth} className="p-2 text-text-muted hover:text-text-primary transition-colors rounded-lg hover:bg-white/5 cursor-pointer">
+          <button onClick={nextMonth} aria-label="Next month" className="p-2 text-text-muted hover:text-text-primary transition-colors rounded-lg hover:bg-white/5 cursor-pointer">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
         </div>
 
-        {/* Day headers */}
-        <div className="grid grid-cols-7 border-b border-[rgba(0,0,0,0.06)]">
-          {dayNames.map((d) => (
-            <div key={d} className="text-center py-2 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-              {d}
-            </div>
-          ))}
+        {/* Desktop: full month grid */}
+        <div className="hidden sm:block">
+          <div className="grid grid-cols-7 border-b border-[rgba(0,0,0,0.06)]">
+            {dayNames.map((d) => (
+              <div key={d} className="text-center py-2 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                {d}
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-7">
+            {Array.from({ length: firstDay }).map((_, i) => (
+              <div key={`empty-${i}`} className="h-20 border-b border-r border-[rgba(0,0,0,0.02)] bg-[rgba(0,0,0,0.15)]" />
+            ))}
+
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const dayNum = i + 1;
+              const key = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+              const isToday = key === todayKey;
+              const isSelected = key === selectedDay;
+              const dayEvents = dayEventsMap.get(key) || [];
+              const hasEvents = dayEvents.length > 0;
+
+              return (
+                <button
+                  key={key}
+                  onClick={() => setSelectedDay(isSelected ? null : key)}
+                  className={`h-20 border-b border-r border-[rgba(0,0,0,0.02)] p-1.5 text-left transition-all cursor-pointer relative ${
+                    isSelected ? "bg-accent/10 border-accent/20" : hasEvents ? "hover:bg-[rgba(0,0,0,0.03)]" : "hover:bg-[rgba(0,0,0,0.02)]"
+                  }`}
+                >
+                  <span className={`text-xs font-medium inline-flex items-center justify-center w-6 h-6 rounded-full ${
+                    isToday ? "bg-accent text-white" : "text-text-secondary"
+                  }`}>
+                    {dayNum}
+                  </span>
+                  {dayEvents.length > 0 && (
+                    <div className="mt-0.5 space-y-0.5">
+                      {dayEvents.slice(0, 2).map((ev) => (
+                        <div
+                          key={ev.id}
+                          className="text-[9px] leading-tight px-1 py-0.5 rounded bg-accent/15 text-accent-bright truncate"
+                        >
+                          {ev.title}
+                        </div>
+                      ))}
+                      {dayEvents.length > 2 && (
+                        <div className="text-[9px] text-text-muted px-1">+{dayEvents.length - 2} more</div>
+                      )}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Day cells */}
-        <div className="grid grid-cols-7">
-          {Array.from({ length: firstDay }).map((_, i) => (
-            <div key={`empty-${i}`} className="h-20 border-b border-r border-[rgba(0,0,0,0.02)] bg-[rgba(0,0,0,0.15)]" />
-          ))}
+        {/* Mobile: agenda list of days in the viewed month (only days with events, plus today) */}
+        <div className="sm:hidden">
+          {(() => {
+            const mobileDays: { key: string; dayNum: number; dayName: string; events: CalendarEvent[]; isToday: boolean }[] = [];
+            for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
+              const key = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+              const evts = dayEventsMap.get(key) || [];
+              const d = new Date(viewYear, viewMonth, dayNum);
+              const isToday = key === todayKey;
+              if (evts.length === 0 && !isToday) continue;
+              mobileDays.push({
+                key,
+                dayNum,
+                dayName: d.toLocaleDateString("en-GB", { weekday: "short" }),
+                events: evts,
+                isToday,
+              });
+            }
 
-          {Array.from({ length: daysInMonth }).map((_, i) => {
-            const dayNum = i + 1;
-            const key = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
-            const isToday = key === todayKey;
-            const isSelected = key === selectedDay;
-            const dayEvents = dayEventsMap.get(key) || [];
-            const hasEvents = dayEvents.length > 0;
+            if (mobileDays.length === 0) {
+              return (
+                <div className="px-5 py-8 text-center">
+                  <p className="text-sm text-text-secondary">Nothing scheduled for {monthNames[viewMonth]}.</p>
+                  <p className="text-xs text-text-muted mt-1">Use the arrows above to browse other months.</p>
+                </div>
+              );
+            }
 
             return (
-              <button
-                key={key}
-                onClick={() => setSelectedDay(isSelected ? null : key)}
-                className={`h-20 border-b border-r border-[rgba(0,0,0,0.02)] p-1.5 text-left transition-all cursor-pointer relative ${
-                  isSelected ? "bg-accent/10 border-accent/20" : hasEvents ? "hover:bg-[rgba(0,0,0,0.03)]" : "hover:bg-[rgba(0,0,0,0.02)]"
-                }`}
-              >
-                <span className={`text-xs font-medium inline-flex items-center justify-center w-6 h-6 rounded-full ${
-                  isToday ? "bg-accent text-white" : "text-text-secondary"
-                }`}>
-                  {dayNum}
-                </span>
-                {dayEvents.length > 0 && (
-                  <div className="mt-0.5 space-y-0.5">
-                    {dayEvents.slice(0, 2).map((ev) => (
-                      <div
-                        key={ev.id}
-                        className="text-[9px] leading-tight px-1 py-0.5 rounded bg-accent/15 text-accent-bright truncate"
+              <ul className="divide-y divide-[rgba(0,0,0,0.04)]">
+                {mobileDays.map(({ key, dayNum, dayName, events: evts, isToday }) => {
+                  const isSelected = key === selectedDay;
+                  return (
+                    <li key={key}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDay(isSelected ? null : key)}
+                        className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors cursor-pointer ${
+                          isSelected ? "bg-accent/10" : "hover:bg-[rgba(0,0,0,0.03)]"
+                        }`}
                       >
-                        {ev.title}
-                      </div>
-                    ))}
-                    {dayEvents.length > 2 && (
-                      <div className="text-[9px] text-text-muted px-1">+{dayEvents.length - 2} more</div>
-                    )}
-                  </div>
-                )}
-              </button>
+                        <div className={`flex-shrink-0 w-11 flex flex-col items-center justify-center py-1.5 rounded-xl ${
+                          isToday ? "bg-accent text-white" : "bg-[rgba(0,0,0,0.04)] text-text-secondary"
+                        }`}>
+                          <span className="text-[10px] font-semibold uppercase tracking-wide leading-none">{dayName}</span>
+                          <span className="text-base font-bold leading-tight mt-0.5">{dayNum}</span>
+                        </div>
+                        <div className="flex-1 min-w-0 pt-0.5">
+                          {evts.length === 0 ? (
+                            <p className="text-sm text-text-muted italic">Nothing scheduled today.</p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {evts.map((ev) => (
+                                <div key={ev.id} className="flex items-center gap-2">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-accent-bright flex-shrink-0" />
+                                  <span className="text-sm font-medium text-text-primary truncate">{ev.title}</span>
+                                  <span className="text-[11px] text-text-muted flex-shrink-0 ml-auto">{formatTime(ev.event_time)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
             );
-          })}
+          })()}
         </div>
       </div>
 

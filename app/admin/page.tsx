@@ -199,7 +199,7 @@ export default function AdminDashboard() {
               </svg>
             </div>
           </div>
-          <div className="text-text-muted text-xs uppercase tracking-wider mb-1">Unreplied Check-Ins</div>
+          <div className="text-text-muted text-xs uppercase tracking-wider mb-1">Unreplied Check-ins</div>
           <div className={`text-3xl font-heading font-bold ${unreplied > 0 ? "text-red-400" : "text-text-primary"}`}>
             {unreplied}
           </div>
@@ -310,7 +310,7 @@ export default function AdminDashboard() {
                             <div className="text-text-primary font-semibold">{client.current_week}/12</div>
                           </div>
                           <div>
-                            <div className="text-text-muted text-xs mb-0.5">Last Check-In</div>
+                            <div className="text-text-muted text-xs mb-0.5">Last Check-in</div>
                             <div className={`font-semibold ${
                               new Date().getTime() - new Date(client.last_checkin).getTime() > 7 * 24 * 60 * 60 * 1000
                                 ? "text-red-400" : "text-text-primary"
@@ -687,7 +687,7 @@ function ShiftOverview({ clients, recentCheckins }: { clients: AdminClient[]; re
             <div className="flex gap-3">
               <button
                 onClick={() => setNudgeTarget(null)}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-white/5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] rounded-xl transition-colors cursor-pointer"
               >
                 {nudgeSent ? "Done" : "Cancel"}
               </button>

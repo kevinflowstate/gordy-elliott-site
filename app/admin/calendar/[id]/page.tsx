@@ -113,7 +113,7 @@ export default function EventEditorPage() {
       <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden mb-6">
         <div className="relative h-32 bg-gradient-to-br from-blue-600/20 to-blue-900/40 overflow-hidden">
           <div className="absolute inset-0 flex items-center justify-center">
-            <svg className="w-16 h-16 text-white/10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-16 h-16 text-white/15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           </div>
@@ -123,14 +123,14 @@ export default function EventEditorPage() {
               className={`text-xs px-3 py-1.5 rounded-full font-semibold transition-all ${
                 isActive
                   ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30"
-                  : "bg-white/10 text-white/60 border border-white/10 hover:border-white/20"
+                  : "bg-[rgba(255,255,255,0.06)] text-text-muted border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.16)]"
               }`}
             >
               {isActive ? "Active" : "Inactive - Click to Activate"}
             </button>
           </div>
           {saving && (
-            <div className="absolute top-4 left-4 text-[10px] text-white/50">Saving...</div>
+            <div className="absolute top-4 left-4 text-[10px] text-text-muted">Saving...</div>
           )}
         </div>
 

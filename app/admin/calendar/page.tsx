@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useToast } from "@/components/ui/Toast";
 import type { CalendarEvent, RecurrenceType } from "@/lib/types";
 
 const recurrenceLabels: Record<RecurrenceType, { label: string; color: string }> = {
@@ -75,6 +76,7 @@ function getNextOccurrence(event: CalendarEvent): Date | null {
 }
 
 export default function AdminCalendarPage() {
+  const { toast } = useToast();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -102,11 +104,15 @@ export default function AdminCalendarPage() {
       if (res.ok) {
         const data = await res.json();
         setEvents(data.events);
+      } else {
+        toast("Couldn't load the calendar — try again in a moment.", "error");
       }
-    } catch { /* */ } finally {
+    } catch {
+      toast("Couldn't reach the calendar API. Check your connection.", "error");
+    } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => { loadEvents(); }, [loadEvents]);
 
@@ -130,8 +136,14 @@ export default function AdminCalendarPage() {
         setNewTitle(""); setNewDesc(""); setNewDate(""); setNewTime("19:00");
         setNewRecurrence("none"); setNewRecurrenceDay(0); setNewLink(""); setNewLinkLabel("");
         loadEvents();
+        toast("Event created");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast(err.error || "Couldn't create the event. Try again.", "error");
       }
-    } catch { /* */ } finally { setSaving(false); }
+    } catch {
+      toast("Couldn't reach the calendar API. Try again.", "error");
+    } finally { setSaving(false); }
   }
 
   async function handleToggleActive(id: string, currentActive: boolean) {
@@ -245,7 +257,7 @@ export default function AdminCalendarPage() {
       <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden mb-6">
         {/* Month navigation */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(0,0,0,0.06)]">
-          <button onClick={prevMonth} className="p-2 text-text-muted hover:text-text-primary transition-colors rounded-lg hover:bg-white/5 cursor-pointer">
+          <button onClick={prevMonth} className="p-2 text-text-muted hover:text-text-primary transition-colors rounded-lg hover:bg-[rgba(255,255,255,0.04)] cursor-pointer">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
@@ -253,7 +265,7 @@ export default function AdminCalendarPage() {
           <h2 className="text-sm font-heading font-bold text-text-primary">
             {monthNames[viewMonth]} {viewYear}
           </h2>
-          <button onClick={nextMonth} className="p-2 text-text-muted hover:text-text-primary transition-colors rounded-lg hover:bg-white/5 cursor-pointer">
+          <button onClick={nextMonth} className="p-2 text-text-muted hover:text-text-primary transition-colors rounded-lg hover:bg-[rgba(255,255,255,0.04)] cursor-pointer">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
@@ -273,7 +285,7 @@ export default function AdminCalendarPage() {
         <div className="grid grid-cols-7">
           {/* Empty cells before first day */}
           {Array.from({ length: firstDay }).map((_, i) => (
-            <div key={`empty-${i}`} className="h-20 border-b border-r border-[rgba(0,0,0,0.02)] bg-[rgba(0,0,0,0.15)]" />
+            <div key={`empty-${i}`} className="h-20 border-b border-r border-[rgba(255,255,255,0.04)] bg-[rgba(255,255,255,0.02)]" />
           ))}
 
           {/* Day cells */}
@@ -290,7 +302,7 @@ export default function AdminCalendarPage() {
                 key={key}
                 onClick={() => setSelectedDay(isSelected ? null : key)}
                 className={`h-20 border-b border-r border-[rgba(0,0,0,0.02)] p-1.5 text-left transition-all cursor-pointer relative ${
-                  isSelected ? "bg-accent/10 border-accent/20" : hasEvents ? "hover:bg-[rgba(0,0,0,0.03)]" : "hover:bg-[rgba(0,0,0,0.02)]"
+                  isSelected ? "bg-accent/10 border-accent/20" : hasEvents ? "hover:bg-[rgba(255,255,255,0.04)]" : "hover:bg-[rgba(255,255,255,0.02)]"
                 }`}
               >
                 <span className={`text-xs font-medium inline-flex items-center justify-center w-6 h-6 rounded-full ${
@@ -393,7 +405,7 @@ export default function AdminCalendarPage() {
                 <button
                   onClick={() => handleToggleActive(event.id, event.is_active)}
                   className={`text-[10px] px-2.5 py-1 rounded-full font-semibold transition-all cursor-pointer ${
-                    event.is_active ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-white/10 text-white/60 border border-white/10"
+                    event.is_active ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-[rgba(255,255,255,0.06)] text-text-muted border border-[rgba(255,255,255,0.08)]"
                   }`}
                 >
                   {event.is_active ? "Active" : "Inactive"}
@@ -463,7 +475,7 @@ export default function AdminCalendarPage() {
               </div>
             </div>
             <div className="flex gap-3 mt-5">
-              <button onClick={() => setShowAdd(false)} className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-white/5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer">Cancel</button>
+              <button onClick={() => setShowAdd(false)} className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] rounded-xl transition-colors cursor-pointer">Cancel</button>
               <button onClick={handleCreate} disabled={saving || !newTitle.trim() || !newDate} className="flex-1 px-4 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-40 cursor-pointer">
                 {saving ? "Creating..." : "Create Event"}
               </button>

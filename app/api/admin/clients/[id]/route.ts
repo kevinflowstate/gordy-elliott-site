@@ -3,6 +3,8 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { getClientById } from "@/lib/admin-data";
 import { NextResponse } from "next/server";
 
+const VALID_TIERS = ["coached", "premium", "vip", "ai_only"];
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -31,14 +33,14 @@ export async function PATCH(
   const body = await request.json();
 
   // Only allow safe profile fields to be patched
-  const allowed = ["checkin_day", "coach_notes", "start_weight", "tier"];
+  const allowed = ["checkin_day", "checkin_form_id", "coach_notes", "start_weight", "tier"];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in body) updates[key] = body[key];
   }
 
   // Validate tier value if present
-  if ("tier" in updates && updates.tier !== "coached" && updates.tier !== "ai_only") {
+  if ("tier" in updates && !VALID_TIERS.includes(String(updates.tier))) {
     return NextResponse.json({ error: "Invalid tier value" }, { status: 400 });
   }
 

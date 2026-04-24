@@ -1,16 +1,95 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { ClientProfile, TrainingModule, CheckIn, CalendarEvent, TrainingPlanPhase, ClientTask } from "@/lib/types";
+import { useToast } from "@/components/ui/Toast";
+import type { CalendarEvent, CheckIn, ClientProfile, ClientTask, TrainingPlanPhase } from "@/lib/types";
 
-function ProgressBar({ value, max }: { value: number; max: number }) {
-  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
-  return (
-    <div className="w-full bg-[rgba(0,0,0,0.06)] rounded-full h-2.5">
-      <div className="h-2.5 rounded-full gradient-accent transition-all duration-500" style={{ width: `${pct}%` }} />
-    </div>
-  );
+type Tier = "coached" | "premium" | "vip" | "ai_only";
+
+const tierDisplay = {
+  coached: {
+    label: "Coached",
+    badgeClass: "border-emerald-500/20 bg-emerald-500/10 text-emerald-500",
+    accentClass: "border-emerald-500/20",
+    supportTitle: "Coaching Support",
+    supportCopy: "Your core coaching plan is live. Use this hub to stay on top of Gordy's priorities and your own daily actions.",
+    heroCopy: "Start here for your priorities, your checklist, and the one or two things Gordy wants you focused on this week.",
+    ctaLabel: "Open Weekly Check-in",
+  },
+  premium: {
+    label: "Premium",
+    badgeClass: "border-sky-500/20 bg-sky-500/10 text-sky-500",
+    accentClass: "border-sky-500/20",
+    supportTitle: "Premium Support",
+    supportCopy: "You're on Gordy's premium tier, so this dashboard should act like your weekly control center for deeper support and closer oversight.",
+    heroCopy: "Start here for the priorities, check-ins, and support prompts that keep your week tighter and more accountable.",
+    ctaLabel: "Open Premium Check-in",
+  },
+  vip: {
+    label: "VIP",
+    badgeClass: "border-amber-500/20 bg-amber-500/10 text-amber-500",
+    accentClass: "border-amber-500/20",
+    supportTitle: "VIP Support",
+    supportCopy: "You're on Gordy's highest-touch tier. Keep this front page tight so you can see your priorities, support points, and next key action at a glance.",
+    heroCopy: "Start here for your highest-priority actions, upcoming touchpoints, and the details Gordy wants front and center this week.",
+    ctaLabel: "Open Priority Check-in",
+  },
+  ai_only: {
+    label: "AI Only",
+    badgeClass: "border-[#E040D0]/20 bg-[#E040D0]/10 text-[#E040D0]",
+    accentClass: "border-[#E040D0]/20",
+    supportTitle: "AI Coaching",
+    supportCopy: "SHIFT AI is your main support layer here. Keep your actions simple, track what matters, and use the portal as your daily self-coaching hub.",
+    heroCopy: "Start here for your personal priorities, your checklist, and the actions that will keep your momentum moving.",
+    ctaLabel: "Ask SHIFT AI",
+  },
+} as const satisfies Record<Tier, unknown>;
+
+function getQuickAccessCards(tier: Tier, totalPlanItems: number, completedPlanItems: number) {
+  const cards = [
+    {
+      href: "/portal/exercise-plan",
+      title: "Training Plan",
+      description: totalPlanItems > 0 ? `${completedPlanItems}/${totalPlanItems} actions done` : "Open today's session",
+    },
+    {
+      href: "/portal/nutrition-plan",
+      title: "Nutrition",
+      description: "Keep your daily food plan close",
+    },
+    {
+      href: "/portal/progress",
+      title: "Insights",
+      description: "Recovery, trends, photos, and progress",
+    },
+  ];
+
+  if (tier === "premium" || tier === "vip") {
+    cards.splice(2, 0, {
+      href: "/portal/calendar",
+      title: "Calendar",
+      description: tier === "vip" ? "Stay close to every support touchpoint" : "Keep your week and check-ins visible",
+    });
+  }
+
+  if (tier === "vip") {
+    cards.push({
+      href: "/portal/checkin",
+      title: "Priority Check-in",
+      description: "Log what Gordy needs to review first",
+    });
+  }
+
+  if (tier === "ai_only") {
+    cards.push({
+      href: "/portal/ai",
+      title: "SHIFT AI",
+      description: "Your always-on coaching support",
+    });
+  }
+
+  return cards;
 }
 
 function getNextOccurrence(event: CalendarEvent): Date | null {
@@ -32,545 +111,106 @@ function getNextOccurrence(event: CalendarEvent): Date | null {
     const weeksDiff = Math.floor((next.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
     if (weeksDiff % 2 !== 0) next.setDate(next.getDate() + 7);
   }
-  if (event.recurrence === "monthly") {
-    let candidate = new Date(next);
-    for (let i = 0; i < 12; i++) {
-      const month = (now.getMonth() + i) % 12;
-      const year = now.getFullYear() + Math.floor((now.getMonth() + i) / 12);
-      const first = new Date(year, month, 1, hours, minutes, 0, 0);
-      let dayDiff = targetDay - first.getDay();
-      if (dayDiff < 0) dayDiff += 7;
-      candidate = new Date(year, month, 1 + dayDiff, hours, minutes, 0, 0);
-      if (candidate > now) return candidate;
-    }
-    return candidate;
-  }
   return next;
 }
 
-function getNextCheckinDate(checkinDay: string): Date {
+function getNextCheckinDate(checkinDay: string) {
   const dayMap: Record<string, number> = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
   const targetDay = dayMap[checkinDay.toLowerCase()] ?? 1;
   const now = new Date();
+  const next = new Date(now);
   let daysUntil = targetDay - now.getDay();
   if (daysUntil < 0) daysUntil += 7;
-  if (daysUntil === 0) return now;
-  const next = new Date(now);
   next.setDate(now.getDate() + daysUntil);
   return next;
 }
 
-function isToday(date: Date): boolean {
+function isToday(date: Date) {
   const now = new Date();
   return date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
 }
 
-interface RecentModule { id: string; title: string; created_at: string; }
-
-export default function PortalDashboard() {
-  const [profile, setProfile] = useState<ClientProfile | null>(null);
-  const [userName, setUserName] = useState("");
-  const [modules, setModules] = useState<TrainingModule[]>([]);
-  const [checkins, setCheckins] = useState<CheckIn[]>([]);
-  const [planPhases, setPlanPhases] = useState<TrainingPlanPhase[]>([]);
-  const [checkinDay, setCheckinDay] = useState("monday");
-  const [recentModules, setRecentModules] = useState<RecentModule[]>([]);
-  const [expandedCheckin, setExpandedCheckin] = useState<string | null>(null);
-  const [trainingProgress, setTrainingProgress] = useState<{ completedLessons: number; totalLessons: number }>({ completedLessons: 0, totalLessons: 0 });
-  const [currentTime] = useState(() => Date.now());
-  const [loading, setLoading] = useState(true);
-  const [tasks, setTasks] = useState<ClientTask[]>([]);
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/portal/dashboard");
-        if (res.ok) {
-          const data = await res.json();
-          setProfile(data.profile);
-          setUserName(data.userName);
-          setModules(data.modules || []);
-          setCheckins(data.checkins || []);
-          setPlanPhases(data.planPhases || []);
-          setCheckinDay(data.checkinDay || "monday");
-          setRecentModules(data.recentModules || []);
-          setTrainingProgress(data.trainingProgress || { completedLessons: 0, totalLessons: 0 });
-        }
-        fetch("/api/portal/tasks").then(r => r.ok ? r.json() : { tasks: [] }).then(d => setTasks(d.tasks || []));
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
-
-  async function toggleTask(taskId: string, completed: boolean) {
-    const res = await fetch("/api/portal/tasks", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: taskId, completed }),
-    });
-    if (res.ok) {
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed, completed_at: completed ? new Date().toISOString() : undefined } : t));
-    }
-  }
-
-  const allPlanItems = planPhases.flatMap((p) => p.items || []);
-  const completedPlanItems = allPlanItems.filter((item) => item.completed).length;
-  const totalPlanItems = allPlanItems.length;
-  const planPct = totalPlanItems > 0 ? Math.round((completedPlanItems / totalPlanItems) * 100) : 0;
-
-  const totalModules = modules.length;
-  const currentWeek = checkins.length > 0 ? checkins[0].week_number : 1;
-
-  const nextCheckinDate = getNextCheckinDate(checkinDay);
-  const isCheckinToday = isToday(nextCheckinDate);
-
-  const twoWeeksAgo = new Date();
-  twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-  const newModules = recentModules.filter((m) => new Date(m.created_at) > twoWeeksAgo);
-
-  return (
-    <>
-      {/* Welcome */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-heading font-bold text-text-primary">
-          {loading ? "Loading..." : `Welcome back${userName ? `, ${userName.split(" ")[0]}` : ""}`}
-        </h1>
-        <p className="text-text-secondary mt-1">Here&apos;s your progress overview.</p>
-      </div>
-
-      {/* Goal banner */}
-      {!loading && profile?.primary_goal && (
-        <div className="mb-6 bg-bg-card border border-[#E040D0]/20 rounded-2xl px-5 py-4">
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#E040D0]/10 border border-[#E040D0]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <svg className="w-4 h-4 text-[#E040D0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <div>
-              <div className="text-xs text-[#E040D0] font-semibold uppercase tracking-wider mb-0.5">Your Goal</div>
-              <div className="text-lg font-heading font-bold text-text-primary leading-snug">{profile.primary_goal}</div>
-              {profile.target_date && (
-                <div className="text-xs text-text-muted mt-0.5">
-                  Target: {new Date(profile.target_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Briefing Banner */}
-      {!loading && (
-        <BriefingBanner
-          isCheckinToday={isCheckinToday}
-          nextCheckinDate={nextCheckinDate}
-          uncompletedModules={totalModules}
-          unrepliedCheckins={checkins.filter((c) => c.admin_reply && !expandedCheckin).length}
-          latestReply={checkins.find((c) => c.admin_reply)}
-          planPct={planPct}
-          currentTime={currentTime}
-          tier={profile?.tier}
-        />
-      )}
-
-      {loading ? (
-        <DashboardSkeleton />
-      ) : (
-      <>
-      {/* Top Row: Next Event + What's New */}
-      <div className={`grid grid-cols-1 ${newModules.length > 0 ? 'lg:grid-cols-2' : ''} gap-4 mb-8`}>
-        <NextEventCard />
-        {newModules.length > 0 && (
-          <div className="group relative bg-bg-card border border-emerald-500/10 rounded-2xl p-5 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-500/20 hover:shadow-[0_2px_12px_rgba(16,185,129,0.04)]">
-            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.03)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-              </div>
-              <div className="text-xs text-text-muted uppercase tracking-wider">What&apos;s New</div>
-            </div>
-            <div className="space-y-2">
-              {newModules.map((m) => (
-                <div key={m.id} className="flex items-center justify-between">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-text-primary truncate">New Training - {m.title}</div>
-                    <div className="text-xs text-text-muted">{new Date(m.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</div>
-                  </div>
-                  <Link href={`/portal/training/${m.id}`} className="px-3 py-1.5 text-xs font-medium text-accent-bright bg-accent/10 rounded-lg no-underline hover:bg-accent/20 transition-colors flex-shrink-0 ml-3">
-                    Watch
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Action Items */}
-      {tasks.length > 0 && (
-        <div className="mb-8 bg-bg-card border border-[#E040D0]/20 rounded-2xl p-5 overflow-hidden relative">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#B830A8] via-[#E040D0] to-[#F060E0] rounded-t-2xl" />
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xs text-text-muted uppercase tracking-wider font-semibold">Your Action Items</h3>
-            <span className="text-xs text-text-muted">{tasks.filter(t => t.completed).length} of {tasks.length} done</span>
-          </div>
-          <div className="space-y-2">
-            {tasks.map(task => (
-              <label key={task.id} className="flex items-center gap-3 cursor-pointer group">
-                <input
-                  type="checkbox"
-                  checked={task.completed}
-                  onChange={(e) => toggleTask(task.id, e.target.checked)}
-                  className="w-4 h-4 rounded border-2 border-[rgba(0,0,0,0.15)] accent-[#E040D0] cursor-pointer"
-                />
-                <span className={`text-sm transition-all ${task.completed ? "line-through text-text-muted" : "text-text-primary"}`}>
-                  {task.task_text}
-                </span>
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {/* Plan Progress - gold accent */}
-        <div className="group relative bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(0,0,0,0.12)] hover:border-accent/20">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-accent-dark via-accent to-accent-light rounded-t-2xl" />
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.06] transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,1)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
-          <div className="flex items-start justify-between mb-3">
-            <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-            </div>
-          </div>
-          <div className="text-text-muted text-xs uppercase tracking-wider mb-1">Plan Progress</div>
-          <div className="text-2xl font-heading font-bold text-text-primary">{planPct}%</div>
-          <div className="text-text-secondary text-sm mt-1">{completedPlanItems}/{totalPlanItems} actions done</div>
-        </div>
-
-        {/* Current Week - neutral */}
-        <div className="group relative bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(0,0,0,0.12)] hover:border-[rgba(0,0,0,0.1)]">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-[rgba(0,0,0,0.08)] rounded-t-2xl" />
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.06] transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,1)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
-          <div className="flex items-start justify-between mb-3">
-            <div className="w-10 h-10 rounded-xl bg-[rgba(0,0,0,0.04)] border border-[rgba(0,0,0,0.06)] flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-          </div>
-          <div className="text-text-muted text-xs uppercase tracking-wider mb-1">Current Week</div>
-          <div className="text-2xl font-heading font-bold text-text-primary">Week {currentWeek || "-"}</div>
-        </div>
-
-        {/* Trainings - emerald */}
-        <div className="group relative bg-bg-card border border-emerald-500/10 rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(16,185,129,0.12)] hover:border-emerald-500/25">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-emerald-500/60 rounded-t-2xl" />
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.06] transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(16,185,129,1)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
-          <div className="flex items-start justify-between mb-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-            </div>
-          </div>
-          <div className="text-text-muted text-xs uppercase tracking-wider mb-1">Trainings</div>
-          <div className="text-2xl font-heading font-bold text-text-primary">{totalModules}</div>
-          <div className="text-text-secondary text-sm mt-1">{totalModules > 0 ? `${totalModules} module${totalModules !== 1 ? "s" : ""} available` : "Coming soon"}</div>
-        </div>
-
-        {/* Status - semantic colour */}
-        {(() => {
-          const statusVal = profile?.status;
-          const isGreen = statusVal === "green";
-          const isAmber = statusVal === "amber";
-          const isRed = statusVal === "red";
-          const statusText = isGreen ? "On Track" : isAmber ? "Needs Attention" : isRed ? "Behind" : "-";
-          const borderCol = isGreen ? "border-emerald-500/15" : isAmber ? "border-amber-500/15" : isRed ? "border-red-500/15" : "border-[rgba(0,0,0,0.06)]";
-          const topBorder = isGreen ? "bg-emerald-500/60" : isAmber ? "bg-amber-500/60" : isRed ? "bg-red-500/60" : "bg-[rgba(0,0,0,0.08)]";
-          const iconBg = isGreen ? "bg-emerald-500/10 border-emerald-500/20" : isAmber ? "bg-amber-500/10 border-amber-500/20" : isRed ? "bg-red-500/10 border-red-500/20" : "bg-[rgba(0,0,0,0.04)] border-[rgba(0,0,0,0.06)]";
-          const iconCol = isGreen ? "text-emerald-400" : isAmber ? "text-amber-400" : isRed ? "text-red-400" : "text-text-muted";
-          const textCol = isGreen ? "text-emerald-400" : isAmber ? "text-amber-400" : isRed ? "text-red-400" : "text-text-primary";
-          const hoverShadow = isGreen ? "hover:shadow-[0_8px_32px_rgba(16,185,129,0.12)]" : isAmber ? "hover:shadow-[0_8px_32px_rgba(245,158,11,0.12)]" : isRed ? "hover:shadow-[0_8px_32px_rgba(239,68,68,0.12)]" : "hover:shadow-[0_8px_32px_rgba(0,0,0,0.12)]";
-          return (
-            <div className={`group relative bg-bg-card border ${borderCol} rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-1 ${hoverShadow}`}>
-              <div className={`absolute top-0 left-0 right-0 h-[2px] ${topBorder} rounded-t-2xl`} />
-              <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.06] transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,1)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
-              <div className="flex items-start justify-between mb-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 border ${iconBg}`}>
-                  <svg className={`w-5 h-5 ${iconCol}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={isGreen ? "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" : isAmber ? "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" : isRed ? "M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" : "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"} />
-                  </svg>
-                </div>
-              </div>
-              <div className="text-text-muted text-xs uppercase tracking-wider mb-1">Status</div>
-              <div className={`text-2xl font-heading font-bold ${textCol}`}>{statusText}</div>
-            </div>
-          );
-        })()}
-      </div>
-
-      {/* Journey Progress */}
-      <JourneyTracker
-        currentWeek={currentWeek}
-        completedModules={0}
-        totalModules={totalModules}
-        planPct={planPct}
-        totalCheckins={checkins.length}
-        phases={planPhases}
-      />
-
-      {/* Split columns: Training Plan Progress (left) + Check-ins (right, coached only) */}
-      <div className={`grid grid-cols-1 ${profile?.tier !== 'ai_only' ? 'lg:grid-cols-2' : ''} gap-6`}>
-        {/* Training Plan Summary */}
-        <div className="group relative bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:border-[rgba(0,0,0,0.08)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
-          <div className="flex items-center justify-between mb-4 relative z-10">
-            <h2 className="text-lg font-heading font-bold text-text-primary">Training Plan</h2>
-            <Link href="/portal/exercise-plan" className="px-4 py-2 gradient-accent text-white rounded-xl text-xs font-semibold no-underline hover:opacity-90 transition-opacity">
-              Go To Plan
-            </Link>
-          </div>
-          <div className="relative z-10"><ProgressBar value={completedPlanItems} max={totalPlanItems} /></div>
-          <div className="flex justify-between mt-2 text-sm text-text-muted mb-4 relative z-10">
-            <span>{completedPlanItems} completed</span>
-            <span>{totalPlanItems - completedPlanItems} remaining</span>
-          </div>
-          {planPhases.length > 0 && (
-            <div className="space-y-3 relative z-10">
-              {planPhases.map((phase) => {
-                const phaseCompleted = (phase.items || []).filter((i) => i.completed).length;
-                const phaseTotal = (phase.items || []).length;
-                const phasePct = phaseTotal > 0 ? Math.round((phaseCompleted / phaseTotal) * 100) : 0;
-                return (
-                  <div key={phase.id} className="flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm text-text-primary truncate">{phase.name}</span>
-                        <span className="text-[10px] text-text-muted ml-2">{phaseCompleted}/{phaseTotal}</span>
-                      </div>
-                      <div className="w-full bg-[rgba(0,0,0,0.06)] rounded-full h-2.5">
-                        <div
-                          className={`h-2.5 rounded-full transition-all duration-500 ${phasePct === 100 ? "bg-emerald-500" : "gradient-accent"}`}
-                          style={{ width: `${phasePct}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Check-ins - coached tier only */}
-        {profile?.tier !== 'ai_only' && <div className="group relative bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:border-[rgba(0,0,0,0.08)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
-          <div className="flex items-center justify-between mb-4 relative z-10">
-            <h2 className="text-lg font-heading font-bold text-text-primary">Check-Ins</h2>
-            {isCheckinToday ? (
-              <Link href="/portal/checkin" className="px-4 py-2 gradient-accent text-white rounded-xl text-xs font-semibold no-underline hover:opacity-90 transition-opacity">
-                Submit Check-In
-              </Link>
-            ) : (
-              <span className="text-xs text-text-muted">
-                Next: {nextCheckinDate.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
-              </span>
-            )}
-          </div>
-          {checkins.length === 0 ? (
-            <p className="text-text-muted text-sm">No check-ins yet.</p>
-          ) : (
-            <div className="space-y-2 relative z-10">
-              {checkins.map((c) => {
-                const isExpanded = expandedCheckin === c.id;
-                return (
-                  <div key={c.id} className="border border-[rgba(0,0,0,0.06)] rounded-xl overflow-hidden">
-                    <button
-                      onClick={() => setExpandedCheckin(isExpanded ? null : c.id)}
-                      className="w-full py-3 px-4 flex items-center justify-between hover:bg-[rgba(0,0,0,0.02)] transition-colors text-left cursor-pointer"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-text-primary text-sm font-medium">Week {c.week_number}</span>
-                        <span className="text-text-muted text-xs">{new Date(c.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          c.mood === "great" ? "bg-emerald-500/10 text-emerald-400" :
-                          c.mood === "good" ? "bg-blue-500/10 text-blue-400" :
-                          c.mood === "okay" ? "bg-amber-500/10 text-amber-400" :
-                          "bg-red-500/10 text-red-400"
-                        }`}>{c.mood}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {c.admin_reply ? <span className="text-xs text-accent-bright">Replied</span> : <span className="text-xs text-text-muted">Pending</span>}
-                        <svg className={`w-4 h-4 text-text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </button>
-                    <div className={`overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                      <div className="px-4 pb-4 space-y-3">
-                        {c.responses && Object.entries(c.responses).map(([key, value]) => (
-                          <div key={key}>
-                            <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
-                              {key === "wins" ? "Wins this week" : key === "challenges" ? "Challenges" : key === "questions" ? "Questions for Gordy" : key}
-                            </div>
-                            <p className="text-xs text-text-secondary leading-relaxed">{value}</p>
-                          </div>
-                        ))}
-                        {!c.responses && (
-                          <>
-                            {c.wins && <div><div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Wins</div><p className="text-xs text-text-secondary">{c.wins}</p></div>}
-                            {c.challenges && <div><div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Challenges</div><p className="text-xs text-text-secondary">{c.challenges}</p></div>}
-                            {c.questions && <div><div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Questions</div><p className="text-xs text-text-secondary">{c.questions}</p></div>}
-                          </>
-                        )}
-                        {c.admin_reply && (
-                          <div className="mt-2 pl-3 border-l-2 border-accent/30 bg-accent/5 rounded-r-lg py-2 pr-3">
-                            <div className="text-[10px] text-accent-bright font-semibold uppercase tracking-wider mb-1">Gordy&apos;s Reply</div>
-                            <p className="text-xs text-text-secondary leading-relaxed">{c.admin_reply}</p>
-                            {c.replied_at && <div className="text-[10px] text-text-muted mt-1">{new Date(c.replied_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</div>}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>}
-      </div>
-      </>
-      )}
-    </>
+// Count consecutive weeks with a check-in, starting from most recent backwards
+function computeCheckinStreak(checkins: CheckIn[]): number {
+  if (!checkins.length) return 0;
+  const sorted = [...checkins].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   );
+  const weeks = new Set<number>();
+  for (const c of sorted) {
+    if (typeof c.week_number === "number") weeks.add(c.week_number);
+  }
+  const weekNums = Array.from(weeks).sort((a, b) => b - a);
+  if (!weekNums.length) return 0;
+  let streak = 1;
+  for (let i = 1; i < weekNums.length; i++) {
+    if (weekNums[i] === weekNums[i - 1] - 1) streak++;
+    else break;
+  }
+  return streak;
 }
 
-function SkeletonPulse({ className }: { className?: string }) {
-  return <div className={`animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg ${className || ""}`} />;
+interface RecentModule {
+  id: string;
+  title: string;
+  created_at: string;
+}
+
+function SectionCard({
+  title,
+  subtitle,
+  children,
+  right,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  right?: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-3xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-5 sm:p-6">
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-heading font-bold text-text-primary">{title}</h2>
+          {subtitle && <p className="mt-1 text-sm text-text-secondary">{subtitle}</p>}
+        </div>
+        {right}
+      </div>
+      {children}
+    </section>
+  );
 }
 
 function DashboardSkeleton() {
   return (
-    <>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
-          <SkeletonPulse className="h-4 w-24 mb-3" />
-          <SkeletonPulse className="h-6 w-48 mb-2" />
-          <SkeletonPulse className="h-4 w-36" />
-        </div>
+    <div className="space-y-6">
+      <div className="rounded-3xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-6">
+        <div className="mb-3 h-5 w-40 animate-pulse rounded-lg bg-[rgba(0,0,0,0.08)]" />
+        <div className="mb-2 h-8 w-72 animate-pulse rounded-lg bg-[rgba(0,0,0,0.08)]" />
+        <div className="h-4 w-52 animate-pulse rounded-lg bg-[rgba(0,0,0,0.06)]" />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {[...Array(4)].map((_, i) => (
-          <div key={i} className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6">
-            <SkeletonPulse className="h-3 w-20 mb-3" />
-            <SkeletonPulse className="h-8 w-16 mb-2" />
-            <SkeletonPulse className="h-3 w-28" />
-          </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {[...Array(2)].map((_, i) => (
-          <div key={i} className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6">
-            <SkeletonPulse className="h-5 w-32 mb-4" />
-            <SkeletonPulse className="h-2 w-full mb-4" />
-            <div className="space-y-3">
-              {[...Array(3)].map((_, j) => (
-                <SkeletonPulse key={j} className="h-4 w-full" />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
-  );
-}
-
-function BriefingBanner({
-  isCheckinToday,
-  nextCheckinDate,
-  uncompletedModules,
-  unrepliedCheckins,
-  latestReply,
-  planPct,
-  currentTime,
-  tier,
-}: {
-  isCheckinToday: boolean;
-  nextCheckinDate: Date;
-  uncompletedModules: number;
-  unrepliedCheckins: number;
-  latestReply?: CheckIn;
-  planPct: number;
-  currentTime: number;
-  tier?: string;
-}) {
-  const items: { icon: string; text: string; href?: string; accent?: boolean }[] = [];
-
-  if (tier !== 'ai_only') {
-    if (isCheckinToday) {
-      items.push({ icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4", text: "Your weekly check-in is due today", href: "/portal/checkin", accent: true });
-    } else {
-      const dayStr = nextCheckinDate.toLocaleDateString("en-GB", { weekday: "long" });
-      items.push({ icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", text: `Next check-in: ${dayStr}` });
-    }
-  }
-
-  if (uncompletedModules > 0) {
-    items.push({ icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253", text: `${uncompletedModules} training module${uncompletedModules > 1 ? "s" : ""} available`, href: "/portal/training" });
-  }
-
-  if (tier !== 'ai_only' && latestReply?.admin_reply && latestReply.replied_at) {
-    const replyDate = new Date(latestReply.replied_at);
-    const daysDiff = Math.floor((currentTime - replyDate.getTime()) / (1000 * 60 * 60 * 24));
-    if (daysDiff <= 3) {
-      items.push({ icon: "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z", text: "Gordy replied to your latest check-in", accent: true });
-    }
-  }
-
-  if (planPct > 0 && planPct < 100) {
-    items.push({ icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z", text: `Training plan ${planPct}% complete`, href: "/portal/exercise-plan" });
-  }
-
-  if (items.length === 0) return null;
-
-  return (
-    <div className="relative bg-gradient-to-r from-accent/8 via-accent/4 to-transparent border border-accent/15 rounded-2xl p-6 mb-8 overflow-hidden">
-      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-accent-dark via-accent to-transparent rounded-t-2xl" />
-      <div className="absolute inset-0 pointer-events-none rounded-2xl bg-[radial-gradient(ellipse_at_top_left,rgba(224,64,208,0.06)_0%,transparent_60%)]" />
-      <div className="relative">
-        <div className="flex items-center gap-2 mb-4">
-          <svg className="w-5 h-5 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span className="text-sm font-bold text-accent-bright uppercase tracking-widest">This Week</span>
-        </div>
-        <div className="flex flex-col gap-3">
-          {items.map((item, i) => (
-            <div key={i} className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <svg className={`w-5 h-5 flex-shrink-0 ${item.accent ? "text-accent-bright" : "text-text-secondary"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
-                </svg>
-                <span className={`text-sm ${item.accent ? "text-text-primary font-semibold" : "text-text-primary"}`}>{item.text}</span>
+      <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="space-y-6">
+          {[...Array(2)].map((_, i) => (
+            <div key={i} className="rounded-3xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-6">
+              <div className="mb-4 h-5 w-32 animate-pulse rounded-lg bg-[rgba(0,0,0,0.08)]" />
+              <div className="space-y-3">
+                {[...Array(3)].map((_, j) => (
+                  <div key={j} className="h-12 animate-pulse rounded-2xl bg-[rgba(0,0,0,0.06)]" />
+                ))}
               </div>
-              {item.href && item.accent && (
-                <Link href={item.href} className="flex-shrink-0 px-4 py-2 gradient-accent text-white rounded-xl text-xs font-bold no-underline hover:opacity-90 transition-opacity">
-                  Go Now
-                </Link>
-              )}
-              {item.href && !item.accent && (
-                <Link href={item.href} className="flex-shrink-0 text-xs text-accent-bright hover:text-accent-light font-medium no-underline transition-colors">
-                  View
-                </Link>
-              )}
+            </div>
+          ))}
+        </div>
+        <div className="space-y-6">
+          {[...Array(2)].map((_, i) => (
+            <div key={i} className="rounded-3xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-6">
+              <div className="mb-4 h-5 w-28 animate-pulse rounded-lg bg-[rgba(0,0,0,0.08)]" />
+              <div className="space-y-3">
+                {[...Array(2)].map((_, j) => (
+                  <div key={j} className="h-16 animate-pulse rounded-2xl bg-[rgba(0,0,0,0.06)]" />
+                ))}
+              </div>
             </div>
           ))}
         </div>
@@ -579,127 +219,459 @@ function BriefingBanner({
   );
 }
 
-function JourneyTracker({
-  currentWeek,
-  completedModules,
-  totalModules,
-  planPct,
-  totalCheckins,
-  phases,
-}: {
-  currentWeek: number;
-  completedModules: number;
-  totalModules: number;
-  planPct: number;
-  totalCheckins: number;
-  phases: TrainingPlanPhase[];
-}) {
-  // Build milestones from business plan phases
-  const phaseCount = phases.length;
-  const milestones = phaseCount > 0
-    ? phases.map((phase, i) => {
-        // Strip "Phase N:" or "Phase N -" prefix for cleaner labels
-        const cleanName = phase.name.replace(/^Phase\s*\d+\s*[:\-]\s*/i, "");
-        // Truncate long names
-        const label = cleanName.length > 18 ? cleanName.slice(0, 16) + "..." : cleanName;
-        return { index: i, label };
-      })
-    : [
-        { index: 0, label: "Kickoff" },
-        ...Array.from({ length: 10 }, (_, i) => ({ index: i + 1, label: `Week ${i + 1}` })),
-        { index: 11, label: "Review" },
-      ];
+function EmptyTaskState({ text }: { text: string }) {
+  return <p className="rounded-2xl border border-dashed border-[rgba(0,0,0,0.08)] px-4 py-5 text-sm text-text-muted">{text}</p>;
+}
 
-  // Calculate progress based on completed plan items per phase
-  const completedPhaseCount = phases.filter((phase) => {
-    const items = phase.items || [];
-    return items.length > 0 && items.every((item) => item.completed);
-  }).length;
+export default function PortalDashboard() {
+  const { toast } = useToast();
+  const [profile, setProfile] = useState<ClientProfile | null>(null);
+  const [userName, setUserName] = useState("");
+  const [checkins, setCheckins] = useState<CheckIn[]>([]);
+  const [planPhases, setPlanPhases] = useState<TrainingPlanPhase[]>([]);
+  const [checkinDay, setCheckinDay] = useState("monday");
+  const [recentModules, setRecentModules] = useState<RecentModule[]>([]);
+  const [tasks, setTasks] = useState<ClientTask[]>([]);
+  const [personalTask, setPersonalTask] = useState("");
+  const [savingTask, setSavingTask] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const progressPct = phaseCount > 0
-    ? Math.min(100, Math.round((completedPhaseCount / phaseCount) * 100))
-    : Math.min(100, Math.round((currentWeek / 12) * 100));
+  const loadDashboard = useCallback(async () => {
+    setLoadError(null);
+    try {
+      const [dashboardRes, tasksRes] = await Promise.all([
+        fetch("/api/portal/dashboard"),
+        fetch("/api/portal/tasks"),
+      ]);
+
+      if (dashboardRes.ok) {
+        const data = await dashboardRes.json();
+        setProfile(data.profile);
+        setUserName(data.userName);
+        setCheckins(data.checkins || []);
+        setPlanPhases(data.planPhases || []);
+        setCheckinDay(data.checkinDay || "monday");
+        setRecentModules(data.recentModules || []);
+      } else {
+        setLoadError("We couldn't load your dashboard. Pull-to-refresh or try again.");
+      }
+
+      if (tasksRes.ok) {
+        const data = await tasksRes.json();
+        setTasks(data.tasks || []);
+      } else if (dashboardRes.ok) {
+        // Dashboard loaded but tasks failed — softer signal
+        toast("Couldn't load your tasks. They'll refresh next time.", "error");
+      }
+    } catch {
+      setLoadError("We couldn't reach the portal just now. Check your connection and retry.");
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
+  async function toggleTask(taskId: string, completed: boolean) {
+    try {
+      const res = await fetch("/api/portal/tasks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: taskId, completed }),
+      });
+
+      if (!res.ok) {
+        toast("Couldn't update that task. Try again in a moment.", "error");
+        return;
+      }
+      setTasks((prev) => prev.map((task) => (
+        task.id === taskId
+          ? { ...task, completed, completed_at: completed ? new Date().toISOString() : undefined }
+          : task
+      )));
+    } catch {
+      toast("Couldn't update that task. Check your connection.", "error");
+    }
+  }
+
+  async function addPersonalTask(e: React.FormEvent) {
+    e.preventDefault();
+    if (!personalTask.trim()) return;
+    setSavingTask(true);
+    try {
+      const res = await fetch("/api/portal/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task_text: personalTask }),
+      });
+
+      if (!res.ok) {
+        toast("Couldn't save that reminder. Try again.", "error");
+        return;
+      }
+      const data = await res.json();
+      setTasks((prev) => [...prev, data.task]);
+      setPersonalTask("");
+    } catch {
+      toast("Couldn't save that reminder. Check your connection.", "error");
+    } finally {
+      setSavingTask(false);
+    }
+  }
+
+  const coachTasks = useMemo(() => tasks.filter((task) => task.source !== "client"), [tasks]);
+  const personalTasks = useMemo(() => tasks.filter((task) => task.source === "client"), [tasks]);
+  const incompleteCoachTasks = coachTasks.filter((task) => !task.completed);
+  const incompletePersonalTasks = personalTasks.filter((task) => !task.completed);
+  const totalOutstandingTasks = incompleteCoachTasks.length + incompletePersonalTasks.length;
+
+  const allPlanItems = planPhases.flatMap((phase) => phase.items || []);
+  const completedPlanItems = allPlanItems.filter((item) => item.completed).length;
+  const totalPlanItems = allPlanItems.length;
+  const planPct = totalPlanItems > 0 ? Math.round((completedPlanItems / totalPlanItems) * 100) : 0;
+  const currentWeek = checkins.length > 0 ? checkins[0].week_number : 1;
+  const nextCheckinDate = getNextCheckinDate(checkinDay);
+  const checkinToday = isToday(nextCheckinDate);
+  const latestCheckin = checkins[0];
+  const latestReply = checkins.find((checkin) => checkin.admin_reply);
+  const checkinStreak = useMemo(() => computeCheckinStreak(checkins), [checkins]);
+  const tier: Tier = (profile?.tier as Tier) || "coached";
+  const tierInfo = tierDisplay[tier];
+  const quickAccessCards = getQuickAccessCards(tier, totalPlanItems, completedPlanItems);
+  const isAiOnly = tier === "ai_only";
+  const isHighTouch = tier === "premium" || tier === "vip";
+
+  // Submitted this week? Match check-in API week-start logic (Monday).
+  const submittedThisWeek = useMemo(() => {
+    if (!checkins.length) return false;
+    const now = new Date();
+    const weekStart = new Date(now);
+    const day = now.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    weekStart.setDate(weekStart.getDate() + diff);
+    weekStart.setHours(0, 0, 0, 0);
+    return checkins.some((c) => new Date(c.created_at).getTime() >= weekStart.getTime());
+  }, [checkins]);
+
+  const focusItems = [
+    totalOutstandingTasks > 0
+      ? `${totalOutstandingTasks} task${totalOutstandingTasks === 1 ? "" : "s"} still open`
+      : "Your task list is clear",
+    submittedThisWeek
+      ? `Check-in logged for this week${latestCheckin?.week_number ? ` (Week ${latestCheckin.week_number})` : ""}`
+      : checkinToday
+        ? "Your weekly check-in is due today"
+        : `Next check-in: ${nextCheckinDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}`,
+    totalPlanItems > 0 ? `Training plan is ${planPct}% complete` : "Your training plan is ready to start",
+  ];
+
+  if (loading) {
+    return <DashboardSkeleton />;
+  }
+
+  // Hero styling changes when check-in is due today for high-touch tiers
+  const heroBg = checkinToday && !submittedThisWeek && tier === "vip"
+    ? "bg-[linear-gradient(135deg,rgba(245,158,11,0.12),rgba(255,255,255,0.02)_45%,rgba(0,0,0,0.02))] border-amber-500/25"
+    : checkinToday && !submittedThisWeek && tier === "premium"
+      ? "bg-[linear-gradient(135deg,rgba(14,165,233,0.12),rgba(255,255,255,0.02)_45%,rgba(0,0,0,0.02))] border-sky-500/25"
+      : "bg-[linear-gradient(135deg,rgba(224,64,208,0.08),rgba(255,255,255,0.02)_45%,rgba(0,0,0,0.02))] border-[#E040D0]/15";
 
   return (
-    <div className="group relative bg-gradient-to-br from-[#1a1a1a] via-[#222222] to-[#1a1a1a] border border-accent/20 rounded-2xl p-6 mb-8 overflow-hidden transition-all duration-300 hover:border-accent/40 hover:shadow-[0_8px_40px_rgba(224,64,208,0.15)]">
-      <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-accent to-transparent rounded-t-2xl" />
-      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_top_right,rgba(224,64,208,0.08)_0%,transparent_50%)]" />
-      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_bottom_left,rgba(224,64,208,0.05)_0%,transparent_50%)]" />
-      <div className="relative z-10">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-xl font-heading font-extrabold text-white uppercase tracking-wide">Your Journey</h2>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-[#999]">{phaseCount > 0 ? `${completedPhaseCount} of ${phaseCount} phases` : `Week ${currentWeek || 0} of 12`}</span>
-            <span className="gradient-text text-2xl font-heading font-extrabold">{progressPct}%</span>
-          </div>
+    <div className="space-y-6">
+      {loadError && (
+        <div className="flex flex-col gap-3 rounded-3xl border border-amber-500/25 bg-amber-500/8 px-5 py-4 text-sm text-amber-500 sm:flex-row sm:items-center sm:justify-between">
+          <div>{loadError}</div>
+          <button
+            type="button"
+            onClick={() => { setLoading(true); loadDashboard(); }}
+            className="inline-flex w-fit items-center rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-semibold text-amber-500 transition-colors hover:bg-amber-500/15"
+          >
+            Retry
+          </button>
         </div>
-
-        {/* Progress bar with milestones */}
-        <div className="relative mb-6">
-          <div className="h-4 bg-[rgba(255,255,255,0.08)] rounded-full overflow-hidden border border-[rgba(255,255,255,0.05)]">
-            <div className="h-4 rounded-full gradient-accent transition-all duration-700 shadow-[0_0_16px_rgba(224,64,208,0.6)]" style={{ width: `${progressPct}%` }} />
+      )}
+      <section className={`relative overflow-hidden rounded-[32px] border px-6 py-7 sm:px-8 ${heroBg}`}>
+        <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(224,64,208,0.16),transparent_60%)] pointer-events-none" />
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#E040D0]">
+              {tier === "vip" ? "VIP Command Center" : tier === "premium" ? "Premium Dashboard" : tier === "ai_only" ? "Self-Coaching Hub" : "Personal Dashboard"}
+            </div>
+            <div className={`mb-3 inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${tierInfo.badgeClass}`}>
+              {tierInfo.label} Client
+            </div>
+            <h1 className="text-3xl font-heading font-bold text-text-primary sm:text-4xl">
+              {`What matters most${userName ? `, ${userName.split(" ")[0]}` : ""}`}
+            </h1>
+            <p className="mt-2 text-sm leading-relaxed text-text-secondary sm:text-base">
+              {tierInfo.heroCopy}
+            </p>
+            {!isAiOnly && !submittedThisWeek && checkinToday && (
+              <Link
+                href="/portal/checkin"
+                className="mt-4 inline-flex items-center gap-2 rounded-xl gradient-accent px-4 py-2.5 text-sm font-semibold text-white no-underline"
+              >
+                {tier === "vip" ? "Submit your VIP check-in" : tier === "premium" ? "Submit your Premium check-in" : "Submit this week's check-in"}
+              </Link>
+            )}
+            {isAiOnly && incompleteCoachTasks.length === 0 && incompletePersonalTasks.length === 0 && (
+              <Link
+                href="/portal/ai"
+                className="mt-4 inline-flex items-center gap-2 rounded-xl gradient-accent px-4 py-2.5 text-sm font-semibold text-white no-underline"
+              >
+                Ask SHIFT AI what to focus on
+              </Link>
+            )}
           </div>
-          <div className="flex justify-between mt-4">
-            {milestones.map((m, i) => {
-              const reached = phaseCount > 0
-                ? m.index < completedPhaseCount
-                : currentWeek >= (m.index + 1);
-              const total = milestones.length;
-              const isFirst = i === 0;
-              const isLast = i === total - 1;
-              return (
-                <div key={m.index} className={`flex flex-col items-center flex-1 ${isFirst ? "items-start" : isLast ? "items-end" : "items-center"}`}>
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
-                    reached
-                      ? "bg-accent border-accent-bright shadow-[0_0_16px_rgba(224,64,208,0.6)]"
-                      : "bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.15)]"
-                  }`}>
-                    {reached && (
-                      <svg className="w-3.5 h-3.5 text-[#1a1a1a]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </div>
-                  <span className={`text-[11px] mt-2 text-center max-w-[90px] leading-tight font-semibold ${reached ? "text-accent-bright" : "text-[#777]"}`}>{m.label}</span>
+
+          <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[430px]">
+            <div className={`rounded-2xl border bg-bg-card/80 px-4 py-3 ${tierInfo.accentClass}`}>
+              <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Open Tasks</div>
+              <div className="mt-2 text-2xl font-heading font-bold text-text-primary">{totalOutstandingTasks}</div>
+            </div>
+            <div className={`rounded-2xl border bg-bg-card/80 px-4 py-3 ${tierInfo.accentClass}`}>
+              <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">
+                {isHighTouch ? "Check-in Streak" : "Training Week"}
+              </div>
+              <div className="mt-2 text-2xl font-heading font-bold text-text-primary">
+                {isHighTouch ? `${checkinStreak}` : `Week ${currentWeek}`}
+              </div>
+              {isHighTouch && (
+                <div className="text-[10px] text-text-muted mt-0.5">
+                  {checkinStreak === 0 ? "Start this week" : checkinStreak === 1 ? "week in a row" : "weeks in a row"}
                 </div>
-              );
-            })}
+              )}
+            </div>
+            <div className={`rounded-2xl border bg-bg-card/80 px-4 py-3 ${tierInfo.accentClass}`}>
+              <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Status</div>
+              <div className="mt-2 text-lg font-heading font-bold text-text-primary">
+                {checkinToday && !submittedThisWeek
+                  ? "Check-in today"
+                  : profile?.status === "green"
+                    ? "On track"
+                    : profile?.status === "amber"
+                      ? "Needs attention"
+                      : "Reset this week"}
+              </div>
+            </div>
           </div>
         </div>
+      </section>
 
-        {/* Achievement badges */}
-        <div className="flex flex-wrap gap-3 mt-10">
-          {totalCheckins >= 1 && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-              <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span className="text-[10px] text-emerald-400 font-medium">{totalCheckins} Check-in{totalCheckins > 1 ? "s" : ""}</span>
-            </div>
+      {/* VIP gets a prominent priority strip immediately below the hero */}
+      {tier === "vip" && (
+        <VipPriorityStrip
+          checkinToday={checkinToday}
+          submittedThisWeek={submittedThisWeek}
+          nextCheckinDate={nextCheckinDate}
+          topCoachTask={incompleteCoachTasks[0]?.task_text || null}
+          openCoachTasks={incompleteCoachTasks.length}
+          latestReply={latestReply?.admin_reply || null}
+        />
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="space-y-6">
+          {!isAiOnly && (
+            <SectionCard
+              title="Coach Priorities"
+              subtitle={
+                tier === "vip"
+                  ? "The highest-priority actions Gordy wants visible right now."
+                  : tier === "premium"
+                    ? "What Gordy wants you focused on, with closer support this week."
+                    : "What Gordy has set for you right now."
+              }
+              right={
+                <Link
+                  href="/portal/checkin"
+                  className="text-xs font-semibold text-accent-bright no-underline transition-colors hover:text-accent-light"
+                >
+                  Weekly check-in
+                </Link>
+              }
+            >
+              {coachTasks.length === 0 ? (
+                <EmptyTaskState text="No coach priorities have been added yet. Gordy can set tasks here so your weekly focus is crystal clear." />
+              ) : (
+                <div className="space-y-3">
+                  {coachTasks.map((task) => (
+                    <label key={task.id} className="flex items-center gap-3 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={task.completed}
+                        onChange={(e) => toggleTask(task.id, e.target.checked)}
+                        className="h-4 w-4 cursor-pointer rounded border-2 border-[rgba(0,0,0,0.15)] accent-[#E040D0]"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className={`text-sm ${task.completed ? "text-text-muted line-through" : "text-text-primary"}`}>{task.task_text}</div>
+                        <div className="mt-1 text-[11px] uppercase tracking-[0.16em] text-text-muted">
+                          {task.completed ? "Completed" : "From Gordy"}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
           )}
-          {totalModules > 0 && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/10 border border-accent/20">
-              <svg className="w-3.5 h-3.5 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253" />
-              </svg>
-              <span className="text-[10px] text-accent-bright font-medium">{totalModules} Training{totalModules > 1 ? "s" : ""}</span>
-            </div>
+
+          {isAiOnly && (
+            <SectionCard
+              title="SHIFT AI Focus"
+              subtitle="Your AI coach is your primary support layer — use it to set direction, plan sessions, and stay honest with progress."
+              right={
+                <Link href="/portal/ai" className="text-xs font-semibold text-accent-bright no-underline transition-colors hover:text-accent-light">
+                  Open SHIFT AI
+                </Link>
+              }
+            >
+              <div className="space-y-3">
+                <div className="rounded-2xl border border-[#E040D0]/15 bg-[#E040D0]/6 px-4 py-4">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-[#E040D0]">Prompt idea</div>
+                  <p className="mt-2 text-sm leading-relaxed text-text-primary">
+                    &ldquo;Based on my last check-in and plan, what are the two things I should focus on this week?&rdquo;
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-4">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Prompt idea</div>
+                  <p className="mt-2 text-sm leading-relaxed text-text-primary">
+                    &ldquo;Help me plan today&apos;s session so it matches my energy and what&apos;s already on my plan.&rdquo;
+                  </p>
+                </div>
+              </div>
+            </SectionCard>
           )}
-          {planPct >= 25 && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20">
-              <svg className="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-              <span className="text-[10px] text-purple-400 font-medium">Plan {planPct}%</span>
+
+          <SectionCard
+            title="Your Checklist"
+            subtitle="Quick personal reminders you want to keep front and center."
+          >
+            <form onSubmit={addPersonalTask} className="mb-4 flex flex-col gap-3 sm:flex-row">
+              <input
+                type="text"
+                value={personalTask}
+                onChange={(e) => setPersonalTask(e.target.value)}
+                placeholder="Add a personal reminder for this week"
+                className="w-full rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40 transition-colors"
+              />
+              <button
+                type="submit"
+                disabled={savingTask || !personalTask.trim()}
+                className="rounded-2xl gradient-accent px-5 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-40"
+              >
+                {savingTask ? "Adding..." : "Add"}
+              </button>
+            </form>
+
+            {personalTasks.length === 0 ? (
+              <EmptyTaskState text="Use this as your own quick-fire list so the home screen becomes the first place you check each day." />
+            ) : (
+              <div className="space-y-3">
+                {personalTasks.map((task) => (
+                  <label key={task.id} className="flex items-center gap-3 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={task.completed}
+                      onChange={(e) => toggleTask(task.id, e.target.checked)}
+                      className="h-4 w-4 cursor-pointer rounded border-2 border-[rgba(0,0,0,0.15)] accent-[#E040D0]"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className={`text-sm ${task.completed ? "text-text-muted line-through" : "text-text-primary"}`}>{task.task_text}</div>
+                      <div className="mt-1 text-[11px] uppercase tracking-[0.16em] text-text-muted">Personal reminder</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+          </SectionCard>
+
+          <SectionCard
+            title="Quick Access"
+            subtitle={
+              tier === "vip"
+                ? "Your key training, support, and accountability touchpoints."
+                : tier === "premium"
+                  ? "The places you'll use most to stay close to your plan."
+                  : tier === "ai_only"
+                    ? "Your daily self-coaching surfaces."
+                    : "Jump straight into the parts of the portal you'll use most."
+            }
+          >
+            <div className={`grid gap-3 ${quickAccessCards.length > 3 ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
+              {quickAccessCards.map((card) => (
+                <Link key={card.href} href={card.href} className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary p-4 no-underline transition-all hover:-translate-y-0.5 hover:border-[#E040D0]/25">
+                  <div className="text-sm font-semibold text-text-primary">{card.title}</div>
+                  <div className="mt-1 text-sm text-text-secondary">{card.description}</div>
+                </Link>
+              ))}
             </div>
+          </SectionCard>
+        </div>
+
+        <div className="space-y-6">
+          {isHighTouch && (
+            <TierSupportLane
+              tier={tier}
+              checkinToday={checkinToday}
+              submittedThisWeek={submittedThisWeek}
+              nextCheckinDate={nextCheckinDate}
+              latestReply={latestReply?.admin_reply || null}
+              latestReplyDate={latestReply?.replied_at || latestReply?.created_at || null}
+              topCoachTask={incompleteCoachTasks[0]?.task_text || null}
+              openCoachTasks={incompleteCoachTasks.length}
+              planPct={planPct}
+            />
           )}
-          {totalCheckins >= 4 && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20">
-              <svg className="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
-              </svg>
-              <span className="text-[10px] text-amber-400 font-medium">4-Week Streak</span>
+
+          {/* "This Week" — action-first focus points + latest coach reply (kept tight) */}
+          <SectionCard
+            title="This Week"
+            subtitle="The short version of where things stand."
+          >
+            <div className="space-y-3">
+              {focusItems.map((item, idx) => (
+                <div key={`focus-${idx}`} className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3 text-sm text-text-primary">
+                  {item}
+                </div>
+              ))}
+              {!isAiOnly && latestReply?.admin_reply && (
+                <div className="rounded-2xl border border-[#E040D0]/15 bg-[#E040D0]/6 px-4 py-3">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-[#E040D0]">Latest Reply</div>
+                  <p className="mt-2 text-sm leading-relaxed text-text-primary">{latestReply.admin_reply}</p>
+                </div>
+              )}
             </div>
+          </SectionCard>
+
+          {!isAiOnly && (
+            <NextEventCard checkinToday={checkinToday} nextCheckinDate={nextCheckinDate} submittedThisWeek={submittedThisWeek} tier={tier} />
+          )}
+
+          {recentModules.length > 0 && (
+            <SectionCard
+              title="New For You"
+              subtitle="Fresh training content from Gordy."
+            >
+              <div className="space-y-2">
+                {recentModules.slice(0, 3).map((module) => (
+                  <Link
+                    key={module.id}
+                    href={`/portal/training/${module.id}`}
+                    className="flex items-center justify-between rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3 no-underline transition-colors hover:border-[#E040D0]/25 min-h-[56px]"
+                  >
+                    <div className="min-w-0 flex-1 pr-3">
+                      <div className="text-sm font-medium text-text-primary truncate">{module.title}</div>
+                      <div className="mt-0.5 text-xs text-text-muted">{new Date(module.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</div>
+                    </div>
+                    <span className="text-xs font-semibold text-accent-bright flex-shrink-0">Open</span>
+                  </Link>
+                ))}
+              </div>
+            </SectionCard>
           )}
         </div>
       </div>
@@ -707,81 +679,259 @@ function JourneyTracker({
   );
 }
 
-function NextEventCard() {
+function VipPriorityStrip({
+  checkinToday,
+  submittedThisWeek,
+  nextCheckinDate,
+  topCoachTask,
+  openCoachTasks,
+  latestReply,
+}: {
+  checkinToday: boolean;
+  submittedThisWeek: boolean;
+  nextCheckinDate: Date;
+  topCoachTask: string | null;
+  openCoachTasks: number;
+  latestReply: string | null;
+}) {
+  const nextTouchLabel = submittedThisWeek
+    ? "Check-in already submitted this week"
+    : checkinToday
+      ? "Check-in due today"
+      : `Next check-in · ${nextCheckinDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}`;
+
+  return (
+    <section className="rounded-[28px] border border-amber-500/25 bg-[linear-gradient(135deg,rgba(245,158,11,0.10),rgba(0,0,0,0.02))] px-5 py-5 sm:px-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/15 text-amber-500 text-sm font-bold">
+            VIP
+          </span>
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-500">Gordy&apos;s Priority Focus</div>
+            <div className="mt-1 text-sm font-semibold text-text-primary">
+              {topCoachTask
+                ? topCoachTask
+                : openCoachTasks > 0
+                  ? "Check your coach priorities below."
+                  : "No open priorities from Gordy. Use this week to push the plan."}
+            </div>
+            <div className="mt-1 text-xs text-text-secondary">
+              {nextTouchLabel}
+              {latestReply ? " · coach reply waiting in your lane" : ""}
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/portal/checkin"
+            className="rounded-xl gradient-accent px-4 py-2 text-xs font-semibold text-white no-underline"
+          >
+            {submittedThisWeek ? "Update VIP Check-in" : "Open Priority Check-in"}
+          </Link>
+          <Link
+            href="/portal/calendar"
+            className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-semibold text-amber-500 no-underline hover:bg-amber-500/15"
+          >
+            Calendar
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TierSupportLane({
+  tier,
+  checkinToday,
+  submittedThisWeek,
+  nextCheckinDate,
+  latestReply,
+  latestReplyDate,
+  topCoachTask,
+  openCoachTasks,
+  planPct,
+}: {
+  tier: "premium" | "vip";
+  checkinToday: boolean;
+  submittedThisWeek: boolean;
+  nextCheckinDate: Date;
+  latestReply: string | null;
+  latestReplyDate: string | null;
+  topCoachTask: string | null;
+  openCoachTasks: number;
+  planPct: number;
+}) {
+  const isVip = tier === "vip";
+  const touchLabel = submittedThisWeek
+    ? "Submitted this week"
+    : checkinToday
+      ? "Check-in due today"
+      : nextCheckinDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
+  const replyAge = useMemo(() => {
+    if (!latestReplyDate) return null;
+    const d = Math.floor((new Date().getTime() - new Date(latestReplyDate).getTime()) / (1000 * 60 * 60 * 24));
+    if (d <= 0) return "today";
+    if (d === 1) return "1 day ago";
+    return `${d} days ago`;
+  }, [latestReplyDate]);
+
+  return (
+    <SectionCard
+      title={isVip ? "VIP Support Lane" : "Premium Support Lane"}
+      subtitle={isVip ? "A tighter view of the support points Gordy wants kept visible." : "Your elevated support view for staying close to the plan this week."}
+      right={<div className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${isVip ? "border-amber-500/20 bg-amber-500/10 text-amber-500" : "border-sky-500/20 bg-sky-500/10 text-sky-500"}`}>{isVip ? "VIP" : "Premium"}</div>}
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-4">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Next Touchpoint</div>
+          <div className="mt-2 text-sm font-semibold text-text-primary">{touchLabel}</div>
+          <div className="mt-1 text-sm text-text-secondary">
+            {isVip ? "Keep this visible so Gordy's support cadence stays obvious." : "Use this as your weekly accountability anchor."}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-4">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Coach Focus</div>
+          <div className="mt-2 text-sm font-semibold text-text-primary">
+            {topCoachTask || (openCoachTasks > 0 ? "See your coach priorities list." : "No coach priority is overdue right now.")}
+          </div>
+          <div className="mt-1 text-sm text-text-secondary">
+            {topCoachTask
+              ? openCoachTasks > 1
+                ? `${openCoachTasks} open priorities — this is the first to clear.`
+                : "If this is still open, this is the first thing to clear."
+              : `Training plan is ${planPct}% complete.`}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-4 sm:col-span-2">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">{isVip ? "Coach Reply Lane" : "Support Lane"}</div>
+          <div className="mt-2 text-sm font-semibold text-text-primary">
+            {latestReply
+              ? `A coach reply is sitting in your dashboard${replyAge ? ` · ${replyAge}` : ""}.`
+              : isVip
+                ? "No fresh reply is waiting, so use your check-in or calendar to stay connected."
+                : "No fresh reply is waiting, so keep your next check-in and plan actions tight."}
+          </div>
+          {latestReply && <p className="mt-2 text-sm leading-relaxed text-text-secondary">{latestReply}</p>}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link href="/portal/checkin" className="rounded-xl gradient-accent px-3 py-2 text-xs font-semibold text-white no-underline">
+              {isVip ? "Open Priority Check-in" : "Open Check-in"}
+            </Link>
+            <Link href="/portal/calendar" className="rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-card px-3 py-2 text-xs font-semibold text-text-primary no-underline">
+              Open Calendar
+            </Link>
+            <Link href="/portal/ai" className="rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-card px-3 py-2 text-xs font-semibold text-text-primary no-underline">
+              Ask SHIFT AI
+            </Link>
+          </div>
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
+function NextEventCard({
+  checkinToday,
+  nextCheckinDate,
+  submittedThisWeek,
+  tier,
+}: {
+  checkinToday: boolean;
+  nextCheckinDate: Date;
+  submittedThisWeek: boolean;
+  tier: Tier;
+}) {
   const [event, setEvent] = useState<CalendarEvent | null>(null);
   const [nextDate, setNextDate] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
+  const [calendarError, setCalendarError] = useState(false);
 
   useEffect(() => {
     async function load() {
       try {
         const res = await fetch("/api/calendar");
-        if (res.ok) {
-          const data = await res.json();
-          const events: CalendarEvent[] = data.events;
-          let earliest: { event: CalendarEvent; date: Date } | null = null;
-          for (const evt of events) {
-            const nd = getNextOccurrence(evt);
-            if (nd && (!earliest || nd < earliest.date)) earliest = { event: evt, date: nd };
-          }
-          if (earliest) { setEvent(earliest.event); setNextDate(earliest.date); }
+        if (!res.ok) {
+          setCalendarError(true);
+          return;
         }
-      } catch { /* silent */ } finally { setLoading(false); }
+        const data = await res.json();
+        const events: CalendarEvent[] = data.events || [];
+        let earliest: { event: CalendarEvent; date: Date } | null = null;
+
+        for (const candidate of events) {
+          const occurrence = getNextOccurrence(candidate);
+          if (occurrence && (!earliest || occurrence < earliest.date)) {
+            earliest = { event: candidate, date: occurrence };
+          }
+        }
+
+        if (earliest) {
+          setEvent(earliest.event);
+          setNextDate(earliest.date);
+        }
+      } catch {
+        setCalendarError(true);
+      } finally {
+        setLoading(false);
+      }
     }
+
     load();
   }, []);
 
-  if (loading) return null;
-  if (!event || !nextDate) {
-    return (
-      <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[rgba(0,0,0,0.06)] flex items-center justify-center">
-            <svg className="w-5 h-5 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <span className="text-sm text-text-muted">No upcoming events</span>
-        </div>
-      </div>
-    );
-  }
-
-  const dayName = nextDate.toLocaleDateString("en-GB", { weekday: "long" });
-  const [h, m] = event.event_time.split(":").map(Number);
-  const period = h >= 12 ? "PM" : "AM";
-  const hour = h % 12 || 12;
-  const timeStr = `${hour}:${m.toString().padStart(2, "0")} ${period}`;
-  const recurrenceText: Record<string, string> = { weekly: `Every ${dayName}`, biweekly: `Every other ${dayName}`, monthly: "Monthly", none: nextDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }) };
+  const checkinLabel = submittedThisWeek
+    ? "Submitted"
+    : checkinToday
+      ? "Due today"
+      : nextCheckinDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
 
   return (
-    <div className="group relative bg-bg-card border border-accent/10 rounded-2xl p-5 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-accent/20 hover:shadow-[0_2px_12px_rgba(224,64,208,0.06)]">
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(224,64,208,0.03)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
-      <div className="relative flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center group-hover:bg-accent/15 transition-colors duration-300">
-            <svg className="w-6 h-6 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <div>
-            <div className="text-xs text-text-muted uppercase tracking-wider mb-0.5">Next Event</div>
-            <div className="text-base font-heading font-bold text-text-primary">{event.title}</div>
-            <div className="flex items-center gap-3 mt-0.5">
-              <span className="text-sm text-text-secondary">{dayName}, {timeStr}</span>
-              <span className="text-xs text-text-muted">{recurrenceText[event.recurrence]}</span>
-            </div>
-          </div>
+    <SectionCard
+      title="Upcoming"
+      subtitle="What's coming up next so nothing catches you cold."
+      right={
+        checkinToday && !submittedThisWeek ? (
+          <Link href="/portal/checkin" className="rounded-xl gradient-accent px-3 py-2 text-xs font-semibold text-white no-underline">
+            {tier === "vip" ? "Priority check-in" : "Check-in now"}
+          </Link>
+        ) : null
+      }
+    >
+      <div className="space-y-3">
+        <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-4">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Weekly Check-in</div>
+          <div className="mt-2 text-sm font-semibold text-text-primary">{checkinLabel}</div>
+          {submittedThisWeek && (
+            <div className="mt-1 text-xs text-text-muted">You can update it any time before the week ends.</div>
+          )}
         </div>
-        {event.link && (
-          <a href={event.link} target="_blank" rel="noopener noreferrer" className="px-4 py-2.5 gradient-accent text-white rounded-xl text-sm font-medium no-underline inline-flex items-center gap-2 hover:opacity-90 transition-opacity flex-shrink-0">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-            {event.link_label || "Join"}
-          </a>
+
+        {loading ? (
+          <div className="h-16 animate-pulse rounded-2xl bg-[rgba(0,0,0,0.06)]" />
+        ) : calendarError ? (
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/8 px-4 py-3 text-sm text-amber-500">
+            Couldn&apos;t load your calendar. Try refreshing the page.
+          </div>
+        ) : event && nextDate ? (
+          <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-4">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Calendar Event</div>
+            <div className="mt-2 text-sm font-semibold text-text-primary">{event.title}</div>
+            <div className="mt-1 text-sm text-text-secondary">
+              {nextDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}
+              {event.event_time ? ` at ${event.event_time}` : ""}
+            </div>
+            {event.link && (
+              <a href={event.link} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex text-xs font-semibold text-accent-bright no-underline">
+                {event.link_label || "Open event"}
+              </a>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-[rgba(0,0,0,0.08)] px-4 py-5 text-sm text-text-muted">
+            No upcoming calendar events right now.
+          </div>
         )}
       </div>
-    </div>
+    </SectionCard>
   );
 }

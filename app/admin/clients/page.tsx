@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { AdminClient } from "@/lib/admin-data";
-import type { TrafficLight } from "@/lib/types";
+import type { ClientTier, TrafficLight } from "@/lib/types";
 
 const glowClass: Record<TrafficLight, string> = {
   green: "glow-green",
@@ -17,6 +17,31 @@ const statusConfig: Record<TrafficLight, { label: string; dotClass: string; bgCl
   green: { label: "On Track", dotClass: "bg-emerald-500", bgClass: "bg-emerald-500/10", textClass: "text-emerald-400" },
 };
 
+const tierOptions: Array<{
+  value: ClientTier;
+  label: string;
+  description: string;
+  activeClass: string;
+}> = [
+  { value: "coached", label: "Coached", description: "Core coaching access", activeClass: "bg-emerald-500/10 border-emerald-500/30 text-emerald-600" },
+  { value: "premium", label: "Premium", description: "Extra support and oversight", activeClass: "bg-sky-500/10 border-sky-500/30 text-sky-500" },
+  { value: "vip", label: "VIP", description: "Highest-touch experience", activeClass: "bg-amber-500/10 border-amber-500/30 text-amber-500" },
+  { value: "ai_only", label: "AI Only", description: "Self-serve AI support", activeClass: "bg-[#E040D0]/10 border-[#E040D0]/30 text-[#E040D0]" },
+];
+
+function renderTierBadge(tier: ClientTier) {
+  switch (tier) {
+    case "premium":
+      return <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-500">Premium</span>;
+    case "vip":
+      return <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500">VIP</span>;
+    case "ai_only":
+      return <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#E040D0]/10 text-[#E040D0]">AI Only</span>;
+    default:
+      return <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">Coached</span>;
+  }
+}
+
 function timeAgo(dateStr: string): string {
   const now = new Date();
   const d = new Date(dateStr);
@@ -29,15 +54,41 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(diffDays / 7)} weeks ago`;
 }
 
+type TierFilter = ClientTier | "all";
+
+const TIER_PRIORITY: Record<ClientTier, number> = {
+  vip: 0,
+  premium: 1,
+  coached: 2,
+  ai_only: 3,
+};
+
+const STATUS_PRIORITY: Record<TrafficLight, number> = { red: 0, amber: 1, green: 2 };
+
+const tierRowAccent: Record<ClientTier, string> = {
+  vip: "border-l-4 border-l-amber-500/60",
+  premium: "border-l-4 border-l-sky-500/60",
+  coached: "border-l-4 border-l-emerald-500/40",
+  ai_only: "border-l-4 border-l-[#E040D0]/40",
+};
+
+const tierCountLabel: Record<ClientTier, string> = {
+  coached: "Coached",
+  premium: "Premium",
+  vip: "VIP",
+  ai_only: "AI Only",
+};
+
 export default function ClientsPage() {
   const [allClients, setAllClients] = useState<AdminClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<TrafficLight | "all">("all");
+  const [tierFilter, setTierFilter] = useState<TierFilter>("all");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [invitePassword, setInvitePassword] = useState("");
-  const [inviteTier, setInviteTier] = useState<"coached" | "ai_only">("coached");
+  const [inviteTier, setInviteTier] = useState<ClientTier>("coached");
   const [inviteSending, setInviteSending] = useState(false);
   const [inviteResult, setInviteResult] = useState<{ success: boolean; emailSent?: boolean; passwordSet?: boolean; setupUrl?: string; error?: string } | null>(null);
 
@@ -82,7 +133,20 @@ export default function ClientsPage() {
     );
   }
 
-  const filtered = filter === "all" ? allClients : allClients.filter((c) => c.status === filter);
+  const statusFiltered = filter === "all" ? allClients : allClients.filter((c) => c.status === filter);
+  const filtered = tierFilter === "all" ? statusFiltered : statusFiltered.filter((c) => c.tier === tierFilter);
+  const sortedFiltered = [...filtered].sort((a, b) => {
+    const statusDiff = STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status];
+    if (statusDiff !== 0) return statusDiff;
+    return TIER_PRIORITY[a.tier] - TIER_PRIORITY[b.tier];
+  });
+
+  const tierCounts: Record<ClientTier, number> = { coached: 0, premium: 0, vip: 0, ai_only: 0 };
+  for (const c of allClients) tierCounts[c.tier]++;
+  const vipPremiumAtRisk = allClients.filter(
+    (c) => (c.tier === "vip" || c.tier === "premium") && (c.status === "amber" || c.status === "red"),
+  );
+  const highTouchTotal = tierCounts.vip + tierCounts.premium;
 
   return (
     <>
@@ -180,21 +244,22 @@ export default function ClientsPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-text-secondary mb-1.5">Client Tier</label>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setInviteTier("coached")}
-                        className={`flex-1 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer border ${inviteTier === "coached" ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600" : "bg-bg-primary border-[rgba(0,0,0,0.08)] text-text-muted hover:border-[rgba(0,0,0,0.15)]"}`}
-                      >
-                        Coached
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setInviteTier("ai_only")}
-                        className={`flex-1 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer border ${inviteTier === "ai_only" ? "bg-[#E040D0]/10 border-[#E040D0]/30 text-[#E040D0]" : "bg-bg-primary border-[rgba(0,0,0,0.08)] text-text-muted hover:border-[rgba(0,0,0,0.15)]"}`}
-                      >
-                        AI Only
-                      </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      {tierOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setInviteTier(option.value)}
+                          className={`rounded-xl px-3 py-3 text-left transition-all cursor-pointer border ${
+                            inviteTier === option.value
+                              ? option.activeClass
+                              : "bg-bg-primary border-[rgba(0,0,0,0.08)] text-text-muted hover:border-[rgba(0,0,0,0.15)]"
+                          }`}
+                        >
+                          <div className="text-sm font-semibold">{option.label}</div>
+                          <div className="mt-1 text-[11px] leading-relaxed opacity-80">{option.description}</div>
+                        </button>
+                      ))}
                     </div>
                   </div>
                   <div>
@@ -211,7 +276,7 @@ export default function ClientsPage() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setInviteOpen(false)}
-                    className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-white/5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
+                    className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] rounded-xl transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -257,8 +322,37 @@ export default function ClientsPage() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex gap-2 mb-6">
+      {/* High-touch summary strip — only shown when the account has VIP/Premium clients */}
+      {highTouchTotal > 0 && (
+        <div className="mb-6 rounded-2xl border border-amber-500/20 bg-[linear-gradient(135deg,rgba(245,158,11,0.06),rgba(14,165,233,0.05))] px-5 py-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-500">High-touch clients</div>
+              <div className="mt-1 text-sm text-text-primary">
+                <span className="font-semibold">{tierCounts.vip}</span> VIP ·{" "}
+                <span className="font-semibold">{tierCounts.premium}</span> Premium ·{" "}
+                {vipPremiumAtRisk.length > 0 ? (
+                  <span className="text-amber-500 font-semibold">{vipPremiumAtRisk.length} need{vipPremiumAtRisk.length === 1 ? "s" : ""} attention</span>
+                ) : (
+                  <span className="text-emerald-400 font-semibold">all on track</span>
+                )}
+              </div>
+            </div>
+            {vipPremiumAtRisk.length > 0 && (
+              <button
+                onClick={() => { setTierFilter("vip"); setFilter("all"); }}
+                className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-500 cursor-pointer hover:bg-amber-500/15"
+              >
+                Focus VIP list
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Status filters */}
+      <div className="flex gap-2 mb-3 flex-wrap items-center">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted mr-1">Status</div>
         {(["all", "red", "amber", "green"] as const).map((f) => (
           <button
             key={f}
@@ -274,16 +368,72 @@ export default function ClientsPage() {
               : `${statusConfig[f].label} (${allClients.filter((c) => c.status === f).length})`}
           </button>
         ))}
+        {/* At-risk shortcut — combines amber + red into one outreach-prioritised view */}
+        {(() => {
+          const atRiskCount = allClients.filter((c) => c.status === "amber" || c.status === "red").length;
+          const active = filter === "amber" || filter === "red";
+          return (
+            <button
+              onClick={() => setFilter(atRiskCount === 0 ? "all" : "red")}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold uppercase tracking-[0.12em] transition-all cursor-pointer border ${
+                active
+                  ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+                  : "text-text-muted hover:text-text-secondary border-[rgba(0,0,0,0.08)]"
+              }`}
+              title="Show clients who need outreach — combines Needs Attention + Check-in Due"
+            >
+              At risk ({atRiskCount})
+            </button>
+          );
+        })()}
+      </div>
+
+      {/* Tier filters */}
+      <div className="flex gap-2 mb-6 flex-wrap items-center">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted mr-1">Tier</div>
+        {(["all", "vip", "premium", "coached", "ai_only"] as const).map((t) => {
+          const count = t === "all" ? allClients.length : tierCounts[t];
+          const active = tierFilter === t;
+          const tierActiveClass = t === "vip"
+            ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+            : t === "premium"
+              ? "bg-sky-500/10 text-sky-500 border-sky-500/30"
+              : t === "ai_only"
+                ? "bg-[#E040D0]/10 text-[#E040D0] border-[#E040D0]/30"
+                : t === "coached"
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                  : "bg-[rgba(224,64,208,0.1)] text-accent-bright border-[rgba(224,64,208,0.2)]";
+          return (
+            <button
+              key={t}
+              onClick={() => setTierFilter(t)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-[0.12em] transition-all cursor-pointer border ${
+                active ? tierActiveClass : "text-text-muted hover:text-text-secondary border-[rgba(0,0,0,0.08)]"
+              }`}
+            >
+              {t === "all" ? "All tiers" : tierCountLabel[t]} ({count})
+            </button>
+          );
+        })}
       </div>
 
       {/* Client cards */}
       <div className="space-y-3">
-        {filtered.length === 0 ? (
-          <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl px-6 py-8 text-text-muted text-sm">
-            No clients found.
+        {sortedFiltered.length === 0 ? (
+          <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl px-6 py-10 text-center">
+            <div className="text-sm font-semibold text-text-primary">No clients match these filters.</div>
+            <div className="mt-1 text-xs text-text-muted">
+              Clear a filter to widen the view, or add a new client from the Add Client button above.
+            </div>
+            <button
+              onClick={() => { setFilter("all"); setTierFilter("all"); }}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[rgba(0,0,0,0.08)] px-3 py-2 text-xs font-semibold text-text-secondary hover:text-text-primary hover:border-[rgba(0,0,0,0.15)] cursor-pointer"
+            >
+              Reset filters
+            </button>
           </div>
         ) : (
-          filtered.map((client) => {
+          sortedFiltered.map((client) => {
             const sc = statusConfig[client.status];
             const activePlans = client.training_plan.filter((p) => p.status === "active");
             const activePlan = activePlans.find((p) => p.phases.length > 0) || activePlans[0];
@@ -296,7 +446,7 @@ export default function ClientsPage() {
               <Link
                 key={client.id}
                 href={`/admin/clients/${client.id}`}
-                className={`group relative block bg-bg-card/80 backdrop-blur-sm border rounded-2xl p-5 overflow-hidden transition-all duration-300 no-underline hover:-translate-y-0.5 cursor-pointer ${glowClass[client.status]}`}
+                className={`group relative block bg-bg-card/80 backdrop-blur-sm border rounded-2xl p-5 overflow-hidden transition-all duration-300 no-underline hover:-translate-y-0.5 cursor-pointer ${glowClass[client.status]} ${tierRowAccent[client.tier]}`}
               >
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
                 <div className="flex items-center justify-between relative">
@@ -309,11 +459,7 @@ export default function ClientsPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-text-primary">{client.name}</span>
-                        {client.tier === "ai_only" ? (
-                          <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#E040D0]/10 text-[#E040D0]">AI Only</span>
-                        ) : (
-                          <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">Coached</span>
-                        )}
+                        {renderTierBadge(client.tier)}
                       </div>
                       <div className="text-xs text-text-muted">{client.business_name} - {client.business_type}</div>
                     </div>
@@ -335,8 +481,8 @@ export default function ClientsPage() {
                       </div>
                     </div>
 
-                    <div className="text-right hidden md:block">
-                      <div className="text-xs text-text-muted">Last Check-In</div>
+                    <div className="text-right hidden sm:block">
+                      <div className="text-xs text-text-muted">Last Check-in</div>
                       <div className={`text-xs font-medium mt-0.5 ${
                         new Date().getTime() - new Date(client.last_checkin).getTime() > 7 * 24 * 60 * 60 * 1000
                           ? "text-red-400" : "text-text-secondary"

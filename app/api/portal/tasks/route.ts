@@ -30,6 +30,39 @@ export async function GET() {
   return NextResponse.json({ tasks: data });
 }
 
+export async function POST(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  const admin = createAdminClient();
+
+  const { data: profile } = await admin
+    .from("client_profiles")
+    .select("id")
+    .eq("user_id", user.id)
+    .single();
+
+  if (!profile) return NextResponse.json({ error: "Client profile not found" }, { status: 404 });
+
+  const body = await request.json();
+  const taskText = body?.task_text?.trim();
+
+  if (!taskText) return NextResponse.json({ error: "task_text is required" }, { status: 400 });
+  if (taskText.length > 500) return NextResponse.json({ error: "task_text must be under 500 characters" }, { status: 400 });
+
+  const { data, error } = await admin
+    .from("client_tasks")
+    .insert({ client_id: profile.id, task_text: taskText, source: "client" })
+    .select()
+    .single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ task: data });
+}
+
 export async function PATCH(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

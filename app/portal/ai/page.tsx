@@ -61,6 +61,7 @@ export default function ShiftAIPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [tier, setTier] = useState<string>("coached");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -71,6 +72,41 @@ export default function ShiftAIPage() {
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    fetch("/api/portal/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.tier) setTier(d.tier); })
+      .catch(() => {});
+  }, []);
+
+  const quickPrompts: Record<string, string[]> = {
+    coached: [
+      "What should I focus on this week?",
+      "Swap a meal I'm struggling with",
+      "What training do I have left today?",
+      "Summarise my progress this month",
+    ],
+    premium: [
+      "What's the one thing I should tighten this week?",
+      "Swap a meal I'm struggling with",
+      "What training do I have left today?",
+      "Draft my priority message for Gordy",
+    ],
+    vip: [
+      "What should Gordy see first about me this week?",
+      "Swap a meal I'm struggling with",
+      "What training do I have left today?",
+      "Give me a 3-bullet summary of my last check-in",
+    ],
+    ai_only: [
+      "What should I focus on this week?",
+      "Help me plan today's session",
+      "Swap a food I'm stuck on",
+      "How have I been doing recently?",
+    ],
+  };
+  const prompts = quickPrompts[tier] || quickPrompts.coached;
 
   async function handleSend(override?: string) {
     const trimmed = (override || input).trim();
@@ -115,7 +151,7 @@ export default function ShiftAIPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-8rem)] lg:h-[calc(100vh-4rem)] max-w-3xl mx-auto">
+    <div className="flex flex-col h-[calc(100dvh-10rem)] sm:h-[calc(100dvh-8rem)] lg:h-[calc(100vh-4rem)] max-w-3xl mx-auto pb-[env(safe-area-inset-bottom)]">
       <div className="mb-6">
         <h1 className="text-2xl font-heading font-extrabold text-text-primary">SHIFT AI</h1>
         <p className="text-sm text-text-secondary mt-1">
@@ -133,19 +169,14 @@ export default function ShiftAIPage() {
             </div>
             <h2 className="text-lg font-semibold text-text-primary mb-2">How can I help?</h2>
             <p className="text-sm text-text-muted max-w-md mb-6">
-              I know your training modules, coaching plan, and goals. Ask me anything.
+              I know your training plan, nutrition plan, check-ins and goals. Ask me anything.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-md">
-              {[
-                "What should I focus on this week?",
-                "Help me with pricing my services",
-                "What training do I have left?",
-                "Summarise my training plan progress",
-              ].map((q) => (
+              {prompts.map((q) => (
                 <button
                   key={q}
                   onClick={() => handleSend(q)}
-                  className="text-left text-xs text-text-secondary px-3 py-2.5 rounded-xl border border-[rgba(0,0,0,0.08)] hover:border-[rgba(224,64,208,0.2)] hover:bg-[rgba(224,64,208,0.05)] transition-all duration-200 cursor-pointer"
+                  className="text-left text-sm text-text-secondary px-4 py-3 rounded-xl border border-[rgba(0,0,0,0.08)] hover:border-[rgba(224,64,208,0.2)] hover:bg-[rgba(224,64,208,0.05)] transition-all duration-200 cursor-pointer min-h-[48px]"
                 >
                   {q}
                 </button>

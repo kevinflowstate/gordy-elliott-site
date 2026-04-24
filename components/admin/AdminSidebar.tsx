@@ -11,6 +11,7 @@ const navItems = [
   { href: "/admin/clients", label: "Clients", icon: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" },
   { href: "/admin/exercise-plans", label: "Training Plans", icon: "M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" },
   { href: "/admin/nutrition-plans", label: "Nutrition Plans", icon: "M12 8.25v-1.5m0 1.5c-1.355 0-2.697.056-4.024.166C6.845 8.51 6 9.473 6 10.608v2.513m6-4.871c1.355 0 2.697.056 4.024.166C17.155 8.51 18 9.473 18 10.608v2.513M15 9.75l-3-3m0 0l-3 3m3-3v12" },
+  { href: "/admin/training-plans", label: "Coaching Plans", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h-5l4-4-1 3h5l-4 4 1-3z" },
   { href: "/admin/training", label: "Education Hub", icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" },
   { href: "/admin/calendar", label: "Calendar", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
   { href: "/admin/ai", label: "SHIFT AI", icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" },
@@ -33,18 +34,18 @@ export default function AdminSidebar() {
     <>
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="lg:hidden fixed top-4 left-4 z-[60] w-10 h-10 bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-xl flex items-center justify-center text-text-primary cursor-pointer"
+        className="lg:hidden fixed top-4 left-4 z-[60] w-10 h-10 bg-[#0A0A0A] border border-[rgba(255,255,255,0.08)] rounded-xl flex items-center justify-center text-white cursor-pointer"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={collapsed ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} />
         </svg>
       </button>
 
-      <aside className={`fixed top-0 left-0 h-full w-[260px] bg-[#fafaf8] dark:bg-[#0A0A0A] border-r border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.06)] backdrop-blur-[20px] z-50 flex flex-col transition-transform duration-300 ${collapsed ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}>
-        <div className="px-6 py-7 border-b border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.06)]">
+      <aside className={`fixed top-0 left-0 h-full w-[260px] bg-[#0A0A0A] border-r border-[rgba(255,255,255,0.06)] backdrop-blur-[20px] z-50 flex flex-col transition-transform duration-300 ${collapsed ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}>
+        <div className="px-6 py-7 border-b border-[rgba(255,255,255,0.06)]">
           <Link href="/admin" className="flex items-center gap-3 no-underline">
             <Image src="/images/shift-logo.svg" alt="SHIFT" width={32} height={32} className="h-8 w-auto" />
-            <span className="font-heading font-extrabold text-base text-text-primary dark:text-white tracking-wide">Admin Panel</span>
+            <span className="font-heading font-extrabold text-base text-white tracking-wide">Admin Panel</span>
           </Link>
         </div>
 
@@ -59,7 +60,7 @@ export default function AdminSidebar() {
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm no-underline transition-all duration-200 ${
                   isActive
                     ? "border-l-2 border-accent bg-accent/8 text-accent font-semibold pl-[14px]"
-                    : "font-medium text-text-secondary dark:text-[#c0c0c8] hover:text-text-primary dark:hover:text-white hover:bg-[rgba(0,0,0,0.04)] dark:hover:bg-[rgba(255,255,255,0.04)]"
+                    : "font-medium text-[#c0c0c8] hover:text-white hover:bg-[rgba(255,255,255,0.04)]"
                 }`}
               >
                 <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -71,11 +72,11 @@ export default function AdminSidebar() {
           })}
         </nav>
 
-        <div className="p-4 border-t border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)]">
-          <Link href="/" className="block px-4 py-2 text-xs text-text-muted hover:text-text-secondary transition-colors no-underline">
+        <div className="p-4 border-t border-[rgba(255,255,255,0.06)]">
+          <Link href="/" className="block px-4 py-2 text-xs text-[#9ca3af] hover:text-white transition-colors no-underline">
             View Public Site
           </Link>
-          <button onClick={handleSignOut} className="w-full mt-1 px-4 py-2 text-xs text-text-muted hover:text-red-400 transition-colors text-left cursor-pointer">
+          <button onClick={handleSignOut} className="w-full mt-1 px-4 py-2 text-xs text-[#9ca3af] hover:text-red-400 transition-colors text-left cursor-pointer">
             Sign Out
           </button>
         </div>

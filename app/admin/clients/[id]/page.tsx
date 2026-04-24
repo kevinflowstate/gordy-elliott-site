@@ -1,16 +1,18 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { AdminClient } from "@/lib/admin-data";
-import type { TrafficLight, CheckInMood, TrainingPlan, TrainingPlanPhase, CheckinFormConfig, FormQuestion, ClientExercisePlan, ClientNutritionPlan, ProgressMetric, ClientTask } from "@/lib/types";
+import type { TrafficLight, CheckInMood, TrainingPlan, TrainingPlanPhase, CheckinFormConfig, CheckinFormTemplate, FormQuestion, ClientExercisePlan, ClientNutritionPlan, ProgressMetric, ClientTask, ClientTier } from "@/lib/types";
 import TrainingPlanBuilder from "@/components/admin/TrainingPlanBuilder";
 import ExerciseTemplateBuilder from "@/components/admin/ExerciseTemplateBuilder";
 import ExerciseTemplatePicker from "@/components/admin/ExerciseTemplatePicker";
 import NutritionTemplatePicker from "@/components/admin/NutritionTemplatePicker";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Dot } from "recharts";
 import PhotoGallery from "@/components/portal/PhotoGallery";
+import { normalizeCheckinConfig } from "@/lib/checkin-form";
+import { useToast } from "@/components/ui/Toast";
 
 type TabId = "dashboard" | "checkins" | "training" | "nutrition" | "gallery" | "tasks";
 
@@ -40,6 +42,13 @@ const categoryIcons: Record<string, string> = {
   "Systems & Operations": "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
   "Standards & Quality": "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z",
 };
+
+const tierOptions: Array<{ value: ClientTier; label: string }> = [
+  { value: "coached", label: "Coached" },
+  { value: "premium", label: "Premium" },
+  { value: "vip", label: "VIP" },
+  { value: "ai_only", label: "AI Only" },
+];
 
 function getPhaseIcon(phaseName: string): string {
   const lower = phaseName.toLowerCase();
@@ -94,19 +103,14 @@ interface AdminGalleryTabProps {
 }
 
 function AdminGalleryTab({ clientId, groups, loading, loaded, onLoad, onLoadStart }: AdminGalleryTabProps) {
-  const onLoadRef = useRef(onLoad);
-  const onLoadStartRef = useRef(onLoadStart);
-  onLoadRef.current = onLoad;
-  onLoadStartRef.current = onLoadStart;
-
   useEffect(() => {
     if (loaded || loading) return;
-    onLoadStartRef.current();
+    onLoadStart();
     fetch(`/api/admin/client-photos?clientId=${clientId}`)
       .then((r) => r.json())
-      .then((data) => onLoadRef.current(data.groups || []))
-      .catch(() => onLoadRef.current([]));
-  }, [clientId, loaded, loading]);
+      .then((data) => onLoad(data.groups || []))
+      .catch(() => onLoad([]));
+  }, [clientId, loaded, loading, onLoad, onLoadStart]);
 
   return (
     <div className="space-y-6">
@@ -117,6 +121,7 @@ function AdminGalleryTab({ clientId, groups, loading, loaded, onLoad, onLoadStar
 }
 
 export default function ClientDetailPage() {
+  const { toast } = useToast();
   const { id } = useParams();
   const router = useRouter();
   const [client, setClient] = useState<AdminClient | null>(null);
@@ -127,8 +132,7 @@ export default function ClientDetailPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [expandedHistoryPlan, setExpandedHistoryPlan] = useState<string | null>(null);
   const [builderMode, setBuilderMode] = useState<"closed" | "create" | "edit">("closed");
-  const [internalNotes, setInternalNotes] = useState("");
-  const [notesSaving, setNotesSaving] = useState(false);
+  // internal_notes kept in DB for history, no longer editable in UI — Coach Notes is the canonical field now.
   const [coachNotes, setCoachNotes] = useState("");
   const [coachNotesSaving, setCoachNotesSaving] = useState(false);
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
@@ -160,6 +164,9 @@ export default function ClientDetailPage() {
   const [nudgeSent, setNudgeSent] = useState(false);
   const [checkinDay, setCheckinDay] = useState<string>("");
   const [checkinDaySaving, setCheckinDaySaving] = useState(false);
+  const [checkinTemplates, setCheckinTemplates] = useState<CheckinFormTemplate[]>([]);
+  const [checkinTemplateId, setCheckinTemplateId] = useState<string>("");
+  const [checkinTemplateSaving, setCheckinTemplateSaving] = useState(false);
   const [clientTier, setClientTier] = useState<string>("coached");
   const [tierSaving, setTierSaving] = useState(false);
   const [goalsModalOpen, setGoalsModalOpen] = useState(false);
@@ -175,21 +182,23 @@ export default function ClientDetailPage() {
 
   const loadClient = useCallback(async () => {
     try {
-      const [clientRes, trainingRes, configRes] = await Promise.all([
+      const [clientRes, trainingRes, templatesRes] = await Promise.all([
         fetch(`/api/admin/clients/${id}`),
         fetch("/api/admin/training"),
-        fetch("/api/admin/form-config?type=checkin"),
+        fetch("/api/admin/checkin-templates"),
       ]);
+      let loadedClient: AdminClient | null = null;
 
       if (clientRes.ok) {
         const data = await clientRes.json();
+        loadedClient = data.client;
         setClient(data.client);
         setPlans(data.client?.training_plan || []);
         const activePlan = (data.client?.training_plan || []).find((p: TrainingPlan) => p.status === "active");
         setExpandedPhases(new Set(activePlan?.phases.map((ph: TrainingPlanPhase) => ph.id) || []));
-        setInternalNotes(data.client?.internal_notes || "");
         setCoachNotes(data.client?.coach_notes || "");
         setCheckinDay(data.client?.checkin_day || "");
+        setCheckinTemplateId(data.client?.checkin_form_id || "");
         setClientTier(data.client?.tier || "coached");
         setGoalPrimary(data.client?.primary_goal || "");
         setGoalTargetDate(data.client?.target_date || "");
@@ -207,9 +216,24 @@ export default function ClientDetailPage() {
         setContentLookup(lookup);
       }
 
-      if (configRes.ok) {
-        const cfgData = await configRes.json();
-        setCheckinConfig(cfgData.config);
+      if (templatesRes.ok) {
+        const templatesData = await templatesRes.json();
+        const templates = templatesData.templates || [];
+        setCheckinTemplates(templates);
+        const selectedTemplate =
+          templates.find((template: CheckinFormTemplate) => template.id === loadedClient?.checkin_form_id) ||
+          templates.find((template: CheckinFormTemplate) => template.is_default) ||
+          templates[0];
+        setCheckinConfig(selectedTemplate ? normalizeCheckinConfig(selectedTemplate.config) : null);
+        if (!loadedClient?.checkin_form_id && selectedTemplate?.id) {
+          setCheckinTemplateId(selectedTemplate.id);
+        }
+      } else {
+        const fallbackConfigRes = await fetch("/api/admin/form-config?type=checkin");
+        if (fallbackConfigRes.ok) {
+          const cfgData = await fallbackConfigRes.json();
+          setCheckinConfig(normalizeCheckinConfig(cfgData.config));
+        }
       }
 
       if (id) {
@@ -246,22 +270,63 @@ export default function ClientDetailPage() {
 
   useEffect(() => { if (activeTab === "tasks" && client) { loadTasks(); } }, [activeTab, client?.id]);
 
+  // For Premium/VIP clients also preload tasks on first load so the high-touch cue banner can
+  // show an accurate open-task count without requiring the coach to switch tabs.
+  useEffect(() => {
+    if (!client) return;
+    if (client.tier === "premium" || client.tier === "vip") {
+      loadTasks();
+    }
+  }, [client?.id, client?.tier]);
+
   async function addTask() {
     if (!newTaskText.trim() || !client) return;
-    const res = await fetch("/api/admin/client-tasks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ client_id: client.id, task_text: newTaskText.trim() }),
-    });
-    if (res.ok) { setNewTaskText(""); loadTasks(); }
+    try {
+      const res = await fetch("/api/admin/client-tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client_id: client.id, task_text: newTaskText.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast(data.error || "Couldn't add that task. Try again.", "error");
+        return;
+      }
+      setNewTaskText("");
+      loadTasks();
+      toast("Task added");
+    } catch {
+      toast("Couldn't reach the tasks API. Try again.", "error");
+    }
   }
 
   async function deleteTask(taskId: string) {
-    await fetch(`/api/admin/client-tasks?id=${taskId}`, { method: "DELETE" });
-    loadTasks();
+    try {
+      const res = await fetch(`/api/admin/client-tasks?id=${taskId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast(data.error || "Couldn't delete that task. Try again.", "error");
+        return;
+      }
+      loadTasks();
+      toast("Task deleted");
+    } catch {
+      toast("Couldn't reach the tasks API. Try again.", "error");
+    }
   }
 
   async function handleAssignExercisePlan(templateId: string) {
+    const existingActive = exercisePlans.find((p) => p.status === "active");
+    if (existingActive) {
+      const ok = confirm(
+        `Replace "${existingActive.name}" as this client's active training plan?\n\n` +
+        `- The client will see the new plan on their next /portal/exercise-plan load.\n` +
+        `- Their existing training logs stay intact (linked to the old plan).\n` +
+        `- The old plan is archived automatically — you can re-activate it from history if needed.\n\n` +
+        `This takes effect immediately.`
+      );
+      if (!ok) return;
+    }
     setAssigningExercise(true);
     try {
       const res = await fetch("/api/admin/client-exercise-plans", {
@@ -269,11 +334,31 @@ export default function ClientDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ client_id: id, template_id: templateId }),
       });
-      if (res.ok) { setShowExercisePicker(false); loadClient(); }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast(data.error || "Couldn't assign that exercise plan. Try again.", "error");
+        return;
+      }
+      setShowExercisePicker(false);
+      await loadClient();
+      toast(existingActive ? "Training plan replaced — client sees the new plan on next reload" : "Exercise plan assigned");
+    } catch {
+      toast("Couldn't reach the exercise plans API. Try again.", "error");
     } finally { setAssigningExercise(false); }
   }
 
   async function handleAssignNutritionPlan(templateId: string) {
+    const existingActive = nutritionPlans.find((p) => p.status === "active");
+    if (existingActive) {
+      const ok = confirm(
+        `Replace "${existingActive.name}" as this client's active nutrition plan?\n\n` +
+        `- The client will see the new plan on their next /portal/nutrition-plan load.\n` +
+        `- Existing meal-completion history stays intact.\n` +
+        `- The old plan is archived — you can re-activate it from history if needed.\n\n` +
+        `This takes effect immediately.`
+      );
+      if (!ok) return;
+    }
     setAssigningNutrition(true);
     try {
       const res = await fetch("/api/admin/client-nutrition-plans", {
@@ -281,57 +366,142 @@ export default function ClientDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ client_id: id, template_id: templateId }),
       });
-      if (res.ok) { setShowNutritionPicker(false); loadClient(); }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast(data.error || "Couldn't assign that nutrition plan. Try again.", "error");
+        return;
+      }
+      setShowNutritionPicker(false);
+      await loadClient();
+      toast(existingActive ? "Nutrition plan replaced — client sees the new plan on next reload" : "Nutrition plan assigned");
+    } catch {
+      toast("Couldn't reach the nutrition plans API. Try again.", "error");
     } finally { setAssigningNutrition(false); }
   }
 
   async function handleArchiveExercisePlan(planId: string) {
-    await fetch("/api/admin/client-exercise-plans", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: planId, status: "archived" }),
-    });
-    loadClient();
+    try {
+      const res = await fetch("/api/admin/client-exercise-plans", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: planId, status: "archived" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast(data.error || "Couldn't archive that exercise plan. Try again.", "error");
+        return;
+      }
+      await loadClient();
+      toast("Exercise plan archived");
+    } catch {
+      toast("Couldn't reach the exercise plans API. Try again.", "error");
+    }
   }
 
   async function handleUnassignExercisePlan(planId: string) {
-    await fetch("/api/admin/client-exercise-plans", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: planId, status: "inactive" }),
-    });
-    loadClient();
+    try {
+      const res = await fetch("/api/admin/client-exercise-plans", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: planId, status: "inactive" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast(data.error || "Couldn't unassign that exercise plan. Try again.", "error");
+        return;
+      }
+      await loadClient();
+      toast("Exercise plan unassigned");
+    } catch {
+      toast("Couldn't reach the exercise plans API. Try again.", "error");
+    }
   }
 
   async function saveCheckinDay(day: string) {
     if (!client) return;
     setCheckinDaySaving(true);
-    await fetch(`/api/admin/clients/${client.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ checkin_day: day }),
-    });
-    setCheckinDaySaving(false);
+    try {
+      const res = await fetch(`/api/admin/clients/${client.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ checkin_day: day }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast(data.error || "Couldn't save the check-in day. Try again.", "error");
+        return;
+      }
+      toast("Check-in day saved");
+    } catch {
+      toast("Couldn't reach the client settings API. Try again.", "error");
+    } finally {
+      setCheckinDaySaving(false);
+    }
+  }
+
+  async function saveCheckinTemplate(templateId: string) {
+    if (!client) return;
+    setCheckinTemplateSaving(true);
+    try {
+      const res = await fetch(`/api/admin/clients/${client.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ checkin_form_id: templateId || null }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast(data.error || "Couldn't assign that check-in form. Try again.", "error");
+        return;
+      }
+      const selectedTemplate = checkinTemplates.find((template) => template.id === templateId) || checkinTemplates.find((template) => template.is_default) || null;
+      setCheckinConfig(selectedTemplate ? normalizeCheckinConfig(selectedTemplate.config) : null);
+      toast("Check-in form assigned");
+    } catch {
+      toast("Couldn't reach the client settings API. Try again.", "error");
+    } finally {
+      setCheckinTemplateSaving(false);
+    }
   }
 
   async function saveTier(tier: string) {
     if (!client) return;
     setTierSaving(true);
-    await fetch(`/api/admin/clients/${client.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tier }),
-    });
-    setTierSaving(false);
+    try {
+      const res = await fetch(`/api/admin/clients/${client.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast(data.error || "Couldn't save the client tier. Try again.", "error");
+        return;
+      }
+      toast("Client tier saved");
+    } catch {
+      toast("Couldn't reach the client settings API. Try again.", "error");
+    } finally {
+      setTierSaving(false);
+    }
   }
 
   async function handleArchiveNutritionPlan(planId: string) {
-    await fetch("/api/admin/client-nutrition-plans", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: planId, status: "archived" }),
-    });
-    loadClient();
+    try {
+      const res = await fetch("/api/admin/client-nutrition-plans", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: planId, status: "archived" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast(data.error || "Couldn't archive that nutrition plan. Try again.", "error");
+        return;
+      }
+      await loadClient();
+      toast("Nutrition plan archived");
+    } catch {
+      toast("Couldn't reach the nutrition plans API. Try again.", "error");
+    }
   }
 
   async function handleReply(checkinId: string) {
@@ -361,12 +531,23 @@ export default function ClientDetailPage() {
   async function saveCoachNotes() {
     if (!client) return;
     setCoachNotesSaving(true);
-    await fetch(`/api/admin/clients/${client.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ coach_notes: coachNotes }),
-    });
-    setCoachNotesSaving(false);
+    try {
+      const res = await fetch(`/api/admin/clients/${client.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coach_notes: coachNotes }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast(data.error || "Couldn't save coach notes. Try again.", "error");
+        return;
+      }
+      toast("Coach notes saved");
+    } catch {
+      toast("Couldn't reach the client settings API. Try again.", "error");
+    } finally {
+      setCoachNotesSaving(false);
+    }
   }
 
   if (loading) {
@@ -521,16 +702,6 @@ export default function ClientDetailPage() {
     setBuilderMode("closed");
   }
 
-  async function saveNotes() {
-    if (!client) return;
-    setNotesSaving(true);
-    await fetch(`/api/admin/internal-notes/${client.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: internalNotes }),
-    });
-    setNotesSaving(false);
-  }
 
   async function handleSaveGoals() {
     if (!client) return;
@@ -598,6 +769,17 @@ export default function ClientDetailPage() {
                 <span className={`w-2 h-2 rounded-full ${sc.dotClass}`} />
                 {sc.label}
               </span>
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-[0.12em] border ${
+                client.tier === "vip"
+                  ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+                  : client.tier === "premium"
+                    ? "bg-sky-500/10 text-sky-500 border-sky-500/30"
+                    : client.tier === "ai_only"
+                      ? "bg-[#E040D0]/10 text-[#E040D0] border-[#E040D0]/30"
+                      : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+              }`}>
+                {client.tier === "ai_only" ? "AI Only" : client.tier.charAt(0).toUpperCase() + client.tier.slice(1)}
+              </span>
               <span className="text-xs text-text-muted bg-[rgba(0,0,0,0.04)] px-2.5 py-1.5 rounded-full">
                 Last active: {timeAgoDetailed(client.last_login)}
               </span>
@@ -618,7 +800,7 @@ export default function ClientDetailPage() {
               <div className="relative">
                 <button
                   onClick={() => setSettingsOpen(!settingsOpen)}
-                  className="p-1.5 rounded-lg text-text-muted hover:text-text-secondary hover:bg-white/5 transition-colors"
+                  className="p-1.5 rounded-lg text-text-muted hover:text-text-secondary hover:bg-[rgba(255,255,255,0.04)] transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -631,7 +813,7 @@ export default function ClientDetailPage() {
                     <div className="absolute right-0 top-full mt-1 z-50 bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-xl shadow-xl py-1 min-w-[180px]">
                       <button
                         onClick={() => { setSettingsOpen(false); setPasswordModalOpen(true); setNewClientPassword(""); setPasswordResult(null); }}
-                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-text-secondary hover:bg-white/5 transition-colors"
+                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-text-secondary hover:bg-[rgba(255,255,255,0.04)] transition-colors"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
@@ -657,7 +839,7 @@ export default function ClientDetailPage() {
       </div>
 
       {/* Stat Cards Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      <div className="grid grid-cols-2 gap-3 mb-6 sm:grid-cols-3 lg:grid-cols-7">
         {/* Check-in Day */}
         <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-4">
           <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1.5">Check-in Day</div>
@@ -680,6 +862,43 @@ export default function ClientDetailPage() {
           {checkinDaySaving && <div className="text-[10px] text-text-muted mt-1">Saving...</div>}
         </div>
 
+        {/* Check-in Form */}
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-4">
+          <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1.5">Check-in Form</div>
+          <div className="flex items-center gap-1.5">
+            <select
+              value={checkinTemplateId}
+              onChange={async (e) => {
+                const value = e.target.value;
+                setCheckinTemplateId(value);
+                await saveCheckinTemplate(value);
+              }}
+              className="text-sm font-bold text-text-primary bg-transparent border-none outline-none cursor-pointer w-full"
+            >
+              {checkinTemplates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.is_default ? `${template.name} (Default)` : template.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {checkinTemplateSaving ? (
+            <div className="text-[10px] text-text-muted mt-1">Saving...</div>
+          ) : (
+            <div className="mt-1 flex flex-col gap-1">
+              <span className="text-[10px] text-text-muted">Assign or change the client&apos;s form.</span>
+              {checkinTemplateId && (
+                <Link
+                  href={`/admin/checkin-forms?base=${checkinTemplateId}&forClient=${client.id}&clientName=${encodeURIComponent(client.name)}`}
+                  className="text-[10px] font-semibold text-[#E040D0] no-underline hover:underline"
+                >
+                  Customise for {client.name.split(" ")[0]} →
+                </Link>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Tier */}
         <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-4">
           <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1.5">Tier</div>
@@ -693,8 +912,9 @@ export default function ClientDetailPage() {
               }}
               className="text-sm font-bold text-text-primary bg-transparent border-none outline-none cursor-pointer w-full"
             >
-              <option value="coached">Coached</option>
-              <option value="ai_only">AI Only</option>
+              {tierOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
             </select>
           </div>
           {tierSaving && <div className="text-[10px] text-text-muted mt-1">Saving...</div>}
@@ -819,6 +1039,113 @@ export default function ClientDetailPage() {
           </button>
         </div>
       )}
+
+      {/* Week at a Glance — always visible; high-touch tiers get a stronger accent */}
+      {(() => {
+        const openTaskCount = tasks.filter((t) => !t.completed && t.source !== "client").length;
+        const now = Date.now();
+        const weekStart = (() => {
+          const d = new Date();
+          const day = d.getDay();
+          const diff = day === 0 ? -6 : 1 - day;
+          d.setDate(d.getDate() + diff);
+          d.setHours(0, 0, 0, 0);
+          return d.getTime();
+        })();
+        const submittedThisWeek = client.checkins.some((c) => new Date(c.created_at).getTime() >= weekStart);
+        const latestCheckin = client.checkins[0];
+        const sessionsLoggedThisWeek = recentExerciseLogs.filter(
+          (log) => log.completed && new Date(log.log_date).getTime() >= weekStart,
+        ).length;
+        const latestReply = client.checkins.find((c) => c.admin_reply);
+        const pendingReplyCount = client.checkins.filter((c) => !c.admin_reply).length;
+        const replyAge = latestReply
+          ? (() => {
+              const stamp = latestReply.replied_at || latestReply.created_at;
+              const days = Math.floor((now - new Date(stamp).getTime()) / (1000 * 60 * 60 * 24));
+              if (days === 0) return "today";
+              if (days === 1) return "1 day ago";
+              if (days < 7) return `${days} days ago`;
+              return `${Math.floor(days / 7)} week${Math.floor(days / 7) === 1 ? "" : "s"} ago`;
+            })()
+          : null;
+        const isVip = client.tier === "vip";
+        const isPremium = client.tier === "premium";
+        const isHighTouch = isVip || isPremium;
+        const borderCls = isVip
+          ? "border-amber-500/25"
+          : isPremium
+            ? "border-sky-500/25"
+            : "border-[rgba(0,0,0,0.06)]";
+        const bgCls = isVip
+          ? "bg-[linear-gradient(135deg,rgba(245,158,11,0.08),rgba(0,0,0,0.02))]"
+          : isPremium
+            ? "bg-[linear-gradient(135deg,rgba(14,165,233,0.08),rgba(0,0,0,0.02))]"
+            : "bg-bg-card";
+        const eyebrowText = isVip
+          ? "VIP — Week at a Glance"
+          : isPremium
+            ? "Premium — Week at a Glance"
+            : "Week at a Glance";
+        const eyebrowCls = isVip ? "text-amber-500" : isPremium ? "text-sky-500" : "text-accent-bright";
+
+        return (
+          <div className={`mb-6 rounded-2xl border ${borderCls} ${bgCls} px-5 py-4`}>
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <div className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${eyebrowCls}`}>
+                  {eyebrowText}
+                </div>
+                <div className="mt-1 text-sm text-text-primary">
+                  {isVip
+                    ? "Priority account — keep reply cadence tight and coach priorities visible."
+                    : isPremium
+                      ? "Higher-touch client — closer oversight than standard coached."
+                      : "Quick scan of how this week is tracking for this client."}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:min-w-[560px]">
+                <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
+                  <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-text-muted">Check-in</div>
+                  <div className={`mt-1 text-xs font-semibold ${submittedThisWeek ? "text-emerald-400" : "text-amber-400"}`}>
+                    {submittedThisWeek ? "Submitted this week" : "Pending this week"}
+                  </div>
+                  {latestCheckin?.mood && (
+                    <div className="mt-1 text-[11px] text-text-muted">Last mood: {latestCheckin.mood}</div>
+                  )}
+                </div>
+                <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
+                  <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-text-muted">Sessions logged</div>
+                  <div className={`mt-1 text-lg font-heading font-bold ${sessionsLoggedThisWeek > 0 ? "text-emerald-400" : "text-text-muted"}`}>
+                    {sessionsLoggedThisWeek}
+                  </div>
+                  <div className="text-[11px] text-text-muted">this week</div>
+                </div>
+                <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
+                  <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                    {isHighTouch ? "Open priorities" : "Open tasks"}
+                  </div>
+                  <div className={`mt-1 text-lg font-heading font-bold ${openTaskCount === 0 ? "text-emerald-400" : "text-text-primary"}`}>
+                    {openTaskCount}
+                  </div>
+                  <div className="text-[11px] text-text-muted">set by Gordy</div>
+                </div>
+                <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
+                  <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-text-muted">Reply queue</div>
+                  <div className={`mt-1 text-xs font-semibold ${pendingReplyCount > 0 ? "text-amber-400" : "text-emerald-400"}`}>
+                    {pendingReplyCount === 0
+                      ? "Nothing pending"
+                      : `${pendingReplyCount} pending`}
+                  </div>
+                  <div className="text-[11px] text-text-muted">
+                    Last reply {replyAge || "—"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Tab Navigation */}
       <div className="flex items-center gap-1 mb-6 border-b border-[rgba(0,0,0,0.06)]">
@@ -945,6 +1272,24 @@ export default function ClientDetailPage() {
                       </button>
                       {isExpanded && (
                         <div className="px-4 pb-3 border-t border-[rgba(0,0,0,0.04)] pt-3 space-y-2">
+                          {c.responses?.priority_message && (
+                            <div className={`rounded-lg border px-3 py-2 ${
+                              client.tier === "vip" ? "border-amber-500/30 bg-amber-500/10" : "border-sky-500/30 bg-sky-500/10"
+                            }`}>
+                              <span className={`text-[10px] font-semibold uppercase tracking-wider ${
+                                client.tier === "vip" ? "text-amber-400" : "text-sky-400"
+                              }`}>
+                                {client.tier === "vip" ? "Priority message" : "Message for Gordy"}
+                              </span>
+                              <p className="text-xs text-text-primary mt-0.5 leading-relaxed">{c.responses.priority_message}</p>
+                            </div>
+                          )}
+                          {c.responses?.support_ask && (
+                            <div className="rounded-lg border border-[#E040D0]/30 bg-[#E040D0]/5 px-3 py-2">
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-[#E040D0]">Support ask</span>
+                              <p className="text-xs text-text-primary mt-0.5 leading-relaxed">{c.responses.support_ask}</p>
+                            </div>
+                          )}
                           {c.responses && checkinConfig ? (
                             checkinConfig.questions.map((q: FormQuestion) => {
                               const answer = c.responses?.[q.id];
@@ -1089,24 +1434,7 @@ export default function ClientDetailPage() {
               )}
             </div>
 
-            {/* Internal notes (coach-only) */}
-            <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4">
-              <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-2">Internal Notes</div>
-              <textarea
-                value={internalNotes}
-                onChange={(e) => setInternalNotes(e.target.value)}
-                rows={3}
-                placeholder="Follow-up items, context..."
-                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none"
-              />
-              <button
-                onClick={saveNotes}
-                disabled={notesSaving}
-                className="text-[10px] font-medium text-accent-bright hover:text-accent-light transition-colors disabled:opacity-50 mt-1"
-              >
-                {notesSaving ? "Saving..." : "Save Notes"}
-              </button>
-            </div>
+            {/* Coach Notes now lives in the middle column — keeping one source of truth. */}
           </div>
         </div>
       )}
@@ -1114,7 +1442,7 @@ export default function ClientDetailPage() {
       {/* ── Check-ins Tab ── */}
       {activeTab === "checkins" && (
         <div>
-          <h2 className="text-lg font-heading font-bold text-text-primary mb-4">Check-In History</h2>
+          <h2 className="text-lg font-heading font-bold text-text-primary mb-4">Check-in History</h2>
           {client.checkins.length === 0 ? (
             <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
               <p className="text-text-muted text-sm">No check-ins submitted yet.</p>
@@ -1132,6 +1460,25 @@ export default function ClientDetailPage() {
                       </div>
                       <span className="text-xs text-text-muted">{timeAgo(c.created_at)}</span>
                     </div>
+
+                    {c.responses?.priority_message && (
+                      <div className={`mb-3 rounded-lg border px-3 py-2 ${
+                        client.tier === "vip" ? "border-amber-500/30 bg-amber-500/10" : "border-sky-500/30 bg-sky-500/10"
+                      }`}>
+                        <span className={`text-[10px] font-semibold uppercase tracking-wider ${
+                          client.tier === "vip" ? "text-amber-400" : "text-sky-400"
+                        }`}>
+                          {client.tier === "vip" ? "Priority message" : "Message for Gordy"}
+                        </span>
+                        <p className="text-xs text-text-primary mt-0.5 leading-relaxed">{c.responses.priority_message}</p>
+                      </div>
+                    )}
+                    {c.responses?.support_ask && (
+                      <div className="mb-3 rounded-lg border border-[#E040D0]/30 bg-[#E040D0]/5 px-3 py-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-[#E040D0]">Support ask</span>
+                        <p className="text-xs text-text-primary mt-0.5 leading-relaxed">{c.responses.support_ask}</p>
+                      </div>
+                    )}
 
                     {c.responses && checkinConfig ? (
                       checkinConfig.questions.map((q: FormQuestion) => {
@@ -1276,6 +1623,21 @@ export default function ClientDetailPage() {
             </button>
           </div>
 
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-4 py-3">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-text-muted">Coach Tasks</div>
+              <div className="mt-2 text-2xl font-heading font-bold text-text-primary">{tasks.filter((task) => task.source !== "client").length}</div>
+            </div>
+            <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-4 py-3">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-text-muted">Client Tasks</div>
+              <div className="mt-2 text-2xl font-heading font-bold text-text-primary">{tasks.filter((task) => task.source === "client").length}</div>
+            </div>
+            <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-4 py-3">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-text-muted">Completed</div>
+              <div className="mt-2 text-2xl font-heading font-bold text-text-primary">{tasks.filter((task) => task.completed).length}</div>
+            </div>
+          </div>
+
           {/* Task list */}
           {tasks.length === 0 ? (
             <div className="text-center py-12 text-text-muted text-sm">No tasks assigned yet</div>
@@ -1284,8 +1646,15 @@ export default function ClientDetailPage() {
               {tasks.filter(t => !t.completed).map(task => (
                 <div key={task.id} className="flex items-center gap-3 bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl px-4 py-3">
                   <div className="w-2 h-2 rounded-full bg-[#E040D0]" />
-                  <span className="flex-1 text-sm text-text-primary">{task.task_text}</span>
-                  <span className="text-[10px] text-text-muted">{new Date(task.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="block text-sm text-text-primary">{task.task_text}</span>
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className={`text-[10px] uppercase tracking-[0.14em] ${task.source === "client" ? "text-blue-400" : "text-[#E040D0]"}`}>
+                        {task.source === "client" ? "Client reminder" : "Coach priority"}
+                      </span>
+                      <span className="text-[10px] text-text-muted">{new Date(task.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
+                    </div>
+                  </div>
                   <button onClick={() => deleteTask(task.id)} className="text-text-muted hover:text-red-400 transition-colors cursor-pointer">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1299,7 +1668,19 @@ export default function ClientDetailPage() {
                   {tasks.filter(t => t.completed).map(task => (
                     <div key={task.id} className="flex items-center gap-3 bg-bg-card/50 border border-[rgba(0,0,0,0.04)] rounded-xl px-4 py-3 opacity-50">
                       <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                      <span className="flex-1 text-sm text-text-secondary line-through">{task.task_text}</span>
+                      <div className="flex-1 min-w-0">
+                        <span className="block text-sm text-text-secondary line-through">{task.task_text}</span>
+                        <div className="mt-1 flex items-center gap-2">
+                          <span className={`text-[10px] uppercase tracking-[0.14em] ${task.source === "client" ? "text-blue-400" : "text-[#E040D0]"}`}>
+                            {task.source === "client" ? "Client reminder" : "Coach priority"}
+                          </span>
+                          {task.completed_at && (
+                            <span className="text-[10px] text-text-muted">
+                              Done {new Date(task.completed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                       <button onClick={() => deleteTask(task.id)} className="text-text-muted hover:text-red-400 transition-colors cursor-pointer">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1363,7 +1744,7 @@ export default function ClientDetailPage() {
               </div>
             </div>
             <div className="flex gap-3 mt-5">
-              <button onClick={() => setGoalsModalOpen(false)} className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-white/5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer">Cancel</button>
+              <button onClick={() => setGoalsModalOpen(false)} className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] rounded-xl transition-colors cursor-pointer">Cancel</button>
               <button
                 disabled={goalsSaving || !goalPrimary.trim()}
                 onClick={handleSaveGoals}
@@ -1399,7 +1780,7 @@ export default function ClientDetailPage() {
               className="w-full px-4 py-2.5 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-red-500/50 mb-4"
             />
             <div className="flex gap-3">
-              <button onClick={() => { setRevokeModalOpen(false); setRevokeConfirmText(""); }} className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-white/5 hover:bg-white/10 rounded-xl transition-colors">Cancel</button>
+              <button onClick={() => { setRevokeModalOpen(false); setRevokeConfirmText(""); }} className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] rounded-xl transition-colors">Cancel</button>
               <button
                 disabled={revokeConfirmText !== "confirm" || revoking}
                 onClick={async () => {
@@ -1466,7 +1847,7 @@ export default function ClientDetailPage() {
                   />
                 </div>
                 <div className="flex gap-3">
-                  <button onClick={() => setPasswordModalOpen(false)} className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-white/5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer">Cancel</button>
+                  <button onClick={() => setPasswordModalOpen(false)} className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] rounded-xl transition-colors cursor-pointer">Cancel</button>
                   <button
                     disabled={newClientPassword.length < 8 || passwordSaving}
                     onClick={async () => {
@@ -1530,7 +1911,7 @@ export default function ClientDetailPage() {
               />
             )}
             <div className="flex gap-3">
-              <button onClick={() => setNudgeOpen(false)} className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-white/5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer">
+              <button onClick={() => setNudgeOpen(false)} className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] rounded-xl transition-colors cursor-pointer">
                 {nudgeSent ? "Done" : "Cancel"}
               </button>
               {!nudgeSent && (
@@ -1597,7 +1978,7 @@ export default function ClientDetailPage() {
             existingTemplate={templateFromPlan}
             onSave={async (template) => {
               try {
-                await fetch("/api/admin/client-exercise-plans", {
+                const res = await fetch("/api/admin/client-exercise-plans", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
@@ -1611,9 +1992,17 @@ export default function ClientDetailPage() {
                     },
                   }),
                 });
+                if (!res.ok) {
+                  const err = await res.json().catch(() => ({}));
+                  toast(err.error || "Couldn't save this exercise plan. Try again.", "error");
+                  return;
+                }
                 setShowExerciseBuilder(false);
                 loadClient();
-              } catch { /* silently fail */ }
+                toast(activeExPlan ? "Exercise plan updated" : "Exercise plan assigned");
+              } catch {
+                toast("Couldn't reach the plans API. Try again.", "error");
+              }
             }}
             onCancel={() => setShowExerciseBuilder(false)}
           />
@@ -1778,29 +2167,34 @@ function TrainingTabContent({
         {activeExPlan ? (
           <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
             {/* Plan header */}
-            <div className="flex items-start justify-between mb-4">
+            <div className="flex items-start justify-between mb-2">
               <div>
                 <h3 className="font-heading font-bold text-text-primary text-base">{activeExPlan.name}</h3>
                 {activeExPlan.description && (
                   <p className="text-sm text-text-secondary mt-1">{activeExPlan.description}</p>
                 )}
-                <span className="text-xs text-[#E040D0] font-medium mt-1 inline-block">{activeExPlan.sessions.length} sessions</span>
+                <span className="text-xs text-[#E040D0] font-medium mt-1 inline-block">{activeExPlan.sessions.length} sessions · live for this client now</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => onUnassignExercisePlan(activeExPlan.id)}
+                  title="Set this plan to inactive. Client loses access to it but logs are kept. You can re-activate later."
                   className="text-xs text-text-secondary hover:text-amber-400 transition-colors cursor-pointer"
                 >
                   Remove
                 </button>
                 <button
                   onClick={() => onArchiveExercisePlan(activeExPlan.id)}
+                  title="Archive permanently. Client logs stay linked. Use this when the block is done."
                   className="text-xs text-text-secondary hover:text-red-400 transition-colors cursor-pointer"
                 >
                   Archive
                 </button>
               </div>
             </div>
+            <p className="text-[11px] text-text-muted mb-4 italic">
+              Edit tweaks this client&apos;s copy only (safe). Replace swaps in a different template (client sees it immediately on reload). Remove pauses access. Archive closes the block out.
+            </p>
 
             {/* Sessions list */}
             <div className="space-y-2">
@@ -2043,18 +2437,22 @@ function NutritionTabContent({
 
         {activeNutPlan ? (
           <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
-            <div className="flex items-start justify-between mb-4">
+            <div className="flex items-start justify-between mb-2">
               <div>
                 <h3 className="font-heading font-bold text-text-primary text-base">{activeNutPlan.name}</h3>
-                <span className="text-xs text-[#E040D0] font-medium mt-1 inline-block">{activeNutPlan.meals.length} meals</span>
+                <span className="text-xs text-[#E040D0] font-medium mt-1 inline-block">{activeNutPlan.meals.length} meals · live for this client now</span>
               </div>
               <button
                 onClick={() => onArchiveNutritionPlan(activeNutPlan.id)}
+                title="Archive this plan. Meal-completion history stays linked."
                 className="text-xs text-text-secondary hover:text-red-400 transition-colors cursor-pointer"
               >
                 Archive
               </button>
             </div>
+            <p className="text-[11px] text-text-muted mb-4 italic">
+              Replace swaps in a different nutrition template. The client sees the new meals immediately on reload — their existing meal-tracking history is kept.
+            </p>
 
             {/* Macro summary */}
             {(activeNutPlan.target_calories || activeNutPlan.target_protein_g || activeNutPlan.target_carbs_g || activeNutPlan.target_fat_g) && (

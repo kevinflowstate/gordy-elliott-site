@@ -3,7 +3,7 @@ export type TrafficLight = 'green' | 'amber' | 'red';
 export type ModuleStatus = 'locked' | 'in_progress' | 'completed';
 export type ContentType = 'video' | 'pdf' | 'text' | 'checklist' | 'interactive';
 export type CheckInMood = 'great' | 'good' | 'okay' | 'struggling' | string;
-export type ClientTier = 'coached' | 'ai_only';
+export type ClientTier = 'coached' | 'premium' | 'vip' | 'ai_only';
 
 export interface User {
   id: string;
@@ -211,6 +211,17 @@ export interface CheckinFormConfig {
   mood_options: MoodOption[];
   questions: FormQuestion[];
   progress_tracking?: ProgressMetric[];
+}
+
+export interface CheckinFormTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  config: CheckinFormConfig;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+  assigned_client_count?: number;
 }
 
 export interface TrainingPlanFormConfig {
@@ -427,6 +438,7 @@ export interface ClientTask {
   id: string;
   client_id: string;
   task_text: string;
+  source?: "coach" | "client";
   completed: boolean;
   created_at: string;
   completed_at?: string;

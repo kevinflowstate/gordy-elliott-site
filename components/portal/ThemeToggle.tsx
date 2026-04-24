@@ -8,24 +8,27 @@ function getThemeKey(userId: string) {
 }
 
 export function useTheme() {
-  const [theme, setThemeState] = useState<"dark" | "light">("light");
+  const [theme, setThemeState] = useState<"dark" | "light">("dark");
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Default to light mode - remove dark class if present
-    document.documentElement.classList.remove("dark");
-    // Clean up old global key from before per-user theming
-    localStorage.removeItem("portal-theme");
+    // The portal should feel premium/dark by default unless a user explicitly chose light.
+    document.documentElement.classList.add("dark");
 
     async function loadUserTheme() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUserId(user.id);
-        const saved = localStorage.getItem(getThemeKey(user.id)) as "dark" | "light" | null;
-        if (saved) {
-          setThemeState(saved);
-          document.documentElement.classList.toggle("dark", saved === "dark");
+        const legacyTheme = localStorage.getItem("portal-theme") as "dark" | "light" | null;
+        const saved = (localStorage.getItem(getThemeKey(user.id)) as "dark" | "light" | null) || legacyTheme;
+        const resolvedTheme = saved || "dark";
+
+        setThemeState(resolvedTheme);
+        document.documentElement.classList.toggle("dark", resolvedTheme === "dark");
+
+        if (legacyTheme && !localStorage.getItem(getThemeKey(user.id))) {
+          localStorage.setItem(getThemeKey(user.id), legacyTheme);
         }
       }
     }

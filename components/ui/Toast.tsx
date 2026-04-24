@@ -33,7 +33,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-2 pointer-events-none">
+      <div className="pointer-events-none fixed inset-x-4 bottom-[5.75rem] z-[100] flex flex-col gap-2 sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-auto">
         {toasts.map((t) => (
           <ToastItem key={t.id} toast={t} onDismiss={dismiss} />
         ))}
@@ -75,8 +75,8 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
 
   return (
     <div
-      className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border backdrop-blur-sm shadow-lg transition-all duration-300 ${colorMap[toast.type]} ${
-        visible && !exiting ? "translate-x-0 opacity-100" : "translate-x-8 opacity-0"
+      className={`pointer-events-auto flex w-full items-center gap-3 rounded-xl border px-4 py-3 backdrop-blur-sm shadow-lg transition-all duration-300 sm:w-auto ${colorMap[toast.type]} ${
+        visible && !exiting ? "translate-y-0 opacity-100 sm:translate-x-0" : "translate-y-3 opacity-0 sm:translate-x-8 sm:translate-y-0"
       }`}
     >
       <svg className={`w-4 h-4 flex-shrink-0 ${iconColor[toast.type]}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">

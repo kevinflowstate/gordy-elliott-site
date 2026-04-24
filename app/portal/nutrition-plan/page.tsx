@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import MacroDonutChart from "@/components/portal/MacroDonutChart";
+import { useToast } from "@/components/ui/Toast";
 import type { ClientNutritionPlan, MealTracking, NutritionMeal, NutritionMealItem, QuickMeal, ClientSavedMeal, Food } from "@/lib/types";
 
 function parseGrams(servingSize: string): number {
@@ -45,6 +47,7 @@ function isToday(date: Date): boolean {
 const FOOD_CATEGORIES = ["protein", "dairy", "grains", "fruit", "vegetables", "fats", "carbs", "snacks", "drinks", "supplements"];
 
 export default function PortalNutritionPlanPage() {
+  const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [plan, setPlan] = useState<ClientNutritionPlan | null>(null);
   const [tracking, setTracking] = useState<MealTracking[]>([]);
@@ -127,6 +130,10 @@ export default function PortalNutritionPlanPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ meal_id: mealId, completed: newCompleted, date: dateStr }),
       });
+      if (!res.ok) {
+        toast("Couldn't update that meal. Try again in a moment.", "error");
+        return;
+      }
       const data = await res.json();
       if (data.tracking) {
         setTracking((prev) => {
@@ -136,6 +143,7 @@ export default function PortalNutritionPlanPage() {
       }
     } catch (err) {
       console.error("Failed to toggle meal:", err);
+      toast("Couldn't update that meal. Check your connection.", "error");
     } finally {
       setToggling(null);
     }
@@ -149,12 +157,17 @@ export default function PortalNutritionPlanPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: qm.id, completed: !qm.completed }),
       });
+      if (!res.ok) {
+        toast("Couldn't update that meal. Try again in a moment.", "error");
+        return;
+      }
       const data = await res.json();
       if (data.quickMeal) {
         setQuickMeals((prev) => prev.map((m) => (m.id === qm.id ? data.quickMeal : m)));
       }
     } catch (err) {
       console.error("Failed to toggle quick meal:", err);
+      toast("Couldn't update that meal. Check your connection.", "error");
     } finally {
       setToggling(null);
     }
@@ -162,14 +175,19 @@ export default function PortalNutritionPlanPage() {
 
   const deleteQuickMeal = async (id: string) => {
     try {
-      await fetch("/api/portal/quick-meals", {
+      const res = await fetch("/api/portal/quick-meals", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, type: "quick" }),
       });
+      if (!res.ok) {
+        toast("Couldn't remove that meal. Try again in a moment.", "error");
+        return;
+      }
       setQuickMeals((prev) => prev.filter((m) => m.id !== id));
     } catch (err) {
       console.error("Failed to delete quick meal:", err);
+      toast("Couldn't remove that meal. Check your connection.", "error");
     }
   };
 
@@ -189,12 +207,17 @@ export default function PortalNutritionPlanPage() {
           saveAsPreset: false,
         }),
       });
+      if (!res.ok) {
+        toast("Couldn't add that food. Try again.", "error");
+        return;
+      }
       const data = await res.json();
       if (data.quickMeal) {
         setQuickMeals((prev) => [...prev, data.quickMeal]);
       }
     } catch (err) {
       console.error("Failed to add food:", err);
+      toast("Couldn't add that food. Check your connection.", "error");
     }
   };
 
@@ -214,25 +237,35 @@ export default function PortalNutritionPlanPage() {
           saveAsPreset: false,
         }),
       });
+      if (!res.ok) {
+        toast("Couldn't add that saved meal. Try again.", "error");
+        return;
+      }
       const data = await res.json();
       if (data.quickMeal) {
         setQuickMeals((prev) => [...prev, data.quickMeal]);
       }
     } catch (err) {
       console.error("Failed to add from saved:", err);
+      toast("Couldn't add that saved meal. Check your connection.", "error");
     }
   };
 
   const deleteSavedMeal = async (id: string) => {
     try {
-      await fetch("/api/portal/quick-meals", {
+      const res = await fetch("/api/portal/quick-meals", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, type: "saved" }),
       });
+      if (!res.ok) {
+        toast("Couldn't remove that preset. Try again in a moment.", "error");
+        return;
+      }
       setSavedMeals((prev) => prev.filter((m) => m.id !== id));
     } catch (err) {
       console.error("Failed to delete saved meal:", err);
+      toast("Couldn't remove that preset. Check your connection.", "error");
     }
   };
 
@@ -253,6 +286,10 @@ export default function PortalNutritionPlanPage() {
           saveAsPreset: qSave,
         }),
       });
+      if (!res.ok) {
+        toast("Couldn't add that meal. Try again.", "error");
+        return;
+      }
       const data = await res.json();
       if (data.quickMeal) {
         setQuickMeals((prev) => [...prev, data.quickMeal]);
@@ -261,37 +298,49 @@ export default function PortalNutritionPlanPage() {
         if (qSave) {
           fetch(`/api/portal/quick-meals?date=${dateStr}`)
             .then((r) => r.json())
-            .then((d) => setSavedMeals(d.savedMeals || []));
+            .then((d) => setSavedMeals(d.savedMeals || []))
+            .catch(() => toast("Meal added, but preset list didn't refresh. Reload to see it.", "error"));
         }
       }
     } catch (err) {
       console.error("Failed to add meal:", err);
+      toast("Couldn't add that meal. Check your connection.", "error");
     } finally {
       setQSubmitting(false);
     }
   };
 
   const resetDay = async () => {
+    let failed = 0;
     if (plan) {
       for (const meal of plan.meals) {
         const isCompleted = tracking.find((t) => t.meal_id === meal.id)?.completed;
         if (isCompleted) {
-          await fetch("/api/portal/meal-tracking", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ meal_id: meal.id, completed: false, date: dateStr }),
-          });
+          try {
+            const res = await fetch("/api/portal/meal-tracking", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ meal_id: meal.id, completed: false, date: dateStr }),
+            });
+            if (!res.ok) failed += 1;
+          } catch { failed += 1; }
         }
       }
     }
     for (const qm of quickMeals) {
       if (qm.completed) {
-        await fetch("/api/portal/quick-meals", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: qm.id, completed: false }),
-        });
+        try {
+          const res = await fetch("/api/portal/quick-meals", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: qm.id, completed: false }),
+          });
+          if (!res.ok) failed += 1;
+        } catch { failed += 1; }
       }
+    }
+    if (failed > 0) {
+      toast(`Some meals didn't reset (${failed}). Try again in a moment.`, "error");
     }
     fetchData();
   };
@@ -343,7 +392,15 @@ export default function PortalNutritionPlanPage() {
   const targetFat = plan?.target_fat_g || 65;
 
   return (
-    <div className="p-6 max-w-lg mx-auto">
+    <div className="p-4 pb-20 sm:p-6 max-w-lg mx-auto">
+      {/* Header row with dashboard + AI shortcuts */}
+      <div className="mb-4 flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+        <Link href="/portal" className="no-underline hover:text-text-primary">← Dashboard</Link>
+        <Link href="/portal/ai" className="rounded-full border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] px-3 py-1 text-text-secondary no-underline hover:text-text-primary hover:border-[#E040D0]/30">
+          Ask about a swap
+        </Link>
+      </div>
+
       {/* Date Navigator */}
       <div className="flex items-center justify-between mb-6">
         <button
@@ -398,7 +455,12 @@ export default function PortalNutritionPlanPage() {
       {/* Coach's Assigned Meals */}
       {plan && plan.meals.length > 0 && (
         <div className="mb-6">
-          <h2 className="text-[14px] font-semibold text-text-secondary uppercase tracking-wider mb-3">Your Plan</h2>
+          <div className="flex items-end justify-between gap-3 mb-3">
+            <div>
+              <h2 className="text-[14px] font-semibold text-text-secondary uppercase tracking-wider">Today&apos;s plan from Gordy</h2>
+              <p className="text-[11px] text-text-muted mt-0.5">Tick meals off as you eat them. Close to plan &gt; chasing perfect.</p>
+            </div>
+          </div>
           <div className="space-y-3">
             {plan.meals.map((meal) => {
               const isCompleted = tracking.find((t) => t.meal_id === meal.id)?.completed || false;
@@ -447,7 +509,7 @@ export default function PortalNutritionPlanPage() {
                         )}
                       </div>
                       <span className="text-xs font-semibold whitespace-nowrap">
-                        {isCompleted ? "Logged" : "Log meal"}
+                        {isCompleted ? "Eaten" : "I ate this"}
                       </span>
                     </button>
                   </div>
@@ -495,12 +557,15 @@ export default function PortalNutritionPlanPage() {
 
       {/* My Tracked Meals (quick meals) */}
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-[14px] font-semibold text-text-secondary uppercase tracking-wider">Tracked Meals</h2>
+        <div className="flex items-end justify-between gap-3 mb-3">
+          <div>
+            <h2 className="text-[14px] font-semibold text-text-secondary uppercase tracking-wider">Anything else you ate</h2>
+            <p className="text-[11px] text-text-muted mt-0.5">Off-plan food still counts. Log it honestly so macros stay real.</p>
+          </div>
           <div className="flex gap-2">
             <button
               onClick={() => { setShowFoodBrowser(true); setShowManualAdd(false); }}
-              className="text-[12px] px-3 py-1.5 rounded-xl bg-accent-bright text-black font-semibold cursor-pointer"
+              className="text-[12px] px-3 py-1.5 rounded-xl gradient-accent text-white font-semibold cursor-pointer"
             >
               + Add Food
             </button>
@@ -570,8 +635,8 @@ export default function PortalNutritionPlanPage() {
             <svg className="w-12 h-12 mx-auto mb-3 text-text-secondary/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8.25v-1.5m0 1.5c-1.355 0-2.697.056-4.024.166C6.845 8.51 6 9.473 6 10.608v2.513m6-4.871c1.355 0 2.697.056 4.024.166C17.155 8.51 18 9.473 18 10.608v2.513M15 9.75l-3-3m0 0l-3 3m3-3v12" />
             </svg>
-            <p className="text-text-secondary">Start tracking your meals</p>
-            <p className="text-text-secondary/60 text-[13px] mt-1">Tap &quot;+ Add Food&quot; to log what you eat</p>
+            <p className="text-text-primary font-semibold">Log it, don&apos;t guess it.</p>
+            <p className="text-text-secondary/70 text-[13px] mt-1">Tap Add Food. Even rough counts beat a blank day — Gordy can course-correct from real data, not vibes.</p>
           </div>
         )}
       </div>
@@ -580,7 +645,7 @@ export default function PortalNutritionPlanPage() {
       {showFoodBrowser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center" onClick={() => setShowFoodBrowser(false)}>
           <div
-            className="bg-bg-card border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md max-h-[85vh] flex flex-col shadow-2xl"
+            className="bg-bg-card border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md max-h-[85vh] flex flex-col shadow-2xl pb-[env(safe-area-inset-bottom)]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -614,7 +679,7 @@ export default function PortalNutritionPlanPage() {
                 <button
                   onClick={() => setFoodCategory("")}
                   className={`text-[11px] px-2.5 py-1 rounded-full whitespace-nowrap cursor-pointer ${
-                    !foodCategory ? "bg-accent-bright text-black font-semibold" : "bg-[rgba(0,0,0,0.04)] dark:bg-[rgba(255,255,255,0.06)] text-text-secondary"
+                    !foodCategory ? "gradient-accent text-white font-semibold" : "bg-[rgba(0,0,0,0.04)] dark:bg-[rgba(255,255,255,0.06)] text-text-secondary"
                   }`}
                 >
                   All
@@ -624,7 +689,7 @@ export default function PortalNutritionPlanPage() {
                     key={cat}
                     onClick={() => setFoodCategory(foodCategory === cat ? "" : cat)}
                     className={`text-[11px] px-2.5 py-1 rounded-full whitespace-nowrap capitalize cursor-pointer ${
-                      foodCategory === cat ? "bg-accent-bright text-black font-semibold" : "bg-[rgba(0,0,0,0.04)] dark:bg-[rgba(255,255,255,0.06)] text-text-secondary"
+                      foodCategory === cat ? "gradient-accent text-white font-semibold" : "bg-[rgba(0,0,0,0.04)] dark:bg-[rgba(255,255,255,0.06)] text-text-secondary"
                     }`}
                   >
                     {cat}
@@ -638,14 +703,27 @@ export default function PortalNutritionPlanPage() {
                   <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider mb-2">Saved Meals</p>
                   <div className="flex gap-2 overflow-x-auto no-scrollbar">
                     {savedMeals.map((saved) => (
-                      <button
+                      <div
                         key={saved.id}
-                        onClick={() => addFromSaved(saved)}
-                        className="flex-shrink-0 px-3 py-2 rounded-xl bg-accent-bright/10 border border-accent-bright/20 text-left cursor-pointer hover:bg-accent-bright/20 transition-colors"
+                        className="flex flex-shrink-0 items-center gap-2 rounded-xl border border-accent-bright/20 bg-accent-bright/10 px-3 py-2"
                       >
-                        <span className="text-[12px] font-medium text-text-primary block">{saved.name}</span>
-                        <span className="text-[11px] text-text-secondary">{Number(saved.calories)} kcal</span>
-                      </button>
+                        <button
+                          onClick={() => addFromSaved(saved)}
+                          className="text-left cursor-pointer transition-colors hover:text-text-primary"
+                        >
+                          <span className="text-[12px] font-medium text-text-primary block">{saved.name}</span>
+                          <span className="text-[11px] text-text-secondary">{Number(saved.calories)} kcal</span>
+                        </button>
+                        <button
+                          onClick={() => deleteSavedMeal(saved.id)}
+                          aria-label={`Delete saved meal ${saved.name}`}
+                          className="rounded-full p-1 text-text-secondary/50 transition-colors hover:text-red-400 cursor-pointer"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -706,7 +784,8 @@ export default function PortalNutritionPlanPage() {
       {showManualAdd && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowManualAdd(false)}>
           <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-5 w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-text-primary mb-4">Log a Meal</h3>
+            <h3 className="text-lg font-bold text-text-primary mb-1">Quick log</h3>
+            <p className="text-[12px] text-text-muted mb-4">Best guess macros beat no macros. Save as a preset if you eat it often.</p>
             <div className="space-y-3">
               <input
                 type="text"
@@ -746,7 +825,7 @@ export default function PortalNutritionPlanPage() {
                 <button
                   onClick={addManualMeal}
                   disabled={!qName.trim() || qSubmitting}
-                  className="flex-1 py-2.5 rounded-xl bg-accent-bright text-black font-semibold text-[13px] disabled:opacity-40 cursor-pointer"
+                  className="flex-1 py-2.5 rounded-xl gradient-accent text-white font-semibold text-[13px] disabled:opacity-40 cursor-pointer"
                 >
                   {qSubmitting ? "Adding..." : "Add Meal"}
                 </button>

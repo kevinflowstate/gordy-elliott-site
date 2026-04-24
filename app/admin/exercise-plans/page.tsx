@@ -61,7 +61,7 @@ export default function ExercisePlansPage() {
   }
 
   async function handleDelete(templateId: string, templateName: string) {
-    if (!confirm(`Delete "${templateName}"? This cannot be undone.`)) return;
+    if (!confirm(`Archive "${templateName}"?\n\nThis removes it from the template library. Clients who already have it assigned keep their assigned copy — it won't be deleted from them.`)) return;
     const res = await fetch("/api/admin/exercise-templates", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -73,6 +73,33 @@ export default function ExercisePlansPage() {
       const err = await res.json();
       alert(err.error || "Failed to delete template");
     }
+  }
+
+  async function handleDuplicate(template: ExerciseTemplate) {
+    const duplicate: ExerciseTemplate = {
+      ...template,
+      id: "",
+      name: `${template.name} (copy)`,
+      sessions: template.sessions.map((s) => ({
+        ...s,
+        id: `temp-${Math.random().toString(36).slice(2)}`,
+        template_id: undefined,
+        items: s.items.map((item) => ({ ...item, id: `temp-${Math.random().toString(36).slice(2)}` })),
+      })),
+      created_at: "",
+      updated_at: "",
+    };
+    const res = await fetch("/api/admin/exercise-templates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ template: duplicate }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || "Failed to duplicate template");
+      return;
+    }
+    await loadTemplates();
   }
 
   function openCreate() {
@@ -118,7 +145,7 @@ export default function ExercisePlansPage() {
         <div>
           <h1 className="text-3xl font-heading font-bold text-text-primary">Training Plans</h1>
           <p className="text-text-secondary mt-1 text-sm">
-            {templates.length} template{templates.length !== 1 ? "s" : ""} in library
+            {templates.length} template{templates.length !== 1 ? "s" : ""} in library. Editing a template doesn&apos;t retro-push to clients who already have it — their copy is snapshot-assigned.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -133,7 +160,7 @@ export default function ExercisePlansPage() {
           </Link>
           <button
             onClick={openCreate}
-            className="px-4 py-2.5 bg-accent-bright text-black rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
+            className="px-4 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -161,7 +188,7 @@ export default function ExercisePlansPage() {
           </div>
 
           {/* Category filter */}
-          <div className="flex gap-1 bg-bg-card/50 rounded-xl p-1 flex-wrap">
+          <div className="flex gap-1 bg-bg-card/80 rounded-xl p-1 flex-wrap">
             <button
               onClick={() => setCategoryFilter("all")}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
@@ -199,7 +226,7 @@ export default function ExercisePlansPage() {
             {tagFilter && (
               <button
                 onClick={() => setTagFilter(null)}
-                className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-bg-card/50 text-text-muted hover:text-text-secondary border border-[rgba(0,0,0,0.06)] cursor-pointer transition-colors"
+                className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-bg-card/80 text-text-muted hover:text-text-secondary border border-[rgba(0,0,0,0.06)] cursor-pointer transition-colors"
               >
                 Clear
               </button>
@@ -211,7 +238,7 @@ export default function ExercisePlansPage() {
                 className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border cursor-pointer transition-all ${
                   tagFilter === tag
                     ? "bg-accent/15 text-accent-bright border-accent/30"
-                    : "bg-bg-card/50 text-white/40 border-white/[0.06] hover:text-accent-bright hover:border-accent/20"
+                    : "bg-bg-card/80 text-text-muted border-[rgba(0,0,0,0.06)] hover:text-accent-bright hover:border-accent/20"
                 }`}
               >
                 {tag}
@@ -223,7 +250,7 @@ export default function ExercisePlansPage() {
 
       {/* Empty state */}
       {filtered.length === 0 ? (
-        <div className="bg-gradient-to-br from-[#1a1a1a] via-[#222222] to-[#1a1a1a] border border-accent/20 rounded-2xl overflow-hidden">
+        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
           <div className="h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent" />
           <div className="p-12 text-center">
             <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-4">
@@ -231,24 +258,29 @@ export default function ExercisePlansPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
             </div>
-            <p className="text-white/50 text-sm mb-4">
-              {search || categoryFilter !== "all" ? "No training plans match your filters." : "No training plans yet."}
+            <div className="text-sm font-semibold text-text-primary">
+              {search || categoryFilter !== "all" ? "No training templates match these filters." : "No training templates yet."}
+            </div>
+            <p className="mt-1 text-xs text-text-muted">
+              {search || categoryFilter !== "all" ? "Widen the search or clear filters to see the full library." : "Create your first template to start assigning training plans to clients."}
             </p>
-            {search || categoryFilter !== "all" ? (
-              <button
-                onClick={() => { setSearch(""); setCategoryFilter("all"); setTagFilter(null); }}
-                className="text-xs text-accent-bright hover:underline cursor-pointer"
-              >
-                Clear filters
-              </button>
-            ) : (
-              <button
-                onClick={openCreate}
-                className="px-4 py-2 bg-accent-bright text-black rounded-xl text-sm font-semibold cursor-pointer"
-              >
-                Create your first template
-              </button>
-            )}
+            <div className="mt-4">
+              {search || categoryFilter !== "all" ? (
+                <button
+                  onClick={() => { setSearch(""); setCategoryFilter("all"); setTagFilter(null); }}
+                  className="inline-flex items-center gap-2 rounded-xl border border-[rgba(0,0,0,0.08)] px-3 py-2 text-xs font-semibold text-text-secondary hover:text-text-primary hover:border-[rgba(0,0,0,0.15)] cursor-pointer"
+                >
+                  Reset filters
+                </button>
+              ) : (
+                <button
+                  onClick={openCreate}
+                  className="px-4 py-2 gradient-accent text-white rounded-xl text-sm font-semibold cursor-pointer"
+                >
+                  Create your first template
+                </button>
+              )}
+            </div>
           </div>
         </div>
       ) : (
@@ -259,6 +291,7 @@ export default function ExercisePlansPage() {
               template={template}
               onView={() => setViewingTemplate(template)}
               onEdit={() => openEdit(template)}
+              onDuplicate={() => handleDuplicate(template)}
               onDelete={() => handleDelete(template.id, template.name)}
             />
           ))}
@@ -290,15 +323,16 @@ interface TemplateCardProps {
   template: ExerciseTemplate;
   onView: () => void;
   onEdit: () => void;
+  onDuplicate: () => void;
   onDelete: () => void;
 }
 
-function TemplateCard({ template, onView, onEdit, onDelete }: TemplateCardProps) {
+function TemplateCard({ template, onView, onEdit, onDuplicate, onDelete }: TemplateCardProps) {
   const categoryColor = CATEGORY_COLORS[template.category] || CATEGORY_COLORS.general;
   const totalExercises = template.sessions.reduce((sum, s) => sum + s.items.length, 0);
 
   return (
-    <div className="bg-gradient-to-br from-[#1a1a1a] via-[#222222] to-[#1a1a1a] border border-accent/20 rounded-2xl overflow-hidden hover:border-accent/40 hover:shadow-[0_8px_32px_rgba(224,64,208,0.12)] transition-all group">
+    <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden hover:border-accent/40 hover:shadow-[0_8px_32px_rgba(224,64,208,0.12)] transition-all group">
       {/* Gold top accent line */}
       <div className="h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent" />
 
@@ -309,7 +343,7 @@ function TemplateCard({ template, onView, onEdit, onDelete }: TemplateCardProps)
         className="w-full text-left p-5 cursor-pointer"
       >
         <div className="flex items-start justify-between gap-3 mb-3">
-          <h3 className="text-sm font-semibold text-white leading-snug group-hover:text-accent-bright transition-colors">
+          <h3 className="text-sm font-semibold text-text-primary leading-snug group-hover:text-accent-bright transition-colors">
             {template.name}
           </h3>
           <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border flex-shrink-0 capitalize ${categoryColor}`}>
@@ -318,7 +352,7 @@ function TemplateCard({ template, onView, onEdit, onDelete }: TemplateCardProps)
         </div>
 
         {template.description && (
-          <p className="text-xs text-white/50 leading-relaxed mb-3 line-clamp-2">{template.description}</p>
+          <p className="text-xs text-text-secondary leading-relaxed mb-3 line-clamp-2">{template.description}</p>
         )}
 
         {template.tags && template.tags.length > 0 && (
@@ -334,7 +368,7 @@ function TemplateCard({ template, onView, onEdit, onDelete }: TemplateCardProps)
           </div>
         )}
 
-        <div className="flex items-center gap-3 text-[10px] text-white/40">
+        <div className="flex items-center gap-3 text-[10px] text-text-muted">
           {template.duration_weeks && (
             <span className="inline-flex items-center gap-1">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -359,27 +393,42 @@ function TemplateCard({ template, onView, onEdit, onDelete }: TemplateCardProps)
       </button>
 
       {/* Card footer actions */}
-      <div className="px-5 py-3 border-t border-white/[0.06] flex items-center justify-between">
+      <div className="px-5 py-3 border-t border-[rgba(0,0,0,0.06)] flex items-center justify-between gap-2">
         <button
           type="button"
           onClick={onEdit}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent-bright hover:text-white border border-accent/20 hover:border-accent/40 rounded-lg transition-colors cursor-pointer"
+          title="Edit this template. Clients already assigned this template keep their own copy — editing the template doesn't push to them."
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent-bright hover:text-text-primary border border-accent/20 hover:border-accent/40 rounded-lg transition-colors cursor-pointer"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
           </svg>
           Edit
         </button>
-        <button
-          type="button"
-          onClick={onDelete}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white/40 hover:text-red-400 border border-white/[0.06] hover:border-red-400/20 rounded-lg transition-colors cursor-pointer"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-          Delete
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onDuplicate}
+            title="Create a copy of this template so you can edit it without affecting the original."
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-muted hover:text-accent-bright border border-[rgba(0,0,0,0.06)] hover:border-accent/30 rounded-lg transition-colors cursor-pointer"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            Duplicate
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            title="Archive this template from the library. Clients already assigned it are not affected."
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-muted hover:text-red-400 border border-[rgba(0,0,0,0.06)] hover:border-red-400/20 rounded-lg transition-colors cursor-pointer"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Archive
+          </button>
+        </div>
       </div>
     </div>
   );

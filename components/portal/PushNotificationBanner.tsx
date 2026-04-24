@@ -85,16 +85,16 @@ export default function PushNotificationBanner() {
               />
             </svg>
             <div>
-              <p className="text-sm font-medium text-text-primary mb-1">
+              <p className="mb-1 text-sm font-medium text-white">
                 Install this app on your phone
               </p>
-              <p className="text-xs text-text-muted leading-relaxed">
+              <p className="text-xs leading-relaxed text-white/85">
                 Get quick access from your home screen with push notifications and a full-screen experience.
               </p>
               {showManual && (
                 <div className="text-xs text-accent-light leading-relaxed mt-2 space-y-1">
                   <p>Tap the <strong>menu</strong> icon in your browser (three dots or three lines), then tap <strong>&quot;Add to Home Screen&quot;</strong> or <strong>&quot;Install App&quot;</strong>.</p>
-                  <p className="text-text-muted">If you opened this link from Slack or another app, tap &quot;Open in browser&quot; first.</p>
+                  <p className="text-white/70">If you opened this link from Slack or another app, tap &quot;Open in browser&quot; first.</p>
                 </div>
               )}
             </div>
@@ -145,7 +145,7 @@ export default function PushNotificationBanner() {
             d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
           />
         </svg>
-        <p className="text-sm text-text-muted">
+        <p className="text-sm text-white/85">
           Enable notifications to get check-in reminders and updates.
         </p>
       </div>

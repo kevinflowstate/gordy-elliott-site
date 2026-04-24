@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("client_tasks")
-    .insert({ client_id, task_text: task_text.trim() })
+    .insert({ client_id, task_text: task_text.trim(), source: "coach" })
     .select()
     .single();
 

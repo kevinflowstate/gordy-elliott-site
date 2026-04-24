@@ -272,7 +272,7 @@ export default function ModuleEditorPage() {
               className={`text-xs px-3 py-1.5 rounded-full font-semibold transition-all ${
                 isPublished
                   ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30"
-                  : "bg-white/10 text-white/60 border border-white/10 hover:border-white/20"
+                  : "bg-[rgba(255,255,255,0.06)] text-text-muted border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.16)]"
               }`}
             >
               {isPublished ? "Published" : "Draft - Click to Publish"}

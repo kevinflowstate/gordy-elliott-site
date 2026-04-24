@@ -42,8 +42,8 @@ export default function NutritionPlansPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this template?")) return;
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Archive "${name}"?\n\nThis removes it from the template library. Clients who already have it assigned keep their copy — it won't be deleted from them.`)) return;
     try {
       setLoading(true);
       await fetch("/api/admin/nutrition-templates", {
@@ -54,6 +54,38 @@ export default function NutritionPlansPage() {
       fetchTemplates();
     } catch (err) {
       console.error("Failed to delete:", err);
+    }
+  };
+
+  const handleDuplicate = async (t: NutritionTemplate) => {
+    const duplicate: NutritionTemplate = {
+      ...t,
+      id: "",
+      name: `${t.name} (copy)`,
+      meals: t.meals.map((m) => ({
+        ...m,
+        id: `temp-${Math.random().toString(36).slice(2)}`,
+        template_id: undefined,
+        items: m.items.map((item) => ({ ...item, id: `temp-${Math.random().toString(36).slice(2)}` })),
+      })),
+      created_at: "",
+      updated_at: "",
+    };
+    try {
+      setLoading(true);
+      const res = await fetch("/api/admin/nutrition-templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ template: duplicate }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "Failed to duplicate template");
+      }
+      fetchTemplates();
+    } catch (err) {
+      console.error("Failed to duplicate:", err);
+      setLoading(false);
     }
   };
 
@@ -86,7 +118,9 @@ export default function NutritionPlansPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Nutrition Plans</h1>
-          <p className="text-text-secondary text-[13px] mt-1">Create and manage nutrition templates</p>
+          <p className="text-text-secondary text-[13px] mt-1">
+            Templates. Editing a template doesn&apos;t push changes to clients who already have it — their copy is snapshot-assigned on the client&apos;s profile.
+          </p>
         </div>
         <div className="flex gap-2">
           <a
@@ -97,7 +131,7 @@ export default function NutritionPlansPage() {
           </a>
           <button
             onClick={() => { setEditingTemplate(undefined); setShowBuilder(true); }}
-            className="px-4 py-2 rounded-xl bg-accent-bright text-black font-semibold text-[13px]"
+            className="px-4 py-2 rounded-xl gradient-accent text-white font-semibold text-[13px]"
           >
             + Create Template
           </button>
@@ -134,26 +168,26 @@ export default function NutritionPlansPage() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-gradient-to-br from-[#1a1a1a] via-[#222222] to-[#1a1a1a] border border-accent/20 rounded-2xl overflow-hidden">
+        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
           <div className="h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent" />
           <div className="p-12 text-center">
-            <p className="text-white/60">No nutrition templates yet.</p>
-            <p className="text-white/40 text-[13px] mt-1">Create your first template to get started.</p>
+            <p className="text-text-secondary">No nutrition templates yet.</p>
+            <p className="text-text-muted text-[13px] mt-1">Create your first template to get started.</p>
           </div>
         </div>
       ) : (
-        <div className="bg-gradient-to-br from-[#1a1a1a] via-[#222222] to-[#1a1a1a] border border-accent/20 rounded-2xl overflow-hidden hover:border-accent/40 hover:shadow-[0_8px_32px_rgba(224,64,208,0.12)] transition-all">
+        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden hover:border-accent/40 hover:shadow-[0_8px_32px_rgba(224,64,208,0.12)] transition-all">
           {/* Gold top accent line */}
           <div className="h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent" />
           {/* Table header */}
-          <div className="grid grid-cols-[1fr_100px_80px_120px_120px_120px_80px] gap-2 px-5 py-3 border-b border-white/[0.06] bg-white/[0.02]">
-            <span className="text-[11px] font-semibold text-white/40 uppercase tracking-wider">Plan Name</span>
-            <span className="text-[11px] font-semibold text-white/40 uppercase tracking-wider text-center">Calories</span>
-            <span className="text-[11px] font-semibold text-white/40 uppercase tracking-wider text-center">Meals</span>
+          <div className="grid grid-cols-[1fr_100px_80px_120px_120px_120px_80px] gap-2 px-5 py-3 border-b border-[rgba(0,0,0,0.06)] bg-[rgba(0,0,0,0.02)]">
+            <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Plan Name</span>
+            <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider text-center">Calories</span>
+            <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider text-center">Meals</span>
             <span className="text-[11px] font-semibold text-blue-400 uppercase tracking-wider text-center">Protein</span>
             <span className="text-[11px] font-semibold text-accent-bright uppercase tracking-wider text-center">Carbs</span>
             <span className="text-[11px] font-semibold text-red-400 uppercase tracking-wider text-center">Fat</span>
-            <span className="text-[11px] font-semibold text-white/40 uppercase tracking-wider text-center">Actions</span>
+            <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider text-center">Actions</span>
           </div>
 
           {/* Table rows */}
@@ -172,25 +206,25 @@ export default function NutritionPlansPage() {
               <div
                 key={t.id}
                 onClick={() => { setEditingTemplate(t); setShowBuilder(true); }}
-                className={`grid grid-cols-[1fr_100px_80px_120px_120px_120px_80px] gap-2 px-5 py-4 items-center cursor-pointer transition-colors border-b border-white/[0.04] last:border-0 ${rowColor}`}
+                className={`grid grid-cols-[1fr_100px_80px_120px_120px_120px_80px] gap-2 px-5 py-4 items-center cursor-pointer transition-colors border-b border-[rgba(0,0,0,0.04)] last:border-0 ${rowColor}`}
               >
                 {/* Name + description */}
                 <div className="min-w-0">
-                  <h3 className="font-semibold text-white text-[14px] truncate">{t.name}</h3>
+                  <h3 className="font-semibold text-text-primary text-[14px] truncate">{t.name}</h3>
                   {t.description && (
-                    <p className="text-[12px] text-white/40 truncate mt-0.5">{t.description}</p>
+                    <p className="text-[12px] text-text-muted truncate mt-0.5">{t.description}</p>
                   )}
                 </div>
 
                 {/* Calories */}
                 <div className="text-center">
-                  <span className="text-[14px] font-bold text-white">{macros.calories}</span>
-                  <span className="text-[11px] text-white/40 ml-0.5">kcal</span>
+                  <span className="text-[14px] font-bold text-text-primary">{macros.calories}</span>
+                  <span className="text-[11px] text-text-muted ml-0.5">kcal</span>
                 </div>
 
                 {/* Meals */}
                 <div className="text-center">
-                  <span className="text-[14px] font-semibold text-white">{t.meals.length}</span>
+                  <span className="text-[14px] font-semibold text-text-primary">{t.meals.length}</span>
                 </div>
 
                 {/* Protein */}
@@ -217,8 +251,18 @@ export default function NutritionPlansPage() {
                 {/* Actions */}
                 <div className="flex items-center justify-center gap-1">
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }}
-                    className="p-1.5 text-white/30 hover:text-red-400 transition-colors rounded-lg hover:bg-red-500/10"
+                    onClick={(e) => { e.stopPropagation(); handleDuplicate(t); }}
+                    title="Duplicate this template (safe copy to edit without affecting the original)"
+                    className="p-1.5 text-text-muted hover:text-accent-bright transition-colors rounded-lg hover:bg-accent-bright/10"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(t.id, t.name); }}
+                    title="Archive from library. Clients already assigned this template keep their copy."
+                    className="p-1.5 text-text-muted hover:text-red-400 transition-colors rounded-lg hover:bg-red-500/10"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

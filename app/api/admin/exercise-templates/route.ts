@@ -97,27 +97,38 @@ export async function POST(request: Request) {
 
   const now = new Date().toISOString();
 
-  // Upsert the template row
-  const { data: savedTemplate, error: tError } = await admin
-    .from("exercise_training_templates")
-    .upsert({
-      id: template.id || undefined,
-      name: template.name.trim(),
-      description: template.description?.trim() || null,
-      overview: template.overview?.trim() || null,
-      tags: template.tags || [],
-      category: template.category || "general",
-      duration_weeks: template.duration_weeks || null,
-      is_active: true,
-      updated_at: now,
-    })
+  const templatePayload = {
+    name: template.name.trim(),
+    description: template.description?.trim() || null,
+    overview: template.overview?.trim() || null,
+    tags: template.tags || [],
+    category: template.category || "general",
+    duration_weeks: template.duration_weeks || null,
+    is_active: true,
+    updated_at: now,
+  };
+
+  // Use an explicit create-vs-update path so duplicates don't rely on upsert
+  // semantics around an empty or undefined primary key.
+  const templateQuery = template.id
+    ? admin
+        .from("exercise_training_templates")
+        .update(templatePayload)
+        .eq("id", template.id)
+    : admin
+        .from("exercise_training_templates")
+        .insert(templatePayload);
+
+  const { data: savedTemplate, error: tError } = await templateQuery
     .select()
     .single();
 
   if (tError) return NextResponse.json({ error: tError.message }, { status: 500 });
 
-  // Delete existing sessions for this template (cascade deletes items via FK)
-  await admin.from("exercise_training_sessions").delete().eq("template_id", savedTemplate.id);
+  // Delete existing sessions for updates only (cascade deletes items via FK).
+  if (template.id) {
+    await admin.from("exercise_training_sessions").delete().eq("template_id", savedTemplate.id);
+  }
 
   // Insert new sessions and items
   for (const session of template.sessions || []) {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import type { TrainingPlan, TrainingPlanPhase, TrafficLight } from "@/lib/types";
+import type { TrainingPlan, TrainingPlanPhase, TrafficLight, TrainingModule } from "@/lib/types";
 import TrainingPlanBuilder from "@/components/admin/TrainingPlanBuilder";
 
 interface PlanWithClient extends TrainingPlan {
@@ -32,6 +32,25 @@ export default function TrainingPlansPage() {
   const [builderClientId, setBuilderClientId] = useState<string | null>(null);
   const [builderPlan, setBuilderPlan] = useState<TrainingPlan | undefined>(undefined);
   const [clientPickerOpen, setClientPickerOpen] = useState(false);
+
+  // Training module titles for resolving linked_trainings IDs to names
+  const [moduleTitles, setModuleTitles] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    async function loadModules() {
+      try {
+        const res = await fetch("/api/admin/training");
+        if (!res.ok) return;
+        const data = await res.json();
+        const map: Record<string, string> = {};
+        for (const m of (data.modules || []) as TrainingModule[]) {
+          map[m.id] = m.title;
+        }
+        setModuleTitles(map);
+      } catch { /* silent — titles degrade to IDs */ }
+    }
+    loadModules();
+  }, []);
 
   async function loadData() {
     try {
@@ -108,9 +127,9 @@ export default function TrainingPlansPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-heading font-bold text-text-primary">Training Plans</h1>
+          <h1 className="text-3xl font-heading font-bold text-text-primary">Coaching Plans</h1>
           <p className="text-text-secondary mt-1 text-sm">
-            {activePlans.length} active plan{activePlans.length !== 1 ? "s" : ""} across {new Set(activePlans.map(p => p.client_id)).size} clients
+            Phased coaching action plans per client. {activePlans.length} active across {new Set(activePlans.map(p => p.client_id)).size} client{new Set(activePlans.map(p => p.client_id)).size === 1 ? "" : "s"}.
           </p>
         </div>
         <button
@@ -152,7 +171,7 @@ export default function TrainingPlansPage() {
               <button
                 key={c.id}
                 onClick={() => openCreateForClient(c.id)}
-                className="px-3 py-1.5 bg-white/5 hover:bg-accent/10 border border-[rgba(0,0,0,0.08)] hover:border-accent/20 rounded-lg text-xs text-text-secondary hover:text-accent-bright transition-all inline-flex items-center gap-1.5 cursor-pointer"
+                className="px-3 py-1.5 bg-[rgba(255,255,255,0.04)] hover:bg-accent/10 border border-[rgba(255,255,255,0.08)] hover:border-accent/20 rounded-lg text-xs text-text-secondary hover:text-accent-bright transition-all inline-flex items-center gap-1.5 cursor-pointer"
               >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -346,11 +365,25 @@ export default function TrainingPlansPage() {
                                   Assigned Trainings ({phase.linked_trainings.length})
                                 </div>
                                 <div className="flex flex-wrap gap-1">
-                                  {phase.linked_trainings.map((id) => (
-                                    <span key={id} className="text-[10px] px-2 py-0.5 bg-accent/5 text-accent-bright rounded-md border border-accent/10">
-                                      {id.slice(0, 8)}...
-                                    </span>
-                                  ))}
+                                  {phase.linked_trainings.map((id) => {
+                                    const title = moduleTitles[id];
+                                    if (title) {
+                                      return (
+                                        <Link
+                                          key={id}
+                                          href={`/admin/training/${id}`}
+                                          className="text-[10px] px-2 py-0.5 bg-accent/5 text-accent-bright rounded-md border border-accent/10 no-underline hover:bg-accent/10"
+                                        >
+                                          {title}
+                                        </Link>
+                                      );
+                                    }
+                                    return (
+                                      <span key={id} className="text-[10px] px-2 py-0.5 bg-[rgba(0,0,0,0.04)] text-text-muted rounded-md border border-[rgba(0,0,0,0.06)]" title={id}>
+                                        Missing module
+                                      </span>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             )}
@@ -394,7 +427,7 @@ export default function TrainingPlansPage() {
             </div>
             <button
               onClick={() => setClientPickerOpen(false)}
-              className="w-full mt-4 px-4 py-2.5 text-sm font-medium text-text-secondary bg-white/5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
+              className="w-full mt-4 px-4 py-2.5 text-sm font-medium text-text-secondary bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] rounded-xl transition-colors cursor-pointer"
             >
               Cancel
             </button>

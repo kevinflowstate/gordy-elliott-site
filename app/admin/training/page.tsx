@@ -71,8 +71,12 @@ export default function TrainingManagerPage() {
           name: c.name,
           business_name: c.business_name,
         })));
+      } else {
+        toast("Couldn't load your client list. Try again.", "error");
       }
-    } catch { /* silent */ }
+    } catch {
+      toast("Couldn't reach the client list API. Try again.", "error");
+    }
   }
 
   function toggleModule(id: string) {
@@ -287,7 +291,7 @@ export default function TrainingManagerPage() {
                 <div className="absolute top-4 left-4">
                   {bulkMode ? (
                     <div className={`w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all ${
-                      isSelected ? "bg-accent border-accent-bright" : "bg-black/30 backdrop-blur-sm border-white/10"
+                      isSelected ? "bg-accent border-accent-bright" : "bg-black/30 backdrop-blur-sm border-[rgba(255,255,255,0.12)]"
                     }`}>
                       {isSelected && (
                         <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -296,7 +300,7 @@ export default function TrainingManagerPage() {
                       )}
                     </div>
                   ) : (
-                    <div className="w-10 h-10 rounded-xl bg-black/30 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white font-bold text-sm">
+                    <div className="w-10 h-10 rounded-xl bg-black/30 backdrop-blur-sm border border-[rgba(255,255,255,0.12)] flex items-center justify-center text-white font-bold text-sm">
                       {i + 1}
                     </div>
                   )}
@@ -307,7 +311,7 @@ export default function TrainingManagerPage() {
                   <span className={`text-[10px] px-2.5 py-1 rounded-full font-semibold ${
                     mod.is_published
                       ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                      : "bg-white/10 text-white/60 border border-white/10"
+                      : "bg-[rgba(255,255,255,0.06)] text-text-muted border border-[rgba(255,255,255,0.08)]"
                   }`}>
                     {mod.is_published ? "Published" : "Draft"}
                   </span>
