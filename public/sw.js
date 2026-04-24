@@ -40,8 +40,8 @@ self.addEventListener("push", (event) => {
   const title = data.title || "Blueprint Portal";
   const options = {
     body: data.body || "",
-    icon: "/icon-192x192.png",
-    badge: "/icon-192x192.png",
+    icon: "/shift-icon-192x192.png",
+    badge: "/shift-icon-192x192.png",
     tag: data.tag || "default",
     data: { url: data.url || "/portal" },
   };
