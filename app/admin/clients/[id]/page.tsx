@@ -797,6 +797,16 @@ export default function ClientDetailPage() {
               >
                 Nutrition Plan
               </button>
+              <button
+                onClick={() => {
+                  setNudgeOpen(true);
+                  setNudgeSent(false);
+                  setNudgeMessage("Test notification from Gordy's portal. If you see this, push notifications are working.");
+                }}
+                className="px-3 py-1.5 text-xs font-medium text-accent-bright border border-accent/20 bg-accent/10 hover:bg-accent/15 rounded-lg transition-colors"
+              >
+                Test Push
+              </button>
               <div className="relative">
                 <button
                   onClick={() => setSettingsOpen(!settingsOpen)}

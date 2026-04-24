@@ -79,13 +79,13 @@ export default function CheckInPage() {
       rhythm: "This is the weekly reflection Gordy reviews to guide your next steps.",
     },
     premium: {
-      line: "Use this premium check-in to surface friction, progress, and where you need extra support this week.",
-      lane: "Premium support lane",
+      line: "Use this check-in to surface friction, progress, and where you need extra support this week.",
+      lane: "Support lane",
       rhythm: "This check-in should make your progress and support needs obvious before the week gets away from you.",
     },
     vip: {
-      line: "Use this VIP check-in to flag the things Gordy should see first this week.",
-      lane: "VIP priority lane",
+      line: "Use this check-in to flag the things Gordy should see first this week.",
+      lane: "Priority lane",
       rhythm: "This is your highest-priority reflection point, designed to keep support tight and visible.",
     },
     ai_only: {
@@ -275,7 +275,7 @@ export default function CheckInPage() {
             </svg>
           </div>
           <h2 className="text-lg font-heading font-bold text-text-primary mb-2">Not Available on Your Plan</h2>
-          <p className="text-sm text-text-secondary mb-6">Check-ins are available on Gordy&apos;s coached tiers. Your AI coach is available to help you track progress instead.</p>
+          <p className="text-sm text-text-secondary mb-6">Weekly coach check-ins are not enabled in your current setup. Your AI coach is available to help you track progress instead.</p>
           <a href="/portal" className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white rounded-xl" style={{ background: "linear-gradient(135deg, #E040D0 0%, #b830a8 100%)" }}>
             Back to Dashboard
           </a>
@@ -555,7 +555,7 @@ export default function CheckInPage() {
           </div>
         )}
 
-        {/* Premium / VIP priority fields — reinforce higher-touch check-in */}
+        {/* Extra support fields are enabled by the client's assigned setup. */}
         {(tier === "premium" || tier === "vip") && (
           <div className="space-y-5 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-5">
             <div>
@@ -605,8 +605,8 @@ export default function CheckInPage() {
           className="w-full py-4 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-opacity"
         >
           {submitting ? "Saving..." : currentWeekSubmitted
-            ? tier === "vip" ? "Update VIP Check-in" : tier === "premium" ? "Update Premium Check-in" : "Update This Week's Check-in"
-            : tier === "vip" ? "Submit Priority Check-in" : tier === "premium" ? "Submit Premium Check-in" : "Submit Check-in"}
+            ? tier === "vip" || tier === "premium" ? "Update Check-in" : "Update This Week's Check-in"
+            : tier === "vip" || tier === "premium" ? "Submit Check-in" : "Submit Check-in"}
         </button>
         <div className="text-center">
           <Link href="/portal" className="text-xs font-semibold text-text-muted no-underline hover:text-text-secondary">

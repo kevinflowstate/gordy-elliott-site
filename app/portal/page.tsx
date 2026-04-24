@@ -9,7 +9,6 @@ type Tier = "coached" | "premium" | "vip" | "ai_only";
 
 const tierDisplay = {
   coached: {
-    label: "Coached",
     badgeClass: "border-emerald-500/20 bg-emerald-500/10 text-emerald-500",
     accentClass: "border-emerald-500/20",
     supportTitle: "Coaching Support",
@@ -18,25 +17,22 @@ const tierDisplay = {
     ctaLabel: "Open Weekly Check-in",
   },
   premium: {
-    label: "Premium",
     badgeClass: "border-sky-500/20 bg-sky-500/10 text-sky-500",
     accentClass: "border-sky-500/20",
-    supportTitle: "Premium Support",
-    supportCopy: "You're on Gordy's premium tier, so this dashboard should act like your weekly control center for deeper support and closer oversight.",
+    supportTitle: "Closer Support",
+    supportCopy: "Use this dashboard as your weekly control center for deeper support and closer oversight.",
     heroCopy: "Start here for the priorities, check-ins, and support prompts that keep your week tighter and more accountable.",
-    ctaLabel: "Open Premium Check-in",
+    ctaLabel: "Open Check-in",
   },
   vip: {
-    label: "VIP",
     badgeClass: "border-amber-500/20 bg-amber-500/10 text-amber-500",
     accentClass: "border-amber-500/20",
-    supportTitle: "VIP Support",
-    supportCopy: "You're on Gordy's highest-touch tier. Keep this front page tight so you can see your priorities, support points, and next key action at a glance.",
+    supportTitle: "Priority Support",
+    supportCopy: "Keep this front page tight so you can see your priorities, support points, and next key action at a glance.",
     heroCopy: "Start here for your highest-priority actions, upcoming touchpoints, and the details Gordy wants front and center this week.",
     ctaLabel: "Open Priority Check-in",
   },
   ai_only: {
-    label: "AI Only",
     badgeClass: "border-[#E040D0]/20 bg-[#E040D0]/10 text-[#E040D0]",
     accentClass: "border-[#E040D0]/20",
     supportTitle: "AI Coaching",
@@ -398,10 +394,7 @@ export default function PortalDashboard() {
         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
             <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#E040D0]">
-              {tier === "vip" ? "VIP Command Center" : tier === "premium" ? "Premium Dashboard" : tier === "ai_only" ? "Self-Coaching Hub" : "Personal Dashboard"}
-            </div>
-            <div className={`mb-3 inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${tierInfo.badgeClass}`}>
-              {tierInfo.label} Client
+              {tier === "ai_only" ? "Self-Coaching Hub" : "Personal Dashboard"}
             </div>
             <h1 className="text-3xl font-heading font-bold text-text-primary sm:text-4xl">
               {`What matters most${userName ? `, ${userName.split(" ")[0]}` : ""}`}
@@ -414,7 +407,7 @@ export default function PortalDashboard() {
                 href="/portal/checkin"
                 className="mt-4 inline-flex items-center gap-2 rounded-xl gradient-accent px-4 py-2.5 text-sm font-semibold text-white no-underline"
               >
-                {tier === "vip" ? "Submit your VIP check-in" : tier === "premium" ? "Submit your Premium check-in" : "Submit this week's check-in"}
+                Submit this week's check-in
               </Link>
             )}
             {isAiOnly && incompleteCoachTasks.length === 0 && incompletePersonalTasks.length === 0 && (
@@ -461,7 +454,7 @@ export default function PortalDashboard() {
         </div>
       </section>
 
-      {/* VIP gets a prominent priority strip immediately below the hero */}
+      {/* Priority clients get a prominent strip immediately below the hero. */}
       {tier === "vip" && (
         <VipPriorityStrip
           checkinToday={checkinToday}
@@ -705,7 +698,7 @@ function VipPriorityStrip({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-start gap-3">
           <span className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/15 text-amber-500 text-sm font-bold">
-            VIP
+            !
           </span>
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-500">Gordy&apos;s Priority Focus</div>
@@ -727,7 +720,7 @@ function VipPriorityStrip({
             href="/portal/checkin"
             className="rounded-xl gradient-accent px-4 py-2 text-xs font-semibold text-white no-underline"
           >
-            {submittedThisWeek ? "Update VIP Check-in" : "Open Priority Check-in"}
+            {submittedThisWeek ? "Update Check-in" : "Open Priority Check-in"}
           </Link>
           <Link
             href="/portal/calendar"
@@ -778,9 +771,9 @@ function TierSupportLane({
 
   return (
     <SectionCard
-      title={isVip ? "VIP Support Lane" : "Premium Support Lane"}
+      title={isVip ? "Priority Support Lane" : "Support Lane"}
       subtitle={isVip ? "A tighter view of the support points Gordy wants kept visible." : "Your elevated support view for staying close to the plan this week."}
-      right={<div className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${isVip ? "border-amber-500/20 bg-amber-500/10 text-amber-500" : "border-sky-500/20 bg-sky-500/10 text-sky-500"}`}>{isVip ? "VIP" : "Premium"}</div>}
+      right={<div className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${isVip ? "border-amber-500/20 bg-amber-500/10 text-amber-500" : "border-sky-500/20 bg-sky-500/10 text-sky-500"}`}>Support</div>}
     >
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-4">
@@ -815,7 +808,7 @@ function TierSupportLane({
           {latestReply && <p className="mt-2 text-sm leading-relaxed text-text-secondary">{latestReply}</p>}
           <div className="mt-4 flex flex-wrap gap-2">
             <Link href="/portal/checkin" className="rounded-xl gradient-accent px-3 py-2 text-xs font-semibold text-white no-underline">
-              {isVip ? "Open Priority Check-in" : "Open Check-in"}
+              Open Check-in
             </Link>
             <Link href="/portal/calendar" className="rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-card px-3 py-2 text-xs font-semibold text-text-primary no-underline">
               Open Calendar

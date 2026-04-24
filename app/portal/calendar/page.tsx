@@ -151,7 +151,7 @@ export default function PortalCalendarPage() {
             </svg>
           </div>
           <h2 className="text-lg font-heading font-bold text-text-primary mb-2">Not Available on Your Plan</h2>
-          <p className="text-sm text-text-secondary mb-6">The calendar is available on Gordy&apos;s coached tiers. Use SHIFT AI to plan your schedule.</p>
+          <p className="text-sm text-text-secondary mb-6">Calendar support is not enabled in your current setup. Use SHIFT AI to plan your schedule.</p>
           <a href="/portal" className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white rounded-xl" style={{ background: "linear-gradient(135deg, #E040D0 0%, #b830a8 100%)" }}>
             Back to Dashboard
           </a>
