@@ -11,6 +11,9 @@ export default function NutritionPlansPage() {
   const [editingTemplate, setEditingTemplate] = useState<NutritionTemplate | undefined>(undefined);
   const [search, setSearch] = useState("");
   const [calorieFilter, setCalorieFilter] = useState("All");
+  const [showAiForm, setShowAiForm] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiGenerating, setAiGenerating] = useState(false);
 
   const fetchTemplates = useCallback(() => {
     fetch("/api/admin/nutrition-templates")
@@ -89,6 +92,38 @@ export default function NutritionPlansPage() {
     }
   };
 
+  const handleAiGenerate = async () => {
+    if (!aiPrompt.trim()) {
+      alert("Tell SHIFT what kind of nutrition template to generate first.");
+      return;
+    }
+
+    setAiGenerating(true);
+    try {
+      const res = await fetch("/api/admin/ai-generate-nutrition", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: aiPrompt }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        alert(data.error || "Failed to generate nutrition template");
+        return;
+      }
+
+      setAiPrompt("");
+      setShowAiForm(false);
+      setLoading(true);
+      fetchTemplates();
+    } catch (err) {
+      console.error("Failed to generate nutrition template:", err);
+      alert("Failed to generate nutrition template");
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
   const filtered = templates.filter((t) => {
     if (search && !t.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (calorieFilter !== "All" && t.calorie_range !== calorieFilter) return false;
@@ -130,6 +165,12 @@ export default function NutritionPlansPage() {
             Manage Food Library
           </a>
           <button
+            onClick={() => setShowAiForm((show) => !show)}
+            className="px-4 py-2 rounded-xl border border-[#E040D0]/25 bg-[#E040D0]/10 text-[#E040D0] font-semibold text-[13px] hover:bg-[#E040D0]/15 transition-colors"
+          >
+            AI Generate
+          </button>
+          <button
             onClick={() => { setEditingTemplate(undefined); setShowBuilder(true); }}
             className="px-4 py-2 rounded-xl gradient-accent text-white font-semibold text-[13px]"
           >
@@ -137,6 +178,41 @@ export default function NutritionPlansPage() {
           </button>
         </div>
       </div>
+
+      {showAiForm && (
+        <div className="mb-6 rounded-2xl border border-[#E040D0]/20 bg-[#E040D0]/5 p-5">
+          <div className="mb-3">
+            <h2 className="text-base font-heading font-bold text-text-primary">Generate a Gordy-style sample plan</h2>
+            <p className="mt-1 text-[13px] text-text-secondary">
+              Uses Gordy&apos;s rules: high-protein meals, moderate fats, carbs scaled to the calorie tier, low added sugar, and template-safe swap notes.
+            </p>
+          </div>
+          <textarea
+            value={aiPrompt}
+            onChange={(e) => setAiPrompt(e.target.value)}
+            rows={4}
+            placeholder="e.g. 1700 calorie working-day fat-loss template, 160g protein, four meals, easy prep, chicken and salmon okay, low added sugar."
+            className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-[#E040D0]/40 focus:outline-none"
+          />
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleAiGenerate}
+              disabled={aiGenerating}
+              className="rounded-xl gradient-accent px-4 py-2 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {aiGenerating ? "Generating..." : "Generate Template"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAiForm(false)}
+              className="rounded-xl px-4 py-2 text-[13px] font-semibold text-text-secondary hover:text-text-primary"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-3 mb-6">

@@ -393,45 +393,47 @@ export default function PortalNutritionPlanPage() {
 
   return (
     <div className="p-4 pb-20 sm:p-6 max-w-lg mx-auto">
-      {/* Header row with dashboard + AI shortcuts */}
-      <div className="mb-4 flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
-        <Link href="/portal" className="no-underline hover:text-text-primary">← Dashboard</Link>
-        <Link href="/portal/ai" className="rounded-full border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] px-3 py-1 text-text-secondary no-underline hover:text-text-primary hover:border-[#E040D0]/30">
-          Ask about a swap
-        </Link>
-      </div>
-
-      {/* Date Navigator */}
-      <div className="flex items-center justify-between mb-6">
-        <button
-          onClick={() => navigateDate(-1)}
-          className="p-2 rounded-xl hover:bg-[rgba(0,0,0,0.04)] dark:hover:bg-[rgba(255,255,255,0.04)] transition-colors cursor-pointer"
-        >
-          <svg className="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <div className="text-center">
-          <h1 className="text-lg font-bold text-text-primary">
-            {isToday(selectedDate) ? "Today" : formatDateDisplay(selectedDate)}
-          </h1>
-          {!isToday(selectedDate) && (
-            <button onClick={() => setSelectedDate(new Date())} className="text-[12px] text-accent-bright hover:underline mt-0.5 cursor-pointer">
-              Back to today
-            </button>
-          )}
-          {isToday(selectedDate) && (
-            <p className="text-[12px] text-text-secondary mt-0.5">{formatDateDisplay(selectedDate)}</p>
-          )}
+      <div className="mb-6 rounded-3xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-4">
+        {/* Header row with dashboard + AI shortcuts */}
+        <div className="mb-4 flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+          <Link href="/portal" className="no-underline hover:text-text-primary">← Dashboard</Link>
+          <Link href="/portal/ai" className="rounded-full border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] bg-bg-primary px-3 py-1 text-text-secondary no-underline hover:text-text-primary hover:border-[#E040D0]/30">
+            Ask about a swap
+          </Link>
         </div>
-        <button
-          onClick={() => navigateDate(1)}
-          className="p-2 rounded-xl hover:bg-[rgba(0,0,0,0.04)] dark:hover:bg-[rgba(255,255,255,0.04)] transition-colors cursor-pointer"
-        >
-          <svg className="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
+
+        {/* Date Navigator */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => navigateDate(-1)}
+            className="p-2 rounded-xl hover:bg-[rgba(0,0,0,0.04)] dark:hover:bg-[rgba(255,255,255,0.04)] transition-colors cursor-pointer"
+          >
+            <svg className="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div className="text-center">
+            <h1 className="text-lg font-bold text-text-primary">
+              {isToday(selectedDate) ? "Today" : formatDateDisplay(selectedDate)}
+            </h1>
+            {!isToday(selectedDate) && (
+              <button onClick={() => setSelectedDate(new Date())} className="text-[12px] text-accent-bright hover:underline mt-0.5 cursor-pointer">
+                Back to today
+              </button>
+            )}
+            {isToday(selectedDate) && (
+              <p className="text-[12px] text-text-secondary mt-0.5">{formatDateDisplay(selectedDate)}</p>
+            )}
+          </div>
+          <button
+            onClick={() => navigateDate(1)}
+            className="p-2 rounded-xl hover:bg-[rgba(0,0,0,0.04)] dark:hover:bg-[rgba(255,255,255,0.04)] transition-colors cursor-pointer"
+          >
+            <svg className="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Macro Chart - always visible */}
@@ -455,7 +457,7 @@ export default function PortalNutritionPlanPage() {
       {/* Coach's Assigned Meals */}
       {plan && plan.meals.length > 0 && (
         <div className="mb-6">
-          <div className="flex items-end justify-between gap-3 mb-3">
+          <div className="mb-3 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-4 py-3">
             <div>
               <h2 className="text-[14px] font-semibold text-text-secondary uppercase tracking-wider">Today&apos;s plan from Gordy</h2>
               <p className="text-[11px] text-text-muted mt-0.5">Tick meals off as you eat them. Close to plan &gt; chasing perfect.</p>

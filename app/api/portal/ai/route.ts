@@ -120,8 +120,16 @@ export async function POST(req: NextRequest) {
   // Get assigned training modules (education content) with content
   const { data: clientModules } = await admin
     .from("client_modules")
-    .select("id, status, module:training_modules(id, title, description, content:module_content(id, title, content_type, duration_minutes, content_text))")
+    .select("id, status, module:training_modules(id, title, description, content:module_content(id, title, content_type, duration_minutes, content_text, content_url, order_index))")
     .eq("client_id", profile?.id || "");
+
+  // Get the published Education Hub library, not just assigned modules, so SHIFT
+  // can point clients to Gordy's actual trainings when they ask general questions.
+  const { data: educationModules } = await admin
+    .from("training_modules")
+    .select("id, title, description, is_published, content:module_content(id, title, content_type, duration_minutes, content_text, content_url, order_index)")
+    .eq("is_published", true)
+    .order("order_index", { ascending: true });
 
   // Get training plan phases (legacy table name: business_plans; these are Gordy's training plans)
   const { data: plans } = await admin
@@ -254,7 +262,8 @@ export async function POST(req: NextRequest) {
         title: c.title,
         type: c.content_type,
         duration: c.duration_minutes,
-        summary: c.content_text ? (c.content_text as string).slice(0, 200) : null,
+        summary: c.content_text ? (c.content_text as string).slice(0, 650) : null,
+        has_video_or_resource: Boolean(c.content_url),
       })),
     };
   }).filter(Boolean);
@@ -272,6 +281,7 @@ export async function POST(req: NextRequest) {
   // Search knowledge base for relevant training content
   const searchTerms = message.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3).slice(0, 6);
   let knowledgeContext = "";
+  let educationLibraryContext = "";
 
   if (searchTerms.length > 0) {
     // Search for chunks matching any of the user's question terms using ilike OR
@@ -284,6 +294,46 @@ export async function POST(req: NextRequest) {
     if (chunks && chunks.length > 0) {
       knowledgeContext = `\n\nGORDY'S COACHING KNOWLEDGE BASE (reference material from Gordy's recorded sessions — use his actual language and frameworks when relevant, and cite the session title in brackets when you quote it):\n${chunks.map((c: { session_title: string; content: string }) => `[${c.session_title}]\n${c.content}`).join("\n\n")}`;
     }
+  }
+
+  if (educationModules && educationModules.length > 0) {
+    const scoredModules = educationModules
+      .map((mod) => {
+        const content = (mod.content as Array<Record<string, unknown>>) || [];
+        const haystack = [
+          mod.title,
+          mod.description,
+          ...content.flatMap((lesson) => [lesson.title, lesson.content_text]),
+        ].filter(Boolean).join(" ").toLowerCase();
+        const score = searchTerms.reduce((total: number, term: string) => total + (haystack.includes(term) ? 1 : 0), 0);
+        return { mod, score };
+      })
+      .sort((a, b) => b.score - a.score);
+
+    const relevantModules = scoredModules
+      .filter((item) => item.score > 0)
+      .slice(0, 6);
+    const fallbackModules = scoredModules.slice(0, 5);
+    const modulesForPrompt = (relevantModules.length > 0 ? relevantModules : fallbackModules).map(({ mod }) => {
+      const content = ((mod.content as Array<Record<string, unknown>>) || [])
+        .sort((a, b) => Number(a.order_index || 0) - Number(b.order_index || 0))
+        .slice(0, 8);
+
+      return {
+        moduleId: mod.id,
+        title: mod.title,
+        description: mod.description,
+        lessons: content.map((lesson) => ({
+          title: lesson.title,
+          type: lesson.content_type,
+          duration: lesson.duration_minutes,
+          has_video_or_resource: Boolean(lesson.content_url),
+          summary: lesson.content_text ? (lesson.content_text as string).slice(0, 900) : null,
+        })),
+      };
+    });
+
+    educationLibraryContext = JSON.stringify(modulesForPrompt, null, 2);
   }
 
   const clientTier = (profile?.tier as string) || "coached";
@@ -398,9 +448,14 @@ LATEST CHECK-IN
 ${checkinSummary ? JSON.stringify(checkinSummary, null, 2) : "No check-ins submitted yet."}
 
 ===========================
-ASSIGNED EDUCATION MODULES (secondary reference material)
+ASSIGNED EDUCATION MODULES (what this client has been given)
 ===========================
 ${JSON.stringify(trainingContext, null, 2)}
+
+===========================
+EDUCATION HUB LIBRARY (published Gordy trainings to reference when relevant)
+===========================
+${educationLibraryContext || "No published Education Hub modules matched this question."}
 
 ===========================
 COACHING PLAN PHASES (Gordy-set priorities across the programme)
@@ -415,14 +470,16 @@ PRIORITY ORDER when forming any answer:
   1. ACTIVE TRAINING PLAN + ACTIVE NUTRITION PLAN (above) — the truth of what's assigned right now
   2. LATEST CHECK-IN + RECENT ADHERENCE — what the client actually did and said recently
   3. COACHING PLAN PHASES — Gordy's explicit priorities
-  4. Education modules / knowledge base — only when 1-3 don't cover the question
+  4. Education Hub modules / knowledge base — use these heavily for lesson, technique, mindset, nutrition education, habit, and "how should I think about..." questions
 
 SPECIFIC QUESTION TYPES:
 - "What training do I have today / next?" → If loggedToday=yes, confirm they've already logged today's session and point to what's next in the rotation. Otherwise, name the upcomingSession above (rotation-based, NOT weekday-based) and list its exercises with sets x reps. Never invent a weekday-to-session mapping — the plan doesn't have one. If no plan is assigned, say so plainly.
 - "What should I focus on this week?" → Lead with any priority_message / support_ask from the LATEST CHECK-IN. Then reference Gordy's coaching plan phases. Then adherence gaps from RECENT TRAINING ADHERENCE.
 - "What can I swap X with?" → You do NOT have access to Gordy's full foods library here — only the foods that are in the client's active meal plan above. Strategy: (1) if an alternative in the same meal plan has similar macros, suggest that first with gram amounts; (2) otherwise suggest a common fitness staple substitute (e.g. almond butter ↔ peanut butter ↔ sunflower seed butter) with approximate macros per the typical serving, and flag that Gordy would need to add it to the meal plan if they want it tracked. Always state the macro delta (kcal/P/C/F) when estimating, and prefix estimates with "roughly".
-- "What lesson should I do next?" → Recommend an assigned education module that hasn't been completed (status !== "completed"). Use its plain English title. If all modules are completed, say so.
+- "What lesson should I do next?" → Recommend an assigned education module that hasn't been completed (status !== "completed"). Use its plain English title. If all assigned modules are completed, recommend the closest relevant published Education Hub module and say it may need Gordy to assign/unlock it.
+- Education Hub questions → Answer from the published Education Hub library above. Name the relevant module and lesson in plain English. If a listed lesson says video/resource but has no URL, do not pretend there is a playable video; say the lesson exists but the resource may need Gordy to attach it.
 - "How have I been doing?" → Ground the answer in RECENT TRAINING ADHERENCE numbers (sessions_completed / distinct_days_logged) + LATEST CHECK-IN mood + any COACHING PLAN PHASES items that are done vs open. No vague praise. Celebrate real numbers only.
+- Advice or change requests → Ask 1-2 concise clarifying questions before giving a final recommendation if the request is broad, ambiguous, or asks to change training/nutrition. If the data already gives a direct factual answer, answer directly and add one useful follow-up question rather than blocking the client.
 
 VOICE & FORMAT:
 - Direct, practical, no-fluff. Short paragraphs and short bullet lists. No emojis.

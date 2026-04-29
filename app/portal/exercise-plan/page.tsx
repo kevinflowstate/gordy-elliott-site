@@ -349,7 +349,7 @@ export default function PortalExercisePlanPage() {
 
       {/* Page header */}
       <div className="mb-5 space-y-4">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-3 rounded-3xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-5">
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#E040D0] mb-1">Training</div>
             <h1 className="text-2xl font-bold text-text-primary">{plan.name}</h1>

@@ -171,8 +171,8 @@ export default function TrainingPlanPage() {
 
   return (
     <>
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
+      <div className="mb-8 rounded-3xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-5 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-3xl font-heading font-bold text-text-primary">Your Training Plan</h1>
           {plan.pdf_url && (
             <a
@@ -188,7 +188,11 @@ export default function TrainingPlanPage() {
             </a>
           )}
         </div>
-        <p className="text-text-secondary mt-2 leading-relaxed max-w-3xl">{plan.summary}</p>
+        {plan.summary && (
+          <div className="mt-4 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
+            <p className="text-text-secondary leading-relaxed">{plan.summary}</p>
+          </div>
+        )}
       </div>
 
       {/* Progress overview */}
@@ -253,7 +257,7 @@ export default function TrainingPlanPage() {
                       <button
                         key={item.id}
                         onClick={() => toggleItem(phase.id, item.id)}
-                        className="w-full flex items-center gap-3 py-2 px-1 rounded-lg hover:bg-[rgba(0,0,0,0.02)] transition-colors text-left cursor-pointer group"
+                        className="w-full flex items-center gap-3 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3 transition-colors text-left cursor-pointer group hover:border-[#E040D0]/20 hover:bg-[#E040D0]/5"
                       >
                         <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${
                           item.completed ? "bg-emerald-500 border-emerald-500" : "border-[rgba(0,0,0,0.1)] group-hover:border-accent/50"
@@ -286,7 +290,7 @@ export default function TrainingPlanPage() {
                         <Link
                           key={training.id}
                           href={`/portal/training/${training.module_id}`}
-                          className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-[rgba(0,0,0,0.03)] transition-colors no-underline group"
+                          className="flex items-center gap-3 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3 transition-colors no-underline group hover:border-[#E040D0]/20 hover:bg-[#E040D0]/5"
                         >
                           <div className="w-7 h-7 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
                             <svg className="w-3.5 h-3.5 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">

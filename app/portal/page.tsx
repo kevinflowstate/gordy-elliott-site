@@ -397,7 +397,7 @@ export default function PortalDashboard() {
       <section className={`relative overflow-hidden rounded-[32px] border px-6 py-7 sm:px-8 ${heroBg}`}>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(224,64,208,0.12),transparent_58%)] pointer-events-none" />
         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
+          <div className="max-w-2xl rounded-3xl border border-[rgba(0,0,0,0.06)] bg-bg-card/85 p-5 shadow-sm backdrop-blur-sm sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
             <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#E040D0]">
               {tier === "ai_only" ? "Self-Coaching Hub" : "Personal Dashboard"}
             </div>
@@ -412,7 +412,7 @@ export default function PortalDashboard() {
                 href="/portal/checkin"
                 className="mt-4 inline-flex items-center gap-2 rounded-xl gradient-accent px-4 py-2.5 text-sm font-semibold text-white no-underline"
               >
-                Submit this week's check-in
+                Submit this week&apos;s check-in
               </Link>
             )}
             {isAiOnly && incompleteCoachTasks.length === 0 && incompletePersonalTasks.length === 0 && (
