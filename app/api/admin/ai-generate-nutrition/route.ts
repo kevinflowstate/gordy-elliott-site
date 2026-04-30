@@ -28,6 +28,18 @@ type GeneratedPlan = {
   meals?: GeneratedMeal[];
 };
 
+type FoodForPrompt = {
+  id: string;
+  name: string;
+  category: string;
+  serving_size: string;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  fibre_g?: number;
+};
+
 const GORDY_NUTRITION_RULEBOOK = `
 GORDY'S NUTRITION TEMPLATE RULEBOOK
 - These are templates, not prescriptions. Build useful starting points that Gordy can customise.
@@ -37,7 +49,7 @@ GORDY'S NUTRITION TEMPLATE RULEBOOK
 - Veg or fruit appears at every meal except the snack.
 - Added/non-fruit sugar stays under roughly 30g/day. Fruit and dairy are allowed; do not imply "low sugar" means no fruit.
 - Snacks are always protein-led, not carb-led.
-- Calorie accuracy is approximate. Do not pretend a generated template is exact to the calorie; aim within about 50-100 kcal.
+- Calorie accuracy is approximate. Do not pretend a generated template is exact to the calorie, but if the coach asks for a calorie target, that target is mandatory and should be hit within about 50-100 kcal.
 - 1300 kcal is a low fat-loss tier. Do not make it the default for large or very active clients.
 
 PROTEIN TARGETS
@@ -57,6 +69,76 @@ REFERENCE STYLE
 function extractJson(text: string): GeneratedPlan {
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   return JSON.parse(jsonMatch ? jsonMatch[0] : text);
+}
+
+function detectRequestedCalories(prompt: string): number | null {
+  const match = prompt.match(/\b(1[2-9]\d{2}|2\d{3}|3\d{3}|4\d{3})\s*(?:kcal|cal|calorie|calories)?\b/i);
+  return match ? Number(match[1]) : null;
+}
+
+function detectDietaryConstraints(prompt: string) {
+  const lower = prompt.toLowerCase();
+  const dairyFree = /\b(dairy[-\s]?free|dairy intolerant|lactose intolerant|no dairy|without dairy|dairy allergy)\b/.test(lower);
+  const glutenFree = /\b(gluten[-\s]?free|coeliac|celiac|no gluten|without gluten)\b/.test(lower);
+  const eggFree = /\b(egg[-\s]?free|egg intolerant|egg allergy|no eggs|without eggs)\b/.test(lower);
+  const fishFree = /\b(fish[-\s]?free|fish allergy|no fish|without fish|doesn'?t eat fish|hates fish)\b/.test(lower);
+  const vegetarian = /\bvegetarian\b/.test(lower);
+  const vegan = /\bvegan\b/.test(lower);
+
+  return { dairyFree, glutenFree, eggFree, fishFree, vegetarian, vegan };
+}
+
+function foodMatchesAny(food: FoodForPrompt, patterns: RegExp[]) {
+  const text = `${food.name} ${food.category} ${food.serving_size}`.toLowerCase();
+  return patterns.some((pattern) => pattern.test(text));
+}
+
+function filterFoodsForConstraints(foods: FoodForPrompt[], constraints: ReturnType<typeof detectDietaryConstraints>) {
+  const exclusions: string[] = [];
+  let filtered = foods;
+
+  if (constraints.dairyFree || constraints.vegan) {
+    const dairyPatterns = [
+      /\bdairy\b/,
+      /\bmilk\b/,
+      /\bwhey\b/,
+      /\bcasein\b/,
+      /\byogh?urt\b/,
+      /\bcheese\b/,
+      /\bcottage\b/,
+      /\bfeta\b/,
+      /\bcream\b/,
+      /\bbutter\b/,
+      /\bkefir\b/,
+    ];
+    filtered = filtered.filter((food) => !foodMatchesAny(food, dairyPatterns));
+    exclusions.push("dairy, lactose, whey, yoghurt, milk, cheese, butter, and casein");
+  }
+
+  if (constraints.glutenFree) {
+    const glutenPatterns = [/\bwheat\b/, /\bbread\b/, /\bsourdough\b/, /\bwrap\b/, /\bpasta\b/, /\bgluten\b/, /\bcereal\b/];
+    filtered = filtered.filter((food) => !foodMatchesAny(food, glutenPatterns));
+    exclusions.push("wheat, bread, wraps, pasta, cereal, and gluten-containing foods");
+  }
+
+  if (constraints.eggFree || constraints.vegan) {
+    filtered = filtered.filter((food) => !foodMatchesAny(food, [/\begg\b/, /\beggs\b/]));
+    exclusions.push("eggs");
+  }
+
+  if (constraints.fishFree || constraints.vegan || constraints.vegetarian) {
+    const fishPatterns = [/\bfish\b/, /\bsalmon\b/, /\bcod\b/, /\btuna\b/, /\bprawn\b/, /\bshrimp\b/, /\bhaddock\b/];
+    filtered = filtered.filter((food) => !foodMatchesAny(food, fishPatterns));
+    exclusions.push("fish and seafood");
+  }
+
+  if (constraints.vegan || constraints.vegetarian) {
+    const meatPatterns = [/\bchicken\b/, /\bturkey\b/, /\bbeef\b/, /\bsteak\b/, /\bmince\b/, /\bbacon\b/, /\bham\b/, /\bpork\b/, /\blamb\b/];
+    filtered = filtered.filter((food) => !foodMatchesAny(food, meatPatterns));
+    exclusions.push("meat");
+  }
+
+  return { foods: filtered, exclusions };
 }
 
 export async function POST(req: NextRequest) {
@@ -79,18 +161,35 @@ export async function POST(req: NextRequest) {
   if (foodsError) return NextResponse.json({ error: foodsError.message }, { status: 500 });
   if (!foods?.length) return NextResponse.json({ error: "Add foods to the food library before generating a plan." }, { status: 400 });
 
-  const foodShortlist = selectFoodsForPrompt(foods, prompt, {
+  const requestedCalories = detectRequestedCalories(prompt);
+  const constraints = detectDietaryConstraints(prompt);
+  const { foods: foodsAllowedByConstraints, exclusions } = filterFoodsForConstraints(foods, constraints);
+
+  if (!foodsAllowedByConstraints.length) {
+    return NextResponse.json({ error: "No foods match those dietary constraints. Add suitable foods to the library first." }, { status: 400 });
+  }
+
+  const foodShortlist = selectFoodsForPrompt(foodsAllowedByConstraints, prompt, {
     maxFoods: 180,
     maxPerCategory: 22,
   });
+  const hardConstraintText = [
+    requestedCalories ? `Requested calorie target: ${requestedCalories} kcal. This is mandatory. Set target_calories to ${requestedCalories} and build meals to land within roughly 50-100 kcal of it.` : null,
+    exclusions.length > 0 ? `Dietary exclusions detected from the coach brief: ${exclusions.join("; ")}. These are hard constraints. Do not use, mention as ingredients, or substitute in any excluded food.` : null,
+    constraints.dairyFree ? "Dairy-free means no whey protein, yoghurt/yogurt, milk, cheese, cottage cheese, feta, butter, cream, kefir, casein, or dairy-based protein bars." : null,
+    constraints.vegan ? "Vegan means no meat, fish, eggs, dairy, whey, casein, or honey." : null,
+  ].filter(Boolean).join("\n");
 
   const systemPrompt = `You are Gordy Elliott's admin-side nutrition template assistant. Generate practical, editable meal-plan templates for Gordy to review before assigning to clients.
 
 ${GORDY_NUTRITION_RULEBOOK}
 
 AVAILABLE FOODS
-Use only these exact food IDs. Quantity is a multiplier of serving_size.
+Use only these exact food IDs. Quantity is a multiplier of serving_size. If a food is not listed here, it is unavailable or excluded.
 ${JSON.stringify(foodShortlist)}
+
+HARD CONSTRAINTS FROM THIS COACH BRIEF
+${hardConstraintText || "No explicit calorie or exclusion constraint detected. Still follow the coach's brief exactly."}
 
 Return JSON only with this shape:
 {
@@ -115,8 +214,10 @@ Return JSON only with this shape:
 
 Design rules:
 - Make 3 meals plus 1 protein-led snack unless the brief asks otherwise.
+- The coach's requested calorie number overrides your defaults. Do not silently move 1800 to 2000, 1500 to 1700, etc.
 - Hit the calorie and macro targets as closely as the available foods allow.
-- Respect allergies, dislikes, schedule constraints, and calorie tier in the prompt.
+- Respect allergies, intolerances, dislikes, schedule constraints, and calorie tier in the prompt as hard constraints, not preferences.
+- If dairy-free/lactose-intolerant is requested, never use whey protein, yoghurt/yogurt, milk, cheese, cottage cheese, feta, butter, cream, kefir, or casein.
 - Keep the template coach-editable: clear names, short notes, no client-facing medical claims.
 - If the brief asks for an unsafe/default 1300 kcal plan for a large or highly active client, include the caution in description and bias toward "Gordy review required".`;
 
@@ -151,7 +252,7 @@ Design rules:
       return NextResponse.json({ error: "AI returned invalid nutrition JSON", raw: text }, { status: 502 });
     }
 
-    const validFoodIds = new Set(foods.map((food) => food.id));
+    const validFoodIds = new Set(foodShortlist.map((food) => food.id));
     const meals = plan.meals || [];
 
     if (!plan.name || meals.length === 0) {
@@ -165,7 +266,7 @@ Design rules:
         description: plan.description || null,
         plan_type: "full",
         calorie_range: plan.calorie_range || "moderate",
-        target_calories: plan.target_calories || null,
+        target_calories: requestedCalories || plan.target_calories || null,
         target_protein_g: plan.target_protein_g || null,
         target_carbs_g: plan.target_carbs_g || null,
         target_fat_g: plan.target_fat_g || null,
