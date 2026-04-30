@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import NutritionTemplateBuilder from "@/components/admin/NutritionTemplateBuilder";
+import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import type { NutritionTemplate } from "@/lib/types";
 
 export default function NutritionPlansPage() {
@@ -201,7 +202,11 @@ export default function NutritionPlansPage() {
               disabled={aiGenerating}
               className="rounded-xl gradient-accent px-4 py-2 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {aiGenerating ? "Generating..." : "Generate Template"}
+              <CyclingStatusText
+                active={aiGenerating}
+                idle="Generate Template"
+                messages={["Generating...", "Thinking...", "Checking macros...", "Pondering swaps...", "Building template..."]}
+              />
             </button>
             <button
               type="button"

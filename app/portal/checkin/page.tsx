@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
+import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import type { CheckinFormConfig, ClientTask, ProgressMetric } from "@/lib/types";
 import { buildFallbackCheckinConfig, normalizeCheckinConfig } from "@/lib/checkin-form";
 import PhotoUpload from "@/components/portal/PhotoUpload";
@@ -604,9 +605,15 @@ export default function CheckInPage() {
           disabled={(config.mood_enabled && !mood) || submitting}
           className="w-full py-4 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-opacity"
         >
-          {submitting ? "Saving..." : currentWeekSubmitted
-            ? tier === "vip" || tier === "premium" ? "Update Check-in" : "Update This Week's Check-in"
-            : tier === "vip" || tier === "premium" ? "Submit Check-in" : "Submit Check-in"}
+          <CyclingStatusText
+            active={submitting}
+            idle={
+              currentWeekSubmitted
+                ? tier === "vip" || tier === "premium" ? "Update Check-in" : "Update This Week's Check-in"
+                : "Submit Check-in"
+            }
+            messages={["Saving...", "Uploading photos...", "Syncing progress...", "Nearly there..."]}
+          />
         </button>
         <div className="text-center">
           <Link href="/portal" className="text-xs font-semibold text-text-muted no-underline hover:text-text-secondary">

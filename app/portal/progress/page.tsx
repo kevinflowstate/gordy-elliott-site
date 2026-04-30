@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import {
   LineChart,
   Line,
@@ -357,7 +358,7 @@ export default function ProgressPage() {
           disabled={saving || (!weightKg && !waistCm && !chestCm && !hipsCm && !leftArmCm && !rightArmCm && !leftThighCm && !rightThighCm)}
           className="px-6 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
         >
-          {saving ? "Saving..." : "Save Entry"}
+          <CyclingStatusText active={saving} idle="Save Entry" messages={["Saving...", "Updating chart...", "Checking progress...", "Nearly there..."]} />
         </button>
       </div>
 

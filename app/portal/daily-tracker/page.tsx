@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
+import CyclingStatusText from "@/components/ui/CyclingStatusText";
 
 type DailyMetric = {
   id: string;
@@ -238,7 +239,7 @@ export default function DailyTrackerPage() {
           disabled={saving}
           className="mt-6 w-full rounded-2xl gradient-accent px-5 py-4 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
         >
-          {saving ? "Saving..." : "Save daily tracker"}
+          <CyclingStatusText active={saving} idle="Save daily tracker" messages={["Saving...", "Updating today...", "Checking streak...", "Nearly there..."]} />
         </button>
       </section>
 

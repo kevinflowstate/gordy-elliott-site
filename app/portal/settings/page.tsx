@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
+import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import { Suspense } from "react";
 
 export default function SettingsPage() {
@@ -169,7 +170,7 @@ function SettingsContent() {
                 disabled={uploadingAvatar}
                 className="px-4 py-2 text-sm font-medium text-accent-bright bg-accent/10 rounded-xl hover:bg-accent/20 transition-colors disabled:opacity-40 cursor-pointer"
               >
-                {uploadingAvatar ? "Uploading..." : "Change Photo"}
+                <CyclingStatusText active={uploadingAvatar} idle="Change Photo" messages={["Uploading...", "Optimising photo...", "Saving profile...", "Nearly there..."]} />
               </button>
               <p className="text-xs text-text-muted mt-1.5">JPG, PNG, WebP or iPhone HEIC. Max 10MB.</p>
             </div>

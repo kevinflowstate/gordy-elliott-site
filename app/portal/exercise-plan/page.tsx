@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import type { ClientExercisePlan, ExerciseSession } from "@/lib/types";
 
 interface SetData {
@@ -803,7 +804,7 @@ export default function PortalExercisePlanPage() {
                   className="hidden sm:block w-full py-3 rounded-xl font-semibold text-white text-sm transition-all cursor-pointer disabled:opacity-60"
                   style={{ background: "linear-gradient(135deg, #E040D0 0%, #b020a0 100%)" }}
                 >
-                  {saving ? "Saving..." : "Save Session"}
+                  <CyclingStatusText active={saving} idle="Save Session" messages={["Saving...", "Logging sets...", "Updating week...", "Nearly there..."]} />
                 </button>
               </div>
             </div>
@@ -885,7 +886,7 @@ export default function PortalExercisePlanPage() {
             className="w-full py-3.5 rounded-2xl font-semibold text-white text-sm shadow-xl transition-all cursor-pointer disabled:opacity-60 min-h-[48px]"
             style={{ background: "linear-gradient(135deg, #E040D0 0%, #b020a0 100%)" }}
           >
-            {saving ? "Saving..." : "Save Session"}
+            <CyclingStatusText active={saving} idle="Save Session" messages={["Saving...", "Logging sets...", "Updating week...", "Nearly there..."]} />
           </button>
         </div>
       )}
