@@ -171,7 +171,7 @@ export default function TrainingPlanPage() {
 
   return (
     <>
-      <div className="mb-8 rounded-3xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-5 sm:p-6">
+      <div className="mb-8 rounded-3xl border border-[#E040D0]/15 bg-bg-card p-5 shadow-[0_12px_32px_rgba(10,10,10,0.06)] sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-3xl font-heading font-bold text-text-primary">Your Training Plan</h1>
           {plan.pdf_url && (
@@ -189,14 +189,14 @@ export default function TrainingPlanPage() {
           )}
         </div>
         {plan.summary && (
-          <div className="mt-4 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
+          <div className="mt-4 rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3">
             <p className="text-text-secondary leading-relaxed">{plan.summary}</p>
           </div>
         )}
       </div>
 
       {/* Progress overview */}
-      <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 mb-8">
+      <div className="bg-bg-card border border-[#E040D0]/15 rounded-2xl p-6 mb-8 shadow-[0_12px_32px_rgba(10,10,10,0.05)]">
         <div className="flex items-center justify-between mb-3">
           <span className="text-sm font-heading font-bold text-text-primary">Overall Progress</span>
           <span className="text-sm text-text-muted">{completedItems}/{totalItems} actions - {pct}%</span>
@@ -215,7 +215,7 @@ export default function TrainingPlanPage() {
           const phasePct = phaseTotal > 0 ? Math.round((phaseCompleted / phaseTotal) * 100) : 0;
 
           return (
-            <div key={phase.id} className="group/phase relative bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(224,64,208,0.15)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.2),0_0_30px_rgba(224,64,208,0.04)] will-change-transform">
+            <div key={phase.id} className="group/phase relative bg-bg-card border border-[#E040D0]/15 rounded-2xl overflow-hidden shadow-[0_12px_32px_rgba(10,10,10,0.05)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(224,64,208,0.22)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.2),0_0_30px_rgba(224,64,208,0.04)] will-change-transform">
                 {/* Bento dot pattern */}
                 <div className="absolute inset-0 opacity-0 group-hover/phase:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] z-10 pointer-events-none" />
                 {/* Bento gradient border */}
