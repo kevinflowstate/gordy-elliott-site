@@ -688,9 +688,10 @@ export default function PortalExercisePlanPage() {
                 const sets = draftSets[item.id] || [];
 
                 return (
-                  <div key={item.id} className="px-5 py-4">
+                  <div key={item.id} className="px-4 py-4 sm:px-5">
+                    <div className="rounded-[28px] border border-[#E040D0]/15 bg-bg-primary p-4 shadow-[0_12px_32px_rgba(10,10,10,0.05)]">
                     {/* Exercise header */}
-                    <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex items-start justify-between gap-3 mb-4">
                       <div>
                         <p className="font-bold text-text-primary">{item.exercise?.name || "Unknown"}</p>
                         {item.exercise?.muscle_group && (
@@ -739,7 +740,7 @@ export default function PortalExercisePlanPage() {
                     )}
 
                     {/* Sets input grid */}
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <div className="hidden sm:grid sm:grid-cols-[28px_1fr_1fr_1fr] gap-2 px-1">
                         <span className="text-[10px] text-text-secondary font-medium text-center">#</span>
                         <span className="text-[10px] text-text-secondary font-medium">Weight (kg)</span>
@@ -747,35 +748,50 @@ export default function PortalExercisePlanPage() {
                         <span className="text-[10px] text-text-secondary font-medium">Notes</span>
                       </div>
                       {sets.map((set, setIdx) => (
-                        <div key={setIdx} className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-[rgba(0,0,0,0.015)] p-2.5">
-                          <div className="grid grid-cols-[28px_1fr_1fr] sm:grid-cols-[28px_1fr_1fr_1fr] gap-2 items-center">
-                            <span className="text-xs text-text-secondary font-semibold text-center" aria-label={`Set ${set.set_number}`}>{set.set_number}</span>
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              placeholder="kg"
-                              aria-label={`Set ${set.set_number} weight in kg`}
-                              value={set.weight}
-                              onChange={(e) => updateSet(item.id, setIdx, "weight", e.target.value)}
-                              className="w-full px-2 py-1.5 text-sm bg-[rgba(0,0,0,0.03)] border border-[rgba(0,0,0,0.07)] rounded-lg text-text-primary placeholder:text-text-secondary/40 focus:outline-none focus:border-[#E040D0]/50 transition-colors"
-                            />
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              placeholder={item.reps}
-                              aria-label={`Set ${set.set_number} reps`}
-                              value={set.reps}
-                              onChange={(e) => updateSet(item.id, setIdx, "reps", e.target.value)}
-                              className="w-full px-2 py-1.5 text-sm bg-[rgba(0,0,0,0.03)] border border-[rgba(0,0,0,0.07)] rounded-lg text-text-primary placeholder:text-text-secondary/40 focus:outline-none focus:border-[#E040D0]/50 transition-colors"
-                            />
-                            <input
-                              type="text"
-                              placeholder="note"
-                              aria-label={`Set ${set.set_number} note`}
-                              value={set.notes}
-                              onChange={(e) => updateSet(item.id, setIdx, "notes", e.target.value)}
-                              className="col-span-3 sm:col-span-1 w-full px-2 py-1.5 text-sm bg-[rgba(0,0,0,0.03)] border border-[rgba(0,0,0,0.07)] rounded-lg text-text-primary placeholder:text-text-secondary/40 focus:outline-none focus:border-[#E040D0]/50 transition-colors"
-                            />
+                        <div key={setIdx} className="rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-card p-3 shadow-sm">
+                          <div className="grid grid-cols-[3.25rem_1fr_1fr] gap-2 sm:grid-cols-[28px_1fr_1fr_1fr] sm:items-center">
+                            <div className="flex h-full min-h-[54px] flex-col items-center justify-center rounded-xl border border-[#E040D0]/20 bg-[#E040D0]/8 text-center sm:min-h-0 sm:border-0 sm:bg-transparent">
+                              <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#E040D0] sm:hidden">Set</span>
+                              <span className="text-base font-heading font-bold text-text-primary sm:text-xs sm:text-text-secondary" aria-label={`Set ${set.set_number}`}>{set.set_number}</span>
+                            </div>
+                            <label className="block">
+                              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted sm:hidden">Weight</span>
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  placeholder="0"
+                                  aria-label={`Set ${set.set_number} weight in kg`}
+                                  value={set.weight}
+                                  onChange={(e) => updateSet(item.id, setIdx, "weight", e.target.value)}
+                                  className="w-full rounded-xl border border-[#E040D0]/20 bg-white px-3 py-3 pr-9 text-base font-semibold text-text-primary placeholder:text-text-muted/40 shadow-inner focus:outline-none focus:border-[#E040D0]/60 sm:bg-[rgba(0,0,0,0.03)] sm:py-1.5 sm:text-sm"
+                                />
+                                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-text-muted">kg</span>
+                              </div>
+                            </label>
+                            <label className="block">
+                              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted sm:hidden">Reps</span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                placeholder={item.reps}
+                                aria-label={`Set ${set.set_number} reps`}
+                                value={set.reps}
+                                onChange={(e) => updateSet(item.id, setIdx, "reps", e.target.value)}
+                                className="w-full rounded-xl border border-[#E040D0]/20 bg-white px-3 py-3 text-base font-semibold text-text-primary placeholder:text-text-muted/40 shadow-inner focus:outline-none focus:border-[#E040D0]/60 sm:bg-[rgba(0,0,0,0.03)] sm:py-1.5 sm:text-sm"
+                              />
+                            </label>
+                            <label className="col-span-3 block sm:col-span-1">
+                              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted sm:hidden">Notes</span>
+                              <input
+                                type="text"
+                                placeholder="Optional note"
+                                aria-label={`Set ${set.set_number} note`}
+                                value={set.notes}
+                                onChange={(e) => updateSet(item.id, setIdx, "notes", e.target.value)}
+                                className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-white px-3 py-3 text-sm text-text-primary placeholder:text-text-muted/50 shadow-inner focus:outline-none focus:border-[#E040D0]/50 sm:bg-[rgba(0,0,0,0.03)] sm:py-1.5"
+                              />
+                            </label>
                           </div>
                         </div>
                       ))}
@@ -783,10 +799,11 @@ export default function PortalExercisePlanPage() {
 
                     <button
                       onClick={() => addSet(item.id)}
-                      className="mt-2 text-xs text-text-secondary hover:text-text-primary border border-[rgba(0,0,0,0.07)] px-3 py-1 rounded-lg transition-colors cursor-pointer"
+                      className="mt-3 rounded-xl border border-[#E040D0]/20 bg-[#E040D0]/8 px-3 py-2 text-xs font-semibold text-[#E040D0] transition-colors hover:bg-[#E040D0]/12 cursor-pointer"
                     >
                       + Add set
                     </button>
+                    </div>
                   </div>
                 );
               })}
