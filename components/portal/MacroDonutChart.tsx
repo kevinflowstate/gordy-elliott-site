@@ -1,7 +1,5 @@
 "use client";
 
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-
 interface MacroDonutChartProps {
   targetCalories: number;
   consumedCalories: number;
@@ -27,63 +25,31 @@ export default function MacroDonutChart({
 }: MacroDonutChartProps) {
   const calPercent = targetCalories > 0 ? Math.min((consumedCalories / targetCalories) * 100, 100) : 0;
 
-  // Outer ring: calorie progress
-  const calorieData = [
-    { name: "Consumed", value: consumedCalories },
-    { name: "Remaining", value: Math.max(0, targetCalories - consumedCalories) },
-  ];
-
-  // Inner ring: macro split (target)
-  const totalTargetGrams = protein.target + carbs.target + fat.target;
-  const macroData = totalTargetGrams > 0
-    ? [
-        { name: "Protein", value: protein.target, color: COLORS.protein },
-        { name: "Carbs", value: carbs.target, color: COLORS.carbs },
-        { name: "Fat", value: fat.target, color: COLORS.fat },
-      ]
-    : [{ name: "None", value: 1, color: COLORS.remaining }];
-
   return (
     <div className="w-full">
       {/* Chart */}
       <div className="relative w-64 h-64 mx-auto">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            {/* Outer ring: calorie progress */}
-            <Pie
-              data={calorieData}
-              dataKey="value"
-              cx="50%"
-              cy="50%"
-              outerRadius={120}
-              innerRadius={95}
-              startAngle={90}
-              endAngle={-270}
-              paddingAngle={0}
-              stroke="none"
-            >
-              <Cell fill={COLORS.carbs} />
-              <Cell className="fill-[rgba(0,0,0,0.06)] dark:fill-[rgba(255,255,255,0.06)]" />
-            </Pie>
-            {/* Inner ring: macro split */}
-            <Pie
-              data={macroData}
-              dataKey="value"
-              cx="50%"
-              cy="50%"
-              outerRadius={88}
-              innerRadius={68}
-              startAngle={90}
-              endAngle={-270}
-              paddingAngle={2}
-              stroke="none"
-            >
-              {macroData.map((entry, index) => (
-                <Cell key={index} fill={entry.color} />
-              ))}
-            </Pie>
-          </PieChart>
-        </ResponsiveContainer>
+        <div
+          className="absolute inset-0 rounded-full p-[14px]"
+          style={{
+            background: calPercent > 0
+              ? `conic-gradient(${COLORS.carbs} 0 ${calPercent}%, ${COLORS.remaining} ${calPercent}% 100%)`
+              : COLORS.remaining,
+          }}
+          aria-hidden="true"
+        >
+          <div className="h-full w-full rounded-full bg-bg-card p-[18px] shadow-inner">
+            <div className="flex h-full w-full items-center justify-center rounded-full border border-[rgba(0,0,0,0.06)] bg-bg-primary" />
+          </div>
+        </div>
+
+        {calPercent === 0 && (
+          <div className="absolute left-1/2 top-8 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-bg-card/90 px-2 py-1 shadow-sm" aria-hidden="true">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS.protein }} />
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS.carbs }} />
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS.fat }} />
+          </div>
+        )}
 
         {/* Center text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -94,6 +60,9 @@ export default function MacroDonutChart({
             {consumedCalories.toLocaleString()} / {targetCalories.toLocaleString()}
           </span>
           <span className="text-[13px] text-text-secondary/70">kcal</span>
+          {calPercent === 0 && (
+            <span className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-text-muted">No totals yet</span>
+          )}
         </div>
       </div>
 

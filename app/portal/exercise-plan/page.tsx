@@ -309,6 +309,8 @@ export default function PortalExercisePlanPage() {
       .map((l) => `${l.log_date}:${l.session_id}`),
   ).size;
   const plannedSessionsCount = plan?.sessions?.length || 0;
+  const loggedExerciseCount = dayLogs.filter((l) => l.completed).length;
+  const activeExerciseCount = activeSession?.items.filter((i) => i.exercise_id !== "__section__").length || 0;
 
   // ---- render ----
 
@@ -350,53 +352,78 @@ export default function PortalExercisePlanPage() {
 
       {/* Page header */}
       <div className="mb-5 space-y-4">
-        <div className="flex items-start justify-between gap-3 rounded-3xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-5">
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#E040D0] mb-1">Training</div>
-            <h1 className="text-2xl font-bold text-text-primary">{plan.name}</h1>
-            <p className="text-text-secondary mt-1 text-sm">Open today&apos;s session fast, log what you did, and move on.</p>
+        <div className="overflow-hidden rounded-[30px] border border-[#E040D0]/20 bg-[#171018] p-5 text-white shadow-[0_20px_52px_rgba(74,18,67,0.22)]">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.24em] text-[#F060E0]">Training</div>
+              <h1 className="text-3xl font-heading font-bold leading-none text-white">{plan.name}</h1>
+              <p className="mt-2 text-sm leading-snug text-white/75">Open today&apos;s session fast, log what you did, and move on.</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/8 px-3 py-2 text-right">
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">
+                {isToday(selectedDate) ? "Today" : "Selected"}
+              </div>
+              <div className="text-lg font-heading font-bold text-white">{viewMode === "readonly" ? "Logged" : "Ready"}</div>
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="rounded-2xl border border-white/10 bg-white/8 px-3 py-3">
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/50">This Week</div>
+              <div className="mt-1 text-sm font-semibold text-white">{sessionsThisWeek} logged</div>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/8 px-3 py-3">
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/50">Session</div>
+              <div className="mt-1 truncate text-sm font-semibold text-white">{activeSession?.name || "Next up"}</div>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-3">
             {lastSavedAt && (
-              <p className="mt-2 text-[11px] font-semibold text-emerald-500">
+              <p className="text-[11px] font-semibold text-emerald-300">
                 Saved {lastSavedAt}
               </p>
             )}
-          </div>
-          <Link href="/portal" className="hidden sm:inline-flex text-xs font-semibold text-accent-bright no-underline transition-colors hover:text-accent-light">
-            ← Dashboard
-          </Link>
-        </div>
-
-        {/* Weekly trust summary — no ambiguity about what got logged this week */}
-        <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">This Week</div>
-              <div className="mt-1 text-sm font-semibold text-text-primary">
-                {sessionsThisWeek === 0
-                  ? "No sessions logged yet this week"
-                  : `${sessionsThisWeek} session${sessionsThisWeek === 1 ? "" : "s"} logged this week`}
-                {plannedSessionsCount > 0 && ` · ${plannedSessionsCount} in rotation`}
-              </div>
-            </div>
-            <Link
-              href="/portal/ai"
-              className="rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-1.5 text-[11px] font-semibold text-text-secondary no-underline hover:text-text-primary hover:border-[#E040D0]/30"
-            >
-              Ask SHIFT AI
+            <Link href="/portal" className="ml-auto hidden text-xs font-semibold text-white/70 no-underline transition-colors hover:text-white sm:inline-flex">
+              ← Dashboard
             </Link>
           </div>
         </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <section className="rounded-2xl border border-[#E040D0]/15 bg-bg-card px-4 py-3 shadow-[0_12px_30px_rgba(10,10,10,0.05)]">
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#B830A8]">This Week</div>
+            <div className="mt-1 text-base font-heading font-bold text-text-primary">
+              {sessionsThisWeek === 0
+                ? "No sessions logged"
+                : `${sessionsThisWeek} session${sessionsThisWeek === 1 ? "" : "s"} logged`}
+            </div>
+            {plannedSessionsCount > 0 && (
+              <div className="mt-1 text-xs text-text-secondary">{plannedSessionsCount} sessions in your rotation</div>
+            )}
+          </section>
+          <section className="rounded-2xl border border-[#E040D0]/15 bg-[linear-gradient(135deg,rgba(224,64,208,0.08),rgba(245,158,11,0.05))] px-4 py-3 shadow-[0_12px_30px_rgba(10,10,10,0.05)]">
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#B830A8]">
+              {isToday(selectedDate) ? "Today" : "Selected Day"}
+            </div>
+            <div className="mt-1 text-base font-heading font-bold text-text-primary">
+              {viewMode === "readonly" ? `${loggedExerciseCount} exercise${loggedExerciseCount === 1 ? "" : "s"} logged` : "Ready to log"}
+            </div>
+            <div className="mt-1 text-xs text-text-secondary">
+              {selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}
+            </div>
+          </section>
+        </div>
         {plan.description && (
-          <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-4 py-3 text-sm text-text-secondary">
-            {plan.description}
-          </div>
+          <section className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-4 py-3 shadow-[0_12px_30px_rgba(10,10,10,0.04)]">
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">Current Session Notes</div>
+            <p className="mt-1 text-sm text-text-secondary">{plan.description}</p>
+          </section>
         )}
 
         {/* Selected day + session context. Tap the session chip to pick a different one. */}
-        <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-4 py-3">
+        <section className="rounded-2xl border border-[#E040D0]/15 bg-bg-card px-4 py-3 shadow-[0_12px_30px_rgba(10,10,10,0.05)]">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">
+              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#B830A8]">
                 {isToday(selectedDate)
                   ? "Today"
                   : selectedDate.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
@@ -436,7 +463,27 @@ export default function PortalExercisePlanPage() {
               You picked this session manually. Switching days resets to auto-pick.
             </p>
           )}
-        </div>
+        </section>
+        <section className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-4 py-3 shadow-[0_12px_30px_rgba(10,10,10,0.04)]">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">
+                {viewMode === "readonly" ? "Logged Session Summary" : "AI Help"}
+              </div>
+              <p className="mt-1 text-sm font-semibold text-text-primary">
+                {viewMode === "readonly"
+                  ? `${loggedExerciseCount}/${activeExerciseCount} exercises marked complete`
+                  : "Ask SHIFT AI if you need a swap or form cue."}
+              </p>
+            </div>
+            <Link
+              href="/portal/ai"
+              className="rounded-xl border border-[#E040D0]/30 bg-[#E040D0]/10 px-3 py-1.5 text-[11px] font-semibold text-[#F060E0] no-underline hover:border-[#F060E0]/45"
+            >
+              SHIFT AI
+            </Link>
+          </div>
+        </section>
       </div>
 
       {/* ---- Week Calendar Strip ---- */}
@@ -896,7 +943,7 @@ export default function PortalExercisePlanPage() {
 
       {/* Mobile sticky save — stays above bottom nav + respects iPhone home indicator */}
       {viewMode === "log" && activeSession && sessionOpen && (
-        <div className="sm:hidden fixed bottom-[5rem] left-0 right-0 z-30 px-4 pb-[env(safe-area-inset-bottom)] pt-2 bg-gradient-to-t from-bg-primary via-bg-primary/95 to-transparent">
+        <div className="sm:hidden fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-30 px-4 pt-2 bg-gradient-to-t from-bg-primary via-bg-primary/95 to-transparent">
           <button
             onClick={saveSession}
             disabled={saving}

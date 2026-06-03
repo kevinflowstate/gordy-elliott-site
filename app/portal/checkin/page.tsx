@@ -15,38 +15,106 @@ const moodColorMap: Record<string, string> = {
   red: "border-red-500/30 bg-red-500/10 text-red-400",
 };
 
+function getCheckinDueDate(checkinDay: string | null) {
+  const dayMap: Record<string, number> = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
+  const targetDay = dayMap[(checkinDay || "monday").toLowerCase()] ?? 1;
+  const now = new Date();
+  const weekStart = new Date(now);
+  const diff = now.getDay() === 0 ? -6 : 1 - now.getDay();
+  weekStart.setDate(now.getDate() + diff);
+  weekStart.setHours(0, 0, 0, 0);
+  const due = new Date(weekStart);
+  due.setDate(weekStart.getDate() + (targetDay === 0 ? 6 : targetDay - 1));
+  return due;
+}
+
+function isToday(date: Date) {
+  const now = new Date();
+  return date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+}
+
 function ScaleInput({ metric, value, onChange }: { metric: ProgressMetric; value: string; onChange: (v: string) => void }) {
   const min = metric.min ?? 1;
   const max = metric.max ?? 10;
   const selected = value ? parseInt(value) : null;
-  const points = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+  const sliderValue = selected ?? min;
+  const percent = max > min ? ((sliderValue - min) / (max - min)) * 100 : 0;
+  const scaleLabel = selected === null ? "Slide to set" : selected <= 3 ? "Low" : selected <= 6 ? "Moderate" : "High";
+  const valueLabel = selected === null ? "Not set" : `${selected} / ${max}`;
 
   return (
-    <div>
-      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar" role="radiogroup" aria-label={metric.label}>
-        {points.map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => onChange(String(p))}
-            role="radio"
-            aria-checked={selected === p}
-            className={`h-11 min-w-11 rounded-xl text-sm font-semibold transition-all cursor-pointer border ${
-              selected === p
-                ? "bg-[#E040D0] text-[#1a1a1a] border-[#E040D0]"
-                : "bg-bg-card border-[rgba(0,0,0,0.08)] text-text-muted hover:border-[#E040D0]/40 hover:text-text-primary"
-            }`}
-          >
-            {p}
-          </button>
-        ))}
-      </div>
-      {selected !== null && (
-        <div className="text-xs text-text-muted mt-1.5">
-          {selected <= 3 ? "Low" : selected <= 6 ? "Moderate" : "High"} ({selected}/{max})
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm font-semibold text-text-secondary">{scaleLabel}</div>
+        <div className="rounded-full border border-[#E040D0]/20 bg-[#E040D0]/8 px-2.5 py-0.5 text-xs font-bold text-[#E040D0]">
+          {valueLabel}
         </div>
-      )}
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={1}
+        value={sliderValue}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={metric.label}
+        aria-valuetext={selected === null ? "Not set" : `${selected} out of ${max}`}
+        className="h-8 w-full cursor-pointer appearance-none bg-transparent accent-[#E040D0] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E040D0]/45 focus-visible:ring-offset-2 [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-[#E040D0] [&::-moz-range-thumb]:shadow-md [&::-moz-range-track]:h-2 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-[rgba(0,0,0,0.08)] [&::-webkit-slider-runnable-track]:h-2 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-thumb]:-mt-2 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-[#E040D0] [&::-webkit-slider-thumb]:shadow-md"
+        style={{
+          background: `linear-gradient(90deg, #E040D0 0%, #E040D0 ${percent}%, rgba(0,0,0,0.08) ${percent}%, rgba(0,0,0,0.08) 100%)`,
+          borderRadius: "999px",
+        }}
+      />
+      <div className="flex justify-between text-[11px] font-semibold text-text-muted">
+        <span>{min}</span>
+        <span>{max}</span>
+      </div>
     </div>
+  );
+}
+
+function ChoiceButton({
+  name,
+  value,
+  label,
+  selected,
+  onChange,
+  selectedClass = "border-[#E040D0]/45 bg-[#E040D0]/12 text-[#B830A8] shadow-[0_12px_26px_rgba(224,64,208,0.10)]",
+}: {
+  name: string;
+  value: string;
+  label: string;
+  selected: boolean;
+  onChange: () => void;
+  selectedClass?: string;
+}) {
+  return (
+    <label
+      className={`flex min-h-[58px] items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition-all has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-[#E040D0]/45 has-[input:focus-visible]:ring-offset-2 active:scale-[0.99] ${
+        selected
+          ? selectedClass
+          : "border-[rgba(0,0,0,0.08)] bg-bg-card text-text-secondary hover:border-[#E040D0]/30 hover:bg-[#E040D0]/5 hover:text-text-primary"
+      }`}
+    >
+      <input
+        type="radio"
+        name={name}
+        value={value}
+        checked={selected}
+        onChange={onChange}
+        className="sr-only"
+      />
+      <span>{label}</span>
+      <span className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border ${
+        selected ? "border-current bg-current" : "border-[rgba(0,0,0,0.16)]"
+      }`}>
+        {selected && (
+          <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        )}
+      </span>
+    </label>
   );
 }
 
@@ -355,6 +423,16 @@ export default function CheckInPage() {
   const enabledQuestions = config.questions.filter((q) => q.enabled !== false);
   const enabledMetrics = (config.progress_tracking || []).filter((m) => m.enabled);
   const tierInfo = tierCopy[(tier as keyof typeof tierCopy) || "coached"] || tierCopy.coached;
+  const effectiveCheckinDay = checkinDay || config.checkin_day || null;
+  const nextCheckinDate = getCheckinDueDate(effectiveCheckinDay);
+  const checkinOverdue = !currentWeekSubmitted && nextCheckinDate.getTime() < new Date(new Date().setHours(0, 0, 0, 0)).getTime();
+  const dueLabel = currentWeekSubmitted
+    ? "Submitted this week"
+    : isToday(nextCheckinDate)
+      ? "Due today"
+      : checkinOverdue
+        ? `Overdue since ${nextCheckinDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}`
+      : `Next due ${nextCheckinDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}`;
 
   return (
     <div className="max-w-2xl pb-28 sm:pb-0">
@@ -375,7 +453,8 @@ export default function CheckInPage() {
       <div className="mb-6 grid gap-3 sm:grid-cols-2">
         <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-4">
           <div className="text-[11px] uppercase tracking-[0.16em] text-text-muted">Check-in Rhythm</div>
-          <div className="mt-2 text-lg font-heading font-bold text-text-primary">{formatDay(checkinDay)}</div>
+          <div className="mt-2 text-lg font-heading font-bold text-text-primary">{formatDay(effectiveCheckinDay)}</div>
+          <div className="mt-1 text-sm font-semibold text-[#E040D0]">{dueLabel}</div>
           <div className="mt-1 text-sm text-text-secondary">{tierInfo.rhythm}</div>
         </div>
         <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-4">
@@ -445,25 +524,22 @@ export default function CheckInPage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Mood */}
         {config.mood_enabled && config.mood_options.length > 0 && (
-          <div>
-            <label className="block text-sm font-medium text-text-primary mb-3">How are you feeling this week?</label>
+          <fieldset className="rounded-[28px] border border-[#E040D0]/15 bg-bg-card p-5 shadow-[0_14px_34px_rgba(10,10,10,0.06)]">
+            <legend className="mb-3 block text-[13px] font-bold uppercase tracking-[0.16em] text-[#E040D0]">How are you feeling this week?</legend>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {config.mood_options.map((m) => (
-                <button
+                <ChoiceButton
                   key={m.value}
-                  type="button"
-                  onClick={() => setMood(m.value)}
-                  className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all cursor-pointer ${
-                    mood === m.value
-                      ? (moodColorMap[m.color] || "border-accent/30 bg-accent/10 text-accent-bright")
-                      : "border-[rgba(0,0,0,0.08)] text-text-muted hover:border-[rgba(0,0,0,0.1)]"
-                  }`}
-                >
-                  {m.label}
-                </button>
+                  name="weekly_mood"
+                  value={m.value}
+                  onChange={() => setMood(m.value)}
+                  selected={mood === m.value}
+                  selectedClass={moodColorMap[m.color] || "border-accent/30 bg-accent/10 text-accent-bright"}
+                  label={m.label}
+                />
               ))}
             </div>
-          </div>
+          </fieldset>
         )}
 
         {/* Progress Photos */}
@@ -477,25 +553,21 @@ export default function CheckInPage() {
           if (q.id === "photos") return null; // handled by PhotoUpload above
           if (q.type === "select" && q.options?.length) {
             return (
-              <div key={q.id}>
-                <label className="block text-sm font-medium text-text-primary mb-2">{q.label}</label>
-                <div className="flex gap-2 flex-wrap">
+              <fieldset key={q.id} className="rounded-[28px] border border-[#E040D0]/12 bg-bg-card p-5 shadow-[0_14px_34px_rgba(10,10,10,0.05)]">
+                <legend className="mb-3 block text-sm font-bold text-text-primary">{q.label}</legend>
+                <div className="grid gap-3 sm:grid-cols-3">
                   {q.options.map((opt) => (
-                    <button
+                    <ChoiceButton
                       key={opt}
-                      type="button"
-                      onClick={() => setResponses((prev) => ({ ...prev, [q.id]: opt }))}
-                      className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all cursor-pointer ${
-                        responses[q.id] === opt
-                          ? "bg-[#E040D0]/10 border-[#E040D0]/40 text-[#E040D0]"
-                          : "border-[rgba(0,0,0,0.08)] text-text-muted hover:border-[rgba(0,0,0,0.12)]"
-                      }`}
-                    >
-                      {opt}
-                    </button>
+                      name={`question_${q.id}`}
+                      value={opt}
+                      onChange={() => setResponses((prev) => ({ ...prev, [q.id]: opt }))}
+                      selected={responses[q.id] === opt}
+                      label={opt}
+                    />
                   ))}
                 </div>
-              </div>
+              </fieldset>
             );
           }
           return (
@@ -514,15 +586,15 @@ export default function CheckInPage() {
 
         {/* Progress Tracking */}
         {enabledMetrics.length > 0 && (
-          <div>
-            <div className="text-sm font-medium text-text-primary mb-4">Progress Tracking</div>
-            <div className="space-y-5">
+          <section className="rounded-[28px] border border-[#E040D0]/12 bg-bg-card p-5 shadow-[0_14px_34px_rgba(10,10,10,0.05)]">
+            <div className="mb-4 text-[13px] font-bold uppercase tracking-[0.16em] text-[#E040D0]">Progress Tracking</div>
+            <div className="space-y-3">
               {enabledMetrics.map((m) => (
-                <div key={m.id}>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
+                <fieldset key={m.id} className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-[linear-gradient(135deg,rgba(224,64,208,0.055),rgba(245,158,11,0.025))] px-3 py-3">
+                  <legend className="px-1 text-sm font-bold text-text-primary">
                     {m.label}
                     {m.unit && <span className="text-text-muted font-normal ml-1">({m.unit})</span>}
-                  </label>
+                  </legend>
                   {m.type === "scale" ? (
                     <ScaleInput
                       metric={m}
@@ -550,10 +622,10 @@ export default function CheckInPage() {
                       className="w-full bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40 transition-colors"
                     />
                   )}
-                </div>
+                </fieldset>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
         {/* Extra support fields are enabled by the client's assigned setup. */}
