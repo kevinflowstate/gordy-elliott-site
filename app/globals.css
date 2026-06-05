@@ -64,16 +64,23 @@ body {
   width: 100%;
   max-width: min(100%, 72rem);
   overflow-x: clip;
+  isolation: isolate;
 }
 
 @media (max-width: 767px) {
+  .portal-main {
+    min-width: 0;
+  }
+
   .portal-page-frame {
     padding-left: 1rem;
     padding-right: 1rem;
+    min-width: 0;
   }
 
   .portal-page-frame > * {
     max-width: 100%;
+    min-width: 0;
   }
 
   .portal-page-frame input,
@@ -83,6 +90,44 @@ body {
   .portal-page-frame a {
     max-width: 100%;
   }
+}
+
+/* SHIFT AI composer: pin text to an explicit dark value (never the theme
+   variable, which flips to #fff inside the portal's .dark wrapper and would
+   sit invisibly on the white input background). The .dark override below
+   handles the portal's dark input; this base keeps admin + any fallback
+   readable as dark-on-white. */
+.shift-ai-input {
+  color: #1a1a1a !important;
+  background-color: rgba(255, 255, 255, 0.96) !important;
+  caret-color: var(--color-accent) !important;
+  -webkit-text-fill-color: #1a1a1a !important;
+}
+
+.shift-ai-input::placeholder {
+  color: #666666 !important;
+  opacity: 0.9;
+  -webkit-text-fill-color: #666666 !important;
+}
+
+.shift-ai-input:focus {
+  background-color: #ffffff !important;
+  color: #1a1a1a !important;
+  -webkit-text-fill-color: #1a1a1a !important;
+}
+
+.shift-ai-input:disabled {
+  color: #666666 !important;
+  background-color: rgba(0, 0, 0, 0.04) !important;
+  -webkit-text-fill-color: #666666 !important;
+}
+
+.shift-ai-input:-webkit-autofill,
+.shift-ai-input:-webkit-autofill:hover,
+.shift-ai-input:-webkit-autofill:focus {
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #1a1a1a !important;
+  caret-color: var(--color-accent) !important;
 }
 
 /* Bump all small text to minimum 13px across admin + portal */
@@ -240,6 +285,30 @@ body {
 }
 .dark input::placeholder, .dark textarea::placeholder {
   color: #7a7e94 !important;
+}
+
+.dark textarea.shift-ai-input {
+  background-color: #1A1A1A !important;
+  color: #ffffff !important;
+  caret-color: var(--color-accent) !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+.dark textarea.shift-ai-input::placeholder {
+  color: #7a7e94 !important;
+  -webkit-text-fill-color: #7a7e94 !important;
+}
+
+.dark textarea.shift-ai-input:focus {
+  background-color: #151515 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+.dark textarea.shift-ai-input:disabled {
+  background-color: #111111 !important;
+  color: #7a7e94 !important;
+  -webkit-text-fill-color: #7a7e94 !important;
 }
 
 /* Dark mode: mobile nav */

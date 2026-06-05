@@ -47,7 +47,7 @@ function scoreEntry(entry: {
 
 function ScalePills({ label, value, onChange, lowGood = false }: { label: string; value: number | ""; onChange: (value: number) => void; lowGood?: boolean }) {
   return (
-    <div>
+    <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary p-4">
       <div className="mb-2 flex items-center justify-between gap-3">
         <label className="text-sm font-semibold text-text-primary">{label}</label>
         <span className="text-xs font-semibold text-text-muted">{value || "Tap 1-10"}</span>
@@ -74,6 +74,18 @@ function ScalePills({ label, value, onChange, lowGood = false }: { label: string
         })}
       </div>
     </div>
+  );
+}
+
+function TrackerCard({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-[28px] border border-[rgba(0,0,0,0.06)] bg-bg-card p-5 sm:p-6">
+      <div className="mb-4">
+        <h2 className="font-heading text-lg font-bold text-text-primary">{title}</h2>
+        {hint && <p className="mt-1 text-sm text-text-secondary">{hint}</p>}
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -170,49 +182,55 @@ export default function DailyTrackerPage() {
         </div>
       </div>
 
-      <section className="rounded-[28px] border border-[rgba(0,0,0,0.06)] bg-bg-card p-5 sm:p-6">
-        <div className="grid gap-4 sm:grid-cols-2">
+      <TrackerCard title="Today's basics" hint="The quick numbers first.">
+        <div className="space-y-4">
           <label className="block">
             <span className="mb-2 block text-sm font-semibold text-text-primary">Date</span>
             <input
               type="date"
               value={form.tracked_date}
               onChange={(e) => setForm((prev) => ({ ...prev, tracked_date: e.target.value }))}
-              className="w-full rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-text-primary outline-none focus:border-accent/50"
+              className="w-full max-w-[220px] rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-text-primary outline-none focus:border-accent/50"
             />
           </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-text-primary">Sleep hours</span>
-            <input
-              inputMode="decimal"
-              value={form.sleep_hours}
-              onChange={(e) => setForm((prev) => ({ ...prev, sleep_hours: e.target.value }))}
-              placeholder="e.g. 7.5"
-              className="w-full rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-text-primary outline-none placeholder:text-text-muted focus:border-accent/50"
-            />
-          </label>
-          <label className="block sm:col-span-2">
-            <span className="mb-2 block text-sm font-semibold text-text-primary">Water litres</span>
-            <input
-              inputMode="decimal"
-              value={form.water_liters}
-              onChange={(e) => setForm((prev) => ({ ...prev, water_liters: e.target.value }))}
-              placeholder="e.g. 2.5"
-              className="w-full rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-text-primary outline-none placeholder:text-text-muted focus:border-accent/50"
-            />
-          </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-text-primary">Sleep hours</span>
+              <input
+                inputMode="decimal"
+                value={form.sleep_hours}
+                onChange={(e) => setForm((prev) => ({ ...prev, sleep_hours: e.target.value }))}
+                placeholder="e.g. 7.5"
+                className="w-full rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-text-primary outline-none placeholder:text-text-muted focus:border-accent/50"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-text-primary">Water litres</span>
+              <input
+                inputMode="decimal"
+                value={form.water_liters}
+                onChange={(e) => setForm((prev) => ({ ...prev, water_liters: e.target.value }))}
+                placeholder="e.g. 2.5"
+                className="w-full rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-text-primary outline-none placeholder:text-text-muted focus:border-accent/50"
+              />
+            </label>
+          </div>
         </div>
+      </TrackerCard>
 
-        <div className="mt-6 space-y-5">
+      <TrackerCard title="How you're feeling" hint="Tap a number on each scale.">
+        <div className="space-y-4">
           <ScalePills label="Energy" value={form.energy_level} onChange={(value) => setForm((prev) => ({ ...prev, energy_level: value }))} />
           <ScalePills label="Stress" value={form.stress_level} lowGood onChange={(value) => setForm((prev) => ({ ...prev, stress_level: value }))} />
           <ScalePills label="Nutrition" value={form.nutrition_score} onChange={(value) => setForm((prev) => ({ ...prev, nutrition_score: value }))} />
         </div>
+      </TrackerCard>
 
+      <TrackerCard title="Training">
         <button
           type="button"
           onClick={() => setForm((prev) => ({ ...prev, training_completed: !prev.training_completed }))}
-          className={`mt-6 w-full rounded-2xl border px-4 py-4 text-left transition-colors ${
+          className={`w-full rounded-2xl border px-4 py-4 text-left transition-colors ${
             form.training_completed
               ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
               : "border-[rgba(0,0,0,0.08)] bg-bg-primary text-text-primary"
@@ -221,27 +239,26 @@ export default function DailyTrackerPage() {
           <span className="block text-sm font-semibold">{form.training_completed ? "Training done today" : "Training not logged today"}</span>
           <span className="mt-1 block text-xs text-text-secondary">Tap to toggle. This is separate from detailed session logging.</span>
         </button>
+      </TrackerCard>
 
-        <label className="mt-6 block">
-          <span className="mb-2 block text-sm font-semibold text-text-primary">Notes</span>
-          <textarea
-            rows={4}
-            value={form.notes}
-            onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-            placeholder="Anything that explains the numbers?"
-            className="w-full resize-none rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-text-primary outline-none placeholder:text-text-muted focus:border-accent/50"
-          />
-        </label>
+      <TrackerCard title="Notes">
+        <textarea
+          rows={4}
+          value={form.notes}
+          onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
+          placeholder="Anything that explains the numbers?"
+          className="w-full resize-none rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-text-primary outline-none placeholder:text-text-muted focus:border-accent/50"
+        />
+      </TrackerCard>
 
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving}
-          className="mt-6 w-full rounded-2xl gradient-accent px-5 py-4 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
-        >
-          <CyclingStatusText active={saving} idle="Save daily tracker" messages={["Saving...", "Updating today...", "Checking streak...", "Nearly there..."]} />
-        </button>
-      </section>
+      <button
+        type="button"
+        onClick={save}
+        disabled={saving}
+        className="w-full rounded-2xl gradient-accent px-5 py-4 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
+      >
+        <CyclingStatusText active={saving} idle="Save daily tracker" messages={["Saving...", "Updating today...", "Checking streak...", "Nearly there..."]} />
+      </button>
 
       <section className="rounded-[28px] border border-[rgba(0,0,0,0.06)] bg-bg-card p-5 sm:p-6">
         <div className="mb-4 flex items-center justify-between gap-3">
