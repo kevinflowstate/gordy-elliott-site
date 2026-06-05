@@ -84,7 +84,7 @@ export default function PortalNutritionPlanPage() {
       .then(([planData, quickData]) => {
         setPlan(planData.plan);
         setTracking(planData.tracking || []);
-        setQuickMeals(planData.quickMeals || []);
+        setQuickMeals(quickData.quickMeals || planData.quickMeals || []);
         setSavedMeals(quickData.savedMeals || []);
       })
       .catch(console.error)
@@ -118,35 +118,6 @@ export default function PortalNutritionPlanPage() {
       d.setDate(d.getDate() + delta);
       return d;
     });
-  };
-
-  const toggleMeal = async (mealId: string) => {
-    setToggling(mealId);
-    const current = tracking.find((t) => t.meal_id === mealId);
-    const newCompleted = !current?.completed;
-    try {
-      const res = await fetch("/api/portal/meal-tracking", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meal_id: mealId, completed: newCompleted, date: dateStr }),
-      });
-      if (!res.ok) {
-        toast("Couldn't update that meal. Try again in a moment.", "error");
-        return;
-      }
-      const data = await res.json();
-      if (data.tracking) {
-        setTracking((prev) => {
-          const filtered = prev.filter((t) => t.meal_id !== mealId);
-          return [...filtered, data.tracking];
-        });
-      }
-    } catch (err) {
-      console.error("Failed to toggle meal:", err);
-      toast("Couldn't update that meal. Check your connection.", "error");
-    } finally {
-      setToggling(null);
-    }
   };
 
   const toggleQuickMeal = async (qm: QuickMeal) => {
@@ -273,6 +244,10 @@ export default function PortalNutritionPlanPage() {
     if (!qName.trim()) return;
     setQSubmitting(true);
     try {
+      const isMfpTotals = qName.trim().toLowerCase() === "myfitnesspal totals";
+      const existingMfpTotals = isMfpTotals
+        ? quickMeals.filter((meal) => meal.name.trim().toLowerCase() === "myfitnesspal totals")
+        : [];
       const res = await fetch("/api/portal/quick-meals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -292,7 +267,20 @@ export default function PortalNutritionPlanPage() {
       }
       const data = await res.json();
       if (data.quickMeal) {
-        setQuickMeals((prev) => [...prev, data.quickMeal]);
+        const deletedIds: string[] = [];
+        for (const meal of existingMfpTotals) {
+          const deleteRes = await fetch("/api/portal/quick-meals", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: meal.id, type: "quick" }),
+          });
+          if (deleteRes.ok) {
+            deletedIds.push(meal.id);
+          } else {
+            toast("New MyFitnessPal totals saved, but the old total could not be removed. Refresh and remove the duplicate if needed.", "error");
+          }
+        }
+        setQuickMeals((prev) => [...prev.filter((meal) => !deletedIds.includes(meal.id)), data.quickMeal]);
         setQName(""); setQCalories(""); setQProtein(""); setQCarbs(""); setQFat(""); setQSave(false);
         setShowManualAdd(false);
         if (qSave) {
@@ -307,6 +295,35 @@ export default function PortalNutritionPlanPage() {
       toast("Couldn't add that meal. Check your connection.", "error");
     } finally {
       setQSubmitting(false);
+    }
+  };
+
+  const toggleMeal = async (mealId: string) => {
+    setToggling(mealId);
+    const current = tracking.find((t) => t.meal_id === mealId);
+    const newCompleted = !current?.completed;
+    try {
+      const res = await fetch("/api/portal/meal-tracking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meal_id: mealId, completed: newCompleted, date: dateStr }),
+      });
+      if (!res.ok) {
+        toast("Couldn't update that meal. Try again in a moment.", "error");
+        return;
+      }
+      const data = await res.json();
+      if (data.tracking) {
+        setTracking((prev) => {
+          const filtered = prev.filter((t) => t.meal_id !== mealId);
+          return [...filtered, data.tracking];
+        });
+      }
+    } catch (err) {
+      console.error("Failed to toggle meal:", err);
+      toast("Couldn't update that meal. Check your connection.", "error");
+    } finally {
+      setToggling(null);
     }
   };
 
@@ -345,6 +362,17 @@ export default function PortalNutritionPlanPage() {
     fetchData();
   };
 
+  const openMfpTotals = () => {
+    setQName("MyFitnessPal totals");
+    setQCalories("");
+    setQProtein("");
+    setQCarbs("");
+    setQFat("");
+    setQSave(false);
+    setShowManualAdd(true);
+    setShowFoodBrowser(false);
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -356,22 +384,12 @@ export default function PortalNutritionPlanPage() {
     );
   }
 
-  // Calculate consumed macros from completed assigned meals
+  // MFP totals are the preferred whole-day signal; assigned meals still count
+  // when the client uses Gordy's meal checklist instead of copying MFP totals.
   let consumedCalories = 0, consumedProtein = 0, consumedCarbs = 0, consumedFat = 0;
-  if (plan) {
-    for (const meal of plan.meals) {
-      const isCompleted = tracking.find((t) => t.meal_id === meal.id)?.completed;
-      if (isCompleted) {
-        const macros = calcMealMacros(meal);
-        consumedCalories += macros.calories;
-        consumedProtein += macros.protein;
-        consumedCarbs += macros.carbs;
-        consumedFat += macros.fat;
-      }
-    }
-  }
-
-  // Add completed quick meals to consumed totals
+  const hasCompletedMfpTotals = quickMeals.some(
+    (meal) => meal.completed && meal.name.trim().toLowerCase() === "myfitnesspal totals",
+  );
   for (const qm of quickMeals) {
     if (qm.completed) {
       consumedCalories += Number(qm.calories);
@@ -380,27 +398,39 @@ export default function PortalNutritionPlanPage() {
       consumedFat += Number(qm.fat_g);
     }
   }
+  if (!hasCompletedMfpTotals && plan?.meals.length) {
+    for (const meal of plan.meals) {
+      const completed = tracking.some((t) => t.meal_id === meal.id && t.completed);
+      if (!completed) continue;
+      const macros = calcMealMacros(meal);
+      consumedCalories += macros.calories;
+      consumedProtein += macros.protein;
+      consumedCarbs += macros.carbs;
+      consumedFat += macros.fat;
+    }
+  }
 
-  const assignedCompleted = tracking.filter((t) => t.completed).length;
-  const quickCompleted = quickMeals.filter((q) => q.completed).length;
-  const totalMeals = (plan?.meals.length || 0) + quickMeals.length;
-  const totalCompleted = assignedCompleted + quickCompleted;
+  const hasResettableEntries = quickMeals.some((meal) => meal.completed) || tracking.some((t) => t.completed);
 
-  const targetCalories = plan?.target_calories || 2000;
-  const targetProtein = plan?.target_protein_g || 150;
-  const targetCarbs = plan?.target_carbs_g || 200;
-  const targetFat = plan?.target_fat_g || 65;
+  const hasAnyTargets = Boolean(plan?.target_calories || plan?.target_protein_g || plan?.target_carbs_g || plan?.target_fat_g);
+  const hasCompleteTargets = Boolean(plan?.target_calories && plan?.target_protein_g && plan?.target_carbs_g && plan?.target_fat_g);
+  const targetCalories = plan?.target_calories || 0;
+  const targetProtein = plan?.target_protein_g || 0;
+  const targetCarbs = plan?.target_carbs_g || 0;
+  const targetFat = plan?.target_fat_g || 0;
+  const entryHeading = isToday(selectedDate) ? "Today's MFP entries" : `${formatDateDisplay(selectedDate)} MFP entries`;
 
   return (
     <div className="p-4 pb-20 sm:p-6 max-w-lg mx-auto">
       <div className="mb-6 rounded-3xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-4">
-        {/* Header row with dashboard + AI shortcuts */}
-        <div className="mb-4 flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
-          <Link href="/portal" className="no-underline hover:text-text-primary">← Dashboard</Link>
-          <Link href="/portal/ai" className="rounded-full border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] bg-bg-primary px-3 py-1 text-text-secondary no-underline hover:text-text-primary hover:border-[#E040D0]/30">
-            Ask about a swap
+        <nav className="mb-4 grid grid-cols-2 gap-1 rounded-2xl border border-[#E040D0]/12 bg-[rgba(224,64,208,0.06)] p-1 text-[11px] font-bold uppercase tracking-[0.14em]" aria-label="Nutrition shortcuts">
+          <Link href="/portal" className="rounded-xl bg-bg-card px-3 py-2 text-center text-[#B830A8] no-underline shadow-sm">
+            Dashboard
           </Link>
-        </div>
+          <Link href="/portal/ai" className="rounded-xl px-3 py-2 text-center text-text-secondary no-underline transition-colors hover:bg-bg-card hover:text-[#B830A8]">
+            Ask About A Swap
+          </Link>
+        </nav>
 
         {/* Date Navigator */}
         <div className="flex items-center justify-between">
@@ -436,34 +466,87 @@ export default function PortalNutritionPlanPage() {
         </div>
       </div>
 
-      {/* Macro Chart - always visible */}
-      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] rounded-2xl p-6 mb-6">
-        <MacroDonutChart
-          targetCalories={targetCalories}
-          consumedCalories={consumedCalories}
-          protein={{ target: targetProtein, consumed: consumedProtein }}
-          carbs={{ target: targetCarbs, consumed: consumedCarbs }}
-          fat={{ target: targetFat, consumed: consumedFat }}
-        />
-        {totalMeals > 0 && (
-          <div className="text-center mt-4">
-            <span className="text-[13px] text-text-secondary">
-              {totalCompleted} of {totalMeals} meals completed
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Coach's Assigned Meals */}
-      {plan && plan.meals.length > 0 && (
-        <div className="mb-6">
-          <div className="mb-3 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-4 py-3">
-            <div>
-              <h2 className="text-[14px] font-semibold text-text-secondary uppercase tracking-wider">Today&apos;s plan from Gordy</h2>
-              <p className="text-[11px] text-text-muted mt-0.5">Tick meals off as you eat them. Close to plan &gt; chasing perfect.</p>
+      <section className="mb-6 overflow-hidden rounded-[28px] border border-[#E040D0]/15 bg-bg-card shadow-[0_18px_44px_rgba(10,10,10,0.08)]">
+        <div className="border-b border-[rgba(0,0,0,0.06)] bg-[linear-gradient(135deg,rgba(224,64,208,0.10),rgba(245,158,11,0.06))] px-5 py-4">
+          <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#E040D0]">Targets dashboard</div>
+          <p className="mt-1 text-sm text-text-secondary">
+            Use MyFitnessPal for food tracking, then copy your daily totals here so Gordy can see the nutrition signal.
+          </p>
+        </div>
+        <div className="p-5">
+          {hasCompleteTargets ? (
+            <MacroDonutChart
+              targetCalories={targetCalories}
+              consumedCalories={consumedCalories}
+              protein={{ target: targetProtein, consumed: consumedProtein }}
+              carbs={{ target: targetCarbs, consumed: consumedCarbs }}
+              fat={{ target: targetFat, consumed: consumedFat }}
+            />
+          ) : hasAnyTargets ? (
+            <div className="rounded-2xl border border-[#E040D0]/15 bg-[#E040D0]/6 px-4 py-5">
+              <p className="font-semibold text-text-primary">Targets set where available</p>
+              <p className="mt-1 text-sm text-text-secondary">Only showing goals Gordy has actually set. No missing macros are estimated.</p>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                {plan?.target_calories && (
+                  <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-muted">Calories</div>
+                    <div className="text-lg font-heading font-bold text-text-primary">{targetCalories.toLocaleString()}</div>
+                  </div>
+                )}
+                {plan?.target_protein_g && (
+                  <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-muted">Protein</div>
+                    <div className="text-lg font-heading font-bold text-blue-500">{Math.round(targetProtein)}g</div>
+                  </div>
+                )}
+                {plan?.target_carbs_g && (
+                  <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-muted">Carbs</div>
+                    <div className="text-lg font-heading font-bold text-[#E040D0]">{Math.round(targetCarbs)}g</div>
+                  </div>
+                )}
+                {plan?.target_fat_g && (
+                  <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-muted">Fat</div>
+                    <div className="text-lg font-heading font-bold text-red-500">{Math.round(targetFat)}g</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-[#E040D0]/20 bg-[#E040D0]/6 px-4 py-6 text-center">
+              <p className="font-semibold text-text-primary">Nutrition targets pending</p>
+              <p className="mt-1 text-sm text-text-secondary">You can still log your MyFitnessPal totals. Gordy can add calorie and protein targets later.</p>
+            </div>
+          )}
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-text-muted">Calories</div>
+              <div className="mt-1 text-xl font-heading font-bold text-text-primary">{Math.round(consumedCalories).toLocaleString()}</div>
+              {plan?.target_calories ? <div className="text-xs text-text-secondary">of {targetCalories.toLocaleString()} kcal</div> : <div className="text-xs text-text-secondary">target not set</div>}
+            </div>
+            <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-text-muted">Protein</div>
+              <div className="mt-1 text-xl font-heading font-bold text-blue-500">{Math.round(consumedProtein)}g</div>
+              {plan?.target_protein_g ? <div className="text-xs text-text-secondary">of {Math.round(targetProtein)}g</div> : <div className="text-xs text-text-secondary">target not set</div>}
             </div>
           </div>
-          <div className="space-y-3">
+          <button
+            onClick={openMfpTotals}
+            className="mt-5 w-full rounded-2xl gradient-accent px-4 py-3.5 text-sm font-bold text-white shadow-[0_16px_32px_rgba(224,64,208,0.22)]"
+          >
+            Log MyFitnessPal totals
+          </button>
+        </div>
+      </section>
+
+      {plan && plan.meals.length > 0 && (
+        <details className="mb-6 rounded-[28px] border border-[rgba(0,0,0,0.06)] bg-bg-card shadow-[0_14px_34px_rgba(10,10,10,0.06)]">
+          <summary className="cursor-pointer px-5 py-4">
+            <span className="block text-[14px] font-semibold uppercase tracking-wider text-text-secondary">Assigned meals from Gordy</span>
+            <span className="mt-1 block text-[11px] text-text-muted">Only appears when a real plan exists. MFP totals remain the main daily signal.</span>
+          </summary>
+          <div className="space-y-3 border-t border-[rgba(0,0,0,0.06)] px-4 pb-4 pt-3">
             {plan.meals.map((meal) => {
               const isCompleted = tracking.find((t) => t.meal_id === meal.id)?.completed || false;
               const isLoading = toggling === meal.id;
@@ -472,81 +555,74 @@ export default function PortalNutritionPlanPage() {
               return (
                 <div
                   key={meal.id}
-                  className={`bg-bg-card/80 backdrop-blur-sm border rounded-2xl overflow-hidden transition-all ${
+                  className={`overflow-hidden rounded-2xl border bg-bg-primary transition-all ${
                     isCompleted
                       ? "border-green-500/30 bg-green-500/5"
                       : "border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)]"
                   }`}
                 >
                   <div className="flex items-center gap-3 p-4">
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0 flex-1">
                       <h3 className={`font-semibold ${isCompleted ? "text-green-600 dark:text-green-400" : "text-text-primary"}`}>
                         {meal.name}
                       </h3>
-                      <div className="flex gap-3 mt-0.5">
-                        <span className="text-[13px] text-text-secondary font-medium">{macros.calories} kcal</span>
+                      <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1">
+                        <span className="text-[13px] font-medium text-text-secondary">{macros.calories} kcal</span>
                         <span className="text-[13px] text-blue-500">{Math.round(macros.protein)}g P</span>
-                        <span className="text-[13px] text-accent-bright">{Math.round(macros.carbs)}g C</span>
+                        <span className="text-[13px] text-[#B830A8]">{Math.round(macros.carbs)}g C</span>
                         <span className="text-[13px] text-red-500">{Math.round(macros.fat)}g F</span>
                       </div>
                     </div>
-                    {/* Explicit checkbox - only interaction that toggles completion */}
                     <button
                       onClick={() => !isLoading && toggleMeal(meal.id)}
                       disabled={isLoading}
-                      aria-label={isCompleted ? "Mark meal as incomplete" : "Log this meal"}
-                      className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl border transition-all cursor-pointer ${
+                      aria-label={isCompleted ? `Mark ${meal.name} incomplete` : `Mark ${meal.name} complete`}
+                      className={`flex flex-shrink-0 items-center gap-2 rounded-xl border px-3 py-2 transition-all ${
                         isCompleted
-                          ? "bg-green-500/15 border-green-500/30 text-green-600 dark:text-green-400"
-                          : "border-[rgba(0,0,0,0.12)] dark:border-[rgba(255,255,255,0.15)] text-text-secondary hover:border-green-500/40 hover:text-green-600 dark:hover:text-green-400"
+                          ? "border-green-500/30 bg-green-500/15 text-green-600 dark:text-green-400"
+                          : "border-[rgba(0,0,0,0.12)] text-text-secondary hover:border-green-500/40 hover:text-green-600"
                       } ${isLoading ? "opacity-50" : ""}`}
                     >
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                        isCompleted ? "bg-green-500 border-green-500" : "border-current"
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all ${
+                        isCompleted ? "border-green-500 bg-green-500" : "border-current"
                       }`}>
                         {isCompleted && (
-                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                           </svg>
                         )}
-                      </div>
-                      <span className="text-xs font-semibold whitespace-nowrap">
-                        {isCompleted ? "Eaten" : "I ate this"}
                       </span>
+                      <span className="whitespace-nowrap text-xs font-semibold">{isCompleted ? "Eaten" : "I ate this"}</span>
                     </button>
                   </div>
 
-                  {/* Food items preview */}
-                  <div className="border-t border-[rgba(0,0,0,0.04)] dark:border-[rgba(255,255,255,0.04)]">
-                    {meal.items.map((item: NutritionMealItem) => {
-                      const food = item.food;
-                      if (!food) return null;
-                      const qty = Number(item.quantity) || 1;
-                      return (
-                        <div key={item.id} className="px-4 py-2 flex items-center justify-between border-b border-[rgba(0,0,0,0.02)] dark:border-[rgba(255,255,255,0.02)] last:border-0">
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            {food.photo_url && (
-                              <img src={food.photo_url} alt="" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
-                            )}
-                            <div className="min-w-0">
+                  {meal.items.length > 0 && (
+                    <div className="border-t border-[rgba(0,0,0,0.04)]">
+                      {meal.items.map((item: NutritionMealItem) => {
+                        const food = item.food;
+                        if (!food) return null;
+                        const qty = Number(item.quantity) || 1;
+                        return (
+                          <div key={item.id} className="flex items-center justify-between border-b border-[rgba(0,0,0,0.02)] px-4 py-2 last:border-0">
+                            <div className="min-w-0 flex-1">
                               <span className={`text-[13px] ${isCompleted ? "text-text-secondary line-through" : "text-text-primary"}`}>
                                 {food.name}
                               </span>
-                              <span className="text-[13px] text-text-secondary/60 ml-2">
+                              <span className="ml-2 text-[13px] text-text-secondary/60">
                                 {Math.round(parseGrams(food.serving_size) * qty)}g
                               </span>
                             </div>
+                            <span className="ml-2 flex-shrink-0 text-[13px] text-text-secondary">
+                              {Math.round(food.calories * qty)} kcal
+                            </span>
                           </div>
-                          <span className="text-[13px] text-text-secondary ml-2 flex-shrink-0">
-                            {Math.round(food.calories * qty)} kcal
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   {meal.notes && (
-                    <div className="px-4 py-2 bg-accent-bright/5 text-[13px] text-accent-bright/80 italic">
+                    <div className="border-t border-[#E040D0]/10 bg-[#E040D0]/6 px-4 py-2 text-[13px] italic text-[#E040D0]">
                       {meal.notes}
                     </div>
                   )}
@@ -554,22 +630,28 @@ export default function PortalNutritionPlanPage() {
               );
             })}
           </div>
-        </div>
+        </details>
       )}
 
-      {/* My Tracked Meals (quick meals) */}
+      {/* MyFitnessPal companion entries */}
       <div className="mb-6">
-        <div className="flex items-end justify-between gap-3 mb-3">
+        <div className="mb-3 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-4 py-3">
           <div>
-            <h2 className="text-[14px] font-semibold text-text-secondary uppercase tracking-wider">Anything else you ate</h2>
-            <p className="text-[11px] text-text-muted mt-0.5">Off-plan food still counts. Log it honestly so macros stay real.</p>
+            <h2 className="text-[14px] font-semibold text-text-secondary uppercase tracking-wider">{entryHeading}</h2>
+            <p className="text-[11px] text-text-muted mt-0.5">One copied MFP total is enough. Add quick foods only when you need a rough correction.</p>
           </div>
-          <div className="flex gap-2">
+          <div className="mt-3 flex gap-2">
             <button
-              onClick={() => { setShowFoodBrowser(true); setShowManualAdd(false); }}
+              onClick={openMfpTotals}
               className="text-[12px] px-3 py-1.5 rounded-xl gradient-accent text-white font-semibold cursor-pointer"
             >
-              + Add Food
+              + MFP Totals
+            </button>
+            <button
+              onClick={() => { setShowFoodBrowser(true); setShowManualAdd(false); }}
+              className="text-[12px] px-3 py-1.5 rounded-xl border border-[#E040D0]/30 bg-[#E040D0]/10 text-[#F060E0] font-semibold cursor-pointer"
+            >
+              Add Food
             </button>
           </div>
         </div>
@@ -594,6 +676,7 @@ export default function PortalNutritionPlanPage() {
                     <button
                       onClick={() => toggleQuickMeal(qm)}
                       disabled={isLoading}
+                      aria-label={isCompleted ? `Mark ${qm.name} incomplete` : `Mark ${qm.name} complete`}
                       className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all cursor-pointer ${
                         isCompleted
                           ? "bg-green-500 border-green-500"
@@ -619,6 +702,7 @@ export default function PortalNutritionPlanPage() {
                     </div>
                     <button
                       onClick={() => deleteQuickMeal(qm.id)}
+                      aria-label={`Delete ${qm.name}`}
                       className="p-1.5 text-text-secondary/30 hover:text-red-400 transition-colors cursor-pointer"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -632,13 +716,13 @@ export default function PortalNutritionPlanPage() {
           </div>
         )}
 
-        {quickMeals.length === 0 && !plan && (
+        {quickMeals.length === 0 && (
           <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] rounded-2xl p-8 text-center mb-3">
             <svg className="w-12 h-12 mx-auto mb-3 text-text-secondary/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8.25v-1.5m0 1.5c-1.355 0-2.697.056-4.024.166C6.845 8.51 6 9.473 6 10.608v2.513m6-4.871c1.355 0 2.697.056 4.024.166C17.155 8.51 18 9.473 18 10.608v2.513M15 9.75l-3-3m0 0l-3 3m3-3v12" />
             </svg>
-            <p className="text-text-primary font-semibold">Log it, don&apos;t guess it.</p>
-            <p className="text-text-secondary/70 text-[13px] mt-1">Tap Add Food. Even rough counts beat a blank day — Gordy can course-correct from real data, not vibes.</p>
+            <p className="text-text-primary font-semibold">{isToday(selectedDate) ? "Copy today's MyFitnessPal totals." : "Copy this date's MyFitnessPal totals."}</p>
+            <p className="text-text-secondary/70 text-[13px] mt-1">Calories and protein are the main signal. Carbs and fats help when you have them.</p>
           </div>
         )}
       </div>
@@ -786,12 +870,12 @@ export default function PortalNutritionPlanPage() {
       {showManualAdd && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowManualAdd(false)}>
           <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-5 w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-text-primary mb-1">Quick log</h3>
-            <p className="text-[12px] text-text-muted mb-4">Best guess macros beat no macros. Save as a preset if you eat it often.</p>
+            <h3 className="text-lg font-bold text-text-primary mb-1">Log MyFitnessPal totals</h3>
+            <p className="text-[12px] text-text-muted mb-4">Copy the totals from MFP at the end of the day. Calories and protein matter most.</p>
             <div className="space-y-3">
               <input
                 type="text"
-                placeholder="Meal name (e.g. Protein Shake)"
+                placeholder="Entry name"
                 value={qName}
                 onChange={(e) => setQName(e.target.value)}
                 className="w-full px-3 py-2.5 rounded-xl border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] bg-transparent text-text-primary text-[13px] placeholder:text-text-secondary/50 focus:outline-none focus:border-accent-bright/40"
@@ -820,7 +904,7 @@ export default function PortalNutritionPlanPage() {
               </div>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={qSave} onChange={(e) => setQSave(e.target.checked)} className="w-4 h-4 rounded accent-accent-bright" />
-                <span className="text-[12px] text-text-secondary">Save for later</span>
+                <span className="text-[12px] text-text-secondary">Save as a reusable preset</span>
               </label>
               <div className="flex gap-2 pt-1">
                 <button onClick={() => setShowManualAdd(false)} className="flex-1 py-2.5 text-[13px] text-text-secondary cursor-pointer">Cancel</button>
@@ -838,7 +922,7 @@ export default function PortalNutritionPlanPage() {
       )}
 
       {/* Reset Day */}
-      {(totalMeals > 0) && (
+      {hasResettableEntries && (
         <div className="text-center">
           <button
             onClick={resetDay}

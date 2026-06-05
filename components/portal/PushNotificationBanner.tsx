@@ -68,11 +68,11 @@ export default function PushNotificationBanner() {
   // Show install banner if not standalone and not dismissed
   if (!installDismissed && !standalone && !installed) {
     return (
-      <div className="mb-4 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#121212]/90 px-4 py-3 shadow-lg">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3 min-w-0">
+      <div className="mb-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#121212]/92 px-3 py-2.5 shadow-lg">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2.5">
             <svg
-              className="w-5 h-5 text-accent-light flex-shrink-0 mt-0.5"
+              className="h-4 w-4 flex-shrink-0 text-accent-light"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -84,27 +84,25 @@ export default function PushNotificationBanner() {
                 d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
               />
             </svg>
-            <div>
-              <p className="mb-1 text-sm font-medium text-white">
-                Install this app on your phone
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold leading-tight text-white">
+                Install SHIFT
               </p>
-              <p className="text-xs leading-relaxed text-white/85">
-                Get quick access from your home screen with push notifications and a full-screen experience.
-              </p>
+              <p className="hidden text-xs leading-snug text-white/70 min-[420px]:block">Home-screen shortcut and reminders.</p>
               {showManual && (
-                <div className="text-xs text-accent-light leading-relaxed mt-2 space-y-1">
-                  <p>Tap the <strong>menu</strong> icon in your browser (three dots or three lines), then tap <strong>&quot;Add to Home Screen&quot;</strong> or <strong>&quot;Install App&quot;</strong>.</p>
-                  <p className="text-white/70">If you opened this link from Slack or another app, tap &quot;Open in browser&quot; first.</p>
+                <div className="mt-2 space-y-1 text-xs leading-snug text-accent-light">
+                  <p>Use your browser menu, then Add to Home Screen.</p>
+                  <p className="text-white/70">If this opened in another app, open it in your browser first.</p>
                 </div>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex flex-shrink-0 items-center gap-1.5">
             {canInstall && (
               <button
                 onClick={handleInstall}
                 disabled={loading}
-                className="px-4 py-2 text-sm font-semibold rounded-lg gradient-accent text-white hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
+                className="min-h-9 rounded-xl px-3 py-1.5 text-xs font-semibold text-white gradient-accent transition-opacity hover:opacity-90 disabled:opacity-50 cursor-pointer"
               >
                 {loading ? "Installing..." : "Install"}
               </button>
@@ -153,7 +151,7 @@ export default function PushNotificationBanner() {
         <button
           onClick={handleEnable}
           disabled={loading}
-          className="rounded-xl bg-accent-primary px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50 cursor-pointer"
+          className="rounded-xl gradient-accent px-3 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 cursor-pointer"
         >
           {loading ? "Enabling..." : "Enable"}
         </button>

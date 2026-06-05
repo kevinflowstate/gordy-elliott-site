@@ -42,57 +42,6 @@ const tierDisplay = {
   },
 } as const satisfies Record<Tier, unknown>;
 
-function getQuickAccessCards(tier: Tier, totalPlanItems: number, completedPlanItems: number) {
-  const cards = [
-    {
-      href: "/portal/exercise-plan",
-      title: "Training Plan",
-      description: totalPlanItems > 0 ? `${completedPlanItems}/${totalPlanItems} actions done` : "Open today's session",
-    },
-    {
-      href: "/portal/nutrition-plan",
-      title: "Nutrition",
-      description: "Keep your daily food plan close",
-    },
-    {
-      href: "/portal/daily-tracker",
-      title: "Daily Tracker",
-      description: "Sleep, water, energy, stress",
-    },
-    {
-      href: "/portal/progress",
-      title: "Insights",
-      description: "Recovery, trends, photos, and progress",
-    },
-  ];
-
-  if (tier === "premium" || tier === "vip") {
-    cards.splice(2, 0, {
-      href: "/portal/calendar",
-      title: "Calendar",
-      description: tier === "vip" ? "Stay close to every support touchpoint" : "Keep your week and check-ins visible",
-    });
-  }
-
-  if (tier === "vip") {
-    cards.push({
-      href: "/portal/checkin",
-      title: "Priority Check-in",
-      description: "Log what Gordy needs to review first",
-    });
-  }
-
-  if (tier === "ai_only") {
-    cards.push({
-      href: "/portal/ai",
-      title: "SHIFT AI",
-      description: "Your always-on coaching support",
-    });
-  }
-
-  return cards;
-}
-
 function getNextOccurrence(event: CalendarEvent): Date | null {
   const now = new Date();
   if (event.recurrence === "none") {
@@ -169,10 +118,10 @@ function SectionCard({
   right?: React.ReactNode;
 }) {
   return (
-    <section className="rounded-3xl border border-[#E040D0]/15 bg-bg-card p-5 shadow-[0_12px_32px_rgba(10,10,10,0.06)] sm:p-6">
+    <section className="rounded-[28px] border border-[#E040D0]/18 bg-bg-card/95 p-5 shadow-[0_18px_46px_rgba(10,10,10,0.08)] ring-1 ring-white/60 sm:p-6">
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-heading font-bold text-text-primary">{title}</h2>
+          <h2 className="text-[13px] font-bold uppercase tracking-[0.18em] text-[#E040D0]">{title}</h2>
           {subtitle && <p className="mt-1 text-sm text-text-secondary">{subtitle}</p>}
         </div>
         {right}
@@ -237,6 +186,7 @@ export default function PortalDashboard() {
   const [savingTask, setSavingTask] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [nextEvent, setNextEvent] = useState<{ title: string; date: Date } | null>(null);
 
   const loadDashboard = useCallback(async () => {
     setLoadError(null);
@@ -275,6 +225,30 @@ export default function PortalDashboard() {
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
+
+  // Surface the next calendar event in the hero "Upcoming" tile.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/calendar");
+        if (!res.ok) return;
+        const data = await res.json();
+        const events: CalendarEvent[] = data.events || [];
+        let earliest: { title: string; date: Date } | null = null;
+        for (const candidate of events) {
+          const occurrence = getNextOccurrence(candidate);
+          if (occurrence && (!earliest || occurrence < earliest.date)) {
+            earliest = { title: candidate.title, date: occurrence };
+          }
+        }
+        if (active) setNextEvent(earliest);
+      } catch {
+        /* Upcoming tile falls back to the calendar link. */
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   async function toggleTask(taskId: string, completed: boolean) {
     try {
@@ -333,17 +307,12 @@ export default function PortalDashboard() {
   const completedPlanItems = allPlanItems.filter((item) => item.completed).length;
   const totalPlanItems = allPlanItems.length;
   const planPct = totalPlanItems > 0 ? Math.round((completedPlanItems / totalPlanItems) * 100) : 0;
-  const currentWeek = checkins.length > 0 ? checkins[0].week_number : 1;
   const nextCheckinDate = getNextCheckinDate(checkinDay);
   const checkinToday = isToday(nextCheckinDate);
-  const latestCheckin = checkins[0];
   const latestReply = checkins.find((checkin) => checkin.admin_reply);
   const checkinStreak = useMemo(() => computeCheckinStreak(checkins), [checkins]);
   const tier: Tier = (profile?.tier as Tier) || "coached";
-  const tierInfo = tierDisplay[tier];
-  const quickAccessCards = getQuickAccessCards(tier, totalPlanItems, completedPlanItems);
   const isAiOnly = tier === "ai_only";
-  const isHighTouch = tier === "premium" || tier === "vip";
 
   // Submitted this week? Match check-in API week-start logic (Monday).
   const submittedThisWeek = useMemo(() => {
@@ -357,31 +326,12 @@ export default function PortalDashboard() {
     return checkins.some((c) => new Date(c.created_at).getTime() >= weekStart.getTime());
   }, [checkins]);
 
-  const focusItems = [
-    totalOutstandingTasks > 0
-      ? `${totalOutstandingTasks} task${totalOutstandingTasks === 1 ? "" : "s"} still open`
-      : "Your task list is clear",
-    submittedThisWeek
-      ? `Check-in logged for this week${latestCheckin?.week_number ? ` (Week ${latestCheckin.week_number})` : ""}`
-      : checkinToday
-        ? "Your weekly check-in is due today"
-        : `Next check-in: ${nextCheckinDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}`,
-    totalPlanItems > 0 ? `Training plan is ${planPct}% complete` : "Your training plan is ready to start",
-  ];
-
   if (loading) {
     return <DashboardSkeleton />;
   }
 
-  // Hero styling changes when check-in is due today for high-touch tiers
-  const heroBg = checkinToday && !submittedThisWeek && tier === "vip"
-    ? "bg-[radial-gradient(circle_at_20%_0%,rgba(245,158,11,0.14),transparent_42%),linear-gradient(135deg,rgba(245,158,11,0.07),rgba(224,64,208,0.04)_58%,transparent)] border-amber-500/25"
-    : checkinToday && !submittedThisWeek && tier === "premium"
-      ? "bg-[radial-gradient(circle_at_20%_0%,rgba(14,165,233,0.14),transparent_42%),linear-gradient(135deg,rgba(14,165,233,0.07),rgba(224,64,208,0.04)_58%,transparent)] border-sky-500/25"
-      : "bg-[radial-gradient(circle_at_20%_0%,rgba(224,64,208,0.14),transparent_42%),linear-gradient(135deg,rgba(224,64,208,0.07),rgba(224,64,208,0.035)_58%,transparent)] border-[#E040D0]/15";
-
   return (
-    <div className="space-y-6">
+    <div className="-mx-4 min-h-[calc(100dvh-7rem)] space-y-5 bg-[radial-gradient(circle_at_8%_0%,rgba(224,64,208,0.13),transparent_30%),radial-gradient(circle_at_100%_12%,rgba(245,158,11,0.12),transparent_28%),linear-gradient(180deg,#fff7fc_0%,#fff_36%,#f7f3f5_100%)] px-4 pb-8 pt-1 sm:mx-0 sm:rounded-[32px] sm:p-6">
       {loadError && (
         <div className="flex flex-col gap-3 rounded-3xl border border-amber-500/25 bg-amber-500/8 px-5 py-4 text-sm text-amber-500 sm:flex-row sm:items-center sm:justify-between">
           <div>{loadError}</div>
@@ -394,284 +344,190 @@ export default function PortalDashboard() {
           </button>
         </div>
       )}
-      <section className={`relative overflow-hidden rounded-[32px] border px-6 py-7 sm:px-8 ${heroBg}`}>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(224,64,208,0.12),transparent_58%)] pointer-events-none" />
-        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl rounded-3xl border border-[rgba(0,0,0,0.06)] bg-bg-card/85 p-5 shadow-sm backdrop-blur-sm sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
-            <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#E040D0]">
-              {tier === "ai_only" ? "Self-Coaching Hub" : "Personal Dashboard"}
-            </div>
-            <h1 className="text-3xl font-heading font-bold text-text-primary sm:text-4xl">
-              {`What matters most${userName ? `, ${userName.split(" ")[0]}` : ""}`}
+      <section className="flex min-h-[calc(100dvh-12rem)] flex-col overflow-hidden rounded-[30px] border border-[#E040D0]/25 bg-[#171018] px-5 py-6 text-white shadow-[0_20px_52px_rgba(74,18,67,0.28)] sm:min-h-0 sm:px-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#F060E0]">SHIFT Today</div>
+            <h1 className="mt-1 text-3xl font-heading font-bold leading-none text-white">
+              {`Start here${userName ? `, ${userName.split(" ")[0]}` : ""}`}
             </h1>
-            <p className="mt-2 text-sm leading-relaxed text-text-secondary sm:text-base">
-              {tierInfo.heroCopy}
-            </p>
-            {!isAiOnly && !submittedThisWeek && checkinToday && (
-              <Link
-                href="/portal/checkin"
-                className="mt-4 inline-flex items-center gap-2 rounded-xl gradient-accent px-4 py-2.5 text-sm font-semibold text-white no-underline"
-              >
-                Submit this week&apos;s check-in
-              </Link>
-            )}
-            {isAiOnly && incompleteCoachTasks.length === 0 && incompletePersonalTasks.length === 0 && (
-              <Link
-                href="/portal/ai"
-                className="mt-4 inline-flex items-center gap-2 rounded-xl gradient-accent px-4 py-2.5 text-sm font-semibold text-white no-underline"
-              >
-                Ask SHIFT AI what to focus on
-              </Link>
-            )}
           </div>
+          <div className="rounded-2xl border border-white/10 bg-white/8 px-3 py-2 text-right">
+            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">Plan</div>
+            <div className="text-lg font-heading font-bold text-white">{totalPlanItems > 0 ? `${planPct}%` : "Ready"}</div>
+          </div>
+        </div>
 
-          <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[430px]">
-            <div className={`rounded-2xl border bg-bg-card/80 px-4 py-3 ${tierInfo.accentClass}`}>
-              <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Open Tasks</div>
-              <div className="mt-2 text-2xl font-heading font-bold text-text-primary">{totalOutstandingTasks}</div>
+        <div className="mt-6 grid flex-1 grid-cols-2 gap-3 sm:mt-5 sm:flex-none">
+          <Link
+            href="#priorities"
+            className="flex min-h-[104px] flex-col justify-between rounded-2xl border border-white/10 bg-white/8 px-4 py-4 no-underline transition-colors hover:border-[#F060E0]/40 hover:bg-white/12"
+          >
+            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/50">Today&apos;s Priority</div>
+            <div>
+              <div className="text-base font-semibold text-white">{totalOutstandingTasks > 0 ? `${totalOutstandingTasks} open` : "All clear"}</div>
+              <div className="mt-0.5 text-[11px] text-white/45">{totalOutstandingTasks > 0 ? "Tap to action" : "Nothing outstanding"}</div>
             </div>
-            <div className={`rounded-2xl border bg-bg-card/80 px-4 py-3 ${tierInfo.accentClass}`}>
-              <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">
-                {isHighTouch ? "Check-in Streak" : "Training Week"}
+          </Link>
+
+          {!isAiOnly && (
+            <Link
+              href="/portal/checkin"
+              className="flex min-h-[104px] flex-col justify-between rounded-2xl border border-white/10 bg-white/8 px-4 py-4 no-underline transition-colors hover:border-[#F060E0]/40 hover:bg-white/12"
+            >
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/50">Check-in</div>
+              <div>
+                <div className="text-base font-semibold text-white">{submittedThisWeek ? "Logged" : checkinToday ? "Due today" : nextCheckinDate.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</div>
+                <div className="mt-0.5 text-[11px] text-white/45">{submittedThisWeek ? "Update this week" : "Open check-in"}</div>
               </div>
-              <div className="mt-2 text-2xl font-heading font-bold text-text-primary">
-                {isHighTouch ? `${checkinStreak}` : `Week ${currentWeek}`}
-              </div>
-              {isHighTouch && (
-                <div className="text-[10px] text-text-muted mt-0.5">
-                  {checkinStreak === 0 ? "Start this week" : checkinStreak === 1 ? "week in a row" : "weeks in a row"}
-                </div>
-              )}
+            </Link>
+          )}
+
+          <Link
+            href="/portal/calendar"
+            className="flex min-h-[104px] flex-col justify-between rounded-2xl border border-white/10 bg-white/8 px-4 py-4 no-underline transition-colors hover:border-[#F060E0]/40 hover:bg-white/12"
+          >
+            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/50">Upcoming</div>
+            <div>
+              <div className="truncate text-base font-semibold text-white">{nextEvent ? nextEvent.title : "Nothing booked"}</div>
+              <div className="mt-0.5 text-[11px] text-white/45">{nextEvent ? nextEvent.date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "Open calendar"}</div>
             </div>
-            <div className={`rounded-2xl border bg-bg-card/80 px-4 py-3 ${tierInfo.accentClass}`}>
-              <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Status</div>
-              <div className="mt-2 text-lg font-heading font-bold text-text-primary">
-                {checkinToday && !submittedThisWeek
-                  ? "Check-in today"
-                  : profile?.status === "green"
-                    ? "On track"
-                    : profile?.status === "amber"
-                      ? "Needs attention"
-                      : "Reset this week"}
-              </div>
+          </Link>
+
+          <Link
+            href={isAiOnly ? "/portal/ai" : "/portal/checkin"}
+            className="flex min-h-[104px] flex-col justify-between rounded-2xl border border-white/10 bg-white/8 px-4 py-4 no-underline transition-colors hover:border-[#F060E0]/40 hover:bg-white/12"
+          >
+            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/50">{isAiOnly ? "SHIFT AI" : "Gordy's Messages"}</div>
+            <div>
+              <div className="text-base font-semibold text-white">{isAiOnly ? "Ask anything" : latestReply?.admin_reply ? "Reply waiting" : "No new reply"}</div>
+              <div className="mt-0.5 text-[11px] text-white/45">{isAiOnly ? "Open SHIFT AI" : "View replies"}</div>
             </div>
-          </div>
+          </Link>
         </div>
       </section>
 
-      {/* Priority clients get a prominent strip immediately below the hero. */}
-      {tier === "vip" && (
-        <VipPriorityStrip
-          checkinToday={checkinToday}
-          submittedThisWeek={submittedThisWeek}
-          nextCheckinDate={nextCheckinDate}
-          topCoachTask={incompleteCoachTasks[0]?.task_text || null}
-          openCoachTasks={incompleteCoachTasks.length}
-          latestReply={latestReply?.admin_reply || null}
-        />
-      )}
-
-      <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-        <div className="space-y-6">
-          {!isAiOnly && (
-            <SectionCard
-              title="Coach Priorities"
-              subtitle={
-                tier === "vip"
-                  ? "The highest-priority actions Gordy wants visible right now."
-                  : tier === "premium"
-                    ? "What Gordy wants you focused on, with closer support this week."
-                    : "What Gordy has set for you right now."
-              }
-              right={
-                <Link
-                  href="/portal/checkin"
-                  className="text-xs font-semibold text-accent-bright no-underline transition-colors hover:text-accent-light"
-                >
-                  Weekly check-in
-                </Link>
-              }
-            >
-              {coachTasks.length === 0 ? (
-                <EmptyTaskState text="No coach priorities have been added yet. Gordy can set tasks here so your weekly focus is crystal clear." />
-              ) : (
-                <div className="space-y-3">
-                  {coachTasks.map((task) => (
-                    <label key={task.id} className="flex items-center gap-3 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={task.completed}
-                        onChange={(e) => toggleTask(task.id, e.target.checked)}
-                        className="h-4 w-4 cursor-pointer rounded border-2 border-[rgba(0,0,0,0.15)] accent-[#E040D0]"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className={`text-sm ${task.completed ? "text-text-muted line-through" : "text-text-primary"}`}>{task.task_text}</div>
-                        <div className="mt-1 text-[11px] uppercase tracking-[0.16em] text-text-muted">
-                          {task.completed ? "Completed" : "From Gordy"}
-                        </div>
-                      </div>
-                    </label>
-                  ))}
-                </div>
+      <div id="priorities" className="scroll-mt-4">
+        <SectionCard
+          title="TODAY'S PRIORITY"
+          subtitle={isAiOnly ? "Keep the next action simple." : "The first thing to clear from Gordy's list."}
+          right={isAiOnly ? (
+            <Link href="/portal/ai" className="text-xs font-semibold text-accent-bright no-underline transition-colors hover:text-accent-light">
+              SHIFT AI
+            </Link>
+          ) : null}
+        >
+          {isAiOnly ? (
+            <div className="space-y-3">
+              <p className="rounded-2xl border border-[#E040D0]/20 bg-[#E040D0]/8 px-4 py-4 text-sm font-medium leading-relaxed text-text-primary">
+                Use SHIFT AI to choose one priority for today, then keep the rest of the portal out of the way.
+              </p>
+              {incompletePersonalTasks.length > 0 && (
+                <details className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
+                  <summary className="cursor-pointer text-sm font-semibold text-text-secondary">Your reminders</summary>
+                  <div className="mt-3 space-y-3">
+                    {incompletePersonalTasks.map((task) => (
+                      <label key={task.id} className="flex items-center gap-3 rounded-xl border border-[rgba(0,0,0,0.05)] bg-bg-card px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={task.completed}
+                          onChange={(e) => toggleTask(task.id, e.target.checked)}
+                          className="h-4 w-4 cursor-pointer rounded border-2 border-[rgba(0,0,0,0.15)] accent-[#E040D0]"
+                        />
+                        <span className={`min-w-0 flex-1 text-sm ${task.completed ? "text-text-muted line-through" : "text-text-primary"}`}>{task.task_text}</span>
+                      </label>
+                    ))}
+                  </div>
+                </details>
               )}
-            </SectionCard>
-          )}
-
-          {isAiOnly && (
-            <SectionCard
-              title="SHIFT AI Focus"
-              subtitle="Your AI coach is your primary support layer — use it to set direction, plan sessions, and stay honest with progress."
-              right={
-                <Link href="/portal/ai" className="text-xs font-semibold text-accent-bright no-underline transition-colors hover:text-accent-light">
-                  Open SHIFT AI
-                </Link>
-              }
-            >
-              <div className="space-y-3">
-                <div className="rounded-2xl border border-[#E040D0]/15 bg-[#E040D0]/6 px-4 py-4">
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-[#E040D0]">Prompt idea</div>
-                  <p className="mt-2 text-sm leading-relaxed text-text-primary">
-                    &ldquo;Based on my last check-in and plan, what are the two things I should focus on this week?&rdquo;
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-4">
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Prompt idea</div>
-                  <p className="mt-2 text-sm leading-relaxed text-text-primary">
-                    &ldquo;Help me plan today&apos;s session so it matches my energy and what&apos;s already on my plan.&rdquo;
-                  </p>
-                </div>
-              </div>
-            </SectionCard>
-          )}
-
-          <SectionCard
-            title="Your Checklist"
-            subtitle="Quick personal reminders you want to keep front and center."
-          >
-            <form onSubmit={addPersonalTask} className="mb-4 flex flex-col gap-3 sm:flex-row">
-              <input
-                type="text"
-                value={personalTask}
-                onChange={(e) => setPersonalTask(e.target.value)}
-                placeholder="Add a personal reminder for this week"
-                className="w-full rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40 transition-colors"
-              />
-              <button
-                type="submit"
-                disabled={savingTask || !personalTask.trim()}
-                className="rounded-2xl gradient-accent px-5 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-40"
-              >
-                {savingTask ? "Adding..." : "Add"}
-              </button>
-            </form>
-
-            {personalTasks.length === 0 ? (
-              <EmptyTaskState text="Use this as your own quick-fire list so the home screen becomes the first place you check each day." />
-            ) : (
-              <div className="space-y-3">
-                {personalTasks.map((task) => (
-                  <label key={task.id} className="flex items-center gap-3 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
+            </div>
+          ) : incompleteCoachTasks.length > 0 ? (
+            <div className="space-y-3">
+              {incompleteCoachTasks.slice(0, 3).map((task) => (
+                <label key={task.id} className="flex min-h-[56px] items-center gap-3 rounded-2xl border border-[#E040D0]/12 bg-[linear-gradient(135deg,rgba(224,64,208,0.07),rgba(245,158,11,0.04))] px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={task.completed}
+                    onChange={(e) => toggleTask(task.id, e.target.checked)}
+                    className="h-4 w-4 cursor-pointer rounded border-2 border-[rgba(0,0,0,0.15)] accent-[#E040D0]"
+                  />
+                  <span className="min-w-0 flex-1 text-sm text-text-primary">{task.task_text}</span>
+                </label>
+              ))}
+              {(incompleteCoachTasks.length > 3 || incompletePersonalTasks.length > 0) && (
+                <details className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
+                  <summary className="cursor-pointer text-sm font-semibold text-text-secondary">
+                    {incompleteCoachTasks.length > 3
+                      ? `${incompleteCoachTasks.length - 3} more coach ${incompleteCoachTasks.length - 3 === 1 ? "priority" : "priorities"}`
+                      : "Your reminders"}
+                  </summary>
+                  <div className="mt-3 space-y-3">
+                    {incompleteCoachTasks.slice(3).map((task) => (
+                      <label key={task.id} className="flex items-center gap-3 rounded-xl border border-[rgba(0,0,0,0.05)] bg-bg-card px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={task.completed}
+                          onChange={(e) => toggleTask(task.id, e.target.checked)}
+                          className="h-4 w-4 cursor-pointer rounded border-2 border-[rgba(0,0,0,0.15)] accent-[#E040D0]"
+                        />
+                        <span className="min-w-0 flex-1 text-sm text-text-primary">{task.task_text}</span>
+                      </label>
+                    ))}
+                    {incompletePersonalTasks.map((task) => (
+                      <label key={task.id} className="flex items-center gap-3 rounded-xl border border-[rgba(0,0,0,0.05)] bg-bg-card px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={task.completed}
+                          onChange={(e) => toggleTask(task.id, e.target.checked)}
+                          className="h-4 w-4 cursor-pointer rounded border-2 border-[rgba(0,0,0,0.15)] accent-[#E040D0]"
+                        />
+                        <span className={`min-w-0 flex-1 text-sm ${task.completed ? "text-text-muted line-through" : "text-text-primary"}`}>{task.task_text}</span>
+                      </label>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
+          ) : incompletePersonalTasks.length > 0 ? (
+            <details open className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
+              <summary className="cursor-pointer text-sm font-semibold text-text-secondary">Your reminders</summary>
+              <div className="mt-3 space-y-3">
+                {incompletePersonalTasks.map((task) => (
+                  <label key={task.id} className="flex items-center gap-3 rounded-xl border border-[rgba(0,0,0,0.05)] bg-bg-card px-3 py-2">
                     <input
                       type="checkbox"
                       checked={task.completed}
                       onChange={(e) => toggleTask(task.id, e.target.checked)}
                       className="h-4 w-4 cursor-pointer rounded border-2 border-[rgba(0,0,0,0.15)] accent-[#E040D0]"
                     />
-                    <div className="min-w-0 flex-1">
-                      <div className={`text-sm ${task.completed ? "text-text-muted line-through" : "text-text-primary"}`}>{task.task_text}</div>
-                      <div className="mt-1 text-[11px] uppercase tracking-[0.16em] text-text-muted">Personal reminder</div>
-                    </div>
+                    <span className={`min-w-0 flex-1 text-sm ${task.completed ? "text-text-muted line-through" : "text-text-primary"}`}>{task.task_text}</span>
                   </label>
                 ))}
               </div>
-            )}
-          </SectionCard>
-
-          <SectionCard
-            title="Quick Access"
-            subtitle={
-              tier === "vip"
-                ? "Your key training, support, and accountability touchpoints."
-                : tier === "premium"
-                  ? "The places you'll use most to stay close to your plan."
-                  : tier === "ai_only"
-                    ? "Your daily self-coaching surfaces."
-                    : "Jump straight into the parts of the portal you'll use most."
-            }
-          >
-            <div className={`grid gap-3 ${quickAccessCards.length > 3 ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
-              {quickAccessCards.map((card) => (
-                <Link key={card.href} href={card.href} className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary p-4 no-underline transition-all hover:-translate-y-0.5 hover:border-[#E040D0]/25">
-                  <div className="text-sm font-semibold text-text-primary">{card.title}</div>
-                  <div className="mt-1 text-sm text-text-secondary">{card.description}</div>
-                </Link>
-              ))}
-            </div>
-          </SectionCard>
-        </div>
-
-        <div className="space-y-6">
-          {isHighTouch && (
-            <TierSupportLane
-              tier={tier}
-              checkinToday={checkinToday}
-              submittedThisWeek={submittedThisWeek}
-              nextCheckinDate={nextCheckinDate}
-              latestReply={latestReply?.admin_reply || null}
-              latestReplyDate={latestReply?.replied_at || latestReply?.created_at || null}
-              topCoachTask={incompleteCoachTasks[0]?.task_text || null}
-              openCoachTasks={incompleteCoachTasks.length}
-              planPct={planPct}
-            />
+            </details>
+          ) : (
+            <EmptyTaskState text="No open priority from Gordy right now." />
           )}
-
-          {/* "This Week" — action-first focus points + latest coach reply (kept tight) */}
-          <SectionCard
-            title="This Week"
-            subtitle="The short version of where things stand."
-          >
-            <div className="space-y-3">
-              {focusItems.map((item, idx) => (
-                <div key={`focus-${idx}`} className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3 text-sm text-text-primary">
-                  {item}
-                </div>
-              ))}
-              {!isAiOnly && latestReply?.admin_reply && (
-                <div className="rounded-2xl border border-[#E040D0]/15 bg-[#E040D0]/6 px-4 py-3">
-                  <div className="text-[11px] uppercase tracking-[0.18em] text-[#E040D0]">Latest Reply</div>
-                  <p className="mt-2 text-sm leading-relaxed text-text-primary">{latestReply.admin_reply}</p>
-                </div>
-              )}
-            </div>
-          </SectionCard>
-
-          {!isAiOnly && (
-            <NextEventCard checkinToday={checkinToday} nextCheckinDate={nextCheckinDate} submittedThisWeek={submittedThisWeek} tier={tier} />
-          )}
-
-          {recentModules.length > 0 && (
-            <SectionCard
-              title="New For You"
-              subtitle="Fresh training content from Gordy."
-            >
-              <div className="space-y-2">
-                {recentModules.slice(0, 3).map((module) => (
-                  <Link
-                    key={module.id}
-                    href={`/portal/training/${module.id}`}
-                    className="flex items-center justify-between rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3 no-underline transition-colors hover:border-[#E040D0]/25 min-h-[56px]"
-                  >
-                    <div className="min-w-0 flex-1 pr-3">
-                      <div className="text-sm font-medium text-text-primary truncate">{module.title}</div>
-                      <div className="mt-0.5 text-xs text-text-muted">{new Date(module.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</div>
-                    </div>
-                    <span className="text-xs font-semibold text-accent-bright flex-shrink-0">Open</span>
-                  </Link>
-                ))}
-              </div>
-            </SectionCard>
-          )}
-        </div>
+          <details className="mt-3 rounded-2xl border border-dashed border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3">
+            <summary className="cursor-pointer text-sm font-semibold text-text-secondary">Add reminder</summary>
+            <form onSubmit={addPersonalTask} className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <input
+                type="text"
+                value={personalTask}
+                onChange={(e) => setPersonalTask(e.target.value)}
+                placeholder="Personal reminder"
+                className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40"
+              />
+              <button
+                type="submit"
+                disabled={savingTask || !personalTask.trim()}
+                className="rounded-xl gradient-accent px-4 py-2 text-sm font-semibold text-white transition-opacity disabled:opacity-40"
+              >
+                {savingTask ? "Adding..." : "Add"}
+              </button>
+            </form>
+          </details>
+        </SectionCard>
       </div>
     </div>
   );
@@ -823,112 +679,6 @@ function TierSupportLane({
             </Link>
           </div>
         </div>
-      </div>
-    </SectionCard>
-  );
-}
-
-function NextEventCard({
-  checkinToday,
-  nextCheckinDate,
-  submittedThisWeek,
-  tier,
-}: {
-  checkinToday: boolean;
-  nextCheckinDate: Date;
-  submittedThisWeek: boolean;
-  tier: Tier;
-}) {
-  const [event, setEvent] = useState<CalendarEvent | null>(null);
-  const [nextDate, setNextDate] = useState<Date | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [calendarError, setCalendarError] = useState(false);
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/calendar");
-        if (!res.ok) {
-          setCalendarError(true);
-          return;
-        }
-        const data = await res.json();
-        const events: CalendarEvent[] = data.events || [];
-        let earliest: { event: CalendarEvent; date: Date } | null = null;
-
-        for (const candidate of events) {
-          const occurrence = getNextOccurrence(candidate);
-          if (occurrence && (!earliest || occurrence < earliest.date)) {
-            earliest = { event: candidate, date: occurrence };
-          }
-        }
-
-        if (earliest) {
-          setEvent(earliest.event);
-          setNextDate(earliest.date);
-        }
-      } catch {
-        setCalendarError(true);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    load();
-  }, []);
-
-  const checkinLabel = submittedThisWeek
-    ? "Submitted"
-    : checkinToday
-      ? "Due today"
-      : nextCheckinDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
-
-  return (
-    <SectionCard
-      title="Upcoming"
-      subtitle="What's coming up next so nothing catches you cold."
-      right={
-        checkinToday && !submittedThisWeek ? (
-          <Link href="/portal/checkin" className="rounded-xl gradient-accent px-3 py-2 text-xs font-semibold text-white no-underline">
-            {tier === "vip" ? "Priority check-in" : "Check-in now"}
-          </Link>
-        ) : null
-      }
-    >
-      <div className="space-y-3">
-        <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-4">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Weekly Check-in</div>
-          <div className="mt-2 text-sm font-semibold text-text-primary">{checkinLabel}</div>
-          {submittedThisWeek && (
-            <div className="mt-1 text-xs text-text-muted">You can update it any time before the week ends.</div>
-          )}
-        </div>
-
-        {loading ? (
-          <div className="h-16 animate-pulse rounded-2xl bg-[rgba(0,0,0,0.06)]" />
-        ) : calendarError ? (
-          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/8 px-4 py-3 text-sm text-amber-500">
-            Couldn&apos;t load your calendar. Try refreshing the page.
-          </div>
-        ) : event && nextDate ? (
-          <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-4">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Calendar Event</div>
-            <div className="mt-2 text-sm font-semibold text-text-primary">{event.title}</div>
-            <div className="mt-1 text-sm text-text-secondary">
-              {nextDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}
-              {event.event_time ? ` at ${event.event_time}` : ""}
-            </div>
-            {event.link && (
-              <a href={event.link} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex text-xs font-semibold text-accent-bright no-underline">
-                {event.link_label || "Open event"}
-              </a>
-            )}
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-[rgba(0,0,0,0.08)] px-4 py-5 text-sm text-text-muted">
-            No upcoming calendar events right now.
-          </div>
-        )}
       </div>
     </SectionCard>
   );
