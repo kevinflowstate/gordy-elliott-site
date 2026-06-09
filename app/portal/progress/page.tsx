@@ -207,7 +207,7 @@ export default function ProgressPage() {
       : null;
 
   const inputClass =
-    "w-full min-w-0 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-2.5 text-base sm:text-sm text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-[#E040D0]/30 focus:border-[#E040D0]/50 transition-all";
+    "w-full max-w-[18rem] min-w-0 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-2.5 text-base sm:text-sm text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-[#E040D0]/30 focus:border-[#E040D0]/50 transition-all";
 
   const labelClass = "block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5";
 

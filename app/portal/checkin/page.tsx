@@ -451,7 +451,7 @@ export default function CheckInPage() {
         <div className="app-card-quiet app-rise app-rise-1 rounded-2xl p-4">
           <div className="text-[11px] uppercase tracking-[0.16em] text-text-muted">Check-in Rhythm</div>
           <div className="mt-2 text-lg font-heading font-bold text-text-primary">{formatDay(effectiveCheckinDay)}</div>
-          <div className="mt-1 text-sm font-semibold text-[#E040D0]">{dueLabel}</div>
+          <div className="mt-1 max-w-full break-words text-sm font-semibold leading-snug text-[#E040D0]">{dueLabel}</div>
           <div className="mt-1 text-sm text-text-secondary">{tierInfo.rhythm}</div>
         </div>
         <div className="app-card-quiet app-rise app-rise-2 rounded-2xl p-4">
