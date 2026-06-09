@@ -342,7 +342,7 @@ export default function PortalExercisePlanPage() {
   }
 
   return (
-    <div className="p-4 pb-40 sm:pb-6 sm:p-6 max-w-2xl mx-auto relative">
+    <div className="-mx-4 pt-3 pb-40 sm:mx-auto sm:max-w-4xl sm:p-6 sm:pb-6 relative">
       {/* Toast */}
       {savedToast && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-[#E040D0] text-white px-5 py-2.5 rounded-xl font-semibold shadow-lg text-sm">
@@ -351,28 +351,28 @@ export default function PortalExercisePlanPage() {
       )}
 
       {/* Page header */}
-      <div className="mb-5 space-y-4">
-        <div className="overflow-hidden rounded-[30px] border border-[#E040D0]/20 bg-[#171018] p-5 text-white shadow-[0_20px_52px_rgba(74,18,67,0.22)]">
+      <div className="mb-5 space-y-4 px-4 sm:px-0">
+        <div className="app-hero app-rise app-rise-1 overflow-hidden rounded-[30px] p-5 text-white">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.24em] text-[#F060E0]">Training</div>
+              <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.24em] text-[#F7A8EE]">Training</div>
               <h1 className="text-3xl font-heading font-bold leading-none text-white">{plan.name}</h1>
               <p className="mt-2 text-sm leading-snug text-white/75">Open today&apos;s session fast, log what you did, and move on.</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/8 px-3 py-2 text-right">
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">
+            <div className="app-hero-tile flex-shrink-0 rounded-2xl px-3 py-2 text-right">
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/60">
                 {isToday(selectedDate) ? "Today" : "Selected"}
               </div>
               <div className="text-lg font-heading font-bold text-white">{viewMode === "readonly" ? "Logged" : "Ready"}</div>
             </div>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <div className="rounded-2xl border border-white/10 bg-white/8 px-3 py-3">
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/50">This Week</div>
+          <div className="mt-4 grid grid-cols-2 gap-2.5">
+            <div className="app-hero-tile rounded-2xl px-3 py-3">
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">This Week</div>
               <div className="mt-1 text-sm font-semibold text-white">{sessionsThisWeek} logged</div>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/8 px-3 py-3">
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/50">Session</div>
+            <div className="app-hero-tile rounded-2xl px-3 py-3">
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">Session</div>
               <div className="mt-1 truncate text-sm font-semibold text-white">{activeSession?.name || "Next up"}</div>
             </div>
           </div>
@@ -389,8 +389,8 @@ export default function PortalExercisePlanPage() {
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <section className="rounded-2xl border border-[#E040D0]/15 bg-bg-card px-4 py-3 shadow-[0_12px_30px_rgba(10,10,10,0.05)]">
-            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#B830A8]">This Week</div>
+          <section className="app-card-quiet app-rise app-rise-2 rounded-2xl px-4 py-3">
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#E667D6]">This Week</div>
             <div className="mt-1 text-base font-heading font-bold text-text-primary">
               {sessionsThisWeek === 0
                 ? "No sessions logged"
@@ -400,8 +400,8 @@ export default function PortalExercisePlanPage() {
               <div className="mt-1 text-xs text-text-secondary">{plannedSessionsCount} sessions in your rotation</div>
             )}
           </section>
-          <section className="rounded-2xl border border-[#E040D0]/15 bg-[linear-gradient(135deg,rgba(224,64,208,0.08),rgba(245,158,11,0.05))] px-4 py-3 shadow-[0_12px_30px_rgba(10,10,10,0.05)]">
-            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#B830A8]">
+          <section className="app-rise app-rise-3 rounded-2xl border border-[#E040D0]/25 bg-[linear-gradient(150deg,#251426_0%,#1a1320_55%,#140f18_100%)] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_40px_-22px_rgba(0,0,0,0.85)]">
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#F060E0]">
               {isToday(selectedDate) ? "Today" : "Selected Day"}
             </div>
             <div className="mt-1 text-base font-heading font-bold text-text-primary">
@@ -413,17 +413,17 @@ export default function PortalExercisePlanPage() {
           </section>
         </div>
         {plan.description && (
-          <section className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-4 py-3 shadow-[0_12px_30px_rgba(10,10,10,0.04)]">
+          <section className="app-card-quiet rounded-2xl px-4 py-3">
             <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">Current Session Notes</div>
             <p className="mt-1 text-sm text-text-secondary">{plan.description}</p>
           </section>
         )}
 
         {/* Selected day + session context. Tap the session chip to pick a different one. */}
-        <section className="rounded-2xl border border-[#E040D0]/15 bg-bg-card px-4 py-3 shadow-[0_12px_30px_rgba(10,10,10,0.05)]">
+        <section className="app-card rounded-2xl px-4 py-3.5">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#B830A8]">
+              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#E667D6]">
                 {isToday(selectedDate)
                   ? "Today"
                   : selectedDate.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
@@ -464,7 +464,7 @@ export default function PortalExercisePlanPage() {
             </p>
           )}
         </section>
-        <section className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-4 py-3 shadow-[0_12px_30px_rgba(10,10,10,0.04)]">
+        <section className="app-card-quiet rounded-2xl px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">
@@ -487,7 +487,7 @@ export default function PortalExercisePlanPage() {
       </div>
 
       {/* ---- Week Calendar Strip ---- */}
-      <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 mb-5">
+      <div className="app-card-quiet mx-4 rounded-2xl p-4 mb-5 sm:mx-0">
         {/* Week nav */}
         <div className="flex items-center justify-between mb-3">
           <button
@@ -557,11 +557,11 @@ export default function PortalExercisePlanPage() {
 
       {/* ---- Selected Day Content ---- */}
       {activeSession && (
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
+        <div className="app-card rounded-[28px] overflow-hidden">
           <button
             type="button"
             onClick={() => setSessionOpen((open) => !open)}
-            className="w-full p-5 text-left"
+            className="w-full p-5 text-left app-tap"
             aria-expanded={sessionOpen}
           >
             <div className="flex items-start justify-between gap-3">
@@ -588,8 +588,9 @@ export default function PortalExercisePlanPage() {
               </div>
             </div>
             {!sessionOpen && (
-              <div className="mt-4 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3 text-sm font-semibold text-text-primary">
-                {viewMode === "readonly" ? "Tap to view the logged session" : "Tap to start logging this session"}
+              <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-[#E040D0]/25 bg-[linear-gradient(135deg,rgba(224,64,208,0.16),rgba(224,64,208,0.04))] px-4 py-3.5 text-sm font-semibold text-text-primary">
+                <span>{viewMode === "readonly" ? "Tap to view the logged session" : "Tap to start logging this session"}</span>
+                <svg className="h-4 w-4 flex-shrink-0 text-[#F060E0]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
               </div>
             )}
           </button>
@@ -735,8 +736,8 @@ export default function PortalExercisePlanPage() {
                 const sets = draftSets[item.id] || [];
 
                 return (
-                  <div key={item.id} className="px-4 py-4 sm:px-5">
-                    <div className="rounded-[28px] border border-[#E040D0]/15 bg-bg-primary p-4 shadow-[0_12px_32px_rgba(10,10,10,0.05)]">
+                  <div key={item.id} className="px-3 py-3 sm:px-5 sm:py-4">
+                    <div className="app-inset rounded-[24px] p-4">
                     {/* Exercise header */}
                     <div className="flex items-start justify-between gap-3 mb-4">
                       <div>
@@ -795,7 +796,7 @@ export default function PortalExercisePlanPage() {
                         <span className="text-[10px] text-text-secondary font-medium">Notes</span>
                       </div>
                       {sets.map((set, setIdx) => (
-                        <div key={setIdx} className="rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-card p-3 shadow-sm">
+                        <div key={setIdx} className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.025)] p-3">
                           <div className="grid grid-cols-[3.25rem_1fr_1fr] gap-2 sm:grid-cols-[28px_1fr_1fr_1fr] sm:items-center">
                             <div className="flex h-full min-h-[54px] flex-col items-center justify-center rounded-xl border border-[#E040D0]/20 bg-[#E040D0]/8 text-center sm:min-h-0 sm:border-0 sm:bg-transparent">
                               <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#E040D0] sm:hidden">Set</span>

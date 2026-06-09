@@ -92,41 +92,45 @@ body {
   }
 }
 
-/* SHIFT AI composer: pin text to an explicit dark value (never the theme
-   variable, which flips to #fff inside the portal's .dark wrapper and would
-   sit invisibly on the white input background). The .dark override below
-   handles the portal's dark input; this base keeps admin + any fallback
-   readable as dark-on-white. */
+/* SHIFT AI composer contract: this class owns foreground, placeholder,
+   background, focus, disabled and autofill colours. It intentionally avoids
+   inheriting portal dark-mode input colours, which can make typed text unreadable. */
 .shift-ai-input {
-  color: #1a1a1a !important;
-  background-color: rgba(255, 255, 255, 0.96) !important;
+  color: #171018 !important;
+  background-color: #ffffff !important;
+  border-color: rgba(23, 16, 24, 0.12) !important;
   caret-color: var(--color-accent) !important;
-  -webkit-text-fill-color: #1a1a1a !important;
+  -webkit-text-fill-color: #171018 !important;
 }
 
 .shift-ai-input::placeholder {
-  color: #666666 !important;
+  color: #66606a !important;
   opacity: 0.9;
-  -webkit-text-fill-color: #666666 !important;
+  -webkit-text-fill-color: #66606a !important;
 }
 
 .shift-ai-input:focus {
   background-color: #ffffff !important;
-  color: #1a1a1a !important;
-  -webkit-text-fill-color: #1a1a1a !important;
+  color: #171018 !important;
+  border-color: rgba(224, 64, 208, 0.42) !important;
+  box-shadow: 0 0 0 3px rgba(224, 64, 208, 0.12) !important;
+  -webkit-text-fill-color: #171018 !important;
 }
 
 .shift-ai-input:disabled {
-  color: #666666 !important;
-  background-color: rgba(0, 0, 0, 0.04) !important;
-  -webkit-text-fill-color: #666666 !important;
+  color: #6f6872 !important;
+  background-color: #f2f0f3 !important;
+  border-color: rgba(23, 16, 24, 0.08) !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: #6f6872 !important;
 }
 
 .shift-ai-input:-webkit-autofill,
 .shift-ai-input:-webkit-autofill:hover,
 .shift-ai-input:-webkit-autofill:focus {
   box-shadow: 0 0 0 1000px #ffffff inset !important;
-  -webkit-text-fill-color: #1a1a1a !important;
+  color: #171018 !important;
+  -webkit-text-fill-color: #171018 !important;
   caret-color: var(--color-accent) !important;
 }
 
@@ -277,6 +281,22 @@ body {
 .dark [class*="bg-\\[\\#fafaf8\\]"], .dark [class*="bg-\\[\\#f8f8f6\\]"] { background-color: #0A0A0A !important; }
 .dark [class*="text-\[#1a1a1a\]"] { color: #ffffff !important; }
 
+/* Theme-token utilities are compiled from `@theme inline`, so bg-bg-card /
+   text-text-* carry LIGHT literals that the .dark variable override can't
+   reach. Re-point them to the dark palette here so every portal surface that
+   still uses the tokens reads as a proper dark, lifted card (not white). */
+.dark [class~="bg-bg-card"], .dark [class*="bg-bg-card/"] { background-color: #18141d; }
+.dark [class~="bg-bg-primary"], .dark [class*="bg-bg-primary/"] { background-color: #100c16; }
+.dark [class~="bg-bg-secondary"], .dark [class*="bg-bg-secondary/"] { background-color: #15111b; }
+.dark [class*="text-text-primary"] { color: #f6f4f8; }
+.dark [class*="text-text-secondary"] { color: #cbc7d4; }
+.dark [class*="text-text-muted"] { color: #9c98aa; }
+/* Keep the shell's ambient gradient instead of the flat token colour. */
+.dark .portal-shell.portal-shell { background-color: #08070a; }
+/* Inputs already have their own dark treatment below — let it win. */
+.dark input[class~="bg-bg-card"], .dark select[class~="bg-bg-card"], .dark textarea[class~="bg-bg-card"],
+.dark input[class~="bg-bg-primary"], .dark select[class~="bg-bg-primary"], .dark textarea[class~="bg-bg-primary"] { background-color: #1A1A1A; }
+
 /* Dark mode: input fields and textareas */
 .dark input, .dark textarea, .dark select {
   background-color: #1A1A1A !important;
@@ -287,28 +307,32 @@ body {
   color: #7a7e94 !important;
 }
 
-.dark textarea.shift-ai-input {
-  background-color: #1A1A1A !important;
-  color: #ffffff !important;
+.dark .shift-ai-input {
+  color: #171018 !important;
+  background-color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
   caret-color: var(--color-accent) !important;
-  -webkit-text-fill-color: #ffffff !important;
+  -webkit-text-fill-color: #171018 !important;
 }
 
-.dark textarea.shift-ai-input::placeholder {
-  color: #7a7e94 !important;
-  -webkit-text-fill-color: #7a7e94 !important;
+.dark .shift-ai-input::placeholder {
+  color: #66606a !important;
+  -webkit-text-fill-color: #66606a !important;
 }
 
-.dark textarea.shift-ai-input:focus {
-  background-color: #151515 !important;
-  color: #ffffff !important;
-  -webkit-text-fill-color: #ffffff !important;
+.dark .shift-ai-input:focus {
+  background-color: #ffffff !important;
+  color: #171018 !important;
+  border-color: rgba(240, 96, 224, 0.5) !important;
+  box-shadow: 0 0 0 3px rgba(240, 96, 224, 0.16) !important;
+  -webkit-text-fill-color: #171018 !important;
 }
 
-.dark textarea.shift-ai-input:disabled {
-  background-color: #111111 !important;
-  color: #7a7e94 !important;
-  -webkit-text-fill-color: #7a7e94 !important;
+.dark .shift-ai-input:disabled {
+  background-color: #f2f0f3 !important;
+  color: #6f6872 !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: #6f6872 !important;
 }
 
 /* Dark mode: mobile nav */
@@ -343,3 +367,163 @@ body {
 ::-webkit-scrollbar-track { background: var(--color-bg-primary); }
 ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+
+/* ============================================================
+   PREMIUM APP SURFACE SYSTEM (portal, dark)
+   A cohesive depth language so screens read as a polished
+   coaching app — boxed, shaded, lifted — not a white PDF.
+   ============================================================ */
+
+/* Ambient depth behind every portal screen: a soft magenta aura at the
+   top fading into the deep base, plus a faint warm floor. Painted as a
+   fixed background image so it sits above the base colour, below content. */
+.dark .portal-shell {
+  background-color: #08070a;
+  background-image:
+    radial-gradient(120% 64% at 50% -16%, rgba(224, 64, 208, 0.10), transparent 56%),
+    radial-gradient(90% 60% at 100% 4%, rgba(245, 158, 11, 0.05), transparent 50%),
+    radial-gradient(140% 90% at 50% 108%, rgba(184, 48, 168, 0.06), transparent 60%);
+}
+
+@media (min-width: 768px) {
+  .dark .portal-shell {
+    background-attachment: fixed;
+  }
+}
+
+/* Raised card surface: plum-tinted gradient that lifts off the base,
+   a hairline magenta border, a top highlight, and a layered drop shadow. */
+.app-card {
+  background-image: linear-gradient(162deg, #1a1420 0%, #141019 52%, #0f0d13 100%);
+  border: 1px solid rgba(224, 64, 208, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 22px 48px -20px rgba(0, 0, 0, 0.85);
+}
+.app-card-quiet {
+  background-image: linear-gradient(162deg, #16131b 0%, #110f15 60%, #0d0c10 100%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 18px 40px -22px rgba(0, 0, 0, 0.8);
+}
+
+/* Recessed sub-surface — for tiles/inputs nested inside a card. */
+.app-inset {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.35);
+}
+
+/* Hero — the deep plum command card with a magenta glow bloom. */
+.app-hero {
+  position: relative;
+  background-color: #150f1a;
+  background-image:
+    radial-gradient(120% 130% at 0% 0%, rgba(224, 64, 208, 0.32), transparent 46%),
+    radial-gradient(120% 130% at 100% 8%, rgba(245, 158, 11, 0.14), transparent 44%),
+    linear-gradient(165deg, #1d1426 0%, #150f1b 58%, #0f0b14 100%);
+  border: 1px solid rgba(224, 64, 208, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 26px 60px -24px rgba(120, 20, 110, 0.55);
+}
+
+/* Frosted tile inside the hero. */
+.app-hero-tile {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.035));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+}
+.app-hero-tile:hover { border-color: rgba(240, 96, 224, 0.45); }
+.app-hero-tile:active { transform: scale(0.98); }
+
+/* Tap feedback for any pressable surface. */
+.app-tap { transition: transform 0.16s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
+.app-tap:active { transform: scale(0.985); }
+
+/* Section entrance — mounts with a gentle rise. Pure CSS, no observer. */
+@keyframes appRise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .app-rise { animation: appRise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .app-rise-1 { animation-delay: 0.04s; }
+  .app-rise-2 { animation-delay: 0.10s; }
+  .app-rise-3 { animation-delay: 0.16s; }
+  .app-rise-4 { animation-delay: 0.22s; }
+  .app-rise-5 { animation-delay: 0.28s; }
+}
+
+/* Added-confirmation pop (food add, etc.) */
+@keyframes appPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+@keyframes appCheckIn {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+.app-just-added { animation: appPop 0.4s ease; border-color: rgba(16, 185, 129, 0.55) !important; }
+.app-added-check { animation: appCheckIn 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+/* ============================================================
+   PREMIUM RANGE SLIDER (dark)
+   Strong track/thumb contrast, big touch target, glow thumb.
+   Drive the fill with --range-pct (0-100) from the component.
+   ============================================================ */
+.range-shift {
+  --range-pct: 0%;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 2.75rem;
+  background: transparent;
+  cursor: pointer;
+  touch-action: pan-y;
+}
+.range-shift:focus { outline: none; }
+.range-shift::-webkit-slider-runnable-track {
+  height: 10px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, #b830a8 0%, #e040d0 var(--range-pct), rgba(255, 255, 255, 0.10) var(--range-pct), rgba(255, 255, 255, 0.10) 100%);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+.range-shift::-moz-range-track {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.10);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+.range-shift::-moz-range-progress {
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #b830a8, #e040d0);
+}
+.range-shift::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -8px;
+  height: 26px;
+  width: 26px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 30%, #ffffff 0%, #ffe9fb 22%, #f060e0 60%, #e040d0 100%);
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(224, 64, 208, 0.55), 0 0 0 6px rgba(224, 64, 208, 0.16);
+  transition: box-shadow 0.18s ease, transform 0.12s ease;
+}
+.range-shift:active::-webkit-slider-thumb { transform: scale(1.08); box-shadow: 0 2px 10px rgba(224, 64, 208, 0.7), 0 0 0 9px rgba(224, 64, 208, 0.22); }
+.range-shift::-moz-range-thumb {
+  height: 24px;
+  width: 24px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 30%, #ffffff 0%, #ffe9fb 22%, #f060e0 60%, #e040d0 100%);
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(224, 64, 208, 0.55), 0 0 0 6px rgba(224, 64, 208, 0.16);
+}
+.range-shift:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px rgba(224, 64, 208, 0.4), 0 2px 8px rgba(224, 64, 208, 0.55); }

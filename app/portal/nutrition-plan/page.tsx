@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, type Dispatch, type SetStateAction } from "react";
 import Link from "next/link";
 import MacroDonutChart from "@/components/portal/MacroDonutChart";
 import { useToast } from "@/components/ui/Toast";
@@ -45,6 +45,28 @@ function isToday(date: Date): boolean {
 }
 
 const FOOD_CATEGORIES = ["protein", "dairy", "grains", "fruit", "vegetables", "fats", "carbs", "snacks", "drinks", "supplements"];
+const ADDED_FEEDBACK_MS = 1800;
+
+function vibrateOnAdd() {
+  if (typeof navigator !== "undefined") {
+    navigator.vibrate?.(10);
+  }
+}
+
+function scheduleAddedStateClear(
+  setState: Dispatch<SetStateAction<Record<string, number>>>,
+  id: string,
+  token: number,
+) {
+  setTimeout(() => {
+    setState((prev) => {
+      if (prev[id] !== token) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, ADDED_FEEDBACK_MS);
+}
 
 export default function PortalNutritionPlanPage() {
   const { toast } = useToast();
@@ -62,6 +84,13 @@ export default function PortalNutritionPlanPage() {
   const [foodSearch, setFoodSearch] = useState("");
   const [foodCategory, setFoodCategory] = useState("");
   const [foodsLoading, setFoodsLoading] = useState(false);
+
+  const [addingFoodId, setAddingFoodId] = useState<string | null>(null);
+  const [addedFoodIds, setAddedFoodIds] = useState<Record<string, number>>({});
+  const [addingSavedMealId, setAddingSavedMealId] = useState<string | null>(null);
+  const [addedSavedMealIds, setAddedSavedMealIds] = useState<Record<string, number>>({});
+  const addingFoodIdRef = useRef<string | null>(null);
+  const addingSavedMealIdRef = useRef<string | null>(null);
 
   // Quick add form (manual entry)
   const [showManualAdd, setShowManualAdd] = useState(false);
@@ -164,6 +193,12 @@ export default function PortalNutritionPlanPage() {
 
   // Add a food from the library as a quick meal (one tap)
   const addFoodAsMeal = async (food: Food) => {
+    if (addingFoodIdRef.current === food.id) {
+      toast(`Adding ${food.name}...`, "info");
+      return;
+    }
+    addingFoodIdRef.current = food.id;
+    setAddingFoodId(food.id);
     try {
       const res = await fetch("/api/portal/quick-meals", {
         method: "POST",
@@ -185,15 +220,31 @@ export default function PortalNutritionPlanPage() {
       const data = await res.json();
       if (data.quickMeal) {
         setQuickMeals((prev) => [...prev, data.quickMeal]);
+        const token = Date.now();
+        setAddedFoodIds((prev) => ({ ...prev, [food.id]: token }));
+        scheduleAddedStateClear(setAddedFoodIds, food.id, token);
+        vibrateOnAdd();
+        toast(`Added ${food.name}`, "success");
       }
     } catch (err) {
       console.error("Failed to add food:", err);
       toast("Couldn't add that food. Check your connection.", "error");
+    } finally {
+      if (addingFoodIdRef.current === food.id) {
+        addingFoodIdRef.current = null;
+      }
+      setAddingFoodId((current) => (current === food.id ? null : current));
     }
   };
 
   // Add from saved meal preset
   const addFromSaved = async (saved: ClientSavedMeal) => {
+    if (addingSavedMealIdRef.current === saved.id) {
+      toast(`Adding ${saved.name}...`, "info");
+      return;
+    }
+    addingSavedMealIdRef.current = saved.id;
+    setAddingSavedMealId(saved.id);
     try {
       const res = await fetch("/api/portal/quick-meals", {
         method: "POST",
@@ -215,10 +266,20 @@ export default function PortalNutritionPlanPage() {
       const data = await res.json();
       if (data.quickMeal) {
         setQuickMeals((prev) => [...prev, data.quickMeal]);
+        const token = Date.now();
+        setAddedSavedMealIds((prev) => ({ ...prev, [saved.id]: token }));
+        scheduleAddedStateClear(setAddedSavedMealIds, saved.id, token);
+        vibrateOnAdd();
+        toast(`Added ${saved.name}`, "success");
       }
     } catch (err) {
       console.error("Failed to add from saved:", err);
       toast("Couldn't add that saved meal. Check your connection.", "error");
+    } finally {
+      if (addingSavedMealIdRef.current === saved.id) {
+        addingSavedMealIdRef.current = null;
+      }
+      setAddingSavedMealId((current) => (current === saved.id ? null : current));
     }
   };
 
@@ -283,6 +344,8 @@ export default function PortalNutritionPlanPage() {
         setQuickMeals((prev) => [...prev.filter((meal) => !deletedIds.includes(meal.id)), data.quickMeal]);
         setQName(""); setQCalories(""); setQProtein(""); setQCarbs(""); setQFat(""); setQSave(false);
         setShowManualAdd(false);
+        vibrateOnAdd();
+        toast(`Added ${data.quickMeal.name}`, "success");
         if (qSave) {
           fetch(`/api/portal/quick-meals?date=${dateStr}`)
             .then((r) => r.json())
@@ -421,8 +484,8 @@ export default function PortalNutritionPlanPage() {
   const entryHeading = isToday(selectedDate) ? "Today's MFP entries" : `${formatDateDisplay(selectedDate)} MFP entries`;
 
   return (
-    <div className="p-4 pb-20 sm:p-6 max-w-lg mx-auto">
-      <div className="mb-6 rounded-3xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-4">
+    <div className="px-0 pt-3 pb-20 sm:p-6 max-w-lg mx-auto">
+      <div className="app-card-quiet app-rise app-rise-1 mb-6 rounded-3xl p-4">
         <nav className="mb-4 grid grid-cols-2 gap-1 rounded-2xl border border-[#E040D0]/12 bg-[rgba(224,64,208,0.06)] p-1 text-[11px] font-bold uppercase tracking-[0.14em]" aria-label="Nutrition shortcuts">
           <Link href="/portal" className="rounded-xl bg-bg-card px-3 py-2 text-center text-[#B830A8] no-underline shadow-sm">
             Dashboard
@@ -466,8 +529,8 @@ export default function PortalNutritionPlanPage() {
         </div>
       </div>
 
-      <section className="mb-6 overflow-hidden rounded-[28px] border border-[#E040D0]/15 bg-bg-card shadow-[0_18px_44px_rgba(10,10,10,0.08)]">
-        <div className="border-b border-[rgba(0,0,0,0.06)] bg-[linear-gradient(135deg,rgba(224,64,208,0.10),rgba(245,158,11,0.06))] px-5 py-4">
+      <section className="app-card app-rise app-rise-2 mb-6 overflow-hidden rounded-[28px]">
+        <div className="border-b border-[#E040D0]/15 bg-[linear-gradient(135deg,rgba(224,64,208,0.16),rgba(245,158,11,0.06))] px-5 py-4">
           <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#E040D0]">Targets dashboard</div>
           <p className="mt-1 text-sm text-text-secondary">
             Use MyFitnessPal for food tracking, then copy your daily totals here so Gordy can see the nutrition signal.
@@ -520,12 +583,12 @@ export default function PortalNutritionPlanPage() {
             </div>
           )}
           <div className="mt-5 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
+            <div className="app-inset rounded-2xl px-4 py-3">
               <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-text-muted">Calories</div>
               <div className="mt-1 text-xl font-heading font-bold text-text-primary">{Math.round(consumedCalories).toLocaleString()}</div>
               {plan?.target_calories ? <div className="text-xs text-text-secondary">of {targetCalories.toLocaleString()} kcal</div> : <div className="text-xs text-text-secondary">target not set</div>}
             </div>
-            <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
+            <div className="app-inset rounded-2xl px-4 py-3">
               <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-text-muted">Protein</div>
               <div className="mt-1 text-xl font-heading font-bold text-blue-500">{Math.round(consumedProtein)}g</div>
               {plan?.target_protein_g ? <div className="text-xs text-text-secondary">of {Math.round(targetProtein)}g</div> : <div className="text-xs text-text-secondary">target not set</div>}
@@ -541,7 +604,7 @@ export default function PortalNutritionPlanPage() {
       </section>
 
       {plan && plan.meals.length > 0 && (
-        <details className="mb-6 rounded-[28px] border border-[rgba(0,0,0,0.06)] bg-bg-card shadow-[0_14px_34px_rgba(10,10,10,0.06)]">
+        <details className="app-card-quiet mb-6 rounded-[28px]">
           <summary className="cursor-pointer px-5 py-4">
             <span className="block text-[14px] font-semibold uppercase tracking-wider text-text-secondary">Assigned meals from Gordy</span>
             <span className="mt-1 block text-[11px] text-text-muted">Only appears when a real plan exists. MFP totals remain the main daily signal.</span>
@@ -635,22 +698,24 @@ export default function PortalNutritionPlanPage() {
 
       {/* MyFitnessPal companion entries */}
       <div className="mb-6">
-        <div className="mb-3 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-4 py-3">
+        <div className="app-card-quiet mb-3 rounded-2xl px-4 py-3.5">
           <div>
             <h2 className="text-[14px] font-semibold text-text-secondary uppercase tracking-wider">{entryHeading}</h2>
-            <p className="text-[11px] text-text-muted mt-0.5">One copied MFP total is enough. Add quick foods only when you need a rough correction.</p>
+            <p className="text-[11px] text-text-muted mt-0.5">Add a meal by copying your MyFitnessPal totals, or add individual foods for a quick correction.</p>
           </div>
-          <div className="mt-3 flex gap-2">
+          <div className="mt-3 grid grid-cols-2 gap-2">
             <button
               onClick={openMfpTotals}
-              className="text-[12px] px-3 py-1.5 rounded-xl gradient-accent text-white font-semibold cursor-pointer"
+              className="app-tap flex items-center justify-center gap-1.5 text-[13px] px-3 py-2.5 rounded-xl gradient-accent text-white font-semibold cursor-pointer shadow-[0_12px_26px_rgba(224,64,208,0.22)]"
             >
-              + MFP Totals
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+              Add Meal
             </button>
             <button
               onClick={() => { setShowFoodBrowser(true); setShowManualAdd(false); }}
-              className="text-[12px] px-3 py-1.5 rounded-xl border border-[#E040D0]/30 bg-[#E040D0]/10 text-[#F060E0] font-semibold cursor-pointer"
+              className="app-tap flex items-center justify-center gap-1.5 text-[13px] px-3 py-2.5 rounded-xl border border-[#E040D0]/35 bg-[#E040D0]/12 text-[#F060E0] font-semibold cursor-pointer"
             >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
               Add Food
             </button>
           </div>
@@ -666,10 +731,10 @@ export default function PortalNutritionPlanPage() {
               return (
                 <div
                   key={qm.id}
-                  className={`bg-bg-card/80 backdrop-blur-sm border rounded-2xl p-4 transition-all ${
+                  className={`rounded-2xl p-4 transition-all ${
                     isCompleted
-                      ? "border-green-500/30 bg-green-500/5"
-                      : "border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)]"
+                      ? "border border-green-500/35 bg-green-500/8 shadow-[0_0_0_1px_rgba(16,185,129,0.12)]"
+                      : "app-card-quiet"
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -717,7 +782,7 @@ export default function PortalNutritionPlanPage() {
         )}
 
         {quickMeals.length === 0 && (
-          <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] rounded-2xl p-8 text-center mb-3">
+          <div className="app-card-quiet rounded-2xl p-8 text-center mb-3">
             <svg className="w-12 h-12 mx-auto mb-3 text-text-secondary/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8.25v-1.5m0 1.5c-1.355 0-2.697.056-4.024.166C6.845 8.51 6 9.473 6 10.608v2.513m6-4.871c1.355 0 2.697.056 4.024.166C17.155 8.51 18 9.473 18 10.608v2.513M15 9.75l-3-3m0 0l-3 3m3-3v12" />
             </svg>
@@ -731,7 +796,7 @@ export default function PortalNutritionPlanPage() {
       {showFoodBrowser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center" onClick={() => setShowFoodBrowser(false)}>
           <div
-            className="bg-bg-card border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md max-h-[85vh] flex flex-col shadow-2xl pb-[env(safe-area-inset-bottom)]"
+            className="app-card rounded-t-[28px] sm:rounded-[28px] w-full sm:max-w-md max-h-[85vh] flex flex-col pb-[env(safe-area-inset-bottom)]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -788,17 +853,27 @@ export default function PortalNutritionPlanPage() {
                 <div className="mt-3 pt-3 border-t border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)]">
                   <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider mb-2">Saved Meals</p>
                   <div className="flex gap-2 overflow-x-auto no-scrollbar">
-                    {savedMeals.map((saved) => (
+                    {savedMeals.map((saved) => {
+                      const isAdding = addingSavedMealId === saved.id;
+                      const wasAdded = Boolean(addedSavedMealIds[saved.id]);
+                      return (
                       <div
                         key={saved.id}
-                        className="flex flex-shrink-0 items-center gap-2 rounded-xl border border-accent-bright/20 bg-accent-bright/10 px-3 py-2"
+                        className={`flex flex-shrink-0 items-center gap-2 rounded-xl border px-3 py-2 transition-colors ${
+                          wasAdded
+                            ? "app-just-added border-emerald-500/40 bg-emerald-500/10"
+                            : "border-accent-bright/20 bg-accent-bright/10"
+                        }`}
                       >
                         <button
                           onClick={() => addFromSaved(saved)}
-                          className="text-left cursor-pointer transition-colors hover:text-text-primary"
+                          disabled={isAdding}
+                          className="text-left cursor-pointer transition-colors hover:text-text-primary disabled:cursor-wait disabled:opacity-70"
                         >
                           <span className="text-[12px] font-medium text-text-primary block">{saved.name}</span>
-                          <span className="text-[11px] text-text-secondary">{Number(saved.calories)} kcal</span>
+                          <span className={`text-[11px] ${wasAdded ? "text-emerald-400" : "text-text-secondary"}`}>
+                            {isAdding ? "Adding..." : wasAdded ? "Added" : `${Number(saved.calories)} kcal`}
+                          </span>
                         </button>
                         <button
                           onClick={() => deleteSavedMeal(saved.id)}
@@ -810,7 +885,8 @@ export default function PortalNutritionPlanPage() {
                           </svg>
                         </button>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -828,11 +904,19 @@ export default function PortalNutritionPlanPage() {
                 </div>
               ) : (
                 <div className="space-y-1">
-                  {foods.map((food) => (
+                  {foods.map((food) => {
+                    const isAdding = addingFoodId === food.id;
+                    const wasAdded = Boolean(addedFoodIds[food.id]);
+                    return (
                     <button
                       key={food.id}
                       onClick={() => addFoodAsMeal(food)}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[rgba(0,0,0,0.03)] dark:hover:bg-[rgba(255,255,255,0.03)] transition-colors text-left cursor-pointer active:scale-[0.98]"
+                      disabled={isAdding}
+                      className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left cursor-pointer active:scale-[0.98] disabled:cursor-wait disabled:opacity-80 ${
+                        wasAdded
+                          ? "app-just-added border-emerald-500/40 bg-emerald-500/10"
+                          : "border-transparent hover:bg-[rgba(0,0,0,0.03)] dark:hover:bg-[rgba(255,255,255,0.04)]"
+                      }`}
                     >
                       {food.photo_url ? (
                         <img src={food.photo_url} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
@@ -852,13 +936,24 @@ export default function PortalNutritionPlanPage() {
                           <span className="text-[12px] text-red-500">{food.fat_g}g F</span>
                         </div>
                       </div>
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-accent-bright/10 flex items-center justify-center">
-                        <svg className="w-4 h-4 text-accent-bright" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
+                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${wasAdded ? "bg-emerald-500" : "bg-accent-bright/10"}`}>
+                        {isAdding ? (
+                          <svg className="w-4 h-4 text-accent-bright" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6l4 2" />
+                          </svg>
+                        ) : wasAdded ? (
+                          <svg className="app-added-check w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4 text-accent-bright" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                        )}
                       </div>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -869,7 +964,7 @@ export default function PortalNutritionPlanPage() {
       {/* Manual Entry Modal */}
       {showManualAdd && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowManualAdd(false)}>
-          <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-5 w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="app-card rounded-[28px] p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-text-primary mb-1">Log MyFitnessPal totals</h3>
             <p className="text-[12px] text-text-muted mb-4">Copy the totals from MFP at the end of the day. Calories and protein matter most.</p>
             <div className="space-y-3">

@@ -59,11 +59,8 @@ function ScaleInput({ metric, value, onChange }: { metric: ProgressMetric; value
         onChange={(e) => onChange(e.target.value)}
         aria-label={metric.label}
         aria-valuetext={selected === null ? "Not set" : `${selected} out of ${max}`}
-        className="h-8 w-full cursor-pointer appearance-none bg-transparent accent-[#E040D0] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E040D0]/45 focus-visible:ring-offset-2 [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-[#E040D0] [&::-moz-range-thumb]:shadow-md [&::-moz-range-track]:h-2 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-[rgba(0,0,0,0.08)] [&::-webkit-slider-runnable-track]:h-2 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-thumb]:-mt-2 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-[#E040D0] [&::-webkit-slider-thumb]:shadow-md"
-        style={{
-          background: `linear-gradient(90deg, #E040D0 0%, #E040D0 ${percent}%, rgba(0,0,0,0.08) ${percent}%, rgba(0,0,0,0.08) 100%)`,
-          borderRadius: "999px",
-        }}
+        className="range-shift"
+        style={{ "--range-pct": `${percent}%` } as React.CSSProperties}
       />
       <div className="flex justify-between text-[11px] font-semibold text-text-muted">
         <span>{min}</span>
@@ -451,13 +448,13 @@ export default function CheckInPage() {
       </div>
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-4">
+        <div className="app-card-quiet app-rise app-rise-1 rounded-2xl p-4">
           <div className="text-[11px] uppercase tracking-[0.16em] text-text-muted">Check-in Rhythm</div>
           <div className="mt-2 text-lg font-heading font-bold text-text-primary">{formatDay(effectiveCheckinDay)}</div>
           <div className="mt-1 text-sm font-semibold text-[#E040D0]">{dueLabel}</div>
           <div className="mt-1 text-sm text-text-secondary">{tierInfo.rhythm}</div>
         </div>
-        <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-4">
+        <div className="app-card-quiet app-rise app-rise-2 rounded-2xl p-4">
           <div className="text-[11px] uppercase tracking-[0.16em] text-text-muted">This Week</div>
           <div className="mt-2 text-lg font-heading font-bold text-text-primary">
             {currentWeekSubmitted ? "Already saved" : "Still to submit"}
@@ -524,7 +521,7 @@ export default function CheckInPage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Mood */}
         {config.mood_enabled && config.mood_options.length > 0 && (
-          <fieldset className="rounded-[28px] border border-[#E040D0]/15 bg-bg-card p-5 shadow-[0_14px_34px_rgba(10,10,10,0.06)]">
+          <fieldset className="app-card app-rise rounded-[28px] p-5">
             <legend className="mb-3 block text-[13px] font-bold uppercase tracking-[0.16em] text-[#E040D0]">How are you feeling this week?</legend>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {config.mood_options.map((m) => (
@@ -553,7 +550,7 @@ export default function CheckInPage() {
           if (q.id === "photos") return null; // handled by PhotoUpload above
           if (q.type === "select" && q.options?.length) {
             return (
-              <fieldset key={q.id} className="rounded-[28px] border border-[#E040D0]/12 bg-bg-card p-5 shadow-[0_14px_34px_rgba(10,10,10,0.05)]">
+              <fieldset key={q.id} className="app-card rounded-[28px] p-5">
                 <legend className="mb-3 block text-sm font-bold text-text-primary">{q.label}</legend>
                 <div className="grid gap-3 sm:grid-cols-3">
                   {q.options.map((opt) => (
@@ -571,26 +568,26 @@ export default function CheckInPage() {
             );
           }
           return (
-            <div key={q.id}>
-              <label className="block text-sm font-medium text-text-primary mb-2">{q.label}</label>
+            <fieldset key={q.id} className="app-card rounded-[28px] p-5">
+              <legend className="mb-3 block text-sm font-bold text-text-primary">{q.label}</legend>
               <textarea
                 value={responses[q.id] || ""}
                 onChange={(e) => setResponses((prev) => ({ ...prev, [q.id]: e.target.value }))}
                 rows={3}
                 placeholder={q.placeholder}
-                className="w-full bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none"
+                className="app-inset w-full rounded-2xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/45 transition-colors resize-none"
               />
-            </div>
+            </fieldset>
           );
         })}
 
         {/* Progress Tracking */}
         {enabledMetrics.length > 0 && (
-          <section className="rounded-[28px] border border-[#E040D0]/12 bg-bg-card p-5 shadow-[0_14px_34px_rgba(10,10,10,0.05)]">
+          <section className="app-card rounded-[28px] p-5">
             <div className="mb-4 text-[13px] font-bold uppercase tracking-[0.16em] text-[#E040D0]">Progress Tracking</div>
             <div className="space-y-3">
               {enabledMetrics.map((m) => (
-                <fieldset key={m.id} className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-[linear-gradient(135deg,rgba(224,64,208,0.055),rgba(245,158,11,0.025))] px-3 py-3">
+                <fieldset key={m.id} className="rounded-2xl border border-[#E040D0]/15 bg-[linear-gradient(135deg,rgba(224,64,208,0.10),rgba(245,158,11,0.04))] px-3.5 py-3.5">
                   <legend className="px-1 text-sm font-bold text-text-primary">
                     {m.label}
                     {m.unit && <span className="text-text-muted font-normal ml-1">({m.unit})</span>}
@@ -630,7 +627,7 @@ export default function CheckInPage() {
 
         {/* Extra support fields are enabled by the client's assigned setup. */}
         {(tier === "premium" || tier === "vip") && (
-          <div className="space-y-5 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-5">
+          <div className="app-card space-y-5 rounded-[28px] p-5">
             <div>
               <div className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${
                 tier === "vip" ? "text-amber-500" : "text-sky-500"
@@ -649,7 +646,7 @@ export default function CheckInPage() {
                 placeholder={tier === "vip"
                   ? "Top-priority win, friction, or decision you need Gordy's eyes on."
                   : "A specific moment or situation you want his input on."}
-                className="mt-2 w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none"
+                className="app-inset mt-2 w-full rounded-2xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/45 transition-colors resize-none"
               />
             </div>
             <div>
@@ -666,7 +663,7 @@ export default function CheckInPage() {
                 onChange={(e) => setSupportAsk(e.target.value)}
                 rows={3}
                 placeholder="Training, nutrition, habits, mindset, accountability..."
-                className="mt-2 w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none"
+                className="app-inset mt-2 w-full rounded-2xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/45 transition-colors resize-none"
               />
             </div>
           </div>
