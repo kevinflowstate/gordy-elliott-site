@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "check:shift-ai-inputs": "node scripts/check-shift-ai-inputs.mjs",
+    "verify:portal": "npm run lint && npm run build && npm run check:shift-ai-inputs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

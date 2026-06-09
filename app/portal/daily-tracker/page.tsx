@@ -47,7 +47,7 @@ function scoreEntry(entry: {
 
 function ScalePills({ label, value, onChange, lowGood = false }: { label: string; value: number | ""; onChange: (value: number) => void; lowGood?: boolean }) {
   return (
-    <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary p-4">
+    <div className="app-inset rounded-2xl p-4">
       <div className="mb-2 flex items-center justify-between gap-3">
         <label className="text-sm font-semibold text-text-primary">{label}</label>
         <span className="text-xs font-semibold text-text-muted">{value || "Tap 1-10"}</span>
@@ -60,12 +60,12 @@ function ScalePills({ label, value, onChange, lowGood = false }: { label: string
               key={num}
               type="button"
               onClick={() => onChange(num)}
-              className={`h-10 min-w-10 rounded-full border text-sm font-semibold transition-colors ${
+              className={`app-tap h-10 min-w-10 rounded-full border text-sm font-semibold transition-all ${
                 active
                   ? lowGood
-                    ? "border-emerald-500 bg-emerald-500 text-white"
-                    : "border-accent bg-accent text-white"
-                  : "border-[rgba(0,0,0,0.08)] bg-bg-card text-text-secondary"
+                    ? "border-emerald-400 bg-emerald-500 text-white shadow-[0_4px_14px_rgba(16,185,129,0.4)]"
+                    : "border-[#F060E0] bg-[#E040D0] text-white shadow-[0_4px_14px_rgba(224,64,208,0.4)]"
+                  : "border-[rgba(255,255,255,0.10)] bg-[rgba(255,255,255,0.04)] text-text-secondary"
               }`}
             >
               {num}
@@ -79,7 +79,7 @@ function ScalePills({ label, value, onChange, lowGood = false }: { label: string
 
 function TrackerCard({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-[28px] border border-[rgba(0,0,0,0.06)] bg-bg-card p-5 sm:p-6">
+    <section className="app-card app-rise rounded-[28px] p-5 sm:p-6">
       <div className="mb-4">
         <h2 className="font-heading text-lg font-bold text-text-primary">{title}</h2>
         {hint && <p className="mt-1 text-sm text-text-secondary">{hint}</p>}
@@ -175,10 +175,10 @@ export default function DailyTrackerPage() {
             Log the simple stuff Gordy cares about: sleep, water, stress, energy, nutrition and whether training got done.
           </p>
         </div>
-        <div className="rounded-2xl border border-accent/20 bg-accent/10 px-5 py-4">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Today score</div>
-          <div className="mt-1 text-3xl font-heading font-bold text-text-primary">{score ?? "—"}/10</div>
-          <div className="mt-1 text-xs text-text-secondary">7-day average: {sevenDayScore ?? "—"}/10</div>
+        <div className="app-rise rounded-2xl border border-[#E040D0]/25 bg-[linear-gradient(150deg,#251426_0%,#1a1320_55%,#140f18_100%)] px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_40px_-22px_rgba(0,0,0,0.85)]">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-[#F060E0]">Today score</div>
+          <div className="mt-1 text-3xl font-heading font-bold text-white">{score ?? "—"}/10</div>
+          <div className="mt-1 text-xs text-white/70">7-day average: {sevenDayScore ?? "—"}/10</div>
         </div>
       </div>
 
@@ -260,7 +260,7 @@ export default function DailyTrackerPage() {
         <CyclingStatusText active={saving} idle="Save daily tracker" messages={["Saving...", "Updating today...", "Checking streak...", "Nearly there..."]} />
       </button>
 
-      <section className="rounded-[28px] border border-[rgba(0,0,0,0.06)] bg-bg-card p-5 sm:p-6">
+      <section className="app-card rounded-[28px] p-5 sm:p-6">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <h2 className="font-heading text-xl font-bold text-text-primary">Recent days</h2>

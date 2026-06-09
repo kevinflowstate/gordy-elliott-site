@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import AIComposerTextarea from "@/components/ui/AIComposerTextarea";
 
 interface Message {
   role: "user" | "assistant";
@@ -194,15 +195,14 @@ export default function AdminShiftAIPage() {
       </div>
 
       <div className="relative">
-        <textarea
+        <AIComposerTextarea
           ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Ask SHIFT AI..."
           rows={1}
-          className="w-full resize-none rounded-2xl border border-[rgba(0,0,0,0.08)] bg-[rgba(0,0,0,0.02)] px-4 py-3.5 pr-12 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[rgba(224,64,208,0.3)] transition-colors"
-          style={{ minHeight: "48px", maxHeight: "120px" }}
+          disabled={loading}
         />
         <button
           onClick={handleSend}
