@@ -15,6 +15,50 @@ export default function SettingsPage() {
   );
 }
 
+async function resizeAvatarImage(file: File, maxWidth = 900): Promise<File> {
+  if (!file.type.startsWith("image/") || file.type.includes("heic") || file.type.includes("heif")) {
+    return file;
+  }
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const ratio = Math.min(1, maxWidth / img.width);
+      if (ratio >= 1) {
+        resolve(file);
+        return;
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * ratio);
+      canvas.height = Math.round(img.height * ratio);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(file);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(file);
+            return;
+          }
+          resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" }));
+        },
+        "image/jpeg",
+        0.88
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(file);
+    };
+    img.src = url;
+  });
+}
+
 function SettingsContent() {
   const router = useRouter();
   const { toast } = useToast();
@@ -22,6 +66,7 @@ function SettingsContent() {
   const [fullName, setFullName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarMessage, setAvatarMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -54,29 +99,37 @@ function SettingsContent() {
   }, []);
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      toast("File too large. Maximum 10MB.", "error");
-      return;
-    }
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+    setAvatarMessage(null);
     setUploadingAvatar(true);
 
-    const formData = new FormData();
-    formData.append("file", file);
-
     try {
+      const file = await resizeAvatarImage(selectedFile);
+      if (file.size > 10 * 1024 * 1024) {
+        throw new Error("File too large. Maximum 10MB.");
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+
       const res = await fetch("/api/portal/avatar", { method: "POST", body: formData });
       if (res.ok) {
         const data = await res.json();
         setAvatarUrl(data.avatarUrl);
+        setAvatarMessage({ type: "success", text: "Profile photo updated." });
         toast("Profile photo updated");
       } else {
         const data = await res.json().catch(() => ({}));
-        toast(data.error || "Failed to upload avatar. Please try another photo.", "error");
+        throw new Error(data.error || "Failed to upload avatar. Please try another photo.");
       }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to upload avatar. Please try another photo.";
+      setAvatarMessage({ type: "error", text: message });
+      toast(message, "error");
     } finally {
       setUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
@@ -107,7 +160,7 @@ function SettingsContent() {
   }
 
   if (loading) return (
-    <div className="max-w-2xl space-y-6">
+    <div className="mx-auto w-full max-w-2xl space-y-6">
       <div className="mb-8">
         <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-8 w-32 mb-2" />
         <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-56" />
@@ -130,7 +183,7 @@ function SettingsContent() {
   );
 
   return (
-    <div className="max-w-2xl">
+    <div className="mx-auto w-full max-w-2xl pb-24 sm:pb-0">
       <div className="mb-8">
         <h1 className="text-3xl font-heading font-bold text-text-primary">Settings</h1>
         <p className="text-text-secondary mt-1">Update your profile information.</p>
@@ -138,7 +191,7 @@ function SettingsContent() {
 
       <form onSubmit={handleSave} className="space-y-6">
         {/* Profile Picture */}
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6">
+        <div className="app-card rounded-2xl p-6">
           <h2 className="text-lg font-heading font-bold text-text-primary mb-4">Profile Picture</h2>
           <div className="flex items-center gap-5">
             <div className="relative">
@@ -173,11 +226,16 @@ function SettingsContent() {
                 <CyclingStatusText active={uploadingAvatar} idle="Change Photo" messages={["Uploading...", "Optimising photo...", "Saving profile...", "Nearly there..."]} />
               </button>
               <p className="text-xs text-text-muted mt-1.5">JPG, PNG, WebP or iPhone HEIC. Max 10MB.</p>
+              {avatarMessage && (
+                <p className={`mt-2 text-xs font-semibold ${avatarMessage.type === "success" ? "text-emerald-400" : "text-red-400"}`}>
+                  {avatarMessage.text}
+                </p>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 space-y-5">
+        <div className="app-card rounded-2xl p-6 space-y-5">
           <h2 className="text-lg font-heading font-bold text-text-primary">Profile</h2>
 
           <div>
@@ -192,7 +250,7 @@ function SettingsContent() {
         </div>
 
         {/* Password section */}
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 space-y-5">
+        <div className="app-card rounded-2xl p-6 space-y-5">
           <h2 className="text-lg font-heading font-bold text-text-primary">
             {isSetup ? "Set Your Password" : "Change Password"}
           </h2>

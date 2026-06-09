@@ -43,10 +43,10 @@ export default function TrainingLibrary() {
   }, []);
 
   return (
-    <>
+    <div className="mx-auto w-full max-w-5xl pb-28 sm:pb-0">
       <div className="mb-8">
-        <h1 className="text-3xl font-heading font-bold text-text-primary">Training Library</h1>
-        <p className="text-text-secondary mt-1">Work through each module at your own pace.</p>
+        <h1 className="text-center text-3xl font-heading font-bold text-text-primary sm:text-left">Training Library</h1>
+        <p className="mt-1 text-center text-text-secondary sm:text-left">Work through each module at your own pace.</p>
       </div>
 
       {loading ? (
@@ -132,6 +132,6 @@ export default function TrainingLibrary() {
           })}
         </div>
       )}
-    </>
+    </div>
   );
 }

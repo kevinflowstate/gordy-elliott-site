@@ -333,7 +333,7 @@ export default function CheckInPage() {
 
   if (tierLoaded && tier === "ai_only") {
     return (
-      <div className="max-w-2xl">
+      <div className="mx-auto w-full max-w-2xl">
         <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
           <div className="w-16 h-16 bg-[#E040D0]/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-[#E040D0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -352,7 +352,7 @@ export default function CheckInPage() {
 
   if (submitted) {
     return (
-      <div className="flex min-h-[calc(100dvh-11rem)] max-w-2xl items-center">
+      <div className="mx-auto flex min-h-[calc(100dvh-11rem)] w-full max-w-2xl items-center">
         <div className="w-full bg-bg-card border border-emerald-500/20 rounded-3xl p-8 text-center shadow-lg">
           <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -391,7 +391,7 @@ export default function CheckInPage() {
 
   if (!config) {
     return (
-      <div className="max-w-2xl">
+      <div className="mx-auto w-full max-w-2xl">
         <div className="mb-8">
           <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-8 w-48 mb-2" />
           <div className="animate-pulse bg-[rgba(0,0,0,0.08)] rounded-lg h-4 w-72" />
@@ -432,7 +432,7 @@ export default function CheckInPage() {
       : `Next due ${nextCheckinDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}`;
 
   return (
-    <div className="max-w-2xl pb-28 sm:pb-0">
+    <div className="mx-auto w-full max-w-2xl pb-28 sm:pb-0">
       <div className="mb-6">
         <h1 className="text-3xl font-heading font-bold text-text-primary">{config.title || "Weekly Check-in"}</h1>
         <p className="text-text-secondary mt-1">{tierInfo.line}</p>
@@ -521,8 +521,8 @@ export default function CheckInPage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Mood */}
         {config.mood_enabled && config.mood_options.length > 0 && (
-          <fieldset className="app-card app-rise rounded-[28px] p-5">
-            <legend className="mb-3 block text-[13px] font-bold uppercase tracking-[0.16em] text-[#E040D0]">How are you feeling this week?</legend>
+          <section className="app-card app-rise rounded-[28px] p-5" aria-labelledby="weekly-mood-heading">
+            <h2 id="weekly-mood-heading" className="mb-3 text-[13px] font-bold uppercase tracking-[0.16em] text-[#E040D0]">How are you feeling this week?</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {config.mood_options.map((m) => (
                 <ChoiceButton
@@ -536,7 +536,7 @@ export default function CheckInPage() {
                 />
               ))}
             </div>
-          </fieldset>
+          </section>
         )}
 
         {/* Progress Photos */}
@@ -550,8 +550,8 @@ export default function CheckInPage() {
           if (q.id === "photos") return null; // handled by PhotoUpload above
           if (q.type === "select" && q.options?.length) {
             return (
-              <fieldset key={q.id} className="app-card rounded-[28px] p-5">
-                <legend className="mb-3 block text-sm font-bold text-text-primary">{q.label}</legend>
+              <section key={q.id} className="app-card rounded-[28px] p-5" aria-labelledby={`question_${q.id}_heading`}>
+                <h2 id={`question_${q.id}_heading`} className="mb-3 text-sm font-bold text-text-primary">{q.label}</h2>
                 <div className="grid gap-3 sm:grid-cols-3">
                   {q.options.map((opt) => (
                     <ChoiceButton
@@ -564,20 +564,21 @@ export default function CheckInPage() {
                     />
                   ))}
                 </div>
-              </fieldset>
+              </section>
             );
           }
           return (
-            <fieldset key={q.id} className="app-card rounded-[28px] p-5">
-              <legend className="mb-3 block text-sm font-bold text-text-primary">{q.label}</legend>
+            <section key={q.id} className="app-card rounded-[28px] p-5">
+              <label htmlFor={`question_${q.id}`} className="mb-3 block text-sm font-bold text-text-primary">{q.label}</label>
               <textarea
+                id={`question_${q.id}`}
                 value={responses[q.id] || ""}
                 onChange={(e) => setResponses((prev) => ({ ...prev, [q.id]: e.target.value }))}
                 rows={3}
                 placeholder={q.placeholder}
                 className="app-inset w-full rounded-2xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/45 transition-colors resize-none"
               />
-            </fieldset>
+            </section>
           );
         })}
 
@@ -587,11 +588,11 @@ export default function CheckInPage() {
             <div className="mb-4 text-[13px] font-bold uppercase tracking-[0.16em] text-[#E040D0]">Progress Tracking</div>
             <div className="space-y-3">
               {enabledMetrics.map((m) => (
-                <fieldset key={m.id} className="rounded-2xl border border-[#E040D0]/15 bg-[linear-gradient(135deg,rgba(224,64,208,0.10),rgba(245,158,11,0.04))] px-3.5 py-3.5">
-                  <legend className="px-1 text-sm font-bold text-text-primary">
+                <div key={m.id} className="rounded-2xl border border-[#E040D0]/15 bg-[linear-gradient(135deg,rgba(224,64,208,0.10),rgba(245,158,11,0.04))] px-3.5 py-3.5">
+                  <div className="mb-2 text-sm font-bold text-text-primary">
                     {m.label}
                     {m.unit && <span className="text-text-muted font-normal ml-1">({m.unit})</span>}
-                  </legend>
+                  </div>
                   {m.type === "scale" ? (
                     <ScaleInput
                       metric={m}
@@ -619,7 +620,7 @@ export default function CheckInPage() {
                       className="w-full bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40 transition-colors"
                     />
                   )}
-                </fieldset>
+                </div>
               ))}
             </div>
           </section>

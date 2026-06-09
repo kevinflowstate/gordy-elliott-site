@@ -36,7 +36,7 @@ export default function GalleryPage() {
   }, []);
 
   return (
-    <div className="max-w-2xl">
+    <div className="mx-auto w-full max-w-2xl pb-24 sm:pb-0">
       <div className="mb-8">
         <h1 className="text-3xl font-heading font-bold text-text-primary">Progress Photos</h1>
         <p className="text-text-secondary mt-1">Track your visual transformation over time.</p>
