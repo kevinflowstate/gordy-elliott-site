@@ -45,6 +45,18 @@ const component = read(files.component);
 if (!component.includes('data-shift-ai-input="composer"') || !component.includes("shift-ai-input")) {
   fail("AIComposerTextarea must keep the data marker and shift-ai-input class.");
 }
+for (const marker of [
+  'data-lpignore="true"',
+  'data-1p-ignore="true"',
+  'data-form-type="other"',
+  'enterKeyHint={props.enterKeyHint ?? "send"}',
+  'inputMode={props.inputMode ?? "text"}',
+  "text-base",
+]) {
+  if (!component.includes(marker)) {
+    fail(`AIComposerTextarea missing mobile composer marker: ${marker}.`);
+  }
+}
 
 const css = read(files.css);
 for (const selector of [
@@ -60,6 +72,34 @@ for (const selector of [
 ]) {
   if (!css.includes(selector)) {
     fail(`missing CSS selector ${selector}.`);
+  }
+}
+for (const marker of [
+  "font-size: 16px !important",
+  "--shift-ai-keyboard-inset",
+  "--shift-ai-composer-height",
+  ".shift-ai-composer-bar",
+  ".shift-ai-thread",
+  "html.shift-ai-composer-focused",
+  "html.shift-ai-keyboard-open",
+]) {
+  if (!css.includes(marker)) {
+    fail(`missing mobile keyboard CSS contract marker ${marker}.`);
+  }
+}
+
+const portal = read(files.portal);
+for (const marker of [
+  "window.visualViewport",
+  "shift-ai-composer-focused",
+  "shift-ai-keyboard-open",
+  "resetDocumentScroll",
+  "pinLatestToComposer",
+  "shift-ai-composer-bar",
+  "shift-ai-thread",
+]) {
+  if (!portal.includes(marker)) {
+    fail(`portal SHIFT AI missing keyboard stabilizer marker ${marker}.`);
   }
 }
 

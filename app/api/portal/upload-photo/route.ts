@@ -2,6 +2,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
+const MAX_PHOTO_BYTES = 12 * 1024 * 1024;
+const VALID_ANGLES = new Set(["front", "back", "side"]);
+const ALLOWED_PHOTO_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "heic", "heif"]);
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -31,16 +35,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "file, angle, and date are required" }, { status: 400 });
   }
 
+  if (file.size > MAX_PHOTO_BYTES) {
+    return NextResponse.json({ error: "Photo is too large. Maximum 12MB." }, { status: 400 });
+  }
+
   if (!file.type.startsWith("image/")) {
     return NextResponse.json({ error: "Only image files are allowed" }, { status: 400 });
   }
 
-  const validAngles = ["front", "back", "side"];
-  if (!validAngles.includes(angle)) {
+  if (!VALID_ANGLES.has(angle)) {
     return NextResponse.json({ error: "angle must be front, back, or side" }, { status: 400 });
   }
 
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return NextResponse.json({ error: "date must be YYYY-MM-DD" }, { status: 400 });
+  }
+
   const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  if (!ALLOWED_PHOTO_EXTENSIONS.has(ext)) {
+    return NextResponse.json({ error: `File extension not allowed: ${ext}` }, { status: 400 });
+  }
+
   const path = `${profile.id}/${date}/${angle}.${ext}`;
 
   const arrayBuffer = await file.arrayBuffer();

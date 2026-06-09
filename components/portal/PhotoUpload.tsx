@@ -50,9 +50,9 @@ async function resizeImage(file: File, maxWidth = 1200): Promise<File> {
   });
 }
 
-export default function PhotoUpload({ date, onPhotosChange }: PhotoUploadProps) {
+export default function PhotoUpload({ onPhotosChange }: PhotoUploadProps) {
   const [previews, setPreviews] = useState<Record<string, string>>({});
-  const [files, setFiles] = useState<Record<string, File>>({});
+  const [, setFiles] = useState<Record<string, File>>({});
   const [dragging, setDragging] = useState<string | null>(null);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -94,8 +94,8 @@ export default function PhotoUpload({ date, onPhotosChange }: PhotoUploadProps) 
   }
 
   return (
-    <div>
-      <label className="block text-sm font-medium text-text-primary mb-3">Progress Photos</label>
+    <section className="app-card rounded-[28px] p-5">
+      <h2 className="mb-3 text-sm font-bold text-text-primary">Progress Photos</h2>
       <p className="text-xs text-text-muted mb-4">Upload front, back, and side photos to track your visual progress.</p>
       <div className="grid grid-cols-3 gap-3">
         {slots.map(({ angle, label }) => {
@@ -150,6 +150,6 @@ export default function PhotoUpload({ date, onPhotosChange }: PhotoUploadProps) 
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }

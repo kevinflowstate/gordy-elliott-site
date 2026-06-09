@@ -90,6 +90,12 @@ body {
   .portal-page-frame a {
     max-width: 100%;
   }
+
+  .portal-page-frame input,
+  .portal-page-frame textarea,
+  .portal-page-frame select {
+    font-size: 16px;
+  }
 }
 
 /* SHIFT AI composer contract: this class owns foreground, placeholder,
@@ -101,6 +107,12 @@ body {
   border-color: rgba(23, 16, 24, 0.12) !important;
   caret-color: var(--color-accent) !important;
   -webkit-text-fill-color: #171018 !important;
+  font-size: 16px !important;
+  line-height: 1.35 !important;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  -webkit-overflow-scrolling: touch;
 }
 
 .shift-ai-input::placeholder {
@@ -133,10 +145,6 @@ body {
   -webkit-text-fill-color: #171018 !important;
   caret-color: var(--color-accent) !important;
 }
-
-/* Bump all small text to minimum 13px across admin + portal */
-.text-\[9px\], .text-\[10px\], .text-\[11px\] { font-size: 13px !important; }
-.text-xs { font-size: 13px !important; line-height: 1.5 !important; }
 
 /* Gradient accent utility */
 .gradient-accent {
@@ -277,7 +285,7 @@ body {
 /* Dark mode: fix hardcoded light borders/backgrounds for dark context */
 .dark [class*="border-[rgba(0,0,0"] { border-color: rgba(255,255,255,0.06) !important; }
 .dark [class*="bg-[rgba(0,0,0"] { background-color: rgba(255,255,255,0.03) !important; }
-.dark [class*="bg-white"] { background-color: #1A1A1A !important; }
+.dark [class~="bg-white"] { background-color: #1A1A1A !important; }
 .dark [class*="bg-\\[\\#fafaf8\\]"], .dark [class*="bg-\\[\\#f8f8f6\\]"] { background-color: #0A0A0A !important; }
 .dark [class*="text-\[#1a1a1a\]"] { color: #ffffff !important; }
 
@@ -285,14 +293,15 @@ body {
    text-text-* carry LIGHT literals that the .dark variable override can't
    reach. Re-point them to the dark palette here so every portal surface that
    still uses the tokens reads as a proper dark, lifted card (not white). */
-.dark [class~="bg-bg-card"], .dark [class*="bg-bg-card/"] { background-color: #18141d; }
-.dark [class~="bg-bg-primary"], .dark [class*="bg-bg-primary/"] { background-color: #100c16; }
-.dark [class~="bg-bg-secondary"], .dark [class*="bg-bg-secondary/"] { background-color: #15111b; }
-.dark [class*="text-text-primary"] { color: #f6f4f8; }
-.dark [class*="text-text-secondary"] { color: #cbc7d4; }
-.dark [class*="text-text-muted"] { color: #9c98aa; }
+.dark [class~="bg-bg-card"], .dark [class*="bg-bg-card/"] { background-color: #18141d !important; }
+.dark [class~="bg-bg-primary"], .dark [class*="bg-bg-primary/"] { background-color: #100c16 !important; }
+.dark [class~="bg-bg-secondary"], .dark [class*="bg-bg-secondary/"] { background-color: #15111b !important; }
+.dark [class*="text-text-primary"] { color: #f6f4f8 !important; }
+.dark [class*="text-text-secondary"] { color: #cbc7d4 !important; }
+.dark [class*="text-text-muted"] { color: #9c98aa !important; }
 /* Keep the shell's ambient gradient instead of the flat token colour. */
-.dark .portal-shell.portal-shell { background-color: #08070a; }
+.dark .portal-shell.portal-shell,
+.portal-shell.dark.portal-shell { background-color: #08070a; }
 /* Inputs already have their own dark treatment below — let it win. */
 .dark input[class~="bg-bg-card"], .dark select[class~="bg-bg-card"], .dark textarea[class~="bg-bg-card"],
 .dark input[class~="bg-bg-primary"], .dark select[class~="bg-bg-primary"], .dark textarea[class~="bg-bg-primary"] { background-color: #1A1A1A; }
@@ -358,9 +367,9 @@ body {
 .dark [class*="shadow-"] { --tw-shadow-color: rgba(0,0,0,0.3) !important; }
 
 /* Dark mode: gradient overlays */
-.dark [class*="from-white"] { --tw-gradient-from: rgba(10,10,10,0.8) !important; }
-.dark [class*="to-white"] { --tw-gradient-to: rgba(10,10,10,0) !important; }
-.dark [class*="via-white"] { --tw-gradient-via: rgba(10,10,10,0.4) !important; }
+.dark [class~="from-white"] { --tw-gradient-from: rgba(10,10,10,0.8) !important; }
+.dark [class~="to-white"] { --tw-gradient-to: rgba(10,10,10,0) !important; }
+.dark [class~="via-white"] { --tw-gradient-via: rgba(10,10,10,0.4) !important; }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar { width: 8px; }
@@ -377,16 +386,23 @@ body {
 /* Ambient depth behind every portal screen: a soft magenta aura at the
    top fading into the deep base, plus a faint warm floor. Painted as a
    fixed background image so it sits above the base colour, below content. */
-.dark .portal-shell {
-  background-color: #08070a;
+.dark .portal-shell,
+.portal-shell.dark {
+  background-color: #08070a !important;
   background-image:
     radial-gradient(120% 64% at 50% -16%, rgba(224, 64, 208, 0.10), transparent 56%),
     radial-gradient(90% 60% at 100% 4%, rgba(245, 158, 11, 0.05), transparent 50%),
-    radial-gradient(140% 90% at 50% 108%, rgba(184, 48, 168, 0.06), transparent 60%);
+    radial-gradient(140% 90% at 50% 108%, rgba(184, 48, 168, 0.06), transparent 60%) !important;
+}
+
+.portal-shell.dark .portal-main,
+.portal-shell.dark .portal-page-frame {
+  background: transparent !important;
 }
 
 @media (min-width: 768px) {
-  .dark .portal-shell {
+  .dark .portal-shell,
+  .portal-shell.dark {
     background-attachment: fixed;
   }
 }
@@ -470,6 +486,57 @@ body {
 }
 .app-just-added { animation: appPop 0.4s ease; border-color: rgba(16, 185, 129, 0.55) !important; }
 .app-added-check { animation: appCheckIn 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+/* SHIFT AI mobile keyboard contract. The page script feeds these vars from
+   visualViewport so the composer follows the keyboard instead of the document. */
+:root {
+  --shift-ai-keyboard-inset: 0px;
+  --shift-ai-composer-height: 72px;
+  --shift-ai-visual-height: 100dvh;
+  --shift-ai-bottom-nav-clearance: calc(5.75rem + env(safe-area-inset-bottom));
+  --shift-ai-active-bottom: max(var(--shift-ai-keyboard-inset, 0px), var(--shift-ai-bottom-nav-clearance));
+}
+
+.shift-ai-shell {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.shift-ai-thread {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scroll-padding-bottom: calc(var(--shift-ai-composer-height, 72px) + var(--shift-ai-active-bottom) + 12px);
+}
+
+.shift-ai-composer-bar {
+  position: relative;
+  z-index: 60;
+  width: 100%;
+}
+
+@media (max-width: 767px) {
+  .shift-ai-shell {
+    height: calc(100dvh - 7.25rem);
+  }
+
+  html.shift-ai-composer-focused .shift-ai-composer-bar,
+  html.shift-ai-keyboard-open .shift-ai-composer-bar,
+  .shift-ai-composer-bar.is-focused,
+  .shift-ai-composer-bar:focus-within {
+    position: fixed;
+    left: 1rem;
+    right: 1rem;
+    bottom: var(--shift-ai-active-bottom);
+    width: auto;
+    transform: translate3d(0, 0, 0);
+    will-change: bottom;
+  }
+
+  html.shift-ai-composer-focused .shift-ai-thread,
+  html.shift-ai-keyboard-open .shift-ai-thread {
+    padding-bottom: calc(var(--shift-ai-composer-height, 72px) + var(--shift-ai-active-bottom) + 12px);
+  }
+}
 
 /* ============================================================
    PREMIUM RANGE SLIDER (dark)

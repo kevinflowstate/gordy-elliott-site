@@ -207,7 +207,7 @@ export default function ProgressPage() {
       : null;
 
   const inputClass =
-    "w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-2.5 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-[#E040D0]/30 focus:border-[#E040D0]/50 transition-all";
+    "w-full min-w-0 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-2.5 text-base sm:text-sm text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-[#E040D0]/30 focus:border-[#E040D0]/50 transition-all";
 
   const labelClass = "block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5";
 
@@ -218,7 +218,7 @@ export default function ProgressPage() {
     : null;
 
   return (
-    <div className="max-w-2xl pb-24 sm:pb-0">
+    <div className="mx-auto w-full max-w-2xl pb-24 sm:pb-0">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-heading font-bold text-text-primary">Progress Tracking</h1>
@@ -261,8 +261,7 @@ export default function ProgressPage() {
       </div>
 
       {/* Log New Entry */}
-      <div className="relative bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 sm:p-6 mb-6">
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#B830A8] via-[#E040D0] to-[#F060E0] rounded-t-2xl" />
+      <div className="app-card rounded-2xl p-4 sm:p-6 mb-6">
         <h2 className="text-base font-heading font-bold text-text-primary mb-4">Log New Entry</h2>
 
         {error && (
@@ -277,7 +276,7 @@ export default function ProgressPage() {
         )}
 
         <div className="grid grid-cols-1 gap-4 mb-4 sm:grid-cols-2">
-          <div>
+          <div className="min-w-0">
             <label className={labelClass}>Date</label>
             <input
               type="date"
@@ -286,7 +285,7 @@ export default function ProgressPage() {
               className={inputClass}
             />
           </div>
-          <div>
+          <div className="min-w-0">
             <label className={labelClass}>Weight (kg)</label>
             <input
               type="number"
@@ -318,35 +317,35 @@ export default function ProgressPage() {
 
         {showMeasurements && (
           <div className="grid grid-cols-1 gap-4 mb-4 rounded-xl border border-[rgba(0,0,0,0.04)] bg-[rgba(0,0,0,0.02)] p-4 sm:grid-cols-2">
-            <div>
+            <div className="min-w-0">
               <label className={labelClass}>Waist (cm)</label>
               <input type="number" step="0.1" placeholder="e.g. 82" value={waistCm} onChange={(e) => setWaistCm(e.target.value)} className={inputClass} />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className={labelClass}>Chest (cm)</label>
               <input type="number" step="0.1" placeholder="e.g. 98" value={chestCm} onChange={(e) => setChestCm(e.target.value)} className={inputClass} />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className={labelClass}>Hips (cm)</label>
               <input type="number" step="0.1" placeholder="e.g. 96" value={hipsCm} onChange={(e) => setHipsCm(e.target.value)} className={inputClass} />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className={labelClass}>Left Arm (cm)</label>
               <input type="number" step="0.1" placeholder="e.g. 34" value={leftArmCm} onChange={(e) => setLeftArmCm(e.target.value)} className={inputClass} />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className={labelClass}>Right Arm (cm)</label>
               <input type="number" step="0.1" placeholder="e.g. 34" value={rightArmCm} onChange={(e) => setRightArmCm(e.target.value)} className={inputClass} />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className={labelClass}>Left Thigh (cm)</label>
               <input type="number" step="0.1" placeholder="e.g. 58" value={leftThighCm} onChange={(e) => setLeftThighCm(e.target.value)} className={inputClass} />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className={labelClass}>Right Thigh (cm)</label>
               <input type="number" step="0.1" placeholder="e.g. 58" value={rightThighCm} onChange={(e) => setRightThighCm(e.target.value)} className={inputClass} />
             </div>
-            <div className="sm:col-span-2">
+            <div className="min-w-0 sm:col-span-2">
               <label className={labelClass}>Notes</label>
               <input type="text" placeholder="Optional notes..." value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} />
             </div>

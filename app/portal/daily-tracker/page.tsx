@@ -165,7 +165,7 @@ export default function DailyTrackerPage() {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 pb-28 sm:pb-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <Link href="/portal" className="mb-3 inline-flex text-sm font-semibold text-accent-bright no-underline">
             ← Back to dashboard
           </Link>
@@ -175,7 +175,7 @@ export default function DailyTrackerPage() {
             Log the simple stuff Gordy cares about: sleep, water, stress, energy, nutrition and whether training got done.
           </p>
         </div>
-        <div className="app-rise rounded-2xl border border-[#E040D0]/25 bg-[linear-gradient(150deg,#251426_0%,#1a1320_55%,#140f18_100%)] px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_40px_-22px_rgba(0,0,0,0.85)]">
+        <div className="app-rise w-full rounded-2xl border border-[#E040D0]/25 bg-[linear-gradient(150deg,#251426_0%,#1a1320_55%,#140f18_100%)] px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_40px_-22px_rgba(0,0,0,0.85)] sm:w-auto">
           <div className="text-[10px] uppercase tracking-[0.18em] text-[#F060E0]">Today score</div>
           <div className="mt-1 text-3xl font-heading font-bold text-white">{score ?? "—"}/10</div>
           <div className="mt-1 text-xs text-white/70">7-day average: {sevenDayScore ?? "—"}/10</div>
@@ -190,7 +190,7 @@ export default function DailyTrackerPage() {
               type="date"
               value={form.tracked_date}
               onChange={(e) => setForm((prev) => ({ ...prev, tracked_date: e.target.value }))}
-              className="w-full max-w-[220px] rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-text-primary outline-none focus:border-accent/50"
+              className="w-full min-w-0 rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-base text-text-primary outline-none focus:border-accent/50 sm:max-w-[220px] sm:text-sm"
             />
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
