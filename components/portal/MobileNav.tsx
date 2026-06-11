@@ -84,7 +84,7 @@ export default function MobileNav() {
       {/* Bottom bar */}
       <nav
         aria-label="Primary"
-        className="portal-mobile-nav fixed bottom-0 left-0 right-0 z-50 border-t border-[rgba(255,255,255,0.12)] bg-[#0A0A0A]/96 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-lg lg:hidden"
+        className="portal-mobile-nav fixed bottom-0 left-0 right-0 z-50 border-t border-white/[0.08] bg-[rgba(8,8,11,0.88)] px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-2xl lg:hidden"
       >
         <div className="flex h-[4.25rem] items-stretch justify-around gap-1">
           {visibleItems.map((item) => {
@@ -95,13 +95,15 @@ export default function MobileNav() {
                 href={item.href}
                 onClick={() => setShowMore(false)}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 transition-colors no-underline min-h-[48px] ${
+                className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-1.5 transition-colors no-underline min-h-[48px] ${
                   isActive ? "text-accent-bright" : "text-[#aeb0bb]"
                 }`}
               >
-                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={isActive ? 2 : 1.5} d={item.icon} />
-                </svg>
+                <span className={`flex h-7 w-12 items-center justify-center rounded-full transition-colors ${isActive ? "bg-[#E040D0]/15" : ""}`}>
+                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={isActive ? 2 : 1.5} d={item.icon} />
+                  </svg>
+                </span>
                 <span className="text-[11px] font-semibold leading-tight tracking-tight">{item.label}</span>
               </Link>
             );
@@ -113,13 +115,15 @@ export default function MobileNav() {
             onClick={() => setShowMore(!showMore)}
             aria-expanded={showMore}
             aria-haspopup="menu"
-            className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 transition-colors cursor-pointer min-h-[48px] ${
+            className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-1.5 transition-colors cursor-pointer min-h-[48px] ${
               showMore || moreIsActive ? "text-accent-bright" : "text-[#aeb0bb]"
             }`}
           >
-            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={showMore || moreIsActive ? 2 : 1.5} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            <span className={`flex h-7 w-12 items-center justify-center rounded-full transition-colors ${showMore || moreIsActive ? "bg-[#E040D0]/15" : ""}`}>
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={showMore || moreIsActive ? 2 : 1.5} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </span>
             <span className="text-[11px] font-semibold leading-tight tracking-tight">More</span>
           </button>
         </div>

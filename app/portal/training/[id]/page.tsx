@@ -190,7 +190,7 @@ export default function ModuleView() {
                 <button
                   onClick={(e) => { e.stopPropagation(); toggleComplete(lesson.id); }}
                   className={`w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all cursor-pointer ${
-                    isCompleted ? "bg-emerald-500 border-emerald-500" : "border-[rgba(0,0,0,0.1)] hover:border-accent"
+                    isCompleted ? "bg-emerald-500 border-emerald-500" : "border-white/[0.28] bg-white/[0.03] hover:border-accent"
                   }`}
                 >
                   {isCompleted && (
