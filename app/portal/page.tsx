@@ -43,6 +43,72 @@ const tierDisplay = {
   },
 } as const satisfies Record<Tier, unknown>;
 
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function getWeekNumber(startDate?: string | null): number | null {
+  if (!startDate) return null;
+  const start = new Date(startDate).getTime();
+  if (Number.isNaN(start) || start > Date.now()) return null;
+  return Math.max(1, Math.ceil((Date.now() - start) / (7 * 24 * 60 * 60 * 1000)));
+}
+
+function ProgressRing({ pct, label, sublabel }: { pct: number; label: string; sublabel: string }) {
+  const size = 148;
+  const stroke = 10;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = Math.max(0, Math.min(100, pct));
+  const offset = circumference * (1 - clamped / 100);
+  return (
+    <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+        <defs>
+          <linearGradient id="ring-accent" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#B830A8" />
+            <stop offset="100%" stopColor="#F060E0" />
+          </linearGradient>
+        </defs>
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="url(#ring-accent)"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          style={{ transition: "stroke-dashoffset 0.9s cubic-bezier(0.16, 1, 0.3, 1)", filter: "drop-shadow(0 0 8px rgba(224, 64, 208, 0.45))" }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <div className="metric-num text-[2.4rem] font-bold leading-none text-white">{clamped}<span className="text-lg text-white/55">%</span></div>
+        <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#F7A8EE]">{label}</div>
+        <div className="mt-0.5 text-[10px] text-white/55">{sublabel}</div>
+      </div>
+    </div>
+  );
+}
+
+function MetricTile({ value, unit, label, hint }: { value: string; unit?: string; label: string; hint: string }) {
+  return (
+    <div className="app-hero-tile rounded-2xl px-3 py-3">
+      <div className="metric-num text-[1.5rem] font-bold leading-none text-white">
+        {value}
+        {unit && <span className="ml-1 text-sm font-medium text-white/55">{unit}</span>}
+      </div>
+      <div className="mt-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-white/70">{label}</div>
+      <div className="mt-0.5 text-[10px] leading-4 text-white/50">{hint}</div>
+    </div>
+  );
+}
+
 function getNextOccurrence(event: CalendarEvent): Date | null {
   const now = new Date();
   if (event.recurrence === "none") {
@@ -325,6 +391,16 @@ export default function PortalDashboard() {
 
   const coachNote = getCoachNoteOfDay();
 
+  const weekNumber = getWeekNumber(profile?.start_date);
+  const todayLabel = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+  const ringPct = totalPlanItems > 0 ? planPct : submittedThisWeek ? 100 : 0;
+  const ringLabel = totalPlanItems > 0 ? "Plan" : "This Week";
+  const ringSublabel = totalPlanItems > 0
+    ? `${completedPlanItems} of ${totalPlanItems} actions`
+    : submittedThisWeek
+      ? "check-in logged"
+      : "check-in due";
+
   // When Gordy has no open priority, never show a dead/empty state — surface a
   // useful, plan-aware fallback so the home always has a next action.
   const fallbackPriority = useMemo(() => {
@@ -373,16 +449,37 @@ export default function PortalDashboard() {
         </div>
       )}
       <section className="app-hero app-rise app-rise-1 flex flex-col overflow-hidden rounded-[30px] px-5 py-5 text-white sm:px-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#F7A8EE]">SHIFT Today</div>
-            <h1 className="mt-1 text-3xl font-heading font-bold leading-none text-white">
-              {`Start here${userName ? `, ${userName.split(" ")[0]}` : ""}`}
-            </h1>
-          </div>
-          <div className="app-hero-tile flex-shrink-0 rounded-2xl px-3 py-2 text-right">
-            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/60">Plan</div>
-            <div className="text-lg font-heading font-bold text-white">{totalPlanItems > 0 ? `${planPct}%` : "Ready"}</div>
+        <div className="min-w-0">
+          <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#F7A8EE]">SHIFT Today</div>
+          <h1 className="mt-1 text-3xl font-heading font-bold leading-none text-white">
+            {`${getGreeting()}${userName ? `, ${userName.split(" ")[0]}` : ""}`}
+          </h1>
+          <p className="mt-1.5 text-[13px] text-white/60">
+            {todayLabel}
+            {weekNumber ? ` · Week ${weekNumber}` : ""}
+          </p>
+        </div>
+
+        {/* Data first: programme ring + the three numbers that matter */}
+        <div className="mt-4 flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
+          <ProgressRing pct={ringPct} label={ringLabel} sublabel={ringSublabel} />
+          <div className="grid w-full flex-1 grid-cols-3 gap-2">
+            <MetricTile
+              value={totalPlanItems > 0 ? `${completedPlanItems}/${totalPlanItems}` : "—"}
+              label="Plan"
+              hint={totalPlanItems > 0 ? "actions done" : "plan incoming"}
+            />
+            <MetricTile
+              value={submittedThisWeek ? "Done" : checkinToday ? "Today" : nextCheckinDate.toLocaleDateString("en-GB", { weekday: "short" })}
+              label="Check-in"
+              hint={submittedThisWeek ? "logged this week" : checkinToday ? "due today — get it in" : "next check-in"}
+            />
+            <MetricTile
+              value={`${checkinStreak}`}
+              unit={checkinStreak === 1 ? "wk" : "wks"}
+              label="Streak"
+              hint="consecutive check-ins"
+            />
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import type { ClientExercisePlan, ExerciseSession } from "@/lib/types";
@@ -82,6 +82,59 @@ function getNextSession(sessions: ExerciseSession[], allLogs: ExerciseLog[]): Ex
   return sessions[nextIndex];
 }
 
+// Evenly-spaced training days within a Mon-anchored week, by sessions/week.
+const WEEK_PATTERNS: Record<number, number[]> = {
+  1: [0],
+  2: [0, 3],
+  3: [0, 2, 4],
+  4: [0, 2, 4, 5],
+  5: [0, 1, 2, 4, 5],
+  6: [0, 1, 2, 3, 4, 5],
+  7: [0, 1, 2, 3, 4, 5, 6],
+};
+
+// Auto-place plan sessions onto calendar dates with rest days between
+// them. Sessions run in programme order at the plan's sessions-per-week
+// rate; a plan starting mid-week fits what it can into the remaining
+// pattern days and rolls the rest into the following week.
+function buildVirtualSchedule(plan: ClientExercisePlan): Map<string, ExerciseSession> {
+  const map = new Map<string, ExerciseSession>();
+  if (!plan.sessions?.length) return map;
+  const startRaw = plan.start_date || plan.created_at;
+  const start = startRaw ? new Date(startRaw) : new Date();
+  if (Number.isNaN(start.getTime())) return map;
+  start.setHours(0, 0, 0, 0);
+
+  const queue = [...plan.sessions].sort((a, b) => (a.day_number || 0) - (b.day_number || 0));
+
+  // Infer sessions per week from the programme's day numbering
+  const perWeekCounts = new Map<number, number>();
+  for (const session of queue) {
+    const week = Math.floor((Math.max(1, session.day_number || 1) - 1) / 7);
+    perWeekCounts.set(week, (perWeekCounts.get(week) || 0) + 1);
+  }
+  const sessionsPerWeek = Math.min(7, Math.max(1, ...perWeekCounts.values()));
+  const pattern = WEEK_PATTERNS[sessionsPerWeek];
+
+  const weekStart = getWeekStart(start);
+  const startDayIdx = Math.round((start.getTime() - weekStart.getTime()) / 86400000);
+
+  let weekIndex = 0;
+  while (queue.length > 0 && weekIndex < 80) {
+    // First (possibly partial) week only uses pattern days from the start date on
+    const days = weekIndex === 0 ? pattern.filter((idx) => idx >= startDayIdx) : pattern;
+    for (const dayIdx of days) {
+      const session = queue.shift();
+      if (!session) break;
+      const d = new Date(weekStart);
+      d.setDate(d.getDate() + weekIndex * 7 + dayIdx);
+      map.set(formatDate(d), session);
+    }
+    weekIndex += 1;
+  }
+  return map;
+}
+
 // ---- component ----
 
 export default function PortalExercisePlanPage() {
@@ -147,6 +200,11 @@ export default function PortalExercisePlanPage() {
     fetchWeekLogs(weekStart);
   }, [weekStart, fetchWeekLogs]);
 
+  const virtualSchedule = useMemo(
+    () => (plan ? buildVirtualSchedule(plan) : new Map<string, ExerciseSession>()),
+    [plan]
+  );
+
   // When selected date changes, figure out what session to show
   useEffect(() => {
     if (!plan?.sessions?.length) return;
@@ -163,15 +221,22 @@ export default function PortalExercisePlanPage() {
       setManuallyPicked(false);
       setSessionOpen(false);
     } else {
-      // No log for this day — work out next session (unless user explicitly picked one)
+      // No log for this day — use the auto-populated calendar (unless the
+      // user explicitly picked a session). Days with nothing scheduled are
+      // rest days and get Start Next Session / Add Session instead.
       if (!manuallyPicked) {
-        const next = getNextSession(plan.sessions, allLogs);
-        setActiveSession(next);
-        initDrafts(next);
+        const scheduled = virtualSchedule.get(dateStr);
+        if (scheduled) {
+          setActiveSession(scheduled);
+          initDrafts(scheduled);
+        } else {
+          setActiveSession(null);
+          setSessionOpen(false);
+        }
       }
       setViewMode("log");
     }
-  }, [selectedDate, allLogs, plan, manuallyPicked]);
+  }, [selectedDate, allLogs, plan, manuallyPicked, virtualSchedule]);
 
   function initDrafts(session: ExerciseSession) {
     const drafts: Record<string, SetData[]> = {};
@@ -298,6 +363,22 @@ export default function PortalExercisePlanPage() {
   const dayLogs = allLogs.filter((l) => l.log_date === selectedDateStr);
   const isPast = !isToday(selectedDate) && !isFuture(selectedDate);
 
+  // Sessions planned for the calendar week being viewed — keeps the Add
+  // Session picker to this week's work instead of the whole programme.
+  const weekSessions = (() => {
+    if (!plan?.sessions?.length) return [];
+    const inWeek = getWeekDays(weekStart)
+      .map((day) => virtualSchedule.get(formatDate(day)))
+      .filter((session): session is ExerciseSession => Boolean(session));
+    if (inWeek.length > 0) return inWeek;
+    // Past the programme's mapped dates — fall back to the next few in rotation
+    const next = getNextSession(plan.sessions, allLogs.filter((log) => log.log_date <= selectedDateStr));
+    const startIdx = Math.max(0, plan.sessions.findIndex((s) => s.id === next.id));
+    return Array.from({ length: Math.min(4, plan.sessions.length) }, (_, i) =>
+      plan.sessions[(startIdx + i) % plan.sessions.length]
+    );
+  })();
+
   // Sessions logged in the visible week (for weekly summary trust signal)
   const weekStartStr = formatDate(weekStart);
   const weekEndDate = new Date(weekStart);
@@ -373,7 +454,7 @@ export default function PortalExercisePlanPage() {
             </div>
             <div className="app-hero-tile rounded-2xl px-3 py-3">
               <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">Session</div>
-              <div className="mt-1 truncate text-sm font-semibold text-white">{activeSession?.name || "Next up"}</div>
+              <div className="mt-1 truncate text-sm font-semibold text-white">{activeSession?.name || "Rest day"}</div>
             </div>
           </div>
           <div className="mt-3 flex items-center justify-between gap-3">
@@ -435,7 +516,7 @@ export default function PortalExercisePlanPage() {
                 className="mt-0.5 flex items-center gap-1.5 text-left text-base font-heading font-bold text-text-primary enabled:hover:text-accent-bright transition-colors disabled:cursor-default"
                 aria-label="Switch to a different session"
               >
-                <span className="truncate">{activeSession?.name || "Loading..."}</span>
+                <span className="truncate">{activeSession?.name || "Rest day"}</span>
                 {viewMode === "log" && plan && plan.sessions.length > 1 && (
                   <svg className="w-3.5 h-3.5 text-text-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -446,16 +527,18 @@ export default function PortalExercisePlanPage() {
             <span className={`flex-shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full border ${
               viewMode === "readonly"
                 ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-500"
+                : !activeSession
+                ? "border-white/[0.14] bg-white/[0.04] text-text-secondary"
                 : isPast
                 ? "border-amber-500/25 bg-amber-500/10 text-amber-500"
                 : "border-[#E040D0]/25 bg-[#E040D0]/10 text-[#E040D0]"
             }`}>
-              {viewMode === "readonly" ? "Logged" : isPast ? "Retro log" : "Ready to log"}
+              {viewMode === "readonly" ? "Logged" : !activeSession ? "Rest day" : isPast ? "Retro log" : "Ready to log"}
             </span>
           </div>
-          {viewMode === "log" && plan && plan.sessions.length > 1 && !manuallyPicked && (
+          {viewMode === "log" && activeSession && plan && plan.sessions.length > 1 && !manuallyPicked && (
             <p className="mt-2 text-[11px] text-text-muted">
-              Auto-picked from your last session. Tap the session to swap.
+              Scheduled from your programme. Tap the session name to swap.
             </p>
           )}
           {viewMode === "log" && manuallyPicked && (
@@ -527,9 +610,11 @@ export default function PortalExercisePlanPage() {
         {/* Day buttons */}
         <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
           {weekDays.map((day, i) => {
-            const isSelected = formatDate(day) === selectedDateStr;
+            const dayStr = formatDate(day);
+            const isSelected = dayStr === selectedDateStr;
             const todayDay = isToday(day);
             const hasLog = hasLogOnDay(day);
+            const hasPlanned = virtualSchedule.has(dayStr);
 
             return (
               <button
@@ -547,13 +632,57 @@ export default function PortalExercisePlanPage() {
                   {DAY_NAMES[i]}
                 </span>
                 <span className="text-sm font-bold leading-none">{day.getDate()}</span>
-                {/* Dot indicator */}
-                <div className={`mt-1.5 w-1.5 h-1.5 rounded-full transition-all ${hasLog ? "bg-[#E040D0] opacity-100" : "opacity-0"} ${todayDay ? "bg-white" : ""}`} />
+                {/* Dot indicator: solid = logged, faded = session planned */}
+                <div className={`mt-1.5 w-1.5 h-1.5 rounded-full transition-all ${
+                  hasLog
+                    ? `opacity-100 ${todayDay ? "bg-white" : "bg-[#E040D0]"}`
+                    : hasPlanned
+                    ? `opacity-60 ${todayDay ? "bg-white" : "bg-[#E040D0]"}`
+                    : "opacity-0"
+                }`} />
               </button>
             );
           })}
         </div>
       </div>
+
+      {/* ---- Rest day: nothing scheduled on this date ---- */}
+      {!activeSession && (
+        <div className="app-card mx-4 rounded-[28px] p-8 text-center sm:mx-0">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#E040D0]/10">
+            <svg className="h-6 w-6 text-[#F060E0]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-heading font-bold text-text-primary">Rest day</h2>
+          <p className="mx-auto mt-1 max-w-xs text-sm text-text-secondary">
+            {isPast
+              ? "No session was scheduled for this day."
+              : "Nothing scheduled. Recovery is part of the programme — take it."}
+          </p>
+          {!isPast && (
+            <div className="mt-5 flex flex-col items-center justify-center gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => {
+                  const next = getNextSession(plan.sessions, allLogs.filter((log) => log.log_date <= selectedDateStr));
+                  pickSession(next);
+                }}
+                className="w-full rounded-xl gradient-accent px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 cursor-pointer sm:w-auto"
+              >
+                Start Next Session
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSessionPicker(true)}
+                className="w-full rounded-xl border border-[#E040D0]/30 px-5 py-2.5 text-sm font-semibold text-[#F060E0] transition-colors hover:bg-[#E040D0]/10 cursor-pointer sm:w-auto"
+              >
+                Add Session
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ---- Selected Day Content ---- */}
       {activeSession && (
@@ -893,7 +1022,7 @@ export default function PortalExercisePlanPage() {
               <div>
                 <h3 className="text-base font-bold text-text-primary">Pick a session</h3>
                 <p className="text-[11px] text-text-muted mt-0.5">
-                  Logs save against the session you choose. Today&apos;s auto-pick is based on your last logged session.
+                  This week&apos;s sessions from your plan. Logs save against the session you choose.
                 </p>
               </div>
               <button
@@ -908,7 +1037,7 @@ export default function PortalExercisePlanPage() {
             </div>
             <div className="flex-1 overflow-y-auto p-2">
               <div className="space-y-1">
-                {plan.sessions.map((s) => {
+                {weekSessions.map((s) => {
                   const isActive = s.id === activeSession?.id;
                   const exerciseCount = s.items.filter((i) => i.exercise_id !== "__section__").length;
                   return (

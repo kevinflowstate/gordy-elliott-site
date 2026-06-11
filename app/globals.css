@@ -26,6 +26,24 @@ html {
   overflow-x: hidden;
 }
 
+/* Respect reduced-motion across the whole app */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  html { scroll-behavior: auto; }
+}
+
+/* Large data numerals — Oura-style metric display */
+.metric-num {
+  font-family: var(--font-barlow-condensed), 'Barlow Condensed', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  font-feature-settings: "tnum";
+}
+
 /* Pointer cursor on all interactive elements */
 button, a, [role="button"], select, label[for], input[type="checkbox"], input[type="radio"], summary { cursor: pointer; }
 
@@ -284,6 +302,18 @@ body {
 
 /* Dark mode: fix hardcoded light borders/backgrounds for dark context */
 .dark [class*="border-[rgba(0,0,0"] { border-color: rgba(255,255,255,0.06) !important; }
+/* Interactive elements need a visibly stronger border than the generic 0.06
+   remap — anything you're meant to tap must read as a control, not a ghost. */
+.dark button[class*="border-[rgba(0,0,0"],
+.dark a[class*="border-[rgba(0,0,0"],
+.dark label[class*="border-[rgba(0,0,0"],
+.dark summary[class*="border-[rgba(0,0,0"],
+.dark input[class*="border-[rgba(0,0,0"],
+.dark select[class*="border-[rgba(0,0,0"],
+.dark textarea[class*="border-[rgba(0,0,0"],
+.dark label span[class*="border-[rgba(0,0,0"] {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
 .dark [class*="bg-[rgba(0,0,0"] { background-color: rgba(255,255,255,0.03) !important; }
 .dark [class~="bg-white"] { background-color: #1A1A1A !important; }
 .dark [class*="bg-\\[\\#fafaf8\\]"], .dark [class*="bg-\\[\\#f8f8f6\\]"] { background-color: #0A0A0A !important; }

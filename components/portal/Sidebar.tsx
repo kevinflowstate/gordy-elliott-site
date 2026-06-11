@@ -178,7 +178,7 @@ export default function Sidebar() {
             </svg>
             Notifications
             {unreadCount > 0 && (
-              <span className="ml-auto bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+              <span className="ml-auto bg-[#E040D0] text-white text-[10px] font-bold min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center">
                 {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}
