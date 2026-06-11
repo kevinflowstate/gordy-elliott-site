@@ -423,7 +423,7 @@ export default function PortalExercisePlanPage() {
   }
 
   return (
-    <div className="-mx-4 pt-3 pb-40 sm:mx-auto sm:max-w-4xl sm:p-6 sm:pb-6 relative">
+    <div className="pt-3 pb-40 sm:mx-auto sm:max-w-4xl sm:p-6 sm:pb-6 relative">
       {/* Toast */}
       {savedToast && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-[#E040D0] text-white px-5 py-2.5 rounded-xl font-semibold shadow-lg text-sm">
@@ -432,7 +432,7 @@ export default function PortalExercisePlanPage() {
       )}
 
       {/* Page header */}
-      <div className="mb-5 space-y-4 px-4 sm:px-0">
+      <div className="mb-5 space-y-4">
         <div className="app-hero app-rise app-rise-1 overflow-hidden rounded-[30px] p-5 text-white">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -570,7 +570,7 @@ export default function PortalExercisePlanPage() {
       </div>
 
       {/* ---- Week Calendar Strip ---- */}
-      <div className="app-card-quiet mx-4 rounded-2xl p-4 mb-5 sm:mx-0">
+      <div className="app-card-quiet rounded-2xl p-4 mb-5">
         {/* Week nav */}
         <div className="flex items-center justify-between mb-3">
           <button
@@ -648,7 +648,7 @@ export default function PortalExercisePlanPage() {
 
       {/* ---- Rest day: nothing scheduled on this date ---- */}
       {!activeSession && (
-        <div className="app-card mx-4 rounded-[28px] p-8 text-center sm:mx-0">
+        <div className="app-card rounded-[28px] p-8 text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#E040D0]/10">
             <svg className="h-6 w-6 text-[#F060E0]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />

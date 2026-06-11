@@ -190,7 +190,7 @@ export default function DailyTrackerPage() {
               type="date"
               value={form.tracked_date}
               onChange={(e) => setForm((prev) => ({ ...prev, tracked_date: e.target.value }))}
-              className="w-full max-w-[18rem] min-w-0 rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-base text-text-primary outline-none focus:border-accent/50 sm:text-sm"
+              className="w-full min-w-0 rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-base text-text-primary outline-none focus:border-accent/50 sm:text-sm"
             />
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
