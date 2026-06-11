@@ -401,6 +401,18 @@ body {
 .dark [class~="to-white"] { --tw-gradient-to: rgba(10,10,10,0) !important; }
 .dark [class~="via-white"] { --tw-gradient-via: rgba(10,10,10,0.4) !important; }
 
+/* Native date inputs: iOS Safari gives them an intrinsic width and centres
+   the value unless appearance is stripped, which makes them overflow their
+   card. Strip it so they size like every other field. */
+input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+  min-height: 1.25em;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: var(--color-bg-primary); }
