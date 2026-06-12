@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/admin-auth";
+import { dbError } from "@/lib/api-errors";
 import { notifyClientProfile } from "@/lib/client-notifications";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
     .eq("client_id", clientId)
     .order("created_at", { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbError(error, "Couldn't load exercise plans. Try again.");
   if (!plans || plans.length === 0) return NextResponse.json({ plans: [] });
 
   const planIds = plans.map((p) => p.id);
@@ -98,7 +99,7 @@ export async function POST(request: Request) {
       .from("exercise_training_templates")
       .select("*")
       .eq("id", template_id)
-      .single();
+      .maybeSingle();
 
     if (!template) return NextResponse.json({ error: "Template not found" }, { status: 404 });
 
@@ -139,9 +140,9 @@ export async function POST(request: Request) {
         start_date: new Date().toISOString().split("T")[0],
       })
       .select()
-      .single();
+      .maybeSingle();
 
-    if (planError) return NextResponse.json({ error: planError.message }, { status: 500 });
+    if (planError || !newPlan) return dbError(planError, "Couldn't assign that training plan. Try again.");
 
     // Deep copy sessions and items
     const itemsBySession = new Map<string, typeof items>();
@@ -161,7 +162,7 @@ export async function POST(request: Request) {
           notes: session.notes,
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (!newSession) continue;
 
@@ -220,9 +221,9 @@ export async function POST(request: Request) {
         updated_at: new Date().toISOString(),
       })
       .select()
-      .single();
+      .maybeSingle();
 
-    if (planError) return NextResponse.json({ error: planError.message }, { status: 500 });
+    if (planError || !savedPlan) return dbError(planError, "Couldn't save this training plan. Try again.");
 
     // Delete existing sessions (cascade deletes items)
     if (plan.id) {
@@ -240,7 +241,7 @@ export async function POST(request: Request) {
           notes: session.notes || null,
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (!newSession) continue;
 
@@ -314,14 +315,14 @@ export async function PATCH(request: Request) {
     .from("client_exercise_plans")
     .select("client_id")
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
   const { error } = await admin
     .from("client_exercise_plans")
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbError(error, "Couldn't update that training plan. Try again.");
 
   if (status === "active" && existingPlan?.client_id) {
     await notifyClientProfile(existingPlan.client_id, {

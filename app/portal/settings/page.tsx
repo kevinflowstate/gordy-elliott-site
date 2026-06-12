@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import { Suspense } from "react";
+import type { ClientKeyDate } from "@/lib/types";
 
 export default function SettingsPage() {
   return (
@@ -75,6 +76,9 @@ function SettingsContent() {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isSetup, setIsSetup] = useState(false);
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [keyDates, setKeyDates] = useState<Array<Pick<ClientKeyDate, "label" | "date" | "recurring">>>([]);
+  const [newKeyDate, setNewKeyDate] = useState({ label: "", date: "", recurring: true });
 
   const searchParams = useSearchParams();
 
@@ -90,6 +94,12 @@ function SettingsContent() {
           const data = await res.json();
           setFullName(data.fullName || "");
           setAvatarUrl(data.avatarUrl || null);
+          setDateOfBirth(data.profile?.date_of_birth || "");
+          setKeyDates((data.keyDates || []).map((item: ClientKeyDate) => ({
+            label: item.label,
+            date: item.date,
+            recurring: item.recurring,
+          })));
         }
       } finally {
         setLoading(false);
@@ -140,7 +150,7 @@ function SettingsContent() {
     const res = await fetch("/api/portal/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fullName }),
+      body: JSON.stringify({ fullName, dateOfBirth, keyDates }),
     });
 
     setSaving(false);
@@ -157,6 +167,12 @@ function SettingsContent() {
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");
+  }
+
+  function addKeyDate() {
+    if (!newKeyDate.label.trim() || !newKeyDate.date) return;
+    setKeyDates((prev) => [...prev, { ...newKeyDate, label: newKeyDate.label.trim() }]);
+    setNewKeyDate({ label: "", date: "", recurring: true });
   }
 
   if (loading) return (
@@ -246,6 +262,70 @@ function SettingsContent() {
               onChange={(e) => setFullName(e.target.value)}
               className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40 transition-colors"
             />
+          </div>
+        </div>
+
+        <div className="app-card rounded-2xl p-6 space-y-5">
+          <h2 className="text-lg font-heading font-bold text-text-primary">Your Details</h2>
+
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-2">Date of Birth</label>
+            <input
+              type="date"
+              value={dateOfBirth}
+              onChange={(e) => setDateOfBirth(e.target.value)}
+              className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40 transition-colors"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-2">Key Dates</label>
+            <div className="space-y-2">
+              {keyDates.map((item, index) => (
+                <div key={`${item.label}-${item.date}-${index}`} className="flex items-center gap-2 rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-text-primary">{item.label}</div>
+                    <div className="text-xs text-text-muted">{item.date}{item.recurring ? " · repeats yearly" : ""}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setKeyDates((prev) => prev.filter((_, i) => i !== index))}
+                    className="px-2 py-1 text-xs text-red-400 hover:text-red-300 transition-colors"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              {keyDates.length === 0 && (
+                <div className="rounded-xl border border-dashed border-[rgba(0,0,0,0.08)] px-3 py-3 text-xs text-text-muted">
+                  No key dates saved yet.
+                </div>
+              )}
+            </div>
+
+            <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_160px_auto]">
+              <input
+                type="text"
+                value={newKeyDate.label}
+                onChange={(e) => setNewKeyDate((prev) => ({ ...prev, label: e.target.value }))}
+                placeholder="Wedding, competition..."
+                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
+              />
+              <input
+                type="date"
+                value={newKeyDate.date}
+                onChange={(e) => setNewKeyDate((prev) => ({ ...prev, date: e.target.value }))}
+                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40 transition-colors"
+              />
+              <button
+                type="button"
+                onClick={addKeyDate}
+                disabled={!newKeyDate.label.trim() || !newKeyDate.date}
+                className="px-4 py-3 text-sm font-semibold text-white gradient-accent rounded-xl disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Add
+              </button>
+            </div>
           </div>
         </div>
 

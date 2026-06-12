@@ -4,10 +4,12 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { AdminClient } from "@/lib/admin-data";
-import type { TrafficLight, CheckInMood, TrainingPlan, TrainingPlanPhase, CheckinFormConfig, CheckinFormTemplate, FormQuestion, ClientExercisePlan, ClientNutritionPlan, ProgressMetric, ClientTask, ClientTier } from "@/lib/types";
+import type { TrafficLight, CheckInMood, TrainingPlan, TrainingPlanPhase, CheckinFormConfig, CheckinFormTemplate, FormQuestion, ClientExercisePlan, ClientNutritionPlan, ProgressMetric, ClientTask, ClientTier, ClientKeyDate, NutritionTemplate } from "@/lib/types";
 import TrainingPlanBuilder from "@/components/admin/TrainingPlanBuilder";
+import AssignActionChooser from "@/components/admin/AssignActionChooser";
 import ExerciseTemplateBuilder from "@/components/admin/ExerciseTemplateBuilder";
 import ExerciseTemplatePicker from "@/components/admin/ExerciseTemplatePicker";
+import NutritionTemplateBuilder from "@/components/admin/NutritionTemplateBuilder";
 import NutritionTemplatePicker from "@/components/admin/NutritionTemplatePicker";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Dot } from "recharts";
 import PhotoGallery from "@/components/portal/PhotoGallery";
@@ -157,7 +159,11 @@ export default function ClientDetailPage() {
   const [recentExerciseLogs, setRecentExerciseLogs] = useState<Array<{ id: string; exercise_item_id: string; session_id: string | null; log_date: string; sets_data: Array<{ set_number: number; weight: string; reps: string; notes: string }>; completed: boolean }>>([]);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [showExerciseBuilder, setShowExerciseBuilder] = useState(false);
+  const [exerciseBuilderMode, setExerciseBuilderMode] = useState<"edit" | "create">("edit");
   const [showNutritionPicker, setShowNutritionPicker] = useState(false);
+  const [showNutritionBuilder, setShowNutritionBuilder] = useState(false);
+  const [assignChooser, setAssignChooser] = useState<"training" | "nutrition" | "checkin" | null>(null);
+  const [showCheckinAssign, setShowCheckinAssign] = useState(false);
   const [assigningExercise, setAssigningExercise] = useState(false);
   const [assigningNutrition, setAssigningNutrition] = useState(false);
   const [nudgeSending, setNudgeSending] = useState(false);
@@ -179,6 +185,11 @@ export default function ClientDetailPage() {
   const [galleryLoaded, setGalleryLoaded] = useState(false);
   const [tasks, setTasks] = useState<ClientTask[]>([]);
   const [newTaskText, setNewTaskText] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [keyDates, setKeyDates] = useState<ClientKeyDate[]>([]);
+  const [newKeyDate, setNewKeyDate] = useState({ label: "", date: "", recurring: true });
+  const [keyDatesSaving, setKeyDatesSaving] = useState(false);
+  const [dobSaving, setDobSaving] = useState(false);
 
   const loadClient = useCallback(async () => {
     try {
@@ -203,6 +214,8 @@ export default function ClientDetailPage() {
         setGoalPrimary(data.client?.primary_goal || "");
         setGoalTargetDate(data.client?.target_date || "");
         setGoalNotes(data.client?.goal_notes || "");
+        setDateOfBirth(data.client?.date_of_birth || "");
+        setKeyDates(data.client?.key_dates || []);
       }
 
       if (trainingRes.ok) {
@@ -347,6 +360,47 @@ export default function ClientDetailPage() {
     } finally { setAssigningExercise(false); }
   }
 
+  async function handleSaveScratchExercisePlan(template: { name: string; description?: string; sessions?: unknown[] }) {
+    const activeExPlan = exercisePlans.find((p) => p.status === "active");
+    if (exerciseBuilderMode === "create" && activeExPlan) {
+      const ok = confirm(
+        `Replace "${activeExPlan.name}" as this client's active training plan?\n\n` +
+        `- The client will see the new plan on their next /portal/exercise-plan load.\n` +
+        `- Their existing training logs stay intact (linked to the old plan).\n` +
+        `- The old plan is archived automatically — you can re-activate it from history if needed.\n\n` +
+        `This takes effect immediately.`
+      );
+      if (!ok) return;
+    }
+
+    try {
+      const res = await fetch("/api/admin/client-exercise-plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan: {
+            id: exerciseBuilderMode === "edit" ? activeExPlan?.id : undefined,
+            client_id: client?.id,
+            name: template.name,
+            description: template.description,
+            status: "active",
+            sessions: template.sessions,
+          },
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast(err.error || "Couldn't save this exercise plan. Try again.", "error");
+        return;
+      }
+      setShowExerciseBuilder(false);
+      await loadClient();
+      toast(exerciseBuilderMode === "edit" && activeExPlan ? "Exercise plan updated" : "Exercise plan assigned");
+    } catch {
+      toast("Couldn't reach the plans API. Try again.", "error");
+    }
+  }
+
   async function handleAssignNutritionPlan(templateId: string) {
     const existingActive = nutritionPlans.find((p) => p.status === "active");
     if (existingActive) {
@@ -377,6 +431,49 @@ export default function ClientDetailPage() {
     } catch {
       toast("Couldn't reach the nutrition plans API. Try again.", "error");
     } finally { setAssigningNutrition(false); }
+  }
+
+  async function handleSaveScratchNutritionPlan(template: NutritionTemplate) {
+    const existingActive = nutritionPlans.find((p) => p.status === "active");
+    if (existingActive) {
+      const ok = confirm(
+        `Replace "${existingActive.name}" as this client's active nutrition plan?\n\n` +
+        `- The client will see the new plan on their next /portal/nutrition-plan load.\n` +
+        `- Existing meal-completion history stays intact.\n` +
+        `- The old plan is archived — you can re-activate it from history if needed.\n\n` +
+        `This takes effect immediately.`
+      );
+      if (!ok) return;
+    }
+
+    try {
+      const res = await fetch("/api/admin/client-nutrition-plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan: {
+            client_id: client?.id,
+            name: template.name,
+            status: "active",
+            target_calories: template.target_calories,
+            target_protein_g: template.target_protein_g,
+            target_carbs_g: template.target_carbs_g,
+            target_fat_g: template.target_fat_g,
+            meals: template.meals,
+          },
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast(data.error || "Couldn't assign that nutrition plan. Try again.", "error");
+        return;
+      }
+      setShowNutritionBuilder(false);
+      await loadClient();
+      toast(existingActive ? "Nutrition plan replaced — client sees the new plan on next reload" : "Nutrition plan assigned");
+    } catch {
+      toast("Couldn't reach the nutrition plans API. Try again.", "error");
+    }
   }
 
   async function handleArchiveExercisePlan(planId: string) {
@@ -455,12 +552,66 @@ export default function ClientDetailPage() {
       }
       const selectedTemplate = checkinTemplates.find((template) => template.id === templateId) || checkinTemplates.find((template) => template.is_default) || null;
       setCheckinConfig(selectedTemplate ? normalizeCheckinConfig(selectedTemplate.config) : null);
+      setShowCheckinAssign(false);
       toast("Check-in form assigned");
     } catch {
       toast("Couldn't reach the client settings API. Try again.", "error");
     } finally {
       setCheckinTemplateSaving(false);
     }
+  }
+
+  async function saveDateOfBirth(value: string) {
+    if (!client) return;
+    setDobSaving(true);
+    try {
+      const res = await fetch(`/api/admin/clients/${client.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date_of_birth: value || null }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast(data.error || "Couldn't save the date of birth. Try again.", "error");
+        return;
+      }
+      toast("Date of birth saved");
+    } catch {
+      toast("Couldn't reach the client settings API. Try again.", "error");
+    } finally {
+      setDobSaving(false);
+    }
+  }
+
+  async function saveKeyDates(nextKeyDates: Array<Pick<ClientKeyDate, "label" | "date" | "recurring">>) {
+    if (!client) return;
+    setKeyDatesSaving(true);
+    try {
+      const res = await fetch("/api/admin/client-key-dates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client_id: client.id, key_dates: nextKeyDates }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast(data.error || "Couldn't save key dates. Try again.", "error");
+        return;
+      }
+      const data = await res.json();
+      setKeyDates(data.key_dates || []);
+      toast("Key dates saved");
+    } catch {
+      toast("Couldn't reach the key dates API. Try again.", "error");
+    } finally {
+      setKeyDatesSaving(false);
+    }
+  }
+
+  async function addKeyDate() {
+    if (!newKeyDate.label.trim() || !newKeyDate.date) return;
+    const next = [...keyDates, { ...newKeyDate, label: newKeyDate.label.trim() }];
+    setNewKeyDate({ label: "", date: "", recurring: true });
+    await saveKeyDates(next);
   }
 
   async function saveTier(tier: string) {
@@ -786,26 +937,22 @@ export default function ClientDetailPage() {
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => { setShowExercisePicker(true); }}
+                onClick={() => setAssignChooser("training")}
                 className="px-3 py-1.5 text-xs font-semibold text-white bg-[#E040D0] hover:bg-[#b830a8] rounded-lg transition-colors"
               >
-                Assign Workout
+                Assign Training
               </button>
               <button
-                onClick={() => { setShowNutritionPicker(true); }}
-                className="px-3 py-1.5 text-xs font-medium text-text-secondary border border-[rgba(0,0,0,0.08)] hover:border-[rgba(0,0,0,0.15)] rounded-lg transition-colors"
+                onClick={() => setAssignChooser("nutrition")}
+                className="px-3 py-1.5 text-xs font-semibold text-white bg-[#E040D0] hover:bg-[#b830a8] rounded-lg transition-colors"
               >
-                Nutrition Plan
+                Assign Nutrition
               </button>
               <button
-                onClick={() => {
-                  setNudgeOpen(true);
-                  setNudgeSent(false);
-                  setNudgeMessage("Test notification from Gordy's portal. If you see this, push notifications are working.");
-                }}
-                className="px-3 py-1.5 text-xs font-medium text-accent-bright border border-accent/20 bg-accent/10 hover:bg-accent/15 rounded-lg transition-colors"
+                onClick={() => setAssignChooser("checkin")}
+                className="px-3 py-1.5 text-xs font-semibold text-white bg-[#E040D0] hover:bg-[#b830a8] rounded-lg transition-colors"
               >
-                Test Push
+                Assign Check-in
               </button>
               <div className="relative">
                 <button
@@ -821,6 +968,20 @@ export default function ClientDetailPage() {
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setSettingsOpen(false)} />
                     <div className="absolute right-0 top-full mt-1 z-50 bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-xl shadow-xl py-1 min-w-[180px]">
+                      <button
+                        onClick={() => {
+                          setSettingsOpen(false);
+                          setNudgeOpen(true);
+                          setNudgeSent(false);
+                          setNudgeMessage("Test notification from Gordy's portal. If you see this, push notifications are working.");
+                        }}
+                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-text-secondary hover:bg-[rgba(255,255,255,0.04)] transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5" />
+                        </svg>
+                        Test Push
+                      </button>
                       <button
                         onClick={() => { setSettingsOpen(false); setPasswordModalOpen(true); setNewClientPassword(""); setPasswordResult(null); }}
                         className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-text-secondary hover:bg-[rgba(255,255,255,0.04)] transition-colors"
@@ -983,6 +1144,80 @@ export default function ClientDetailPage() {
           </div>
           <div className="text-[11px] text-text-muted mt-1">
             {lastCheckinDays === 0 ? "Checked in today" : `${lastCheckinDays}d since check-in`}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 mb-6 lg:grid-cols-2">
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
+          <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-2">Date of Birth</div>
+          <input
+            type="date"
+            value={dateOfBirth}
+            onChange={async (e) => {
+              const value = e.target.value;
+              setDateOfBirth(value);
+              await saveDateOfBirth(value);
+            }}
+            className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-[#E040D0]/40"
+          />
+          {dobSaving && <div className="mt-2 text-xs text-text-muted">Saving...</div>}
+        </div>
+
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider">Key Dates</div>
+              <div className="mt-1 text-xs text-text-muted">Birthday is separate. Add competitions, weddings, or other dates.</div>
+            </div>
+            {keyDatesSaving && <span className="text-xs text-text-muted">Saving...</span>}
+          </div>
+
+          <div className="space-y-2">
+            {keyDates.map((item, index) => (
+              <div key={item.id || `${item.label}-${item.date}-${index}`} className="flex items-center gap-2 rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-2">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-text-primary">{item.label}</div>
+                  <div className="text-xs text-text-muted">{item.date}{item.recurring ? " · repeats yearly" : ""}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => saveKeyDates(keyDates.filter((_, i) => i !== index))}
+                  className="px-2 py-1 text-xs text-red-400 hover:text-red-300 transition-colors"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            {keyDates.length === 0 && (
+              <div className="rounded-xl border border-dashed border-[rgba(0,0,0,0.08)] px-3 py-3 text-xs text-text-muted">
+                No key dates saved.
+              </div>
+            )}
+          </div>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_150px_auto]">
+            <input
+              type="text"
+              value={newKeyDate.label}
+              onChange={(e) => setNewKeyDate((prev) => ({ ...prev, label: e.target.value }))}
+              placeholder="Wedding, competition..."
+              className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40"
+            />
+            <input
+              type="date"
+              value={newKeyDate.date}
+              onChange={(e) => setNewKeyDate((prev) => ({ ...prev, date: e.target.value }))}
+              className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:border-[#E040D0]/40"
+            />
+            <button
+              type="button"
+              onClick={addKeyDate}
+              disabled={!newKeyDate.label.trim() || !newKeyDate.date || keyDatesSaving}
+              className="px-4 py-2.5 text-xs font-semibold text-white bg-[#E040D0] hover:bg-[#b830a8] rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Add
+            </button>
           </div>
         </div>
       </div>
@@ -1587,8 +1822,8 @@ export default function ClientDetailPage() {
           onSetShowHistory={setShowHistory}
           onSetExpandedHistoryPlan={setExpandedHistoryPlan}
           onSetBuilderMode={setBuilderMode}
-          onShowExercisePicker={() => setShowExercisePicker(true)}
-          onEditExercisePlan={() => setShowExerciseBuilder(true)}
+          onShowExercisePicker={() => setAssignChooser("training")}
+          onEditExercisePlan={() => { setExerciseBuilderMode("edit"); setShowExerciseBuilder(true); }}
           onUnassignExercisePlan={handleUnassignExercisePlan}
           onArchiveExercisePlan={handleArchiveExercisePlan}
         />
@@ -1600,7 +1835,7 @@ export default function ClientDetailPage() {
           client={client}
           nutritionPlans={nutritionPlans}
           assigningNutrition={assigningNutrition}
-          onShowNutritionPicker={() => setShowNutritionPicker(true)}
+          onShowNutritionPicker={() => setAssignChooser("nutrition")}
           onArchiveNutritionPlan={handleArchiveNutritionPlan}
         />
       )}
@@ -1964,6 +2199,43 @@ export default function ClientDetailPage() {
         />
       )}
 
+      {assignChooser && (
+        <AssignActionChooser
+          title={
+            assignChooser === "training"
+              ? "Assign Training"
+              : assignChooser === "nutrition"
+                ? "Assign Nutrition"
+                : "Assign Check-in"
+          }
+          description={
+            assignChooser === "checkin"
+              ? "Assign a saved check-in form or build a client-specific one."
+              : "Choose a saved template or build this client's plan from scratch."
+          }
+          onClose={() => setAssignChooser(null)}
+          onUseTemplate={() => {
+            const domain = assignChooser;
+            setAssignChooser(null);
+            if (domain === "training") setShowExercisePicker(true);
+            if (domain === "nutrition") setShowNutritionPicker(true);
+            if (domain === "checkin") setShowCheckinAssign(true);
+          }}
+          onBuildFromScratch={() => {
+            const domain = assignChooser;
+            setAssignChooser(null);
+            if (domain === "training") {
+              setExerciseBuilderMode("create");
+              setShowExerciseBuilder(true);
+            }
+            if (domain === "nutrition") setShowNutritionBuilder(true);
+            if (domain === "checkin") {
+              router.push(`/admin/checkin-forms?forClient=${client.id}&clientName=${encodeURIComponent(client.name)}`);
+            }
+          }}
+        />
+      )}
+
       {/* Exercise Template Picker Modal */}
       {showExercisePicker && (
         <ExerciseTemplatePicker
@@ -1972,10 +2244,10 @@ export default function ClientDetailPage() {
         />
       )}
 
-      {/* Exercise Plan Builder (edit workout) */}
+      {/* Exercise Plan Builder */}
       {showExerciseBuilder && (() => {
         const activeExPlan = exercisePlans.find((p) => p.status === "active");
-        const templateFromPlan = activeExPlan ? {
+        const templateFromPlan = exerciseBuilderMode === "edit" && activeExPlan ? {
           id: activeExPlan.id,
           name: activeExPlan.name,
           description: activeExPlan.description || "",
@@ -1988,34 +2260,7 @@ export default function ClientDetailPage() {
         return (
           <ExerciseTemplateBuilder
             existingTemplate={templateFromPlan}
-            onSave={async (template) => {
-              try {
-                const res = await fetch("/api/admin/client-exercise-plans", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    plan: {
-                      id: activeExPlan?.id,
-                      client_id: client.id,
-                      name: template.name,
-                      description: template.description,
-                      status: "active",
-                      sessions: template.sessions,
-                    },
-                  }),
-                });
-                if (!res.ok) {
-                  const err = await res.json().catch(() => ({}));
-                  toast(err.error || "Couldn't save this exercise plan. Try again.", "error");
-                  return;
-                }
-                setShowExerciseBuilder(false);
-                loadClient();
-                toast(activeExPlan ? "Exercise plan updated" : "Exercise plan assigned");
-              } catch {
-                toast("Couldn't reach the plans API. Try again.", "error");
-              }
-            }}
+            onSave={handleSaveScratchExercisePlan}
             onCancel={() => setShowExerciseBuilder(false)}
           />
         );
@@ -2027,6 +2272,72 @@ export default function ClientDetailPage() {
           onSelect={handleAssignNutritionPlan}
           onClose={() => setShowNutritionPicker(false)}
         />
+      )}
+
+      {showNutritionBuilder && (
+        <NutritionTemplateBuilder
+          onSave={handleSaveScratchNutritionPlan}
+          onCancel={() => setShowNutritionBuilder(false)}
+        />
+      )}
+
+      {showCheckinAssign && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 max-w-lg w-full mx-4 shadow-2xl">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-heading font-bold text-text-primary">Assign Check-in Form</h3>
+                <p className="mt-1 text-sm text-text-secondary">Pick the form this client sees on /portal/checkin.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCheckinAssign(false)}
+                className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-[rgba(255,255,255,0.04)] hover:text-text-primary"
+                aria-label="Close"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+              {checkinTemplates.map((template) => {
+                const current = template.id === checkinTemplateId;
+                return (
+                  <div key={template.id} className={`rounded-xl border px-4 py-3 ${current ? "border-[#E040D0]/35 bg-[#E040D0]/10" : "border-[rgba(0,0,0,0.08)] bg-bg-primary"}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-text-primary">
+                          {template.name}{template.is_default ? " (Default)" : ""}
+                        </div>
+                        {template.description && <div className="mt-1 text-xs text-text-muted">{template.description}</div>}
+                        {current && <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#E040D0]">Current</div>}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={checkinTemplateSaving || current}
+                        onClick={() => {
+                          setCheckinTemplateId(template.id);
+                          saveCheckinTemplate(template.id);
+                        }}
+                        className="px-3 py-1.5 text-xs font-semibold text-white bg-[#E040D0] hover:bg-[#b830a8] rounded-lg transition-colors disabled:opacity-40"
+                      >
+                        {current ? "Assigned" : "Assign"}
+                      </button>
+                    </div>
+                    <Link
+                      href={`/admin/checkin-forms?base=${template.id}&forClient=${client.id}&clientName=${encodeURIComponent(client.name)}`}
+                      className="mt-2 inline-block text-[10px] font-semibold text-[#E040D0] no-underline hover:underline"
+                    >
+                      Customise for {client.name.split(" ")[0]} →
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

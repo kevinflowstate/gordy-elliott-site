@@ -126,6 +126,20 @@ export default function AdminDashboard() {
   const amberCount = clients.filter((c) => c.status === "amber").length;
   const redCount = clients.filter((c) => c.status === "red").length;
   const unreplied = recentCheckins.filter((c) => !c.admin_reply).length;
+  const today = new Date();
+  const todayMonthDay = `${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const todaysKeyDates = clients.flatMap((client) => {
+    const birthday = client.date_of_birth?.slice(5) === todayMonthDay
+      ? [{ client, label: "Birthday" }]
+      : [];
+    const keyDates = (client.key_dates || [])
+      .filter((item) => {
+        if (item.recurring) return item.date.slice(5) === todayMonthDay;
+        return item.date === today.toISOString().split("T")[0];
+      })
+      .map((item) => ({ client, label: item.label }));
+    return [...birthday, ...keyDates];
+  });
 
   return (
     <>
@@ -208,6 +222,23 @@ export default function AdminDashboard() {
 
       {/* SHIFT AI Overview */}
       <ShiftOverview clients={clients} recentCheckins={recentCheckins} />
+
+      {todaysKeyDates.length > 0 && (
+        <div className="mb-8 rounded-2xl border border-[#E040D0]/20 bg-[#E040D0]/8 px-5 py-4">
+          <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#E040D0]">Today</div>
+          <div className="flex flex-wrap gap-2">
+            {todaysKeyDates.map((item) => (
+              <Link
+                key={`${item.client.id}-${item.label}`}
+                href={`/admin/clients/${item.client.id}`}
+                className="rounded-full border border-[rgba(0,0,0,0.08)] bg-bg-card px-3 py-1.5 text-xs font-semibold text-text-primary no-underline hover:border-[#E040D0]/30"
+              >
+                {item.client.name} · {item.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div className="flex flex-wrap gap-3 mb-8">

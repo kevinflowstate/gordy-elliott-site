@@ -18,20 +18,29 @@ export async function GET() {
     .from("users")
     .select("full_name, avatar_url, role")
     .eq("id", userId)
-    .single();
+    .maybeSingle();
 
   const { data: profile } = await admin
     .from("client_profiles")
     .select("*")
     .eq("user_id", userId)
-    .single();
+    .maybeSingle();
+
+  const { data: keyDates } = profile?.id
+    ? await admin
+        .from("client_key_dates")
+        .select("id, client_id, label, date, recurring, created_at")
+        .eq("client_id", profile.id)
+        .order("date", { ascending: true })
+    : { data: [] };
 
   return NextResponse.json({
     userId,
     fullName: userData?.full_name || "",
     avatarUrl: userData?.avatar_url || null,
     role: userData?.role || "client",
-    profile: profile || null,
+    profile: profile ? { ...profile, key_dates: keyDates || [] } : null,
+    keyDates: keyDates || [],
     tier: (profile?.tier as string) || "coached",
   });
 }
