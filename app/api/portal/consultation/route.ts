@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { dbError } from "@/lib/api-errors";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET() {
@@ -13,12 +14,13 @@ export async function GET() {
   const admin = createAdminClient();
   const { data: profile } = await admin
     .from("client_profiles")
-    .select("consultation_data")
+    .select("consultation_data, date_of_birth")
     .eq("user_id", user.id)
-    .single();
+    .maybeSingle();
 
   return NextResponse.json({
     consultation_data: profile?.consultation_data || null,
+    date_of_birth: profile?.date_of_birth || "",
   });
 }
 
@@ -42,6 +44,7 @@ export async function POST(req: NextRequest) {
     "injuries",
     "supplements",
     "additional_info",
+    "date_of_birth",
   ];
 
   const consultationData: Record<string, unknown> = {};
@@ -52,11 +55,14 @@ export async function POST(req: NextRequest) {
   const admin = createAdminClient();
   const { error } = await admin
     .from("client_profiles")
-    .update({ consultation_data: consultationData })
+    .update({
+      consultation_data: consultationData,
+      date_of_birth: typeof body.date_of_birth === "string" && body.date_of_birth ? body.date_of_birth : null,
+    })
     .eq("user_id", user.id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return dbError(error, "Couldn't save your consultation. Try again.");
   }
 
   return NextResponse.json({ success: true });

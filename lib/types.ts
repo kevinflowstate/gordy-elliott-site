@@ -33,6 +33,17 @@ export interface ClientProfile {
   user?: User;
   tier?: ClientTier;
   consultation_data?: Record<string, unknown>;
+  date_of_birth?: string | null;
+  key_dates?: ClientKeyDate[];
+}
+
+export interface ClientKeyDate {
+  id: string;
+  client_id: string;
+  label: string;
+  date: string;
+  recurring: boolean;
+  created_at: string;
 }
 
 export interface TrainingModule {

@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
+import { dbError } from "@/lib/api-errors";
 import { getClientById } from "@/lib/admin-data";
 import { NextResponse } from "next/server";
 
@@ -33,7 +34,7 @@ export async function PATCH(
   const body = await request.json();
 
   // Only allow safe profile fields to be patched
-  const allowed = ["checkin_day", "checkin_form_id", "coach_notes", "start_weight", "tier"];
+  const allowed = ["checkin_day", "checkin_form_id", "coach_notes", "start_weight", "tier", "date_of_birth"];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in body) updates[key] = body[key];
@@ -55,7 +56,7 @@ export async function PATCH(
     .eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return dbError(error, "Couldn't update that client. Try again.");
   }
 
   return NextResponse.json({ success: true });
@@ -81,7 +82,7 @@ export async function DELETE(
     .from("client_profiles")
     .select("user_id")
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
   if (!profile || profile.user_id !== user_id) {
     return NextResponse.json({ error: "user_id does not match this client" }, { status: 400 });
@@ -90,7 +91,7 @@ export async function DELETE(
   const { error } = await admin.auth.admin.deleteUser(user_id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return dbError(error, "Couldn't revoke access. Try again.", 400);
   }
 
   return NextResponse.json({ success: true });

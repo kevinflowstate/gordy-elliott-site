@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
+import { dbError } from "@/lib/api-errors";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeCheckinConfig } from "@/lib/checkin-form";
 
@@ -15,7 +16,7 @@ export async function GET() {
     .order("name", { ascending: true });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return dbError(error, "Couldn't load check-in forms. Try again.");
   }
 
   // Assignment counts so Gordy can see which templates are in use before editing/deleting
@@ -83,7 +84,7 @@ export async function DELETE(request: Request) {
 
   const { error } = await admin.from("checkin_forms").delete().eq("id", id);
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return dbError(error, "Couldn't delete that check-in form. Try again.");
   }
 
   return NextResponse.json({ success: true });
@@ -113,10 +114,10 @@ export async function POST(request: Request) {
       is_default: Boolean(is_default),
     })
     .select("id, name, description, config, is_default, created_at, updated_at")
-    .single();
+    .maybeSingle();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error || !data) {
+    return dbError(error, "Couldn't create that check-in form. Try again.");
   }
 
   return NextResponse.json({ template: { ...data, config: normalizeCheckinConfig(data.config) } });
@@ -149,10 +150,10 @@ export async function PATCH(request: Request) {
     .update(updates)
     .eq("id", id)
     .select("id, name, description, config, is_default, created_at, updated_at")
-    .single();
+    .maybeSingle();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error || !data) {
+    return dbError(error, "Couldn't save that check-in form. Try again.");
   }
 
   return NextResponse.json({ template: { ...data, config: normalizeCheckinConfig(data.config) } });

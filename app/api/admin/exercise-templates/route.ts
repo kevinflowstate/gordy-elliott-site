@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/admin-auth";
+import { dbError } from "@/lib/api-errors";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
@@ -16,7 +17,7 @@ export async function GET() {
     .eq("is_active", true)
     .order("created_at", { ascending: false });
 
-  if (tError) return NextResponse.json({ error: tError.message }, { status: 500 });
+  if (tError) return dbError(tError, "Couldn't load training templates. Try again.");
   if (!templates || templates.length === 0) return NextResponse.json({ templates: [] });
 
   const templateIds = templates.map((t) => t.id);
@@ -121,9 +122,9 @@ export async function POST(request: Request) {
 
   const { data: savedTemplate, error: tError } = await templateQuery
     .select()
-    .single();
+    .maybeSingle();
 
-  if (tError) return NextResponse.json({ error: tError.message }, { status: 500 });
+  if (tError || !savedTemplate) return dbError(tError, "Couldn't save that training template. Try again.");
 
   // Delete existing sessions for updates only (cascade deletes items via FK).
   if (template.id) {
@@ -141,7 +142,7 @@ export async function POST(request: Request) {
         notes: session.notes || null,
       })
       .select()
-      .single();
+      .maybeSingle();
 
     if (sError || !newSession) continue;
 
@@ -222,6 +223,6 @@ export async function DELETE(request: Request) {
     .update({ is_active: false, updated_at: new Date().toISOString() })
     .eq("id", body.id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbError(error, "Couldn't delete that training template. Try again.");
   return NextResponse.json({ success: true });
 }

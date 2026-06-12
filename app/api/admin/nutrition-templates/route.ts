@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/admin-auth";
+import { dbError } from "@/lib/api-errors";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
@@ -15,7 +16,7 @@ export async function GET() {
     .eq("is_active", true)
     .order("created_at", { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbError(error, "Couldn't load nutrition templates. Try again.");
   if (!templates || templates.length === 0) return NextResponse.json({ templates: [] });
 
   const templateIds = templates.map((t) => t.id);
@@ -99,9 +100,9 @@ export async function POST(request: Request) {
 
   const { data: saved, error: tplError } = await templateQuery
     .select()
-    .single();
+    .maybeSingle();
 
-  if (tplError) return NextResponse.json({ error: tplError.message }, { status: 500 });
+  if (tplError || !saved) return dbError(tplError, "Couldn't save that nutrition template. Try again.");
 
   // Delete existing meals (cascade deletes items)
   if (template.id) {
@@ -119,9 +120,9 @@ export async function POST(request: Request) {
         notes: meal.notes || null,
       })
       .select()
-      .single();
+      .maybeSingle();
 
-    if (mealError) return NextResponse.json({ error: mealError.message }, { status: 500 });
+    if (mealError || !newMeal) return dbError(mealError, "Couldn't save that nutrition template. Try again.");
 
     const mealItems = meal.items || [];
     if (mealItems.length > 0) {
@@ -136,7 +137,7 @@ export async function POST(request: Request) {
             notes: item.notes || null,
           }))
         );
-      if (itemsError) return NextResponse.json({ error: itemsError.message }, { status: 500 });
+      if (itemsError) return dbError(itemsError, "Couldn't save that nutrition template. Try again.");
     }
   }
 
@@ -157,6 +158,6 @@ export async function DELETE(request: Request) {
     .update({ is_active: false })
     .eq("id", body.id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbError(error, "Couldn't delete that nutrition template. Try again.");
   return NextResponse.json({ success: true });
 }

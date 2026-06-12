@@ -195,6 +195,21 @@ function CheckinFormsInner() {
           return;
         }
 
+        if (clientOverrideId && clientOverrideName) {
+          const config = normalizeCheckinConfig(buildFallbackCheckinConfig());
+          setSelectedTemplateId(NEW_TEMPLATE_ID);
+          setTemplateName(`${clientOverrideName} — Weekly Check-in`);
+          setTemplateDescription("Client-specific form built from scratch.");
+          setTitle(config.title || "Weekly Check-in");
+          setQuestions(config.questions);
+          setProgressMetrics(config.progress_tracking || []);
+          setMakeDefault(false);
+          setInitialSnapshot("");
+          setLoading(false);
+          setSaveMessage(`Creating a blank custom form for ${clientOverrideName} — saving as new will assign it automatically.`);
+          return;
+        }
+
         const preferredTemplate =
           loadedTemplates.find((template) => template.is_default) ||
           loadedTemplates[0];

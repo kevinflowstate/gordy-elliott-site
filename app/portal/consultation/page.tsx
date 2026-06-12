@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 interface ConsultationData {
+  date_of_birth?: string;
   fitness_level?: string;
   primary_goal?: string;
   training_days?: string;
@@ -20,6 +21,7 @@ export default function ConsultationPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [form, setForm] = useState<ConsultationData>({
+    date_of_birth: "",
     fitness_level: "",
     primary_goal: "",
     training_days: "",
@@ -38,6 +40,9 @@ export default function ConsultationPage() {
           const data = await res.json();
           if (data.consultation_data) {
             setForm((prev) => ({ ...prev, ...data.consultation_data }));
+          }
+          if (data.date_of_birth) {
+            setForm((prev) => ({ ...prev, date_of_birth: data.date_of_birth }));
           }
         }
       } catch {
@@ -107,6 +112,19 @@ export default function ConsultationPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Date of Birth */}
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-5">
+          <label className="block text-sm font-semibold text-text-primary mb-3">
+            Date of Birth
+          </label>
+          <input
+            type="date"
+            value={form.date_of_birth}
+            onChange={(e) => handleChange("date_of_birth", e.target.value)}
+            className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-[#E040D0]/50"
+          />
+        </div>
+
         {/* Fitness Level */}
         <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-5">
           <label className="block text-sm font-semibold text-text-primary mb-3">

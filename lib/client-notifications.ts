@@ -17,6 +17,7 @@ export async function notifyClientUser(userId: string, notification: ClientNotif
     title: notification.title,
     message: notification.message,
     link,
+    tag: notification.tag || null,
   });
 
   if (error) {
@@ -53,7 +54,7 @@ export async function notifyClientProfile(clientId: string, notification: Client
     .from("client_profiles")
     .select("user_id")
     .eq("id", clientId)
-    .single();
+    .maybeSingle();
 
   if (error || !clientProfile?.user_id) {
     console.error("Failed to resolve client user for notification:", error);

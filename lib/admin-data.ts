@@ -8,6 +8,7 @@ import type {
   CheckIn,
   TrainingModule,
   ModuleContent,
+  ClientKeyDate,
 } from "./types";
 
 // ============================================
@@ -39,6 +40,8 @@ export interface AdminClient {
   coach_notes?: string;
   start_weight?: number;
   tier: ClientTier;
+  date_of_birth?: string | null;
+  key_dates?: ClientKeyDate[];
 }
 
 // ============================================
@@ -147,6 +150,7 @@ export async function getClients(): Promise<AdminClient[]> {
       primary_goal, target_date, goal_notes,
       start_date, last_login, last_checkin, created_at, checkin_day,
       checkin_form_id, coach_notes, start_weight, tier,
+      date_of_birth,
       user:users!client_profiles_user_id_fkey(email, full_name)
     `)
     .order("created_at", { ascending: true });
@@ -191,6 +195,18 @@ export async function getClients(): Promise<AdminClient[]> {
 
   const plansByClient = buildPlanTree(plans || [], phases || [], items || [], links || []);
 
+  const { data: allKeyDates } = await admin
+    .from("client_key_dates")
+    .select("id, client_id, label, date, recurring, created_at")
+    .order("date", { ascending: true });
+
+  const keyDatesByClient = new Map<string, ClientKeyDate[]>();
+  for (const item of allKeyDates || []) {
+    const list = keyDatesByClient.get(item.client_id) || [];
+    list.push(item);
+    keyDatesByClient.set(item.client_id, list);
+  }
+
   // Assemble clients
   const clients: AdminClient[] = profiles.map((p) => {
     const user = Array.isArray(p.user) ? p.user[0] : p.user;
@@ -218,6 +234,8 @@ export async function getClients(): Promise<AdminClient[]> {
       coach_notes: p.coach_notes || undefined,
       start_weight: p.start_weight ?? undefined,
       tier: (p.tier as ClientTier) || 'coached',
+      date_of_birth: p.date_of_birth || null,
+      key_dates: keyDatesByClient.get(p.id) || [],
     };
   });
 
@@ -242,10 +260,11 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
       primary_goal, target_date, goal_notes,
       start_date, last_login, last_checkin, created_at, checkin_day,
       checkin_form_id, coach_notes, start_weight, tier,
+      date_of_birth,
       user:users!client_profiles_user_id_fkey(email, full_name)
     `)
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
   if (error || !p) return null;
 
@@ -295,7 +314,13 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
     .from("internal_notes")
     .select("content")
     .eq("client_id", id)
-    .single();
+    .maybeSingle();
+
+  const { data: keyDates } = await admin
+    .from("client_key_dates")
+    .select("id, client_id, label, date, recurring, created_at")
+    .eq("client_id", id)
+    .order("date", { ascending: true });
 
   // Build nested structures using shared helper
   const plansByClient = buildPlanTree(plans || [], phases || [], items || [], links || []);
@@ -328,6 +353,8 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
     coach_notes: p.coach_notes || undefined,
     start_weight: p.start_weight ?? undefined,
     tier: (p.tier as ClientTier) || 'coached',
+    date_of_birth: p.date_of_birth || null,
+    key_dates: keyDates || [],
   };
 }
 

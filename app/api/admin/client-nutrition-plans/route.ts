@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/admin-auth";
+import { dbError } from "@/lib/api-errors";
 import { notifyClientProfile } from "@/lib/client-notifications";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
     .eq("client_id", clientId)
     .order("created_at", { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbError(error, "Couldn't load nutrition plans. Try again.");
   if (!plans || plans.length === 0) return NextResponse.json({ plans: [] });
 
   const planIds = plans.map((p) => p.id);
@@ -83,7 +84,7 @@ export async function POST(request: Request) {
       .from("nutrition_templates")
       .select("*")
       .eq("id", template_id)
-      .single();
+      .maybeSingle();
 
     if (!template) return NextResponse.json({ error: "Template not found" }, { status: 404 });
 
@@ -125,9 +126,9 @@ export async function POST(request: Request) {
         start_date: new Date().toISOString().split("T")[0],
       })
       .select()
-      .single();
+      .maybeSingle();
 
-    if (planError) return NextResponse.json({ error: planError.message }, { status: 500 });
+    if (planError || !newPlan) return dbError(planError, "Couldn't assign that nutrition plan. Try again.");
 
     // Deep copy meals and items
     const itemsByMeal = new Map<string, typeof items>();
@@ -147,7 +148,7 @@ export async function POST(request: Request) {
           notes: meal.notes,
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (!newMeal) continue;
 
@@ -201,9 +202,9 @@ export async function POST(request: Request) {
         updated_at: new Date().toISOString(),
       })
       .select()
-      .single();
+      .maybeSingle();
 
-    if (planError) return NextResponse.json({ error: planError.message }, { status: 500 });
+    if (planError || !savedPlan) return dbError(planError, "Couldn't save that nutrition plan. Try again.");
 
     // Delete existing meals (cascade deletes items)
     if (plan.id) {
@@ -220,7 +221,7 @@ export async function POST(request: Request) {
           notes: meal.notes || null,
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (!newMeal) continue;
 
@@ -273,10 +274,10 @@ export async function PATCH(request: Request) {
     .from("client_nutrition_plans")
     .select("client_id")
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
   const { error } = await admin.from("client_nutrition_plans").update(updates).eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbError(error, "Couldn't update that nutrition plan. Try again.");
 
   if (status === "active" && existingPlan?.client_id) {
     await notifyClientProfile(existingPlan.client_id, {
