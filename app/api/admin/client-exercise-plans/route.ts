@@ -185,14 +185,14 @@ export async function POST(request: Request) {
       }
     }
 
-    await notifyClientProfile(client_id, {
+    const notification = await notifyClientProfile(client_id, {
       title: "Training plan updated",
       message: "Gordy updated your training plan. Open it before your next session.",
       link: "/portal/exercise-plan",
       tag: `training-plan-${newPlan.id}`,
     });
 
-    return NextResponse.json({ success: true, plan_id: newPlan.id });
+    return NextResponse.json({ success: true, plan_id: newPlan.id, notification });
   }
 
   // If plan object provided, save/update a client plan directly (for edits)
@@ -287,14 +287,14 @@ export async function POST(request: Request) {
       }
     }
 
-    await notifyClientProfile(plan.client_id, {
+    const notification = await notifyClientProfile(plan.client_id, {
       title: "Training plan updated",
       message: "Gordy updated your training plan. Open it before your next session.",
       link: "/portal/exercise-plan",
       tag: `training-plan-${savedPlan.id}`,
     });
 
-    return NextResponse.json({ success: true, plan_id: savedPlan.id });
+    return NextResponse.json({ success: true, plan_id: savedPlan.id, notification });
   }
 
   return NextResponse.json({ error: "Provide template_id + client_id, or a plan object" }, { status: 400 });

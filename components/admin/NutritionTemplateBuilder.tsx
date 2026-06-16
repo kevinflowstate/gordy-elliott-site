@@ -26,8 +26,9 @@ function parseGrams(servingSize: string): number {
 
 interface NutritionTemplateBuilderProps {
   template?: NutritionTemplate;
-  onSave: (template: NutritionTemplate) => void;
+  onSave: (template: NutritionTemplate) => void | Promise<void>;
   onCancel: () => void;
+  context?: "template" | "client";
 }
 
 const CALORIE_RANGES = [
@@ -88,6 +89,23 @@ function calcTotalMacros(meals: NutritionMeal[]) {
   return { calories, protein_g, carbs_g, fat_g };
 }
 
+function parseMealNotes(notes?: string): Record<string, unknown> {
+  if (!notes) return {};
+  try {
+    const parsed = JSON.parse(notes);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return { __plain_notes: notes };
+  }
+}
+
+function isEmptyMealMetadata(metadata: Record<string, unknown>) {
+  return Object.values(metadata).every((value) => {
+    if (Array.isArray(value)) return value.length === 0;
+    return value === undefined || value === null || value === "";
+  });
+}
+
 function getNextMealName(existingMeals: NutritionMeal[], dayPrefix: string): string {
   const baseMeals = ["Breakfast", "Lunch", "Dinner"];
   const extraMeals = ["Snack 1", "Snack 2", "Pre-Workout", "Post-Workout", "Morning Snack", "Evening Snack"];
@@ -119,7 +137,7 @@ function getNextMealName(existingMeals: NutritionMeal[], dayPrefix: string): str
   return dayPrefix ? `${dayPrefix} - Meal ${n}` : `Meal ${n}`;
 }
 
-export default function NutritionTemplateBuilder({ template, onSave, onCancel }: NutritionTemplateBuilderProps) {
+export default function NutritionTemplateBuilder({ template, onSave, onCancel, context = "template" }: NutritionTemplateBuilderProps) {
   // Detect existing day variations if editing
   const existingDayVariations = template ? detectDayVariations(template.meals || []) : [];
   const isExistingMultiDay = existingDayVariations.length > 1;
@@ -143,6 +161,11 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
   // pickerAltId: "mealId:altId" when adding food to an alternative
   const [pickerAltId, setPickerAltId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saved" | "error">("idle");
+  const [saveError, setSaveError] = useState("");
+  const isClientContext = context === "client";
+  const planNoun = isClientContext ? "Client Nutrition Plan" : "Nutrition Template";
+  const planNounLower = isClientContext ? "client nutrition plan" : "nutrition template";
 
   // alternatives: { [mealId]: MealAlternative[] }
   // We store alternatives in state separately, and store them into meal.notes as JSON on save
@@ -169,6 +192,48 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
 
   function getActiveMealAltIdx(mealId: string): number {
     return activeMealAltIndex[mealId] ?? -1; // -1 = primary
+  }
+
+  function updateMealMetadata(mealId: string, updater: (metadata: Record<string, unknown>) => Record<string, unknown>) {
+    setMeals((prev) => prev.map((meal) => {
+      if (meal.id !== mealId) return meal;
+      const nextMetadata = updater(parseMealNotes(meal.notes));
+      return { ...meal, notes: isEmptyMealMetadata(nextMetadata) ? undefined : JSON.stringify(nextMetadata) };
+    }));
+  }
+
+  function getMacroValue(meal: NutritionMeal, macro: "calories" | "protein_g" | "carbs_g" | "fat_g") {
+    const noteKey = `__macro_${macro}_${meal.id}`;
+    const stored = parseMealNotes(meal.notes)[noteKey];
+    return typeof stored === "string" || typeof stored === "number" ? String(stored) : "";
+  }
+
+  function getMealExamples(meal: NutritionMeal): string[] {
+    const examples = parseMealNotes(meal.notes).__macro_examples;
+    return Array.isArray(examples) ? examples.map((example) => String(example)) : [""];
+  }
+
+  function updateMealExample(mealId: string, index: number, value: string) {
+    updateMealMetadata(mealId, (metadata) => {
+      const current = Array.isArray(metadata.__macro_examples) ? metadata.__macro_examples.map(String) : [""];
+      current[index] = value;
+      return { ...metadata, __macro_examples: current };
+    });
+  }
+
+  function addMealExample(mealId: string) {
+    updateMealMetadata(mealId, (metadata) => {
+      const current = Array.isArray(metadata.__macro_examples) ? metadata.__macro_examples.map(String) : [""];
+      return { ...metadata, __macro_examples: [...current, ""] };
+    });
+  }
+
+  function removeMealExample(mealId: string, index: number) {
+    updateMealMetadata(mealId, (metadata) => {
+      const current = Array.isArray(metadata.__macro_examples) ? metadata.__macro_examples.map(String) : [""];
+      const next = current.filter((_, idx) => idx !== index);
+      return { ...metadata, __macro_examples: next.length ? next : [""] };
+    });
   }
 
   function addAlternative(mealId: string) {
@@ -496,15 +561,21 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
   };
 
   const handleSave = async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || saving) return;
     setSaving(true);
+    setSaveState("idle");
+    setSaveError("");
     // Serialize alternatives into meal notes as JSON metadata
     const mealsWithAlts = meals.map((meal) => {
       const alts = getMealAlts(meal.id);
-      if (alts.length === 0) return meal;
+      const notesData = parseMealNotes(meal.notes);
+      if (alts.length === 0) {
+        delete notesData.__alternatives;
+      } else {
+        notesData.__alternatives = alts;
+      }
       // Store alternatives in notes as JSON (preserving existing plain notes separately)
-      const notesData = { __alternatives: alts, __plain_notes: meal.notes };
-      return { ...meal, notes: JSON.stringify(notesData) };
+      return { ...meal, notes: isEmptyMealMetadata(notesData) ? undefined : JSON.stringify(notesData) };
     });
     const tpl: NutritionTemplate = {
       id: template?.id || crypto.randomUUID(),
@@ -521,12 +592,37 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
       created_at: template?.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    onSave(tpl);
-    setSaving(false);
+    try {
+      await onSave(tpl);
+      setSaveState("saved");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : `Couldn't save this ${planNounLower}. Try again.`;
+      setSaveError(message);
+      setSaveState("error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const totals = calcTotalMacros(visibleMeals);
   const targets = targetCalories ? { calories: targetCalories, protein_g: targetProtein, carbs_g: targetCarbs, fat_g: targetFat } : null;
+  const proteinCalories = targetProtein * 4;
+  const carbsCalories = targetCarbs * 4;
+  const fatCalories = targetFat * 9;
+  const macroCalories = proteinCalories + carbsCalories + fatCalories;
+  const macroDiff = targetCalories - macroCalories;
+
+  function balanceCarbsToCalories() {
+    if (!targetCalories) return;
+    const remaining = targetCalories - proteinCalories - fatCalories;
+    setTargetCarbs(Math.max(0, Math.round(remaining / 4)));
+  }
+
+  function balanceFatToCalories() {
+    if (!targetCalories) return;
+    const remaining = targetCalories - proteinCalories - carbsCalories;
+    setTargetFat(Math.max(0, Math.round(remaining / 9)));
+  }
 
   // Setup screen
   if (!setupComplete) {
@@ -536,7 +632,7 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
         <div className="relative ml-auto w-full max-w-3xl bg-bg-primary border-l border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] overflow-y-auto flex flex-col">
           <div className="sticky top-0 z-10 bg-bg-primary/95 backdrop-blur border-b border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] p-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-text-primary">New Nutrition Template</h2>
+              <h2 className="text-xl font-bold text-text-primary">New {planNoun}</h2>
               <button onClick={onCancel} className="px-4 py-2 rounded-xl border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] text-text-secondary text-[13px]">
                 Cancel
               </button>
@@ -673,7 +769,7 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
         <div className="sticky top-0 z-10 bg-bg-primary/95 backdrop-blur border-b border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xl font-bold text-text-primary">
-              {template ? "Edit Nutrition Template" : "New Nutrition Template"}
+              {template ? `Edit ${planNoun}` : `New ${planNoun}`}
             </h2>
             <div className="flex gap-2">
               <button onClick={onCancel} className="px-4 py-2 rounded-xl border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] text-text-secondary text-[13px]">
@@ -682,12 +778,22 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
               <button
                 onClick={handleSave}
                 disabled={!name.trim() || saving}
-                className="px-4 py-2 rounded-xl bg-accent-bright text-black font-semibold text-[13px] disabled:opacity-50"
+                className="px-4 py-2 rounded-xl bg-accent-bright text-black font-semibold text-[13px] disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {saving ? "Saving..." : "Save Template"}
+                {saving ? "Saving..." : `Save ${isClientContext ? "Plan" : "Template"}`}
               </button>
             </div>
           </div>
+          {saveState === "saved" && (
+            <div className="mb-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[13px] font-medium text-emerald-500">
+              Saved.
+            </div>
+          )}
+          {saveState === "error" && (
+            <div className="mb-3 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-[13px] font-medium text-red-500">
+              {saveError}
+            </div>
+          )}
 
           {/* Live macro totals */}
           <MacroSummaryBar actual={totals} target={targets} />
@@ -698,7 +804,7 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
           <div className="space-y-3">
             <input
               type="text"
-              placeholder="Template name..."
+              placeholder={isClientContext ? "Client plan name..." : "Template name..."}
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] bg-transparent text-text-primary font-semibold text-lg"
@@ -759,7 +865,7 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
           </div>
 
           {/* Macro targets */}
-          <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] rounded-2xl p-4">
+            <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] rounded-2xl p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-text-primary">Macro Targets</h3>
               <button
@@ -860,31 +966,67 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
                 </div>
               </div>
             )}
+            {targetCalories > 0 && (targetProtein > 0 || targetCarbs > 0 || targetFat > 0) && (
+              <div className="mt-4 rounded-xl border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] bg-bg-primary p-3">
+                <div className="grid gap-2 sm:grid-cols-4">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-text-muted">Protein</div>
+                    <div className="text-sm font-semibold text-text-primary">{targetProtein}g x 4 = {proteinCalories} kcal</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-text-muted">Carbs</div>
+                    <div className="text-sm font-semibold text-text-primary">{targetCarbs}g x 4 = {carbsCalories} kcal</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-text-muted">Fat</div>
+                    <div className="text-sm font-semibold text-text-primary">{targetFat}g x 9 = {fatCalories} kcal</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-text-muted">Macro Total</div>
+                    <div className="text-sm font-semibold text-text-primary">{macroCalories} / {targetCalories} kcal</div>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={balanceCarbsToCalories}
+                    className="rounded-lg border border-accent-bright/20 bg-accent-bright/10 px-3 py-1.5 text-[12px] font-semibold text-accent-bright hover:bg-accent-bright/15"
+                  >
+                    Balance carbs
+                  </button>
+                  <button
+                    type="button"
+                    onClick={balanceFatToCalories}
+                    className="rounded-lg border border-accent-bright/20 bg-accent-bright/10 px-3 py-1.5 text-[12px] font-semibold text-accent-bright hover:bg-accent-bright/15"
+                  >
+                    Balance fat
+                  </button>
+                </div>
+              </div>
+            )}
             {targetCalories > 0 && (targetProtein > 0 || targetCarbs > 0 || targetFat > 0) && (() => {
-              const macrosCalories = (targetProtein * 4) + (targetCarbs * 4) + (targetFat * 9);
-              const diff = targetCalories - macrosCalories;
-              const absDiff = Math.abs(diff);
+              const absDiff = Math.abs(macroDiff);
 
               if (absDiff <= 10) {
                 return (
                   <div className="mt-3 flex items-center gap-2 text-[13px] text-green-500">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                    Macros aligned ({macrosCalories} kcal from macros)
+                    Macros aligned ({macroCalories} kcal from macros)
                   </div>
                 );
               }
-              if (diff > 10) {
+              if (macroDiff > 10) {
                 return (
                   <div className="mt-3 flex items-center gap-2 text-[13px] text-amber-500">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                    {diff} kcal unallocated (macros = {macrosCalories} kcal)
+                    {macroDiff} kcal unallocated (macros = {macroCalories} kcal)
                   </div>
                 );
               }
               return (
                 <div className="mt-3 flex items-center gap-2 text-[13px] text-red-500">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                  Over by {absDiff} kcal (macros = {macrosCalories} kcal)
+                  Over by {absDiff} kcal (macros = {macroCalories} kcal)
                 </div>
               );
             })()}
@@ -1003,6 +1145,7 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
                     { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 }
                   )
                 : mealMacros;
+              const mealExamples = getMealExamples(meal);
 
               return (
                 <div
@@ -1250,24 +1393,18 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
                         const units = { calories: "kcal", protein_g: "g", carbs_g: "g", fat_g: "g" };
                         const colors = { calories: "text-text-primary", protein_g: "text-blue-400", carbs_g: "text-accent-bright", fat_g: "text-red-400" };
                         const noteKey = `__macro_${macro}_${meal.id}`;
-                        const stored = meal.notes ? (() => { try { const p = JSON.parse(meal.notes); return p[noteKey] || ""; } catch { return ""; } })() : "";
+                        const stored = getMacroValue(meal, macro);
                         return (
                           <div key={macro}>
                             <label className={`text-[10px] font-semibold uppercase tracking-wider mb-1 block ${colors[macro]}`}>{labels[macro]}</label>
                             <div className="flex items-center gap-1">
                               <input
                                 type="number"
-                                defaultValue={stored}
+                                value={stored}
                                 placeholder="0"
                                 onChange={(e) => {
                                   const val = e.target.value;
-                                  setMeals((prev) => prev.map((m) => {
-                                    if (m.id !== meal.id) return m;
-                                    let notesObj: Record<string, string> = {};
-                                    try { notesObj = m.notes ? JSON.parse(m.notes) : {}; } catch { notesObj = {}; }
-                                    notesObj[noteKey] = val;
-                                    return { ...m, notes: JSON.stringify(notesObj) };
-                                  }));
+                                  updateMealMetadata(meal.id, (metadata) => ({ ...metadata, [noteKey]: val }));
                                 }}
                                 className="w-full px-2 py-1.5 rounded-lg border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] bg-transparent text-text-primary text-[13px] text-center"
                               />
@@ -1276,6 +1413,43 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel }:
                           </div>
                         );
                       })}
+                      <div className="col-span-4 mt-2 rounded-xl border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] bg-bg-primary p-3">
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <h4 className="text-[12px] font-semibold uppercase tracking-wider text-text-secondary">Meal Plan Examples</h4>
+                          <button
+                            type="button"
+                            onClick={() => addMealExample(meal.id)}
+                            className="rounded-lg border border-accent-bright/20 bg-accent-bright/10 px-2.5 py-1 text-[11px] font-semibold text-accent-bright hover:bg-accent-bright/15"
+                          >
+                            Add Example
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {mealExamples.map((example, exampleIndex) => (
+                            <div key={`${meal.id}-example-${exampleIndex}`} className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={example}
+                                onChange={(e) => updateMealExample(meal.id, exampleIndex, e.target.value)}
+                                placeholder="e.g. Chicken, rice and veg"
+                                className="flex-1 rounded-lg border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] bg-transparent px-3 py-2 text-[13px] text-text-primary placeholder:text-text-muted focus:border-accent-bright focus:outline-none"
+                              />
+                              {mealExamples.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeMealExample(meal.id, exampleIndex)}
+                                  className="text-text-muted hover:text-red-400"
+                                  aria-label="Remove meal example"
+                                >
+                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

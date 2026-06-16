@@ -166,14 +166,14 @@ export async function POST(request: Request) {
       }
     }
 
-    await notifyClientProfile(client_id, {
+    const notification = await notifyClientProfile(client_id, {
       title: "Nutrition plan updated",
       message: "Gordy updated your nutrition plan. Have a look before your next meal.",
       link: "/portal/nutrition-plan",
       tag: `nutrition-plan-${newPlan.id}`,
     });
 
-    return NextResponse.json({ success: true, plan_id: newPlan.id });
+    return NextResponse.json({ success: true, plan_id: newPlan.id, notification });
   }
 
   // Save plan directly
@@ -239,14 +239,14 @@ export async function POST(request: Request) {
       }
     }
 
-    await notifyClientProfile(plan.client_id, {
+    const notification = await notifyClientProfile(plan.client_id, {
       title: "Nutrition plan updated",
       message: "Gordy updated your nutrition plan. Have a look before your next meal.",
       link: "/portal/nutrition-plan",
       tag: `nutrition-plan-${savedPlan.id}`,
     });
 
-    return NextResponse.json({ success: true, plan_id: savedPlan.id });
+    return NextResponse.json({ success: true, plan_id: savedPlan.id, notification });
   }
 
   return NextResponse.json({ error: "Provide template_id + client_id, or a plan object" }, { status: 400 });

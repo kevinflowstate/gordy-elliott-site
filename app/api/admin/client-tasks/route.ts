@@ -44,14 +44,14 @@ export async function POST(request: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await notifyClientProfile(client_id, {
+  const notification = await notifyClientProfile(client_id, {
     title: "New task from Gordy",
     message: task_text.trim().slice(0, 160),
     link: "/portal",
     tag: `client-task-${data.id}`,
   });
 
-  return NextResponse.json({ task: data });
+  return NextResponse.json({ task: data, notification });
 }
 
 export async function DELETE(request: Request) {
