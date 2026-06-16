@@ -51,8 +51,7 @@ export default function ExercisePlansPage() {
 
     if (!res.ok) {
       const err = await res.json();
-      alert(err.error || "Failed to save template");
-      return;
+      throw new Error(err.error || "Failed to save training template");
     }
 
     setBuilderOpen(false);

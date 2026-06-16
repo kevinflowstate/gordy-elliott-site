@@ -7,8 +7,9 @@ import ExercisePicker from "./ExercisePicker";
 
 interface ExerciseTemplateBuilderProps {
   existingTemplate?: ExerciseTemplate;
-  onSave: (template: ExerciseTemplate) => void;
+  onSave: (template: ExerciseTemplate) => void | Promise<void>;
   onCancel: () => void;
+  context?: "template" | "client";
 }
 
 function generateId() {
@@ -60,6 +61,7 @@ export default function ExerciseTemplateBuilder({
   existingTemplate,
   onSave,
   onCancel,
+  context = "template",
 }: ExerciseTemplateBuilderProps) {
   const [name, setName] = useState(existingTemplate?.name || "");
   const [description, setDescription] = useState(existingTemplate?.description || "");
@@ -73,8 +75,12 @@ export default function ExerciseTemplateBuilder({
   const [sessions, setSessions] = useState<ExerciseSession[]>(
     existingTemplate?.sessions.length ? existingTemplate.sessions : [createEmptySession(0)]
   );
-  const [exercisePickerSessionId, setExercisePickerSessionId] = useState<string | null>(null);
+  const [exercisePickerTarget, setExercisePickerTarget] = useState<{ sessionId: string; sectionItemId?: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saved" | "error">("idle");
+  const [saveError, setSaveError] = useState("");
+  const isClientContext = context === "client";
+  const planNoun = isClientContext ? "Client Training Plan" : "Training Template";
 
   function addTag(raw: string) {
     const tag = raw.trim().toLowerCase();
@@ -106,12 +112,26 @@ export default function ExerciseTemplateBuilder({
     setSessions(reordered.map((s, i) => ({ ...s, day_number: i + 1 })));
   }
 
-  function addExerciseToSession(sessionId: string, exercise: Exercise) {
+  function addExerciseToSession(sessionId: string, exercise: Exercise, sectionItemId?: string) {
     setSessions((prev) =>
       prev.map((s) => {
         if (s.id !== sessionId) return s;
-        const newItem = createEmptyItem(exercise, s.items.length);
-        return { ...s, items: [...s.items, { ...newItem, session_id: sessionId }] };
+        const newItem = { ...createEmptyItem(exercise, s.items.length), session_id: sessionId };
+        if (!sectionItemId) {
+          return { ...s, items: [...s.items, newItem].map((item, i) => ({ ...item, order_index: i })) };
+        }
+        const sectionIndex = s.items.findIndex((item) => item.id === sectionItemId);
+        if (sectionIndex === -1) {
+          return { ...s, items: [...s.items, newItem].map((item, i) => ({ ...item, order_index: i })) };
+        }
+        const nextSectionIndex = s.items.findIndex((item, idx) => idx > sectionIndex && item.exercise_id === "__section__");
+        const insertAt = nextSectionIndex === -1 ? s.items.length : nextSectionIndex;
+        const nextItems = [
+          ...s.items.slice(0, insertAt),
+          newItem,
+          ...s.items.slice(insertAt),
+        ].map((item, i) => ({ ...item, order_index: i }));
+        return { ...s, items: nextItems };
       })
     );
   }
@@ -163,8 +183,10 @@ export default function ExerciseTemplateBuilder({
   }
 
   async function handleSave() {
-    if (!name.trim()) return;
+    if (!name.trim() || saving) return;
     setSaving(true);
+    setSaveState("idle");
+    setSaveError("");
     try {
       const template: ExerciseTemplate = {
         id: existingTemplate?.id || generateId(),
@@ -179,7 +201,11 @@ export default function ExerciseTemplateBuilder({
         created_at: existingTemplate?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
-      onSave(template);
+      await onSave(template);
+      setSaveState("saved");
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Couldn't save this training plan. Try again.");
+      setSaveState("error");
     } finally {
       setSaving(false);
     }
@@ -195,7 +221,7 @@ export default function ExerciseTemplateBuilder({
         {/* Header */}
         <div className="sticky top-0 z-10 bg-bg-primary/95 backdrop-blur-sm border-b border-[rgba(0,0,0,0.06)] px-6 py-4 flex items-center justify-between">
           <h2 className="text-lg font-heading font-bold text-text-primary">
-            {isEditing ? "Edit Training Plan" : "Create Training Plan"}
+            {isEditing ? `Edit ${planNoun}` : `Create ${planNoun}`}
           </h2>
           <div className="flex items-center gap-2">
             <button
@@ -211,17 +237,27 @@ export default function ExerciseTemplateBuilder({
               disabled={!name.trim() || saving}
               className="px-4 py-2 text-xs font-semibold bg-accent-bright text-black rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-opacity cursor-pointer"
             >
-              {saving ? "Saving..." : "Save Template"}
+              {saving ? "Saving..." : `Save ${isClientContext ? "Plan" : "Template"}`}
             </button>
           </div>
         </div>
 
         <div className="p-6 space-y-6">
+          {saveState === "saved" && (
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-500">
+              Saved.
+            </div>
+          )}
+          {saveState === "error" && (
+            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-500">
+              {saveError}
+            </div>
+          )}
           {/* Template meta */}
           <div className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 space-y-4">
             <div>
               <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
-                Template Name <span className="text-red-400">*</span>
+                {isClientContext ? "Plan Name" : "Template Name"} <span className="text-red-400">*</span>
               </label>
               <input
                 type="text"
@@ -240,7 +276,7 @@ export default function ExerciseTemplateBuilder({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={2}
-                placeholder="Brief overview of this template..."
+                placeholder={isClientContext ? "Brief overview for this client's plan..." : "Brief overview of this template..."}
                 className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none"
               />
             </div>
@@ -348,7 +384,8 @@ export default function ExerciseTemplateBuilder({
                   dragHandleProps={dragHandleProps}
                   onUpdate={(updates) => updateSession(session.id, updates)}
                   onRemove={() => removeSession(session.id)}
-                  onAddExercise={() => setExercisePickerSessionId(session.id)}
+                  onAddExercise={() => setExercisePickerTarget({ sessionId: session.id })}
+                  onAddExerciseToSection={(sectionItemId) => setExercisePickerTarget({ sessionId: session.id, sectionItemId })}
                   onAddSection={() => addSectionToSession(session.id)}
                   onUpdateItem={(itemId, updates) => updateItem(session.id, itemId, updates)}
                   onRemoveItem={(itemId) => removeItem(session.id, itemId)}
@@ -374,10 +411,13 @@ export default function ExerciseTemplateBuilder({
       </div>
 
       {/* Exercise Picker */}
-      {exercisePickerSessionId && (
+      {exercisePickerTarget && (
         <ExercisePicker
-          onPick={(exercise) => addExerciseToSession(exercisePickerSessionId, exercise)}
-          onClose={() => setExercisePickerSessionId(null)}
+          onPick={(exercise) => {
+            addExerciseToSession(exercisePickerTarget.sessionId, exercise, exercisePickerTarget.sectionItemId);
+            setExercisePickerTarget(null);
+          }}
+          onClose={() => setExercisePickerTarget(null)}
         />
       )}
     </div>
@@ -391,6 +431,7 @@ interface SessionCardProps {
   onUpdate: (updates: Partial<ExerciseSession>) => void;
   onRemove: () => void;
   onAddExercise: () => void;
+  onAddExerciseToSection: (sectionItemId: string) => void;
   onAddSection: () => void;
   onUpdateItem: (itemId: string, updates: Partial<ExerciseSessionItem>) => void;
   onRemoveItem: (itemId: string) => void;
@@ -405,6 +446,7 @@ function SessionCard({
   onUpdate,
   onRemove,
   onAddExercise,
+  onAddExerciseToSection,
   onAddSection,
   onUpdateItem,
   onRemoveItem,
@@ -512,6 +554,7 @@ function SessionCard({
                   onUpdate={(updates) => onUpdateItem(item.id, updates)}
                   onRemove={() => onRemoveItem(item.id)}
                   onToggleSuperset={() => toggleSuperset(idx)}
+                  onAddExerciseToSection={() => onAddExerciseToSection(item.id)}
                 />
               )}
             />
@@ -554,9 +597,10 @@ interface ExerciseItemRowProps {
   onUpdate: (updates: Partial<ExerciseSessionItem>) => void;
   onRemove: () => void;
   onToggleSuperset: () => void;
+  onAddExerciseToSection?: () => void;
 }
 
-function ExerciseItemRow({ item, itemIndex, totalItems, dragHandleProps, onUpdate, onRemove, onToggleSuperset }: ExerciseItemRowProps) {
+function ExerciseItemRow({ item, itemIndex, totalItems, dragHandleProps, onUpdate, onRemove, onToggleSuperset, onAddExerciseToSection }: ExerciseItemRowProps) {
   const inputClass =
     "w-full bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-lg px-2 py-1.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/30 transition-colors text-center";
 
@@ -579,6 +623,15 @@ function ExerciseItemRow({ item, itemIndex, totalItems, dragHandleProps, onUpdat
             className="flex-1 text-sm font-bold text-accent-bright bg-transparent focus:outline-none placeholder:text-accent-bright/40 uppercase tracking-wider"
             autoFocus={!item.section_label}
           />
+          {onAddExerciseToSection && (
+            <button
+              type="button"
+              onClick={onAddExerciseToSection}
+              className="rounded-lg border border-accent-bright/20 bg-accent-bright/10 px-2.5 py-1 text-[11px] font-semibold text-accent-bright hover:bg-accent-bright/15"
+            >
+              Add Exercise
+            </button>
+          )}
           <button
             type="button"
             onClick={onRemove}

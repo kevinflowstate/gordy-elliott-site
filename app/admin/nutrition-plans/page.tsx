@@ -35,14 +35,17 @@ export default function NutritionPlansPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ template }),
       });
-      if (res.ok) {
-        setLoading(true);
-        setShowBuilder(false);
-        setEditingTemplate(undefined);
-        fetchTemplates();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to save nutrition template");
       }
+      setLoading(true);
+      setShowBuilder(false);
+      setEditingTemplate(undefined);
+      fetchTemplates();
     } catch (err) {
       console.error("Failed to save template:", err);
+      throw err instanceof Error ? err : new Error("Failed to save nutrition template");
     }
   };
 

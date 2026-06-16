@@ -17,6 +17,7 @@ import { normalizeCheckinConfig } from "@/lib/checkin-form";
 import { useToast } from "@/components/ui/Toast";
 
 type TabId = "dashboard" | "checkins" | "training" | "nutrition" | "gallery" | "tasks";
+type PushResult = { sent?: number; failed?: number; subscriptionCount?: number; reason?: string };
 
 const glowClass: Record<TrafficLight, string> = {
   green: "glow-green",
@@ -85,6 +86,32 @@ function timeAgoDetailed(dateStr: string): string {
   if (diffDays < 7) return `${diffDays} days ago`;
   if (diffDays < 14) return "1 week ago";
   return `${Math.floor(diffDays / 7)} weeks ago`;
+}
+
+function formatConsultationLabel(key: string): string {
+  return key
+    .replace(/_/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatConsultationValue(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "Not answered";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (Array.isArray(value)) return value.length ? value.map(formatConsultationValue).join(", ") : "Not answered";
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([key, child]) => `${formatConsultationLabel(key)}: ${formatConsultationValue(child)}`)
+      .join("\n");
+  }
+  return String(value);
+}
+
+function notificationFeedback(notification?: PushResult): string {
+  if (!notification) return "portal notification created";
+  if ((notification.sent || 0) > 0) return "push sent";
+  if (notification.reason) return `portal notification created; push not delivered (${notification.reason})`;
+  return `portal notification created; no device push sent (${notification.subscriptionCount ?? 0} subscriptions)`;
 }
 
 interface PhotoGroup {
@@ -185,6 +212,8 @@ export default function ClientDetailPage() {
   const [galleryLoaded, setGalleryLoaded] = useState(false);
   const [tasks, setTasks] = useState<ClientTask[]>([]);
   const [newTaskText, setNewTaskText] = useState("");
+  const [addingTask, setAddingTask] = useState(false);
+  const [consultationOpen, setConsultationOpen] = useState(false);
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [keyDates, setKeyDates] = useState<ClientKeyDate[]>([]);
   const [newKeyDate, setNewKeyDate] = useState({ label: "", date: "", recurring: true });
@@ -293,7 +322,8 @@ export default function ClientDetailPage() {
   }, [client?.id, client?.tier]);
 
   async function addTask() {
-    if (!newTaskText.trim() || !client) return;
+    if (!newTaskText.trim() || !client || addingTask) return;
+    setAddingTask(true);
     try {
       const res = await fetch("/api/admin/client-tasks", {
         method: "POST",
@@ -305,11 +335,14 @@ export default function ClientDetailPage() {
         toast(data.error || "Couldn't add that task. Try again.", "error");
         return;
       }
+      const data = await res.json().catch(() => ({}));
       setNewTaskText("");
       loadTasks();
-      toast("Task added");
+      toast(`Task added - ${notificationFeedback(data.notification)}`);
     } catch {
       toast("Couldn't reach the tasks API. Try again.", "error");
+    } finally {
+      setAddingTask(false);
     }
   }
 
@@ -352,9 +385,10 @@ export default function ClientDetailPage() {
         toast(data.error || "Couldn't assign that exercise plan. Try again.", "error");
         return;
       }
+      const data = await res.json().catch(() => ({}));
       setShowExercisePicker(false);
       await loadClient();
-      toast(existingActive ? "Training plan replaced — client sees the new plan on next reload" : "Exercise plan assigned");
+      toast(`${existingActive ? "Training plan replaced" : "Exercise plan assigned"} - ${notificationFeedback(data.notification)}`);
     } catch {
       toast("Couldn't reach the exercise plans API. Try again.", "error");
     } finally { setAssigningExercise(false); }
@@ -390,14 +424,16 @@ export default function ClientDetailPage() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        toast(err.error || "Couldn't save this exercise plan. Try again.", "error");
-        return;
+        throw new Error(err.error || "Couldn't save this exercise plan. Try again.");
       }
+      const data = await res.json().catch(() => ({}));
       setShowExerciseBuilder(false);
       await loadClient();
-      toast(exerciseBuilderMode === "edit" && activeExPlan ? "Exercise plan updated" : "Exercise plan assigned");
-    } catch {
-      toast("Couldn't reach the plans API. Try again.", "error");
+      toast(`${exerciseBuilderMode === "edit" && activeExPlan ? "Exercise plan updated" : "Exercise plan assigned"} - ${notificationFeedback(data.notification)}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Couldn't reach the plans API. Try again.";
+      toast(message, "error");
+      throw new Error(message);
     }
   }
 
@@ -425,9 +461,10 @@ export default function ClientDetailPage() {
         toast(data.error || "Couldn't assign that nutrition plan. Try again.", "error");
         return;
       }
+      const data = await res.json().catch(() => ({}));
       setShowNutritionPicker(false);
       await loadClient();
-      toast(existingActive ? "Nutrition plan replaced — client sees the new plan on next reload" : "Nutrition plan assigned");
+      toast(`${existingActive ? "Nutrition plan replaced" : "Nutrition plan assigned"} - ${notificationFeedback(data.notification)}`);
     } catch {
       toast("Couldn't reach the nutrition plans API. Try again.", "error");
     } finally { setAssigningNutrition(false); }
@@ -465,14 +502,16 @@ export default function ClientDetailPage() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        toast(data.error || "Couldn't assign that nutrition plan. Try again.", "error");
-        return;
+        throw new Error(data.error || "Couldn't assign that nutrition plan. Try again.");
       }
+      const data = await res.json().catch(() => ({}));
       setShowNutritionBuilder(false);
       await loadClient();
-      toast(existingActive ? "Nutrition plan replaced — client sees the new plan on next reload" : "Nutrition plan assigned");
-    } catch {
-      toast("Couldn't reach the nutrition plans API. Try again.", "error");
+      toast(`${existingActive ? "Nutrition plan replaced" : "Nutrition plan assigned"} - ${notificationFeedback(data.notification)}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Couldn't reach the nutrition plans API. Try again.";
+      toast(message, "error");
+      throw new Error(message);
     }
   }
 
@@ -738,6 +777,7 @@ export default function ClientDetailPage() {
   const expectedCheckins = weeksSinceStart;
   const actualCheckins = client.checkins.length;
   const missedCheckins = Math.max(0, expectedCheckins - actualCheckins);
+  const hasConsultationData = !!client.consultation_data && Object.keys(client.consultation_data).length > 0;
 
   // Weight trend from check-ins
   const checkinsWithWeight = client.checkins
@@ -937,6 +977,16 @@ export default function ClientDetailPage() {
             </div>
             <div className="flex items-center gap-2">
               <button
+                onClick={() => setConsultationOpen(true)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                  hasConsultationData
+                    ? "text-[#E040D0] bg-[#E040D0]/10 hover:bg-[#E040D0]/15 border border-[#E040D0]/20"
+                    : "text-text-secondary bg-[rgba(0,0,0,0.03)] hover:bg-[rgba(0,0,0,0.05)] border border-[rgba(0,0,0,0.06)]"
+                }`}
+              >
+                View Consultation
+              </button>
+              <button
                 onClick={() => setAssignChooser("training")}
                 className="px-3 py-1.5 text-xs font-semibold text-white bg-[#E040D0] hover:bg-[#b830a8] rounded-lg transition-colors"
               >
@@ -953,6 +1003,12 @@ export default function ClientDetailPage() {
                 className="px-3 py-1.5 text-xs font-semibold text-white bg-[#E040D0] hover:bg-[#b830a8] rounded-lg transition-colors"
               >
                 Assign Check-in
+              </button>
+              <button
+                onClick={() => setActiveTab("tasks")}
+                className="px-3 py-1.5 text-xs font-semibold text-white bg-[#E040D0] hover:bg-[#b830a8] rounded-lg transition-colors"
+              >
+                Add Task
               </button>
               <div className="relative">
                 <button
@@ -1854,17 +1910,17 @@ export default function ClientDetailPage() {
               type="text"
               value={newTaskText}
               onChange={(e) => setNewTaskText(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addTask()}
+              onKeyDown={(e) => { if (e.key === "Enter") addTask(); }}
               placeholder="Add a task for this client..."
               maxLength={500}
               className="flex-1 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40 transition-colors"
             />
             <button
               onClick={addTask}
-              disabled={!newTaskText.trim()}
+              disabled={!newTaskText.trim() || addingTask}
               className="px-5 py-3 bg-[#E040D0] hover:bg-[#b830a8] text-white rounded-xl text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
-              Add
+              {addingTask ? "Adding..." : "Add"}
             </button>
           </div>
 
@@ -1941,6 +1997,66 @@ export default function ClientDetailPage() {
       )}
 
       {/* ── Modals ── */}
+
+      {consultationOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[85vh] overflow-y-auto">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-heading font-bold text-text-primary">Consultation</h3>
+                <p className="mt-1 text-sm text-text-secondary">{client.name} onboarding answers and key dates.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConsultationOpen(false)}
+                className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-[rgba(255,255,255,0.04)] hover:text-text-primary"
+                aria-label="Close consultation"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {!hasConsultationData ? (
+              <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-8 text-center text-sm text-text-muted">
+                No consultation submitted yet.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {Object.entries(client.consultation_data || {}).map(([key, value]) => (
+                  <div key={key} className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">{formatConsultationLabel(key)}</div>
+                    <div className="mt-1 whitespace-pre-wrap text-sm text-text-primary">{formatConsultationValue(value)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">Birthday</div>
+                <div className="mt-1 text-sm text-text-primary">
+                  {dateOfBirth ? new Date(dateOfBirth + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "Not set"}
+                </div>
+              </div>
+              <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">Key Dates</div>
+                <div className="mt-1 space-y-1 text-sm text-text-primary">
+                  {keyDates.length === 0 ? (
+                    <div>None set</div>
+                  ) : keyDates.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between gap-3">
+                      <span>{item.label}</span>
+                      <span className="text-text-secondary">{new Date(item.date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Goals Modal */}
       {goalsModalOpen && (
@@ -2262,6 +2378,7 @@ export default function ClientDetailPage() {
             existingTemplate={templateFromPlan}
             onSave={handleSaveScratchExercisePlan}
             onCancel={() => setShowExerciseBuilder(false)}
+            context="client"
           />
         );
       })()}
@@ -2278,6 +2395,7 @@ export default function ClientDetailPage() {
         <NutritionTemplateBuilder
           onSave={handleSaveScratchNutritionPlan}
           onCancel={() => setShowNutritionBuilder(false)}
+          context="client"
         />
       )}
 
