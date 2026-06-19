@@ -132,7 +132,7 @@ Never `git push --force` to `main` as a rollback. Revert commits instead.
 Not blockers, but worth knowing:
 - `/portal/plan` — orphaned legacy coaching-plan page; not linked from nav, accessible via URL only. Data survives in `business_plans` table.
 - `internal_notes` table — Coach Notes (`client_profiles.coach_notes`) is the active surface; legacy `internal_notes` table still exists in DB with no UI path for editing. Read-safe, write-dormant.
-- `knowledge_chunks` — feeds SHIFT AI reference material. If the table is empty the AI still works; it just loses session-quote grounding.
+- `knowledge_chunks` — legacy SHIFT AI reference path. Current brain grounding uses `brain_docs` + `brain_chunks` from the reviewed SHIFT brain ingestion, and is treated as private context rather than quoted session material. Embeddings can use either `OPENROUTER_API_KEY` (`SHIFT_BRAIN_EMBEDDING_PROVIDER=openrouter`) or `OPENAI_API_KEY`.
 - `values-determination` flow — builds to screen but hasn't had Gordy's final product sign-off.
 
 ### SHIFT AI — what's grounded vs what still wants live QA

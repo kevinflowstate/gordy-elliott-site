@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "brain:prepare": "node scripts/prepare-shift-brain.mjs",
+    "brain:ingest": "node scripts/ingest-shift-brain.mjs",
     "check:shift-ai-inputs": "node scripts/check-shift-ai-inputs.mjs",
     "verify:portal": "npm run lint && npm run build && npm run check:shift-ai-inputs"
   },

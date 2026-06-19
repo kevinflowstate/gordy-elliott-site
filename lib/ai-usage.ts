@@ -6,6 +6,8 @@ const MODEL_PRICING: Record<string, { inputPer1M: number; outputPer1M: number }>
   "claude-haiku": { inputPer1M: 0.25, outputPer1M: 1.25 },
   "claude-sonnet-4-5-20251022": { inputPer1M: 3.0, outputPer1M: 15.0 },
   "claude-sonnet": { inputPer1M: 3.0, outputPer1M: 15.0 },
+  "openai/text-embedding-3-small": { inputPer1M: 0.02, outputPer1M: 0 },
+  "text-embedding-3-small": { inputPer1M: 0.02, outputPer1M: 0 },
 };
 
 const DEFAULT_PRICING = { inputPer1M: 3.0, outputPer1M: 15.0 };
