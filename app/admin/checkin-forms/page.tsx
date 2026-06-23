@@ -10,8 +10,15 @@ import {
   getTemplateLabel,
   normalizeCheckinConfig,
 } from "@/lib/checkin-form";
+import {
+  DEFAULT_CONSULTATION_QUESTIONS,
+  buildFallbackConsultationConfig,
+  isConsultationSystemField,
+  normalizeConsultationConfig,
+} from "@/lib/consultation-form";
 
 const NEW_TEMPLATE_ID = "__new__";
+type BuilderSection = "checkin" | "consultation";
 
 function generateId() {
   return `q_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
@@ -89,11 +96,405 @@ function buildSnapshot({
   });
 }
 
+function buildConsultationSnapshot({
+  title,
+  description,
+  questions,
+}: {
+  title: string;
+  description: string;
+  questions: FormQuestion[];
+}) {
+  return JSON.stringify({ title, description, questions });
+}
+
+function BuilderTabs({
+  section,
+  onSectionChange,
+  disabled,
+}: {
+  section: BuilderSection;
+  onSectionChange: (section: BuilderSection) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="mt-5 inline-flex rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-card p-1">
+      {[
+        { id: "checkin" as const, label: "Check-in Forms" },
+        { id: "consultation" as const, label: "Consultation Form" },
+      ].map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => onSectionChange(item.id)}
+          disabled={disabled}
+          className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+            section === item.id
+              ? "bg-[#E040D0] text-white"
+              : "text-text-secondary hover:bg-[rgba(0,0,0,0.04)] hover:text-text-primary"
+          }`}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function BuilderHeader({
+  section,
+  onSectionChange,
+  disabled,
+}: {
+  section: BuilderSection;
+  onSectionChange: (section: BuilderSection) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="mb-8">
+      <h1 className="text-3xl font-heading font-bold text-text-primary">Form Builder</h1>
+      <p className="mt-1 text-text-secondary">Edit Gordy&apos;s check-in templates and the client consultation form.</p>
+      <BuilderTabs section={section} onSectionChange={onSectionChange} disabled={disabled} />
+    </div>
+  );
+}
+
 export default function CheckinFormsPage() {
   return (
     <Suspense fallback={<div className="max-w-3xl"><div className="h-8 w-48 animate-pulse rounded-lg bg-[rgba(0,0,0,0.08)]" /></div>}>
       <CheckinFormsInner />
     </Suspense>
+  );
+}
+
+function ConsultationFormEditor() {
+  const fallback = normalizeConsultationConfig(buildFallbackConsultationConfig());
+  const [title, setTitle] = useState(fallback.title || "Initial Consultation");
+  const [description, setDescription] = useState(fallback.description || "");
+  const [questions, setQuestions] = useState<FormQuestion[]>(fallback.questions);
+  const [questionsOpen, setQuestionsOpen] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
+  const [initialSnapshot, setInitialSnapshot] = useState("");
+
+  useEffect(() => {
+    async function loadConsultationConfig() {
+      try {
+        const res = await fetch("/api/admin/form-config?type=consultation");
+        if (!res.ok) throw new Error("Failed to load consultation form");
+        const data = await res.json();
+        const config = normalizeConsultationConfig(data.config);
+        setTitle(config.title || "Initial Consultation");
+        setDescription(config.description || "");
+        setQuestions(config.questions);
+        setInitialSnapshot(buildConsultationSnapshot({
+          title: config.title || "Initial Consultation",
+          description: config.description || "",
+          questions: config.questions,
+        }));
+      } catch {
+        setSaveMessage("Couldn't load the saved consultation form, so defaults are ready.");
+        setInitialSnapshot(buildConsultationSnapshot({
+          title: fallback.title || "Initial Consultation",
+          description: fallback.description || "",
+          questions: fallback.questions,
+        }));
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadConsultationConfig();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function toggleQuestion(idx: number) {
+    setQuestions((prev) => prev.map((question, i) => i === idx ? { ...question, enabled: question.enabled === false } : question));
+  }
+
+  function updateQuestion(idx: number, patch: Partial<FormQuestion>) {
+    setQuestions((prev) => prev.map((question, i) => i === idx ? { ...question, ...patch } : question));
+  }
+
+  function updateQuestionOptions(idx: number, optionsText: string) {
+    const options = optionsText
+      .split("\n")
+      .map((option) => option.trim())
+      .filter(Boolean);
+    updateQuestion(idx, { options });
+  }
+
+  function addCustomQuestion() {
+    setQuestions((prev) => [
+      ...prev,
+      { id: generateId(), label: "New question", placeholder: "", type: "textarea", enabled: true, required: false },
+    ]);
+  }
+
+  function removeQuestion(idx: number) {
+    setQuestions((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function resetToDefaults() {
+    const config = normalizeConsultationConfig(buildFallbackConsultationConfig());
+    setTitle(config.title || "Initial Consultation");
+    setDescription(config.description || "");
+    setQuestions(config.questions);
+    setQuestionsOpen(true);
+    setSaveMessage("Reset to defaults locally - save when ready.");
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setSaveMessage("");
+
+    try {
+      const config = normalizeConsultationConfig({ title, description, questions });
+      const res = await fetch("/api/admin/form-config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "consultation", config }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to save consultation form");
+      }
+
+      const data = await res.json();
+      const savedConfig = normalizeConsultationConfig(data.config);
+      setTitle(savedConfig.title || "Initial Consultation");
+      setDescription(savedConfig.description || "");
+      setQuestions(savedConfig.questions);
+      setInitialSnapshot(buildConsultationSnapshot({
+        title: savedConfig.title || "Initial Consultation",
+        description: savedConfig.description || "",
+        questions: savedConfig.questions,
+      }));
+      setSaveMessage("Consultation form saved.");
+      setTimeout(() => setSaveMessage(""), 3000);
+    } catch (error) {
+      setSaveMessage(`Error: ${error instanceof Error ? error.message : "Failed to save consultation form"}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const currentSnapshot = useMemo(() => buildConsultationSnapshot({ title, description, questions }), [title, description, questions]);
+  const hasUnsavedChanges = initialSnapshot !== "" && currentSnapshot !== initialSnapshot;
+  const enabledQuestionCount = questions.filter((question) => question.enabled !== false).length;
+  const customQuestionCount = questions.filter((question) => !DEFAULT_CONSULTATION_QUESTIONS.find((defaultQuestion) => defaultQuestion.id === question.id)).length;
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="h-20 animate-pulse rounded-2xl border border-[rgba(0,0,0,0.06)] bg-[rgba(0,0,0,0.06)]" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="mb-4 rounded-2xl border border-[#E040D0]/20 bg-[#E040D0]/8 p-5">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#E040D0]">Consultation form</div>
+        <div className="mt-2 text-sm text-text-secondary">
+          This controls the form clients complete during onboarding and through Gordy&apos;s direct consultation link.
+          Sex and cycle tracking stay protected: cycle tracking is still only offered when the client selects female.
+        </div>
+      </div>
+
+      <div className="mb-4 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-4">
+          <div className="text-[11px] uppercase tracking-[0.16em] text-text-muted">Enabled Questions</div>
+          <div className="mt-2 text-2xl font-heading font-bold text-text-primary">{enabledQuestionCount}</div>
+        </div>
+        <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-4">
+          <div className="text-[11px] uppercase tracking-[0.16em] text-text-muted">Custom Questions</div>
+          <div className="mt-2 text-2xl font-heading font-bold text-text-primary">{customQuestionCount}</div>
+        </div>
+      </div>
+
+      <div className="mb-4 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-5">
+          <label className="mb-2 block text-sm font-medium text-text-primary">Client-Facing Form Title</label>
+          <input
+            type="text"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="Initial Consultation"
+            className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40 transition-colors"
+          />
+        </div>
+        <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-5">
+          <label className="mb-2 block text-sm font-medium text-text-primary">Intro Text</label>
+          <input
+            type="text"
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            placeholder="Help us personalise your coaching experience..."
+            className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40 transition-colors"
+          />
+        </div>
+      </div>
+
+      <div className="mb-4 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-5">
+        <SectionHeader
+          title="Consultation Questions"
+          description="Edit labels, help text, required state, select options, and custom questions"
+          open={questionsOpen}
+          onToggle={() => setQuestionsOpen((open) => !open)}
+        />
+
+        {questionsOpen && (
+          <div className="mt-4 space-y-3">
+            {questions.map((question, idx) => {
+              const isSystemQuestion = isConsultationSystemField(question.id);
+              const isDefaultQuestion = DEFAULT_CONSULTATION_QUESTIONS.some((defaultQuestion) => defaultQuestion.id === question.id);
+              return (
+                <div
+                  key={question.id}
+                  className={`rounded-xl border p-4 transition-colors ${
+                    question.enabled !== false
+                      ? "border-[rgba(0,0,0,0.06)] bg-bg-primary"
+                      : "border-[rgba(0,0,0,0.04)] bg-[rgba(0,0,0,0.01)] opacity-70"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <Toggle enabled={question.enabled !== false} onToggle={() => toggleQuestion(idx)} />
+                    <div className="min-w-0 flex-1 space-y-3">
+                      <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+                        <input
+                          type="text"
+                          value={question.label}
+                          onChange={(event) => updateQuestion(idx, { label: event.target.value })}
+                          placeholder="Question label"
+                          className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-card px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40 transition-colors"
+                        />
+                        <label className="flex items-center gap-2 rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-card px-4 py-3 text-xs font-semibold text-text-secondary">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(question.required)}
+                            onChange={(event) => updateQuestion(idx, { required: event.target.checked })}
+                            disabled={question.type === "boolean"}
+                            className="h-4 w-4 rounded border-[rgba(0,0,0,0.2)] text-[#E040D0] focus:ring-[#E040D0]/40 disabled:opacity-40"
+                          />
+                          Required
+                        </label>
+                      </div>
+
+                      <div className="grid gap-3 lg:grid-cols-[160px_1fr]">
+                        <select
+                          value={question.type}
+                          onChange={(event) => updateQuestion(idx, {
+                            type: event.target.value as FormQuestion["type"],
+                            options: event.target.value === "select" ? question.options || ["Option 1"] : question.options,
+                          })}
+                          disabled={isDefaultQuestion}
+                          className="rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-card px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-[#E040D0]/40 disabled:opacity-60"
+                        >
+                          <option value="textarea">Long text</option>
+                          <option value="text">Short text</option>
+                          <option value="select">Dropdown</option>
+                          <option value="date">Date</option>
+                          <option value="boolean">On/off toggle</option>
+                        </select>
+                        <input
+                          type="text"
+                          value={question.placeholder || ""}
+                          onChange={(event) => updateQuestion(idx, { placeholder: event.target.value })}
+                          placeholder={question.type === "boolean" ? "Message shown when switched on" : "Placeholder / helper text"}
+                          className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-card px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40 transition-colors"
+                        />
+                      </div>
+
+                      {question.type === "select" && (
+                        <div>
+                          <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-text-muted">
+                            Options
+                          </label>
+                          <textarea
+                            value={(question.options || []).join("\n")}
+                            onChange={(event) => updateQuestionOptions(idx, event.target.value)}
+                            rows={Math.min(Math.max((question.options || []).length, 3), 7)}
+                            className="w-full resize-y rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-card px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40 transition-colors"
+                          />
+                          {question.id === "sex" && (
+                            <p className="mt-2 text-xs text-text-muted">
+                              These labels stay editable, but the stored values remain female, male, and prefer not to say so cycle eligibility stays reliable.
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.14em] text-text-muted">
+                        <span>{question.type}</span>
+                        {isSystemQuestion && <span className="rounded-full bg-[#E040D0]/10 px-2 py-0.5 text-[#E040D0]">System field</span>}
+                        {isDefaultQuestion && !isSystemQuestion && <span>Default field</span>}
+                      </div>
+                    </div>
+
+                    {!isDefaultQuestion && (
+                      <button
+                        type="button"
+                        onClick={() => removeQuestion(idx)}
+                        className="cursor-pointer p-1 text-text-muted transition-colors hover:text-red-400"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            <button
+              type="button"
+              onClick={addCustomQuestion}
+              className="mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-[rgba(0,0,0,0.08)] py-2.5 text-xs text-text-muted transition-colors hover:border-[#E040D0]/30 hover:text-[#E040D0]"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add custom question
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm">
+          {saveMessage ? (
+            <span className={saveMessage.startsWith("Error") ? "text-red-400" : "text-emerald-400"}>{saveMessage}</span>
+          ) : hasUnsavedChanges ? (
+            <span className="text-amber-500">Unsaved changes - remember to save</span>
+          ) : (
+            <span className="text-text-muted">All changes saved</span>
+          )}
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={resetToDefaults}
+            className="rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-card px-6 py-3 text-sm font-semibold text-text-primary transition-colors hover:border-[#E040D0]/30"
+          >
+            Reset to Defaults
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="gradient-accent rounded-xl px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-40"
+          >
+            {saving ? "Saving..." : "Save Consultation Form"}
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -120,6 +521,22 @@ function CheckinFormsInner() {
   const clientOverrideId = searchParams.get("forClient");
   const clientOverrideName = searchParams.get("clientName");
   const baseTemplateId = searchParams.get("base");
+  const [builderSection, setBuilderSection] = useState<BuilderSection>(
+    searchParams.get("section") === "consultation" && !clientOverrideId ? "consultation" : "checkin"
+  );
+
+  function changeBuilderSection(section: BuilderSection) {
+    if (clientOverrideId && section === "consultation") return;
+    setBuilderSection(section);
+    const params = new URLSearchParams(searchParams.toString());
+    if (section === "consultation") {
+      params.set("section", "consultation");
+    } else {
+      params.delete("section");
+    }
+    const query = params.toString();
+    router.replace(`/admin/checkin-forms${query ? `?${query}` : ""}`);
+  }
 
   function loadTemplateIntoEditor(template: CheckinFormTemplate) {
     const config = normalizeCheckinConfig(template.config);
@@ -452,6 +869,15 @@ function CheckinFormsInner() {
     }
   }
 
+  if (builderSection === "consultation" && !clientOverrideId) {
+    return (
+      <div className="max-w-3xl">
+        <BuilderHeader section={builderSection} onSectionChange={changeBuilderSection} disabled={saving || deleting} />
+        <ConsultationFormEditor />
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="max-w-3xl">
@@ -470,10 +896,7 @@ function CheckinFormsInner() {
 
   return (
     <div className="max-w-3xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-heading font-bold text-text-primary">Check-in Forms</h1>
-        <p className="mt-1 text-text-secondary">Create multiple weekly check-in templates, then assign the right one to each client.</p>
-      </div>
+      <BuilderHeader section={builderSection} onSectionChange={changeBuilderSection} disabled={saving || deleting} />
 
       {clientOverrideId && clientOverrideName && (
         <div className="mb-4 rounded-2xl border border-[#E040D0]/25 bg-[#E040D0]/8 px-5 py-4">

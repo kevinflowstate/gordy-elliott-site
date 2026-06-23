@@ -217,7 +217,7 @@ export interface FormQuestion {
   id: string;
   label: string;
   placeholder: string;
-  type: 'textarea' | 'text' | 'select' | 'file';
+  type: 'textarea' | 'text' | 'select' | 'file' | 'date' | 'boolean';
   options?: string[];
   enabled?: boolean;
   required?: boolean;
