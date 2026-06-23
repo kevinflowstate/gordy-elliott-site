@@ -215,6 +215,8 @@ export default function ClientDetailPage() {
   const [newTaskText, setNewTaskText] = useState("");
   const [addingTask, setAddingTask] = useState(false);
   const [consultationOpen, setConsultationOpen] = useState(false);
+  const [consultationLinkSending, setConsultationLinkSending] = useState(false);
+  const [consultationLinkCopied, setConsultationLinkCopied] = useState(false);
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [sex, setSex] = useState<ClientSexInput>("");
   const [cycleTrackingEnabled, setCycleTrackingEnabled] = useState(false);
@@ -815,6 +817,52 @@ export default function ClientDetailPage() {
   const missedCheckins = Math.max(0, expectedCheckins - actualCheckins);
   const hasConsultationData = !!client.consultation_data && Object.keys(client.consultation_data).length > 0;
 
+  function consultationUrl() {
+    if (typeof window === "undefined") return "/portal/consultation?setup=true";
+    return new URL("/portal/consultation?setup=true", window.location.origin).toString();
+  }
+
+  async function copyConsultationLink() {
+    try {
+      await navigator.clipboard.writeText(consultationUrl());
+      setConsultationLinkCopied(true);
+      toast("Consultation link copied");
+      setTimeout(() => setConsultationLinkCopied(false), 2500);
+    } catch {
+      toast("Couldn't copy the link. Open the portal consultation page and share that URL.", "error");
+    }
+  }
+
+  async function sendConsultationLink() {
+    if (!client) return;
+    setConsultationLinkSending(true);
+    try {
+      const res = await fetch("/api/admin/consultation-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client_id: client.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast(data.error || "Couldn't send the consultation link", "error");
+        return;
+      }
+      if (!data.emailSent && data.consultationUrl) {
+        try {
+          await navigator.clipboard.writeText(data.consultationUrl);
+        } catch {
+          toast("Email unavailable. Use Copy Link to share it manually.", "error");
+          return;
+        }
+      }
+      toast(data.emailSent ? "Consultation link emailed" : "Email unavailable - consultation link copied");
+    } catch {
+      toast("Couldn't reach the consultation link API", "error");
+    } finally {
+      setConsultationLinkSending(false);
+    }
+  }
+
   // Weight trend from check-ins
   const checkinsWithWeight = client.checkins
     .filter((c) => {
@@ -1020,7 +1068,7 @@ export default function ClientDetailPage() {
                     : "text-text-secondary bg-[rgba(0,0,0,0.03)] hover:bg-[rgba(0,0,0,0.05)] border border-[rgba(0,0,0,0.06)]"
                 }`}
               >
-                View Consultation
+                {hasConsultationData ? "View Consultation" : "Link Consultation"}
               </button>
               <button
                 onClick={() => setAssignChooser("training")}
@@ -2094,8 +2142,28 @@ export default function ClientDetailPage() {
             </div>
 
             {!hasConsultationData ? (
-              <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-8 text-center text-sm text-text-muted">
-                No consultation submitted yet.
+              <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-8 text-center">
+                <div className="text-sm font-semibold text-text-primary">No consultation submitted yet.</div>
+                <p className="mx-auto mt-2 max-w-md text-sm text-text-muted">
+                  Share the client portal consultation link so {client.name} can complete it against their own account.
+                </p>
+                <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={sendConsultationLink}
+                    disabled={consultationLinkSending}
+                    className="rounded-xl bg-[#E040D0] px-4 py-2 text-xs font-semibold text-white transition-opacity hover:bg-[#b830a8] disabled:opacity-40"
+                  >
+                    {consultationLinkSending ? "Sending..." : "Email Link"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={copyConsultationLink}
+                    className="rounded-xl border border-[rgba(0,0,0,0.08)] px-4 py-2 text-xs font-semibold text-text-secondary transition-colors hover:bg-[rgba(0,0,0,0.03)]"
+                  >
+                    {consultationLinkCopied ? "Copied" : "Copy Link"}
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-3">
@@ -2129,6 +2197,26 @@ export default function ClientDetailPage() {
                 </div>
               </div>
             </div>
+
+            {hasConsultationData && (
+              <div className="mt-5 flex flex-col justify-end gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={sendConsultationLink}
+                  disabled={consultationLinkSending}
+                  className="rounded-xl border border-[#E040D0]/20 bg-[#E040D0]/10 px-4 py-2 text-xs font-semibold text-[#E040D0] transition-colors hover:bg-[#E040D0]/15 disabled:opacity-40"
+                >
+                  {consultationLinkSending ? "Sending..." : "Email Link Again"}
+                </button>
+                <button
+                  type="button"
+                  onClick={copyConsultationLink}
+                  className="rounded-xl border border-[rgba(0,0,0,0.08)] px-4 py-2 text-xs font-semibold text-text-secondary transition-colors hover:bg-[rgba(0,0,0,0.03)]"
+                >
+                  {consultationLinkCopied ? "Copied" : "Copy Link"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -24,8 +24,9 @@ const EQUIPMENT_OPTIONS = [
   { value: "kettlebell", label: "Kettlebell" },
   { value: "cable", label: "Cable" },
   { value: "machine", label: "Machine" },
-  { value: "resistance_band", label: "Resistance Band" },
+  { value: "band", label: "Resistance Band" },
   { value: "cardio_machine", label: "Cardio Machine" },
+  { value: "none", label: "No Equipment" },
   { value: "other", label: "Other" },
 ];
 
@@ -47,8 +48,10 @@ const EQUIPMENT_LABELS: Record<string, string> = {
   kettlebell: "Kettlebell",
   cable: "Cable",
   machine: "Machine",
+  band: "Resistance Band",
   resistance_band: "Resistance Band",
   cardio_machine: "Cardio Machine",
+  none: "No Equipment",
   other: "Other",
 };
 

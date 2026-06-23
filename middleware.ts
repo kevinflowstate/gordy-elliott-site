@@ -47,7 +47,7 @@ export async function middleware(request: NextRequest) {
   if ((path.startsWith('/portal') || path.startsWith('/admin')) && !user) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
-    url.searchParams.set('redirect', path);
+    url.searchParams.set('redirect', `${path}${request.nextUrl.search}`);
     return NextResponse.redirect(url);
   }
 
