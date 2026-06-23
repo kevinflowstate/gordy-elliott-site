@@ -3,7 +3,22 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { dbError } from "@/lib/api-errors";
 import { normalizeCheckinConfig } from "@/lib/checkin-form";
+import { normalizeConsultationConfig } from "@/lib/consultation-form";
 import { NextResponse } from "next/server";
+
+const VALID_FORM_TYPES = ["checkin", "business_plan", "consultation"];
+
+function normalizeConfig(type: string, config: unknown) {
+  if (type === "checkin") return normalizeCheckinConfig(config as Parameters<typeof normalizeCheckinConfig>[0]);
+  if (type === "consultation") return normalizeConsultationConfig(config as Parameters<typeof normalizeConsultationConfig>[0]);
+  return config;
+}
+
+function fallbackConfig(type: string) {
+  if (type === "checkin") return normalizeCheckinConfig(null);
+  if (type === "consultation") return normalizeConsultationConfig(null);
+  return { questions: [] };
+}
 
 export async function GET(request: Request) {
   // Form config is readable by any authenticated user (clients need it for check-in page)
@@ -14,7 +29,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const type = searchParams.get("type");
 
-  if (!type || !["checkin", "business_plan"].includes(type)) {
+  if (!type || !VALID_FORM_TYPES.includes(type)) {
     return NextResponse.json({ error: "Invalid form type" }, { status: 400 });
   }
 
@@ -43,11 +58,7 @@ export async function GET(request: Request) {
     return dbError(error, "Couldn't load that form config. Try again.");
   }
 
-  if (!data?.config) {
-    return NextResponse.json({ config: type === "checkin" ? normalizeCheckinConfig(null) : { questions: [] } });
-  }
-
-  return NextResponse.json({ config: data.config });
+  return NextResponse.json({ config: data?.config ? normalizeConfig(type, data.config) : fallbackConfig(type) });
 }
 
 export async function PUT(request: Request) {
@@ -56,7 +67,7 @@ export async function PUT(request: Request) {
 
   const { type, config } = await request.json();
 
-  if (!type || !["checkin", "business_plan"].includes(type)) {
+  if (!type || !VALID_FORM_TYPES.includes(type)) {
     return NextResponse.json({ error: "Invalid form type" }, { status: 400 });
   }
 
@@ -90,10 +101,10 @@ export async function PUT(request: Request) {
     }
   }
 
+  const normalizedConfig = normalizeConfig(type, config);
   const { data, error } = await admin
     .from("form_config")
-    .update({ config, updated_at: new Date().toISOString() })
-    .eq("form_type", type)
+    .upsert({ form_type: type, config: normalizedConfig, updated_at: new Date().toISOString() }, { onConflict: "form_type" })
     .select("config")
     .maybeSingle();
 
@@ -101,5 +112,5 @@ export async function PUT(request: Request) {
     return dbError(error, "Couldn't save that form config. Try again.");
   }
 
-  return NextResponse.json({ config: data?.config || config });
+  return NextResponse.json({ config: data?.config ? normalizeConfig(type, data.config) : normalizedConfig });
 }

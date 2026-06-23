@@ -2,19 +2,27 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import type { ConsultationFormConfig } from "@/lib/consultation-form";
+import type { FormQuestion } from "@/lib/types";
 
-interface ConsultationData {
-  date_of_birth?: string;
-  sex?: "" | "female" | "male" | "prefer_not_to_say";
-  cycle_tracking_enabled?: boolean;
-  fitness_level?: string;
-  primary_goal?: string;
-  training_days?: string;
-  equipment_access?: string;
-  dietary_preferences?: string;
-  injuries?: string;
-  supplements?: string;
-  additional_info?: string;
+type ConsultationValue = string | boolean;
+type ConsultationData = Record<string, ConsultationValue>;
+
+const DEFAULT_CONFIG: ConsultationFormConfig = {
+  title: "Initial Consultation",
+  description: "Help us personalise your coaching experience by filling in your details below.",
+  questions: [],
+};
+
+function getValue(form: ConsultationData, id: string) {
+  const value = form[id];
+  return typeof value === "string" ? value : "";
+}
+
+function optionLabel(question: FormQuestion, option: string, idx: number) {
+  if (question.id === "training_days" && /^\d+$/.test(option)) return `${option} days`;
+  if (question.id === "sex") return question.options?.[idx] || option;
+  return option;
 }
 
 export default function ConsultationPage() {
@@ -22,18 +30,11 @@ export default function ConsultationPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [config, setConfig] = useState<ConsultationFormConfig>(DEFAULT_CONFIG);
   const [form, setForm] = useState<ConsultationData>({
     date_of_birth: "",
     sex: "",
     cycle_tracking_enabled: false,
-    fitness_level: "",
-    primary_goal: "",
-    training_days: "",
-    equipment_access: "",
-    dietary_preferences: "",
-    injuries: "",
-    supplements: "",
-    additional_info: "",
   });
 
   useEffect(() => {
@@ -42,14 +43,11 @@ export default function ConsultationPage() {
         const res = await fetch("/api/portal/consultation");
         if (res.ok) {
           const data = await res.json();
-          if (data.consultation_data) {
-            setForm((prev) => ({ ...prev, ...data.consultation_data }));
-          }
-          if (data.date_of_birth) {
-            setForm((prev) => ({ ...prev, date_of_birth: data.date_of_birth }));
-          }
+          if (data.config) setConfig(data.config);
           setForm((prev) => ({
             ...prev,
+            ...(data.consultation_data || {}),
+            date_of_birth: data.date_of_birth || prev.date_of_birth || "",
             sex: data.sex || prev.sex || "",
             cycle_tracking_enabled: Boolean(data.sex === "female" && data.cycle_tracking_enabled),
           }));
@@ -83,8 +81,95 @@ export default function ConsultationPage() {
     }
   }
 
-  function handleChange(field: keyof ConsultationData, value: string | boolean) {
-    setForm((prev) => ({ ...prev, [field]: value }));
+  function handleChange(field: string, value: ConsultationValue) {
+    setForm((prev) => {
+      if (field === "sex") {
+        return {
+          ...prev,
+          sex: value,
+          cycle_tracking_enabled: value === "female" ? prev.cycle_tracking_enabled : false,
+        };
+      }
+      return { ...prev, [field]: value };
+    });
+  }
+
+  function renderQuestion(question: FormQuestion) {
+    if (question.enabled === false) return null;
+    if (question.id === "cycle_tracking_enabled" && form.sex !== "female") return null;
+
+    const commonClass = "w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-[#E040D0]/50";
+    const value = getValue(form, question.id);
+
+    if (question.type === "textarea") {
+      return (
+        <textarea
+          value={value}
+          onChange={(e) => handleChange(question.id, e.target.value)}
+          placeholder={question.placeholder}
+          required={question.required}
+          rows={question.id === "additional_info" ? 4 : 3}
+          className={`${commonClass} resize-none`}
+        />
+      );
+    }
+
+    if (question.type === "select") {
+      const options = question.id === "sex"
+        ? [
+            { value: "female", label: optionLabel(question, "Female", 0) },
+            { value: "male", label: optionLabel(question, "Male", 1) },
+            { value: "prefer_not_to_say", label: optionLabel(question, "Prefer not to say", 2) },
+          ]
+        : (question.options || []).map((option, idx) => ({ value: option, label: optionLabel(question, option, idx) }));
+
+      return (
+        <select
+          value={value}
+          onChange={(e) => handleChange(question.id, e.target.value)}
+          required={question.required}
+          className={commonClass}
+        >
+          <option value="">Select...</option>
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      );
+    }
+
+    if (question.type === "boolean") {
+      const enabled = Boolean(form[question.id]);
+      return (
+        <button
+          type="button"
+          onClick={() => handleChange(question.id, !enabled)}
+          className={`w-full rounded-xl border px-4 py-3 text-left transition-colors ${
+            enabled
+              ? "border-emerald-500/30 bg-emerald-500/10"
+              : "border-[rgba(0,0,0,0.08)] bg-bg-primary"
+          }`}
+        >
+          <span className="block text-sm font-semibold text-text-primary">{enabled ? "On" : "Off"}</span>
+          {question.placeholder && (
+            <span className="mt-1 block text-xs text-text-secondary">
+              {enabled ? question.placeholder : "This will stay hidden in your portal."}
+            </span>
+          )}
+        </button>
+      );
+    }
+
+    return (
+      <input
+        type={question.type === "date" ? "date" : "text"}
+        value={value}
+        onChange={(e) => handleChange(question.id, e.target.value)}
+        placeholder={question.placeholder}
+        required={question.required}
+        className={commonClass}
+      />
+    );
   }
 
   if (loading) {
@@ -113,196 +198,30 @@ export default function ConsultationPage() {
     );
   }
 
+  const questions = config.questions.filter((question) => question.enabled !== false);
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-heading font-bold text-text-primary mb-1">Initial Consultation</h1>
-        <p className="text-text-secondary text-sm">Help us personalise your coaching experience by filling in your details below.</p>
+        <h1 className="text-2xl font-heading font-bold text-text-primary mb-1">{config.title || DEFAULT_CONFIG.title}</h1>
+        <p className="text-text-secondary text-sm">{config.description || DEFAULT_CONFIG.description}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Date of Birth */}
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-5">
-          <label className="block text-sm font-semibold text-text-primary mb-3">
-            Date of Birth
-          </label>
-          <input
-            type="date"
-            value={form.date_of_birth}
-            onChange={(e) => handleChange("date_of_birth", e.target.value)}
-            className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-[#E040D0]/50"
-          />
-        </div>
+        {questions.map((question) => {
+          const control = renderQuestion(question);
+          if (!control) return null;
 
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-5">
-          <label className="block text-sm font-semibold text-text-primary mb-3">
-            Sex
-          </label>
-          <select
-            value={form.sex}
-            onChange={(e) => {
-              const value = e.target.value as ConsultationData["sex"];
-              setForm((prev) => ({
-                ...prev,
-                sex: value,
-                cycle_tracking_enabled: value === "female" ? prev.cycle_tracking_enabled : false,
-              }));
-            }}
-            className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-[#E040D0]/50"
-          >
-            <option value="">Select...</option>
-            <option value="female">Female</option>
-            <option value="male">Male</option>
-            <option value="prefer_not_to_say">Prefer not to say</option>
-          </select>
-          {form.sex === "female" && (
-            <button
-              type="button"
-              onClick={() => handleChange("cycle_tracking_enabled", !form.cycle_tracking_enabled)}
-              className={`mt-3 w-full rounded-xl border px-4 py-3 text-left transition-colors ${
-                form.cycle_tracking_enabled
-                  ? "border-emerald-500/30 bg-emerald-500/10"
-                  : "border-[rgba(0,0,0,0.08)] bg-bg-primary"
-              }`}
-            >
-              <span className="block text-sm font-semibold text-text-primary">Cycle tracking</span>
-              <span className="mt-1 block text-xs text-text-secondary">
-                {form.cycle_tracking_enabled ? "On - cycle tools will appear in your portal." : "Off - cycle tools stay hidden."}
-              </span>
-            </button>
-          )}
-        </div>
-
-        {/* Fitness Level */}
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-5">
-          <label className="block text-sm font-semibold text-text-primary mb-3">
-            Current Fitness Level
-          </label>
-          <select
-            value={form.fitness_level}
-            onChange={(e) => handleChange("fitness_level", e.target.value)}
-            required
-            className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-[#E040D0]/50"
-          >
-            <option value="">Select...</option>
-            <option value="Beginner">Beginner</option>
-            <option value="Intermediate">Intermediate</option>
-            <option value="Advanced">Advanced</option>
-          </select>
-        </div>
-
-        {/* Primary Goal */}
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-5">
-          <label className="block text-sm font-semibold text-text-primary mb-3">
-            Primary Goal
-          </label>
-          <select
-            value={form.primary_goal}
-            onChange={(e) => handleChange("primary_goal", e.target.value)}
-            required
-            className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-[#E040D0]/50"
-          >
-            <option value="">Select...</option>
-            <option value="Weight Loss">Weight Loss</option>
-            <option value="Muscle Gain">Muscle Gain</option>
-            <option value="General Fitness">General Fitness</option>
-            <option value="Sport Specific">Sport Specific</option>
-            <option value="Flexibility & Mobility">Flexibility &amp; Mobility</option>
-          </select>
-        </div>
-
-        {/* Training Days */}
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-5">
-          <label className="block text-sm font-semibold text-text-primary mb-3">
-            Training Days Per Week
-          </label>
-          <select
-            value={form.training_days}
-            onChange={(e) => handleChange("training_days", e.target.value)}
-            required
-            className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-[#E040D0]/50"
-          >
-            <option value="">Select...</option>
-            {["2", "3", "4", "5", "6"].map((d) => (
-              <option key={d} value={d}>{d} days</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Equipment Access */}
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-5">
-          <label className="block text-sm font-semibold text-text-primary mb-3">
-            Equipment Access
-          </label>
-          <select
-            value={form.equipment_access}
-            onChange={(e) => handleChange("equipment_access", e.target.value)}
-            required
-            className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-[#E040D0]/50"
-          >
-            <option value="">Select...</option>
-            <option value="Full Gym">Full Gym</option>
-            <option value="Home Gym">Home Gym</option>
-            <option value="Limited">Limited</option>
-            <option value="Bodyweight Only">Bodyweight Only</option>
-          </select>
-        </div>
-
-        {/* Dietary Preferences */}
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-5">
-          <label className="block text-sm font-semibold text-text-primary mb-3">
-            Dietary Preferences or Restrictions
-          </label>
-          <textarea
-            value={form.dietary_preferences}
-            onChange={(e) => handleChange("dietary_preferences", e.target.value)}
-            placeholder="e.g. vegetarian, lactose intolerant, no preferences..."
-            rows={3}
-            className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-[#E040D0]/50 resize-none"
-          />
-        </div>
-
-        {/* Injuries */}
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-5">
-          <label className="block text-sm font-semibold text-text-primary mb-3">
-            Any Injuries or Limitations
-          </label>
-          <textarea
-            value={form.injuries}
-            onChange={(e) => handleChange("injuries", e.target.value)}
-            placeholder="e.g. lower back issues, bad knee, none..."
-            rows={3}
-            className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-[#E040D0]/50 resize-none"
-          />
-        </div>
-
-        {/* Supplements */}
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-5">
-          <label className="block text-sm font-semibold text-text-primary mb-3">
-            Current Supplements
-          </label>
-          <textarea
-            value={form.supplements}
-            onChange={(e) => handleChange("supplements", e.target.value)}
-            placeholder="e.g. protein powder, creatine, none..."
-            rows={3}
-            className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-[#E040D0]/50 resize-none"
-          />
-        </div>
-
-        {/* Additional Info */}
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-5">
-          <label className="block text-sm font-semibold text-text-primary mb-3">
-            Anything Else We Should Know
-          </label>
-          <textarea
-            value={form.additional_info}
-            onChange={(e) => handleChange("additional_info", e.target.value)}
-            placeholder="Any other context that would help us personalise your coaching..."
-            rows={4}
-            className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-[#E040D0]/50 resize-none"
-          />
-        </div>
+          return (
+            <div key={question.id} className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-5">
+              <label className="block text-sm font-semibold text-text-primary mb-3">
+                {question.label}
+                {question.required && <span className="ml-1 text-[#E040D0]">*</span>}
+              </label>
+              {control}
+            </div>
+          );
+        })}
 
         <button
           type="submit"
