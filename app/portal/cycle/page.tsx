@@ -369,7 +369,7 @@ export default function CyclePage() {
             }`}
           >
             <span className="block text-sm font-semibold text-text-primary">Severe or out-of-the-ordinary symptoms</span>
-            <span className="mt-1 block text-xs text-text-secondary">This triggers Gordy&apos;s GP safety note.</span>
+            <span className="mt-1 block text-xs text-text-secondary">Tick this if today feels unusually severe for you.</span>
           </button>
 
           <textarea
