@@ -8,6 +8,8 @@ type KeyDateInput = {
   recurring?: boolean;
 };
 
+const VALID_SEX_VALUES = ["female", "male", "prefer_not_to_say"];
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -19,7 +21,7 @@ export async function POST(request: Request) {
 
   const userId = user.id;
 
-  const { fullName, phone, businessName, businessType, goals, dateOfBirth, keyDates } = await request.json();
+  const { fullName, phone, businessName, businessType, goals, dateOfBirth, sex, cycleTrackingEnabled, keyDates } = await request.json();
 
   // Only update name if provided (prevents onboarding from blanking it)
   if (fullName) {
@@ -27,12 +29,27 @@ export async function POST(request: Request) {
   }
 
   // Only update profile fields that were provided
-  const profileUpdate: Record<string, string | null> = {};
+  const profileUpdate: Record<string, string | boolean | null> = {};
   if (phone !== undefined) profileUpdate.phone = phone;
   if (businessName !== undefined) profileUpdate.business_name = businessName;
   if (businessType !== undefined) profileUpdate.business_type = businessType;
   if (goals !== undefined) profileUpdate.goals = goals;
   if (dateOfBirth !== undefined) profileUpdate.date_of_birth = dateOfBirth || null;
+  if (sex !== undefined) {
+    const nextSex = sex === "" ? null : sex;
+    if (nextSex !== null && !VALID_SEX_VALUES.includes(nextSex)) {
+      return NextResponse.json({ error: "Invalid sex value" }, { status: 400 });
+    }
+    profileUpdate.sex = nextSex;
+    profileUpdate.cycle_tracking_enabled = nextSex === "female" ? Boolean(cycleTrackingEnabled) : false;
+  } else if (cycleTrackingEnabled !== undefined) {
+    const { data: currentProfile } = await admin
+      .from("client_profiles")
+      .select("sex")
+      .eq("user_id", userId)
+      .maybeSingle();
+    profileUpdate.cycle_tracking_enabled = currentProfile?.sex === "female" ? Boolean(cycleTrackingEnabled) : false;
+  }
 
   if (Object.keys(profileUpdate).length > 0) {
     await admin.from("client_profiles").update(profileUpdate).eq("user_id", userId);

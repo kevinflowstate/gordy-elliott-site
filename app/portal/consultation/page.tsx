@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 
 interface ConsultationData {
   date_of_birth?: string;
+  sex?: "" | "female" | "male" | "prefer_not_to_say";
+  cycle_tracking_enabled?: boolean;
   fitness_level?: string;
   primary_goal?: string;
   training_days?: string;
@@ -22,6 +24,8 @@ export default function ConsultationPage() {
   const [saved, setSaved] = useState(false);
   const [form, setForm] = useState<ConsultationData>({
     date_of_birth: "",
+    sex: "",
+    cycle_tracking_enabled: false,
     fitness_level: "",
     primary_goal: "",
     training_days: "",
@@ -44,6 +48,11 @@ export default function ConsultationPage() {
           if (data.date_of_birth) {
             setForm((prev) => ({ ...prev, date_of_birth: data.date_of_birth }));
           }
+          setForm((prev) => ({
+            ...prev,
+            sex: data.sex || prev.sex || "",
+            cycle_tracking_enabled: Boolean(data.sex === "female" && data.cycle_tracking_enabled),
+          }));
         }
       } catch {
         // Silently fail
@@ -74,7 +83,7 @@ export default function ConsultationPage() {
     }
   }
 
-  function handleChange(field: keyof ConsultationData, value: string) {
+  function handleChange(field: keyof ConsultationData, value: string | boolean) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
@@ -123,6 +132,45 @@ export default function ConsultationPage() {
             onChange={(e) => handleChange("date_of_birth", e.target.value)}
             className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-[#E040D0]/50"
           />
+        </div>
+
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-5">
+          <label className="block text-sm font-semibold text-text-primary mb-3">
+            Sex
+          </label>
+          <select
+            value={form.sex}
+            onChange={(e) => {
+              const value = e.target.value as ConsultationData["sex"];
+              setForm((prev) => ({
+                ...prev,
+                sex: value,
+                cycle_tracking_enabled: value === "female" ? prev.cycle_tracking_enabled : false,
+              }));
+            }}
+            className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-[#E040D0]/50"
+          >
+            <option value="">Select...</option>
+            <option value="female">Female</option>
+            <option value="male">Male</option>
+            <option value="prefer_not_to_say">Prefer not to say</option>
+          </select>
+          {form.sex === "female" && (
+            <button
+              type="button"
+              onClick={() => handleChange("cycle_tracking_enabled", !form.cycle_tracking_enabled)}
+              className={`mt-3 w-full rounded-xl border px-4 py-3 text-left transition-colors ${
+                form.cycle_tracking_enabled
+                  ? "border-emerald-500/30 bg-emerald-500/10"
+                  : "border-[rgba(0,0,0,0.08)] bg-bg-primary"
+              }`}
+            >
+              <span className="block text-sm font-semibold text-text-primary">Cycle tracking</span>
+              <span className="mt-1 block text-xs text-text-secondary">
+                {form.cycle_tracking_enabled ? "On - cycle tools will appear in your portal." : "Off - cycle tools stay hidden."}
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Fitness Level */}

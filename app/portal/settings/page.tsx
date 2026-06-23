@@ -8,6 +8,8 @@ import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import { Suspense } from "react";
 import type { ClientKeyDate } from "@/lib/types";
 
+type ClientSexInput = "" | "female" | "male" | "prefer_not_to_say";
+
 export default function SettingsPage() {
   return (
     <Suspense>
@@ -77,6 +79,8 @@ function SettingsContent() {
   const [passwordMessage, setPasswordMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isSetup, setIsSetup] = useState(false);
   const [dateOfBirth, setDateOfBirth] = useState("");
+  const [sex, setSex] = useState<ClientSexInput>("");
+  const [cycleTrackingEnabled, setCycleTrackingEnabled] = useState(false);
   const [keyDates, setKeyDates] = useState<Array<Pick<ClientKeyDate, "label" | "date" | "recurring">>>([]);
   const [newKeyDate, setNewKeyDate] = useState({ label: "", date: "", recurring: true });
 
@@ -95,6 +99,8 @@ function SettingsContent() {
           setFullName(data.fullName || "");
           setAvatarUrl(data.avatarUrl || null);
           setDateOfBirth(data.profile?.date_of_birth || "");
+          setSex(data.profile?.sex || "");
+          setCycleTrackingEnabled(Boolean(data.profile?.sex === "female" && data.profile?.cycle_tracking_enabled));
           setKeyDates((data.keyDates || []).map((item: ClientKeyDate) => ({
             label: item.label,
             date: item.date,
@@ -150,7 +156,13 @@ function SettingsContent() {
     const res = await fetch("/api/portal/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fullName, dateOfBirth, keyDates }),
+      body: JSON.stringify({
+        fullName,
+        dateOfBirth,
+        sex,
+        cycleTrackingEnabled: sex === "female" && cycleTrackingEnabled,
+        keyDates,
+      }),
     });
 
     setSaving(false);
@@ -277,6 +289,41 @@ function SettingsContent() {
               className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40 transition-colors"
             />
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-2">Sex</label>
+            <select
+              value={sex}
+              onChange={(e) => {
+                const value = e.target.value as ClientSexInput;
+                setSex(value);
+                if (value !== "female") setCycleTrackingEnabled(false);
+              }}
+              className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent/40 transition-colors"
+            >
+              <option value="">Select...</option>
+              <option value="female">Female</option>
+              <option value="male">Male</option>
+              <option value="prefer_not_to_say">Prefer not to say</option>
+            </select>
+          </div>
+
+          {sex === "female" && (
+            <button
+              type="button"
+              onClick={() => setCycleTrackingEnabled((prev) => !prev)}
+              className={`w-full rounded-xl border px-4 py-3 text-left transition-colors ${
+                cycleTrackingEnabled
+                  ? "border-emerald-500/30 bg-emerald-500/10"
+                  : "border-[rgba(0,0,0,0.08)] bg-bg-primary"
+              }`}
+            >
+              <span className="block text-sm font-semibold text-text-primary">Cycle tracking</span>
+              <span className="mt-1 block text-xs text-text-secondary">
+                {cycleTrackingEnabled ? "On - cycle tools will appear in your portal." : "Off - cycle tools stay hidden."}
+              </span>
+            </button>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-text-primary mb-2">Key Dates</label>
