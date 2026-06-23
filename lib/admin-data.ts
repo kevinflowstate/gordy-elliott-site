@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   TrafficLight,
   ClientTier,
+  ClientSex,
   TrainingPlan,
   TrainingPlanPhase,
   TrainingPlanItem,
@@ -42,6 +43,8 @@ export interface AdminClient {
   tier: ClientTier;
   consultation_data?: Record<string, unknown> | null;
   date_of_birth?: string | null;
+  sex?: ClientSex | null;
+  cycle_tracking_enabled?: boolean;
   key_dates?: ClientKeyDate[];
 }
 
@@ -151,7 +154,7 @@ export async function getClients(): Promise<AdminClient[]> {
       primary_goal, target_date, goal_notes,
       start_date, last_login, last_checkin, created_at, checkin_day,
       checkin_form_id, coach_notes, start_weight, tier,
-      consultation_data, date_of_birth,
+      consultation_data, date_of_birth, sex, cycle_tracking_enabled,
       user:users!client_profiles_user_id_fkey(email, full_name)
     `)
     .order("created_at", { ascending: true });
@@ -237,6 +240,8 @@ export async function getClients(): Promise<AdminClient[]> {
       tier: (p.tier as ClientTier) || 'coached',
       consultation_data: (p.consultation_data as Record<string, unknown> | null) || null,
       date_of_birth: p.date_of_birth || null,
+      sex: (p.sex as ClientSex | null) || null,
+      cycle_tracking_enabled: Boolean(p.cycle_tracking_enabled),
       key_dates: keyDatesByClient.get(p.id) || [],
     };
   });
@@ -262,7 +267,7 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
       primary_goal, target_date, goal_notes,
       start_date, last_login, last_checkin, created_at, checkin_day,
       checkin_form_id, coach_notes, start_weight, tier,
-      consultation_data, date_of_birth,
+      consultation_data, date_of_birth, sex, cycle_tracking_enabled,
       user:users!client_profiles_user_id_fkey(email, full_name)
     `)
     .eq("id", id)
@@ -357,6 +362,8 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
     tier: (p.tier as ClientTier) || 'coached',
     consultation_data: (p.consultation_data as Record<string, unknown> | null) || null,
     date_of_birth: p.date_of_birth || null,
+    sex: (p.sex as ClientSex | null) || null,
+    cycle_tracking_enabled: Boolean(p.cycle_tracking_enabled),
     key_dates: keyDates || [],
   };
 }

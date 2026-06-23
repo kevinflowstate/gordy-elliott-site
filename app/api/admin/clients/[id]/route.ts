@@ -5,6 +5,7 @@ import { getClientById } from "@/lib/admin-data";
 import { NextResponse } from "next/server";
 
 const VALID_TIERS = ["coached", "premium", "vip", "ai_only"];
+const VALID_SEX_VALUES = ["female", "male", "prefer_not_to_say"];
 
 export async function GET(
   _request: Request,
@@ -34,7 +35,7 @@ export async function PATCH(
   const body = await request.json();
 
   // Only allow safe profile fields to be patched
-  const allowed = ["checkin_day", "checkin_form_id", "coach_notes", "start_weight", "tier", "date_of_birth"];
+  const allowed = ["checkin_day", "checkin_form_id", "coach_notes", "start_weight", "tier", "date_of_birth", "sex", "cycle_tracking_enabled"];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in body) updates[key] = body[key];
@@ -43,6 +44,28 @@ export async function PATCH(
   // Validate tier value if present
   if ("tier" in updates && !VALID_TIERS.includes(String(updates.tier))) {
     return NextResponse.json({ error: "Invalid tier value" }, { status: 400 });
+  }
+
+  if ("sex" in updates) {
+    if (updates.sex === "") updates.sex = null;
+    if (updates.sex !== null && !VALID_SEX_VALUES.includes(String(updates.sex))) {
+      return NextResponse.json({ error: "Invalid sex value" }, { status: 400 });
+    }
+  }
+
+  if ("cycle_tracking_enabled" in updates) {
+    const sexForEligibility = updates.sex === undefined
+      ? await createAdminClient()
+          .from("client_profiles")
+          .select("sex")
+          .eq("id", id)
+          .maybeSingle()
+          .then(({ data }) => data?.sex || null)
+      : updates.sex;
+
+    updates.cycle_tracking_enabled = sexForEligibility === "female"
+      ? Boolean(updates.cycle_tracking_enabled)
+      : false;
   }
 
   if (Object.keys(updates).length === 0) {

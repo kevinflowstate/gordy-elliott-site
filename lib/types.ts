@@ -4,6 +4,7 @@ export type ModuleStatus = 'locked' | 'in_progress' | 'completed';
 export type ContentType = 'video' | 'pdf' | 'text' | 'checklist' | 'interactive';
 export type CheckInMood = 'great' | 'good' | 'okay' | 'struggling' | string;
 export type ClientTier = 'coached' | 'premium' | 'vip' | 'ai_only';
+export type ClientSex = 'female' | 'male' | 'prefer_not_to_say';
 
 export interface User {
   id: string;
@@ -34,6 +35,8 @@ export interface ClientProfile {
   tier?: ClientTier;
   consultation_data?: Record<string, unknown>;
   date_of_birth?: string | null;
+  sex?: ClientSex | null;
+  cycle_tracking_enabled?: boolean;
   key_dates?: ClientKeyDate[];
 }
 

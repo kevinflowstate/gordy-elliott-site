@@ -18,6 +18,7 @@ import { useToast } from "@/components/ui/Toast";
 
 type TabId = "dashboard" | "checkins" | "training" | "nutrition" | "gallery" | "tasks";
 type PushResult = { sent?: number; failed?: number; subscriptionCount?: number; reason?: string };
+type ClientSexInput = "" | "female" | "male" | "prefer_not_to_say";
 
 const glowClass: Record<TrafficLight, string> = {
   green: "glow-green",
@@ -215,10 +216,13 @@ export default function ClientDetailPage() {
   const [addingTask, setAddingTask] = useState(false);
   const [consultationOpen, setConsultationOpen] = useState(false);
   const [dateOfBirth, setDateOfBirth] = useState("");
+  const [sex, setSex] = useState<ClientSexInput>("");
+  const [cycleTrackingEnabled, setCycleTrackingEnabled] = useState(false);
   const [keyDates, setKeyDates] = useState<ClientKeyDate[]>([]);
   const [newKeyDate, setNewKeyDate] = useState({ label: "", date: "", recurring: true });
   const [keyDatesSaving, setKeyDatesSaving] = useState(false);
   const [dobSaving, setDobSaving] = useState(false);
+  const [sexSaving, setSexSaving] = useState(false);
 
   const loadClient = useCallback(async () => {
     try {
@@ -244,6 +248,8 @@ export default function ClientDetailPage() {
         setGoalTargetDate(data.client?.target_date || "");
         setGoalNotes(data.client?.goal_notes || "");
         setDateOfBirth(data.client?.date_of_birth || "");
+        setSex(data.client?.sex || "");
+        setCycleTrackingEnabled(Boolean(data.client?.sex === "female" && data.client?.cycle_tracking_enabled));
         setKeyDates(data.client?.key_dates || []);
       }
 
@@ -619,6 +625,36 @@ export default function ClientDetailPage() {
       toast("Couldn't reach the client settings API. Try again.", "error");
     } finally {
       setDobSaving(false);
+    }
+  }
+
+  async function saveSexAndCycle(nextSex: ClientSexInput, nextCycleEnabled: boolean) {
+    if (!client) return;
+    setSexSaving(true);
+    try {
+      const res = await fetch(`/api/admin/clients/${client.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sex: nextSex || null,
+          cycle_tracking_enabled: nextSex === "female" && nextCycleEnabled,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast(data.error || "Couldn't save sex and cycle settings. Try again.", "error");
+        return;
+      }
+      setClient((prev) => prev ? {
+        ...prev,
+        sex: nextSex || null,
+        cycle_tracking_enabled: nextSex === "female" && nextCycleEnabled,
+      } : prev);
+      toast("Sex and cycle settings saved");
+    } catch {
+      toast("Couldn't reach the client settings API. Try again.", "error");
+    } finally {
+      setSexSaving(false);
     }
   }
 
@@ -1206,7 +1242,8 @@ export default function ClientDetailPage() {
 
       <div className="grid gap-4 mb-6 lg:grid-cols-2">
         <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
-          <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-2">Date of Birth</div>
+          <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-3">Profile Details</div>
+          <label className="mb-2 block text-xs font-semibold text-text-secondary">Date of birth</label>
           <input
             type="date"
             value={dateOfBirth}
@@ -1218,6 +1255,44 @@ export default function ClientDetailPage() {
             className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-[#E040D0]/40"
           />
           {dobSaving && <div className="mt-2 text-xs text-text-muted">Saving...</div>}
+          <label className="mb-2 mt-4 block text-xs font-semibold text-text-secondary">Sex</label>
+          <select
+            value={sex}
+            onChange={async (e) => {
+              const nextSex = e.target.value as ClientSexInput;
+              const nextCycleEnabled = nextSex === "female" ? cycleTrackingEnabled : false;
+              setSex(nextSex);
+              setCycleTrackingEnabled(nextCycleEnabled);
+              await saveSexAndCycle(nextSex, nextCycleEnabled);
+            }}
+            className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-[#E040D0]/40"
+          >
+            <option value="">Not set</option>
+            <option value="female">Female</option>
+            <option value="male">Male</option>
+            <option value="prefer_not_to_say">Prefer not to say</option>
+          </select>
+          {sex === "female" && (
+            <button
+              type="button"
+              onClick={async () => {
+                const next = !cycleTrackingEnabled;
+                setCycleTrackingEnabled(next);
+                await saveSexAndCycle(sex, next);
+              }}
+              className={`mt-3 w-full rounded-xl border px-4 py-3 text-left transition-colors ${
+                cycleTrackingEnabled
+                  ? "border-emerald-500/30 bg-emerald-500/10"
+                  : "border-[rgba(0,0,0,0.08)] bg-bg-primary"
+              }`}
+            >
+              <span className="block text-sm font-semibold text-text-primary">Cycle tracking</span>
+              <span className="mt-1 block text-xs text-text-secondary">
+                {cycleTrackingEnabled ? "On - visible in the client portal." : "Off - hidden from the client portal."}
+              </span>
+            </button>
+          )}
+          {sexSaving && <div className="mt-2 text-xs text-text-muted">Saving cycle settings...</div>}
         </div>
 
         <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">

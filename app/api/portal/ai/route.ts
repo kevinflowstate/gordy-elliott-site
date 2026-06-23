@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getShiftBrainContextResult } from "@/lib/brain-retrieval";
 import { trackAIUsage } from "@/lib/ai-usage";
 import { rateLimit } from "@/lib/rate-limit";
+import { getCyclePhase, isCycleEligible, toDateKey, type CycleSettings } from "@/lib/cycle-tracking";
 import { NextRequest, NextResponse } from "next/server";
 
 const tools = [
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
   // Get client profile — only fitness-coaching-relevant fields
   const { data: profile } = await admin
     .from("client_profiles")
-    .select("id, goals, primary_goal, target_date, tier, checkin_day, consultation_data")
+    .select("id, goals, primary_goal, target_date, tier, checkin_day, consultation_data, sex, cycle_tracking_enabled")
     .eq("user_id", userId)
     .single();
 
@@ -247,6 +248,39 @@ export async function POST(req: NextRequest) {
     .order("created_at", { ascending: false })
     .limit(1);
   const latestCheckin = latestCheckins?.[0] || null;
+
+  let cycleContext = "Cycle tracking is not enabled for this client.";
+  if (isCycleEligible(profile)) {
+    const todayKey = toDateKey();
+    const [cycleSettingsRes, cycleEntriesRes, dailyMetricRes] = await Promise.all([
+      admin
+        .from("client_cycle_settings")
+        .select("last_period_start, average_cycle_length, average_period_length")
+        .eq("client_id", profile?.id || "")
+        .maybeSingle(),
+      admin
+        .from("client_cycle_entries")
+        .select("tracked_date, flow, symptoms, pain_level, energy_level, training_impact, unusual_symptoms, notes")
+        .eq("client_id", profile?.id || "")
+        .order("tracked_date", { ascending: false })
+        .limit(5),
+      admin
+        .from("client_daily_metrics")
+        .select("tracked_date, sleep_hours, energy_level, stress_level, nutrition_score, training_completed")
+        .eq("client_id", profile?.id || "")
+        .eq("tracked_date", todayKey)
+        .maybeSingle(),
+    ]);
+
+    const phaseInfo = getCyclePhase((cycleSettingsRes.data || null) as CycleSettings | null, todayKey);
+    cycleContext = JSON.stringify({
+      enabled: true,
+      phase: phaseInfo ? { label: phaseInfo.label, cycle_day: phaseInfo.day } : null,
+      settings: cycleSettingsRes.data || null,
+      recent_cycle_entries: cycleEntriesRes.data || [],
+      today_daily_readiness: dailyMetricRes.data || null,
+    }, null, 2);
+  }
 
   // Build context
   const trainingContext = (clientModules || []).map((cm) => {
@@ -417,6 +451,11 @@ Today: ${new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric
 ${tierContext}
 
 ===========================
+CYCLE TRACKING CONTEXT
+===========================
+${cycleContext}
+
+===========================
 ACTIVE TRAINING PLAN
 ===========================
 ${activeExercisePlan
@@ -478,6 +517,7 @@ SPECIFIC QUESTION TYPES:
 - "What lesson should I do next?" → Recommend an assigned education module that hasn't been completed (status !== "completed"). Use its plain English title. If all assigned modules are completed, recommend the closest relevant published Education Hub module and say it may need Gordy to assign/unlock it.
 - Education Hub questions → Answer from the published Education Hub library above. Name the relevant module and lesson in plain English. If a listed lesson says video/resource but has no URL, do not pretend there is a playable video; say the lesson exists but the resource may need Gordy to attach it.
 - "How have I been doing?" → Ground the answer in RECENT TRAINING ADHERENCE numbers (sessions_completed / distinct_days_logged) + LATEST CHECK-IN mood + any COACHING PLAN PHASES items that are done vs open. No vague praise. Celebrate real numbers only.
+- Cycle questions → Use CYCLE TRACKING CONTEXT only when it is enabled. Treat phases and symptoms as readiness context for training, recovery, and adherence decisions. Never diagnose, never claim hormones are the only cause, and suggest a GP check for severe or unusual pain, bleeding, or symptoms.
 - Advice or change requests → Ask 1-2 concise clarifying questions before giving a final recommendation if the request is broad, ambiguous, or asks to change training/nutrition. If the data already gives a direct factual answer, answer directly and add one useful follow-up question rather than blocking the client.
 
 VOICE & FORMAT:

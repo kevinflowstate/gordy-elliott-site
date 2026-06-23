@@ -18,11 +18,11 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.98.0",
-    "next": "16.1.6",
+    "next": "16.2.9",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "recharts": "^3.8.1",
-    "resend": "^6.9.3",
+    "resend": "6.14.0",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
@@ -32,8 +32,11 @@
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
     "eslint": "^9",
-    "eslint-config-next": "16.1.6",
+    "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "ws": "8.21.0"
   }
 }
