@@ -117,7 +117,7 @@ export default function ConsultationPage() {
     <div className="max-w-2xl mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-2xl font-heading font-bold text-text-primary mb-1">Initial Consultation</h1>
-        <p className="text-text-secondary text-sm">Help us personalise your AI coaching experience by filling in your details below.</p>
+        <p className="text-text-secondary text-sm">Help us personalise your coaching experience by filling in your details below.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">

@@ -430,10 +430,16 @@ function SettingsContent() {
                 if (error) {
                   setPasswordMessage({ type: "error", text: error.message });
                 } else {
-                  setPasswordMessage({ type: "success", text: "Password updated successfully" });
+                  setPasswordMessage({
+                    type: "success",
+                    text: isSetup ? "Password updated. Taking you to your consultation..." : "Password updated successfully",
+                  });
                   setNewPassword("");
                   setConfirmPassword("");
                   setIsSetup(false);
+                  if (isSetup) {
+                    setTimeout(() => router.push("/portal/consultation?setup=true"), 900);
+                  }
                 }
               } catch {
                 setPasswordMessage({ type: "error", text: "Something went wrong" });

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { Exercise } from "@/lib/types";
+import { useToast } from "@/components/ui/Toast";
 
 interface ExercisePickerProps {
   onPick: (exercise: Exercise) => void;
@@ -10,12 +11,45 @@ interface ExercisePickerProps {
 }
 
 export default function ExercisePicker({ onPick, onClose }: ExercisePickerProps) {
+  const { toast } = useToast();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [muscleGroup, setMuscleGroup] = useState("");
   const [equipment, setEquipment] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    name: "",
+    muscle_group: "legs",
+    equipment: "bodyweight",
+    description: "",
+  });
   const searchRef = useRef<HTMLInputElement>(null);
+
+  const muscleGroups = [
+    { value: "chest", label: "Chest" },
+    { value: "back", label: "Back" },
+    { value: "shoulders", label: "Shoulders" },
+    { value: "legs", label: "Legs" },
+    { value: "arms", label: "Arms" },
+    { value: "core", label: "Core" },
+    { value: "cardio", label: "Cardio" },
+    { value: "full_body", label: "Full Body" },
+  ];
+
+  const equipmentOptions = [
+    { value: "bodyweight", label: "Bodyweight" },
+    { value: "barbell", label: "Barbell" },
+    { value: "dumbbell", label: "Dumbbell" },
+    { value: "kettlebell", label: "Kettlebell" },
+    { value: "cable", label: "Cable" },
+    { value: "machine", label: "Machine" },
+    { value: "band", label: "Resistance Band" },
+    { value: "cardio_machine", label: "Cardio Machine" },
+    { value: "none", label: "No Equipment" },
+    { value: "other", label: "Other" },
+  ];
 
   useEffect(() => {
     searchRef.current?.focus();
@@ -34,8 +68,38 @@ export default function ExercisePicker({ onPick, onClose }: ExercisePickerProps)
       .finally(() => setLoading(false));
   }, [search, muscleGroup, equipment]);
 
-  const muscleGroups = Array.from(new Set(exercises.map((e) => e.muscle_group).filter(Boolean))).sort();
-  const equipmentOptions = Array.from(new Set(exercises.map((e) => e.equipment).filter(Boolean))).sort();
+  async function createExercise() {
+    if (!createForm.name.trim()) {
+      toast("Exercise name is required", "error");
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const res = await fetch("/api/admin/exercises", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: createForm.name.trim(),
+          muscle_group: createForm.muscle_group,
+          equipment: createForm.equipment,
+          description: createForm.description.trim() || null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.exercise) {
+        toast(data.error || "Couldn't create that exercise", "error");
+        return;
+      }
+      toast("Exercise added");
+      onPick(data.exercise);
+      onClose();
+    } catch {
+      toast("Couldn't reach the exercise library API", "error");
+    } finally {
+      setCreating(false);
+    }
+  }
 
   return createPortal(
     <div
@@ -47,7 +111,7 @@ export default function ExercisePicker({ onPick, onClose }: ExercisePickerProps)
         <div className="px-5 py-4 border-b border-[rgba(0,0,0,0.06)] flex items-center justify-between flex-shrink-0">
           <div>
             <h3 className="text-sm font-heading font-bold text-text-primary">Add Exercise</h3>
-            <p className="text-[10px] text-text-muted mt-0.5">Select an exercise from the library</p>
+            <p className="text-[10px] text-text-muted mt-0.5">Select from the library or add a missing movement</p>
           </div>
           <button
             type="button"
@@ -84,7 +148,7 @@ export default function ExercisePicker({ onPick, onClose }: ExercisePickerProps)
             >
               <option value="">All muscle groups</option>
               {muscleGroups.map((g) => (
-                <option key={g} value={g}>{g}</option>
+                <option key={g.value} value={g.value}>{g.label}</option>
               ))}
             </select>
             <select
@@ -97,7 +161,7 @@ export default function ExercisePicker({ onPick, onClose }: ExercisePickerProps)
             >
               <option value="">All equipment</option>
               {equipmentOptions.map((eq) => (
-                <option key={eq} value={eq}>{eq}</option>
+                <option key={eq.value} value={eq.value}>{eq.label}</option>
               ))}
             </select>
           </div>
@@ -105,13 +169,92 @@ export default function ExercisePicker({ onPick, onClose }: ExercisePickerProps)
 
         {/* Exercise list */}
         <div className="overflow-y-auto flex-1">
-          {loading ? (
+          {showCreate ? (
+            <div className="px-5 py-4 space-y-3">
+              <div>
+                <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-text-muted">Name</label>
+                <input
+                  type="text"
+                  value={createForm.name}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, name: e.target.value }))}
+                  className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/40 focus:outline-none"
+                  placeholder="e.g. Seated Hamstring Curl"
+                  autoFocus
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-text-muted">Muscle Group</label>
+                  <select
+                    value={createForm.muscle_group}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, muscle_group: e.target.value }))}
+                    className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-2.5 text-xs text-text-primary focus:border-accent/40 focus:outline-none"
+                  >
+                    {muscleGroups.map((group) => (
+                      <option key={group.value} value={group.value}>{group.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-text-muted">Equipment</label>
+                  <select
+                    value={createForm.equipment}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, equipment: e.target.value }))}
+                    className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-2.5 text-xs text-text-primary focus:border-accent/40 focus:outline-none"
+                  >
+                    {equipmentOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-text-muted">Description</label>
+                <textarea
+                  value={createForm.description}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, description: e.target.value }))}
+                  rows={3}
+                  className="w-full resize-none rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/40 focus:outline-none"
+                  placeholder="Optional notes or coaching cues..."
+                />
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowCreate(false)}
+                  className="rounded-xl border border-[rgba(0,0,0,0.08)] px-4 py-2 text-xs font-medium text-text-secondary transition-colors hover:bg-[rgba(0,0,0,0.03)]"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={createExercise}
+                  disabled={creating || !createForm.name.trim()}
+                  className="rounded-xl bg-accent-bright px-4 py-2 text-xs font-semibold text-black transition-opacity disabled:opacity-40"
+                >
+                  {creating ? "Adding..." : "Add and Use"}
+                </button>
+              </div>
+            </div>
+          ) : loading ? (
             <div className="px-5 py-8 text-center">
               <div className="text-text-muted text-sm">Loading...</div>
             </div>
           ) : exercises.length === 0 ? (
             <div className="px-5 py-8 text-center">
               <div className="text-text-muted text-sm">No exercises found.</div>
+              {search.trim() && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreateForm((prev) => ({ ...prev, name: search.trim() }));
+                    setShowCreate(true);
+                  }}
+                  className="mt-3 rounded-xl bg-accent-bright px-4 py-2 text-xs font-semibold text-black transition-opacity"
+                >
+                  Add &quot;{search.trim()}&quot;
+                </button>
+              )}
               {(search || muscleGroup || equipment) && (
                 <button
                   type="button"
@@ -121,7 +264,7 @@ export default function ExercisePicker({ onPick, onClose }: ExercisePickerProps)
                     setMuscleGroup("");
                     setEquipment("");
                   }}
-                  className="mt-2 text-xs text-accent-bright hover:underline cursor-pointer"
+                  className="mt-2 block w-full text-xs text-accent-bright hover:underline cursor-pointer"
                 >
                   Clear filters
                 </button>
@@ -163,13 +306,27 @@ export default function ExercisePicker({ onPick, onClose }: ExercisePickerProps)
           <span className="text-xs text-text-muted">
             {loading ? "Loading..." : `${exercises.length} exercise${exercises.length !== 1 ? "s" : ""}`}
           </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 text-xs font-medium text-text-secondary border border-[rgba(0,0,0,0.08)] rounded-xl hover:bg-[rgba(0,0,0,0.03)] transition-colors cursor-pointer"
-          >
-            Cancel
-          </button>
+          <div className="flex items-center gap-2">
+            {!showCreate && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCreateForm((prev) => ({ ...prev, name: search.trim() }));
+                  setShowCreate(true);
+                }}
+                className="rounded-xl border border-accent/20 bg-accent/10 px-4 py-2 text-xs font-semibold text-accent-bright transition-colors hover:bg-accent/15"
+              >
+                Add New
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-medium text-text-secondary border border-[rgba(0,0,0,0.08)] rounded-xl hover:bg-[rgba(0,0,0,0.03)] transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       </div>
     </div>,

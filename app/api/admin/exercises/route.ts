@@ -2,6 +2,10 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
+function normalizeSearch(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
 export async function GET(request: Request) {
   const auth = await requireAdmin();
   if (!auth.authorized) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -15,11 +19,25 @@ export async function GET(request: Request) {
   let query = admin.from("exercises").select("*").eq("is_active", true).order("name");
   if (muscle_group) query = query.eq("muscle_group", muscle_group);
   if (equipment) query = query.eq("equipment", equipment);
-  if (search) query = query.ilike("name", `%${search}%`);
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ exercises: data || [] });
+
+  const exercises = data || [];
+  const terms = search ? normalizeSearch(search).split(" ").filter(Boolean) : [];
+  if (terms.length === 0) return NextResponse.json({ exercises });
+
+  return NextResponse.json({
+    exercises: exercises.filter((exercise) => {
+      const haystack = normalizeSearch([
+        exercise.name,
+        exercise.description,
+        exercise.muscle_group,
+        exercise.equipment,
+      ].filter(Boolean).join(" "));
+      return terms.every((term) => haystack.includes(term));
+    }),
+  });
 }
 
 export async function POST(request: Request) {
@@ -28,12 +46,19 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
   const body = await request.json();
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const muscleGroup = typeof body.muscle_group === "string" ? body.muscle_group.trim() : "";
+
+  if (!name || !muscleGroup) {
+    return NextResponse.json({ error: "Name and muscle group are required" }, { status: 400 });
+  }
+
   const { data, error } = await admin.from("exercises").insert({
-    name: body.name,
-    muscle_group: body.muscle_group,
-    equipment: body.equipment || "bodyweight",
-    description: body.description || null,
-    video_url: body.video_url || null,
+    name,
+    muscle_group: muscleGroup,
+    equipment: typeof body.equipment === "string" && body.equipment.trim() ? body.equipment.trim() : "bodyweight",
+    description: typeof body.description === "string" && body.description.trim() ? body.description.trim() : null,
+    video_url: typeof body.video_url === "string" && body.video_url.trim() ? body.video_url.trim() : null,
   }).select().single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

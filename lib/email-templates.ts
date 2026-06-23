@@ -80,3 +80,18 @@ export async function sendCheckinReminderEmail(to: string, clientName: string, w
   });
 }
 
+export async function sendConsultationLinkEmail(to: string, clientName: string, consultationUrl: string) {
+  const firstName = clientName.split(" ")[0];
+  const resend = await getResend(); return resend.emails.send({
+    from: FROM,
+    to,
+    subject: "Complete your SHIFT consultation",
+    html: wrap(`
+      <h2 style="margin: 0 0 8px; font-size: 20px; color: #111;">Hey ${escapeHtml(firstName)},</h2>
+      <p style="color: #555; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
+        Gordy has asked you to complete your consultation form so your coaching can be set up with the right context.
+      </p>
+      ${button(consultationUrl, "Complete Consultation")}
+    `),
+  });
+}
