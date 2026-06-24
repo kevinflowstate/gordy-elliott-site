@@ -217,6 +217,7 @@ export default function ClientDetailPage() {
   const [consultationOpen, setConsultationOpen] = useState(false);
   const [consultationLinkSending, setConsultationLinkSending] = useState(false);
   const [consultationLinkCopied, setConsultationLinkCopied] = useState(false);
+  const [setupLinkSending, setSetupLinkSending] = useState(false);
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [sex, setSex] = useState<ClientSexInput>("");
   const [cycleTrackingEnabled, setCycleTrackingEnabled] = useState(false);
@@ -863,6 +864,44 @@ export default function ClientDetailPage() {
     }
   }
 
+  async function handleSetupLink(sendEmail: boolean) {
+    if (!client) return;
+    setSetupLinkSending(true);
+    try {
+      const res = await fetch("/api/admin/client-setup-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client_id: client.id, sendEmail }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast(data.error || "Couldn't generate the setup link", "error");
+        return;
+      }
+
+      if (!sendEmail || !data.emailSent) {
+        try {
+          await navigator.clipboard.writeText(data.setupUrl);
+        } catch {
+          toast("Setup link generated, but couldn't copy it.", "error");
+          return;
+        }
+      }
+
+      if (sendEmail && data.emailSent) {
+        toast("Setup email sent");
+      } else if (sendEmail) {
+        toast("Email unavailable - setup link copied");
+      } else {
+        toast("Setup link copied");
+      }
+    } catch {
+      toast("Couldn't reach the setup link API", "error");
+    } finally {
+      setSetupLinkSending(false);
+    }
+  }
+
   // Weight trend from check-ins
   const checkinsWithWeight = client.checkins
     .filter((c) => {
@@ -1130,6 +1169,26 @@ export default function ClientDetailPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                         </svg>
                         Set Password
+                      </button>
+                      <button
+                        onClick={() => { setSettingsOpen(false); handleSetupLink(true); }}
+                        disabled={setupLinkSending}
+                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-text-secondary hover:bg-[rgba(255,255,255,0.04)] transition-colors disabled:opacity-50"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8m-18 8h18a2 2 0 002-2V8a2 2 0 00-2-2H3a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                        </svg>
+                        Email Setup Link
+                      </button>
+                      <button
+                        onClick={() => { setSettingsOpen(false); handleSetupLink(false); }}
+                        disabled={setupLinkSending}
+                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-text-secondary hover:bg-[rgba(255,255,255,0.04)] transition-colors disabled:opacity-50"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Copy Setup Link
                       </button>
                       <button
                         onClick={() => { setSettingsOpen(false); setRevokeModalOpen(true); }}

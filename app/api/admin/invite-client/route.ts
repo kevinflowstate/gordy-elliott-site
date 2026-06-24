@@ -1,7 +1,7 @@
 import { requireAdmin } from "@/lib/admin-auth";
+import { buildAccountRecoveryUrl } from "@/lib/account-links";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendWelcomeEmail } from "@/lib/email-templates";
-import { getSiteUrl } from "@/lib/site-url";
 import { NextResponse } from "next/server";
 
 const VALID_TIERS = ["coached", "premium", "vip", "ai_only"];
@@ -9,14 +9,6 @@ const VALID_TIERS = ["coached", "premium", "vip", "ai_only"];
 function generateTemporaryPassword(): string {
   const entropy = `${crypto.randomUUID()}${crypto.randomUUID()}`.replace(/-/g, "");
   return `Tmp!${entropy.slice(0, 24)}aA1`;
-}
-
-function buildSetupUrl(tokenHash: string): string {
-  const url = new URL("/auth/callback", getSiteUrl());
-  url.searchParams.set("token_hash", tokenHash);
-  url.searchParams.set("type", "recovery");
-  url.searchParams.set("redirect", "/portal/settings?setup=true");
-  return url.toString();
 }
 
 export async function POST(request: Request) {
@@ -117,7 +109,7 @@ export async function POST(request: Request) {
   });
 
   const setupUrl = linkData?.properties?.hashed_token
-    ? buildSetupUrl(linkData.properties.hashed_token)
+    ? buildAccountRecoveryUrl(linkData.properties.hashed_token, "setup")
     : linkData?.properties?.action_link || null;
 
   // Send welcome email via unified template

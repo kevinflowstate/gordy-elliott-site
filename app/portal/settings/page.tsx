@@ -78,6 +78,7 @@ function SettingsContent() {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isSetup, setIsSetup] = useState(false);
+  const [isReset, setIsReset] = useState(false);
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [sex, setSex] = useState<ClientSexInput>("");
   const [cycleTrackingEnabled, setCycleTrackingEnabled] = useState(false);
@@ -88,6 +89,7 @@ function SettingsContent() {
 
   useEffect(() => {
     if (searchParams.get("setup") === "true") setIsSetup(true);
+    if (searchParams.get("reset") === "true") setIsReset(true);
   }, [searchParams]);
 
   useEffect(() => {
@@ -379,10 +381,13 @@ function SettingsContent() {
         {/* Password section */}
         <div className="app-card rounded-2xl p-6 space-y-5">
           <h2 className="text-lg font-heading font-bold text-text-primary">
-            {isSetup ? "Set Your Password" : "Change Password"}
+            {isSetup ? "Set Your Password" : isReset ? "Reset Your Password" : "Change Password"}
           </h2>
           {isSetup && (
             <p className="text-sm text-accent-bright">Welcome! Set a password to secure your account.</p>
+          )}
+          {isReset && !isSetup && (
+            <p className="text-sm text-accent-bright">Choose a new password for your portal account.</p>
           )}
 
           <div>
@@ -432,13 +437,20 @@ function SettingsContent() {
                 } else {
                   setPasswordMessage({
                     type: "success",
-                    text: isSetup ? "Password updated. Taking you to your consultation..." : "Password updated successfully",
+                    text: isSetup
+                      ? "Password updated. Taking you to your consultation..."
+                      : isReset
+                        ? "Password reset. Taking you to your dashboard..."
+                        : "Password updated successfully",
                   });
                   setNewPassword("");
                   setConfirmPassword("");
                   setIsSetup(false);
+                  setIsReset(false);
                   if (isSetup) {
                     setTimeout(() => router.push("/portal/consultation?setup=true"), 900);
+                  } else if (isReset) {
+                    setTimeout(() => router.push("/portal"), 900);
                   }
                 }
               } catch {
@@ -449,7 +461,7 @@ function SettingsContent() {
             }}
             className="px-6 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-opacity"
           >
-            {passwordSaving ? "Updating..." : isSetup ? "Set Password" : "Update Password"}
+            {passwordSaving ? "Updating..." : isSetup ? "Set Password" : isReset ? "Reset Password" : "Update Password"}
           </button>
         </div>
 
