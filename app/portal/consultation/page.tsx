@@ -31,6 +31,7 @@ export default function ConsultationPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [config, setConfig] = useState<ConsultationFormConfig>(DEFAULT_CONFIG);
+  const [privacyConsent, setPrivacyConsent] = useState(false);
   const [form, setForm] = useState<ConsultationData>({
     date_of_birth: "",
     sex: "",
@@ -51,6 +52,7 @@ export default function ConsultationPage() {
             sex: data.sex || prev.sex || "",
             cycle_tracking_enabled: Boolean(data.sex === "female" && data.cycle_tracking_enabled),
           }));
+          setPrivacyConsent(Boolean(data.consultation_data?.privacy_consent));
         }
       } catch {
         // Silently fail
@@ -68,7 +70,7 @@ export default function ConsultationPage() {
       const res = await fetch("/api/portal/consultation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, privacy_consent: privacyConsent }),
       });
       if (res.ok) {
         setSaved(true);
@@ -222,6 +224,19 @@ export default function ConsultationPage() {
             </div>
           );
         })}
+
+        <label className="flex gap-3 rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-5 text-sm text-text-secondary">
+          <input
+            type="checkbox"
+            checked={privacyConsent}
+            onChange={(event) => setPrivacyConsent(event.target.checked)}
+            required
+            className="mt-0.5 h-4 w-4 rounded border-[rgba(0,0,0,0.2)] text-[#E040D0] focus:ring-[#E040D0]/40"
+          />
+          <span>
+            I understand this form may include health, training, nutrition, injury, and cycle-related information. Gordy will use it to personalise coaching support, not to provide medical diagnosis or emergency care.
+          </span>
+        </label>
 
         <button
           type="submit"

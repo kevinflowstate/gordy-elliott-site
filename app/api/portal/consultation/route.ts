@@ -51,6 +51,9 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
+  if (body.privacy_consent !== true) {
+    return NextResponse.json({ error: "Privacy consent is required" }, { status: 400 });
+  }
 
   const admin = createAdminClient();
   const config = await loadConsultationConfig(admin);
@@ -62,6 +65,9 @@ export async function POST(req: NextRequest) {
       consultationData[question.id] = body[question.id];
     }
   }
+  consultationData.privacy_consent = true;
+  consultationData.privacy_consent_version = "health_cycle_v1";
+  consultationData.privacy_consent_at = new Date().toISOString();
 
   const updates: Record<string, unknown> = {
     consultation_data: consultationData,
