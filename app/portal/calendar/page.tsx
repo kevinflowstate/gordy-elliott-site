@@ -76,6 +76,17 @@ export default function PortalCalendarPage() {
   const [tier, setTier] = useState<string>("coached");
   const [tierLoaded, setTierLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showEventForm, setShowEventForm] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [eventForm, setEventForm] = useState({
+    title: "",
+    description: "",
+    category: "custom",
+    event_date: "",
+    event_time: "09:00",
+    recurrence: "none" as RecurrenceType,
+  });
+  const [eventSaving, setEventSaving] = useState(false);
 
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
@@ -138,6 +149,66 @@ export default function PortalCalendarPage() {
     else setViewMonth(viewMonth + 1);
   }
 
+  function openEventForm(event?: CalendarEvent) {
+    if (event) {
+      setEditingEvent(event);
+      setEventForm({
+        title: event.title,
+        description: event.description || "",
+        category: event.category || "custom",
+        event_date: (event.event_date || "").slice(0, 10),
+        event_time: event.event_time || "09:00",
+        recurrence: event.recurrence,
+      });
+    } else {
+      setEditingEvent(null);
+      setEventForm({
+        title: "",
+        description: "",
+        category: "custom",
+        event_date: selectedDay || todayKey,
+        event_time: "09:00",
+        recurrence: "none",
+      });
+    }
+    setShowEventForm(true);
+  }
+
+  async function savePersonalEvent() {
+    if (!eventForm.title.trim() || !eventForm.event_date || eventSaving) return;
+    setEventSaving(true);
+    try {
+      const res = await fetch("/api/calendar", {
+        method: editingEvent ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingEvent?.id, ...eventForm }),
+      });
+      if (res.ok) {
+        setShowEventForm(false);
+        setEditingEvent(null);
+        loadEvents();
+      } else {
+        setLoadError("We couldn't save that event. Check the details and try again.");
+      }
+    } catch {
+      setLoadError("We couldn't reach the calendar. Check your connection and retry.");
+    } finally {
+      setEventSaving(false);
+    }
+  }
+
+  async function deletePersonalEvent(event: CalendarEvent) {
+    if (event.source !== "client") return;
+    if (!confirm(`Delete "${event.title}" from your calendar?`)) return;
+    const res = await fetch("/api/calendar", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: event.id }),
+    });
+    if (res.ok) loadEvents();
+    else setLoadError("We couldn't delete that event. Try again.");
+  }
+
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const selectedEvents = selectedDay ? (dayEventsMap.get(selectedDay) || []) : [];
 
@@ -176,6 +247,101 @@ export default function PortalCalendarPage() {
         <h1 className="text-3xl font-heading font-bold text-text-primary">Calendar</h1>
         <p className="text-text-secondary mt-1 text-sm">Upcoming events and coaching sessions.</p>
       </div>
+
+      <div className="mb-6 flex justify-end">
+        <button
+          type="button"
+          onClick={() => openEventForm()}
+          className="rounded-xl gradient-accent px-4 py-2 text-sm font-semibold text-white"
+        >
+          Add Event
+        </button>
+      </div>
+
+      {showEventForm && (
+        <div className="mb-6 rounded-2xl border border-accent/20 bg-bg-card p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-sm font-heading font-bold text-text-primary">{editingEvent ? "Edit Event" : "Add Event"}</h2>
+            <button type="button" onClick={() => setShowEventForm(false)} className="text-xs font-semibold text-text-muted hover:text-text-primary">Close</button>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-xs font-medium text-text-secondary">Title</label>
+              <input
+                value={eventForm.title}
+                onChange={(event) => setEventForm((prev) => ({ ...prev, title: event.target.value }))}
+                className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-2 text-sm text-text-primary"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-text-secondary">Date</label>
+              <input
+                type="date"
+                value={eventForm.event_date}
+                onChange={(event) => setEventForm((prev) => ({ ...prev, event_date: event.target.value }))}
+                className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-2 text-sm text-text-primary"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-text-secondary">Time</label>
+              <input
+                type="time"
+                value={eventForm.event_time}
+                onChange={(event) => setEventForm((prev) => ({ ...prev, event_time: event.target.value }))}
+                className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-2 text-sm text-text-primary"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-text-secondary">Category</label>
+              <select
+                value={eventForm.category}
+                onChange={(event) => setEventForm((prev) => ({ ...prev, category: event.target.value }))}
+                className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-2 text-sm text-text-primary"
+              >
+                <option value="custom">Custom</option>
+                <option value="reminder">Reminder</option>
+                <option value="travel">Travel</option>
+                <option value="birthday">Birthday</option>
+                <option value="anniversary">Anniversary</option>
+                <option value="wedding">Wedding</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-text-secondary">Repeat</label>
+              <select
+                value={eventForm.recurrence}
+                onChange={(event) => setEventForm((prev) => ({ ...prev, recurrence: event.target.value as RecurrenceType }))}
+                className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-2 text-sm text-text-primary"
+              >
+                <option value="none">One-off</option>
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Biweekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-xs font-medium text-text-secondary">Notes</label>
+              <textarea
+                value={eventForm.description}
+                onChange={(event) => setEventForm((prev) => ({ ...prev, description: event.target.value }))}
+                rows={3}
+                className="w-full resize-none rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-2 text-sm text-text-primary"
+              />
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <button type="button" onClick={() => setShowEventForm(false)} className="rounded-xl px-4 py-2 text-sm font-semibold text-text-secondary">Cancel</button>
+            <button
+              type="button"
+              onClick={savePersonalEvent}
+              disabled={eventSaving || !eventForm.title.trim() || !eventForm.event_date}
+              className="rounded-xl gradient-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {eventSaving ? "Saving..." : "Save Event"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {loadError && (
         <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-300 sm:flex-row sm:items-center sm:justify-between">
@@ -411,6 +577,24 @@ export default function PortalCalendarPage() {
                       </svg>
                       {ev.link_label || "Join"}
                     </a>
+                  )}
+                  {ev.source === "client" && (
+                    <div className="flex gap-2 sm:justify-end">
+                      <button
+                        type="button"
+                        onClick={() => openEventForm(ev)}
+                        className="rounded-lg border border-[rgba(0,0,0,0.08)] px-3 py-2 text-xs font-semibold text-text-secondary"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deletePersonalEvent(ev)}
+                        className="rounded-lg border border-red-500/20 px-3 py-2 text-xs font-semibold text-red-500"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}

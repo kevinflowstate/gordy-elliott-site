@@ -25,6 +25,8 @@ type GeneratedPlan = {
   target_protein_g?: number;
   target_carbs_g?: number;
   target_fat_g?: number;
+  target_fibre_g?: number;
+  target_sugar_g?: number;
   meals?: GeneratedMeal[];
 };
 
@@ -38,6 +40,7 @@ type FoodForPrompt = {
   carbs_g: number;
   fat_g: number;
   fibre_g?: number;
+  sugar_g?: number;
 };
 
 const GORDY_NUTRITION_RULEBOOK = `
@@ -154,7 +157,7 @@ export async function POST(req: NextRequest) {
   const admin = createAdminClient();
   const { data: foods, error: foodsError } = await admin
     .from("foods")
-    .select("id, name, category, serving_size, calories, protein_g, carbs_g, fat_g, fibre_g")
+    .select("id, name, category, serving_size, calories, protein_g, carbs_g, fat_g, fibre_g, sugar_g")
     .eq("is_active", true)
     .order("category");
 
@@ -200,6 +203,8 @@ Return JSON only with this shape:
   "target_protein_g": number,
   "target_carbs_g": number,
   "target_fat_g": number,
+  "target_fibre_g": number,
+  "target_sugar_g": number,
   "meals": [
     {
       "name": "Breakfast",
@@ -216,6 +221,8 @@ Design rules:
 - Make 3 meals plus 1 protein-led snack unless the brief asks otherwise.
 - The coach's requested calorie number overrides your defaults. Do not silently move 1800 to 2000, 1500 to 1700, etc.
 - Hit the calorie and macro targets as closely as the available foods allow.
+- Set target_fibre_g to at least 25g where practical.
+- Set target_sugar_g as the daily sugar cap, usually 30g unless the brief says otherwise.
 - Respect allergies, intolerances, dislikes, schedule constraints, and calorie tier in the prompt as hard constraints, not preferences.
 - If dairy-free/lactose-intolerant is requested, never use whey protein, yoghurt/yogurt, milk, cheese, cottage cheese, feta, butter, cream, kefir, or casein.
 - Keep the template coach-editable: clear names, short notes, no client-facing medical claims.
@@ -270,6 +277,8 @@ Design rules:
         target_protein_g: plan.target_protein_g || null,
         target_carbs_g: plan.target_carbs_g || null,
         target_fat_g: plan.target_fat_g || null,
+        target_fibre_g: plan.target_fibre_g || 30,
+        target_sugar_g: plan.target_sugar_g || 30,
         is_active: true,
         updated_at: new Date().toISOString(),
       })

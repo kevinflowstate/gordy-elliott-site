@@ -34,6 +34,11 @@ export interface ClientProfile {
   user?: User;
   tier?: ClientTier;
   consultation_data?: Record<string, unknown>;
+  consultation_summary?: Record<string, unknown>;
+  profile_setup_data?: Record<string, unknown>;
+  profile_setup_completed_at?: string | null;
+  wearables_preference?: string | null;
+  wearables_notes?: string | null;
   date_of_birth?: string | null;
   sex?: ClientSex | null;
   cycle_tracking_enabled?: boolean;
@@ -202,6 +207,7 @@ export interface CalendarEvent {
   id: string;
   title: string;
   description?: string;
+  category?: string;
   event_date: string;
   event_time: string;
   recurrence: RecurrenceType;
@@ -210,6 +216,7 @@ export interface CalendarEvent {
   link_label?: string;
   is_active: boolean;
   created_at: string;
+  source?: 'coach' | 'client';
 }
 
 // Form config types
@@ -364,6 +371,7 @@ export interface Food {
   carbs_g: number;
   fat_g: number;
   fibre_g?: number;
+  sugar_g?: number;
   photo_url?: string;
   is_active: boolean;
   created_at: string;
@@ -399,6 +407,8 @@ export interface NutritionTemplate {
   target_protein_g?: number;
   target_carbs_g?: number;
   target_fat_g?: number;
+  target_fibre_g?: number;
+  target_sugar_g?: number;
   is_active: boolean;
   meals: NutritionMeal[];
   created_at: string;
@@ -421,6 +431,8 @@ export interface ClientNutritionPlan {
   target_protein_g?: number;
   target_carbs_g?: number;
   target_fat_g?: number;
+  target_fibre_g?: number;
+  target_sugar_g?: number;
   start_date?: string;
   meals: NutritionMeal[];
   created_at: string;
@@ -440,6 +452,8 @@ export interface Macros {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  fibre_g?: number;
+  sugar_g?: number;
 }
 
 // ============================================
@@ -473,6 +487,8 @@ export interface QuickMeal {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  fibre_g?: number;
+  sugar_g?: number;
   completed: boolean;
   created_at: string;
 }
@@ -485,7 +501,27 @@ export interface ClientSavedMeal {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  fibre_g?: number;
+  sugar_g?: number;
   created_at: string;
+}
+
+export interface ClientDocument {
+  id: string;
+  client_id: string;
+  uploaded_by?: string | null;
+  title: string;
+  category: 'bloodwork' | 'scan' | 'medical' | 'progress' | 'other';
+  storage_bucket: string;
+  storage_path: string;
+  file_name: string;
+  file_type?: string | null;
+  file_size_bytes?: number | null;
+  notes?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  signed_url?: string;
 }
 
 export interface ClientTask {

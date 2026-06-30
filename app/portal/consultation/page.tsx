@@ -7,6 +7,11 @@ import type { FormQuestion } from "@/lib/types";
 
 type ConsultationValue = string | boolean;
 type ConsultationData = Record<string, ConsultationValue>;
+type ProfileSetupData = {
+  phone: string;
+  wearables_preference: string;
+  wearables_notes: string;
+};
 
 const DEFAULT_CONFIG: ConsultationFormConfig = {
   title: "Initial Consultation",
@@ -32,6 +37,11 @@ export default function ConsultationPage() {
   const [saved, setSaved] = useState(false);
   const [config, setConfig] = useState<ConsultationFormConfig>(DEFAULT_CONFIG);
   const [privacyConsent, setPrivacyConsent] = useState(false);
+  const [profileSetup, setProfileSetup] = useState<ProfileSetupData>({
+    phone: "",
+    wearables_preference: "not_connected",
+    wearables_notes: "",
+  });
   const [form, setForm] = useState<ConsultationData>({
     date_of_birth: "",
     sex: "",
@@ -53,6 +63,11 @@ export default function ConsultationPage() {
             cycle_tracking_enabled: Boolean(data.sex === "female" && data.cycle_tracking_enabled),
           }));
           setPrivacyConsent(Boolean(data.consultation_data?.privacy_consent));
+          setProfileSetup({
+            phone: data.phone || data.profile_setup_data?.phone || "",
+            wearables_preference: data.wearables_preference || data.profile_setup_data?.wearables_preference || "not_connected",
+            wearables_notes: data.wearables_notes || data.profile_setup_data?.wearables_notes || "",
+          });
         }
       } catch {
         // Silently fail
@@ -70,7 +85,7 @@ export default function ConsultationPage() {
       const res = await fetch("/api/portal/consultation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, privacy_consent: privacyConsent }),
+        body: JSON.stringify({ ...form, privacy_consent: privacyConsent, profile_setup: profileSetup }),
       });
       if (res.ok) {
         setSaved(true);
@@ -94,6 +109,10 @@ export default function ConsultationPage() {
       }
       return { ...prev, [field]: value };
     });
+  }
+
+  function handleProfileSetupChange(field: keyof ProfileSetupData, value: string) {
+    setProfileSetup((prev) => ({ ...prev, [field]: value }));
   }
 
   function renderQuestion(question: FormQuestion) {
@@ -237,6 +256,48 @@ export default function ConsultationPage() {
             I understand this form may include health, training, nutrition, injury, and cycle-related information. Gordy will use it to personalise coaching support, not to provide medical diagnosis or emergency care.
           </span>
         </label>
+
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-5">
+          <h2 className="text-sm font-semibold text-text-primary mb-3">Profile setup</h2>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1.5">Phone number</label>
+              <input
+                type="tel"
+                value={profileSetup.phone}
+                onChange={(event) => handleProfileSetupChange("phone", event.target.value)}
+                placeholder="Best number for support"
+                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-[#E040D0]/50"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1.5">Wearables</label>
+              <select
+                value={profileSetup.wearables_preference}
+                onChange={(event) => handleProfileSetupChange("wearables_preference", event.target.value)}
+                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-[#E040D0]/50"
+              >
+                <option value="not_connected">Not using one right now</option>
+                <option value="apple_health">Apple Health / Apple Watch</option>
+                <option value="garmin">Garmin</option>
+                <option value="fitbit">Fitbit</option>
+                <option value="oura">Oura</option>
+                <option value="whoop">Whoop</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1.5">Anything Gordy should know for setup?</label>
+              <textarea
+                value={profileSetup.wearables_notes}
+                onChange={(event) => handleProfileSetupChange("wearables_notes", event.target.value)}
+                rows={3}
+                placeholder="Wearable notes, preferred contact times, or anything practical for getting started."
+                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-[#E040D0]/50 resize-none"
+              />
+            </div>
+          </div>
+        </div>
 
         <button
           type="submit"

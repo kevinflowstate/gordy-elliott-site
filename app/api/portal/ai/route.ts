@@ -209,7 +209,7 @@ export async function POST(req: NextRequest) {
   // Get active nutrition plan with meals + foods — feeds "what do I eat?" and substitution questions
   const { data: activeNutritionPlans } = await admin
     .from("client_nutrition_plans")
-    .select("id, name, status, target_calories, target_protein_g, target_carbs_g, target_fat_g")
+    .select("id, name, status, target_calories, target_protein_g, target_carbs_g, target_fat_g, target_fibre_g, target_sugar_g")
     .eq("client_id", profile?.id || "")
     .eq("status", "active")
     .order("created_at", { ascending: false })
@@ -220,7 +220,7 @@ export async function POST(req: NextRequest) {
   if (activeNutritionPlan?.id) {
     const { data: meals } = await admin
       .from("client_nutrition_meals")
-      .select("id, name, order_index, items:client_nutrition_meal_items(quantity, order_index, food:foods(name, calories, protein_g, carbs_g, fat_g))")
+      .select("id, name, order_index, items:client_nutrition_meal_items(quantity, order_index, food:foods(name, calories, protein_g, carbs_g, fat_g, fibre_g, sugar_g))")
       .eq("plan_id", activeNutritionPlan.id)
       .order("order_index");
     nutritionMeals = (meals || []).map((m: { name: string; order_index: number; items: Array<{ quantity: number; order_index: number; food: { name: string; calories: number; protein_g: number; carbs_g: number; fat_g: number } | { name: string; calories: number; protein_g: number; carbs_g: number; fat_g: number }[] | null }> }) => ({
@@ -535,7 +535,7 @@ ACTIVE NUTRITION PLAN
 ===========================
 ${activeNutritionPlan
   ? `Plan name: ${activeNutritionPlan.name}
-Daily targets: ${activeNutritionPlan.target_calories || "?"} kcal · ${activeNutritionPlan.target_protein_g || "?"}g P · ${activeNutritionPlan.target_carbs_g || "?"}g C · ${activeNutritionPlan.target_fat_g || "?"}g F
+Daily targets: ${activeNutritionPlan.target_calories || "?"} kcal · ${activeNutritionPlan.target_protein_g || "?"}g P · ${activeNutritionPlan.target_carbs_g || "?"}g C · ${activeNutritionPlan.target_fat_g || "?"}g F · ${activeNutritionPlan.target_fibre_g || "?"}g fibre · ${activeNutritionPlan.target_sugar_g || "?"}g sugar cap
 Meals: ${JSON.stringify(nutritionMeals, null, 2)}`
   : "No active nutrition plan assigned yet."}
 

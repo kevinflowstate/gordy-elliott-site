@@ -506,6 +506,8 @@ export default function ClientDetailPage() {
             target_protein_g: template.target_protein_g,
             target_carbs_g: template.target_carbs_g,
             target_fat_g: template.target_fat_g,
+            target_fibre_g: template.target_fibre_g,
+            target_sugar_g: template.target_sugar_g,
             meals: template.meals,
           },
         }),
@@ -2227,6 +2229,43 @@ export default function ClientDetailPage() {
               </div>
             ) : (
               <div className="space-y-3">
+                {client.consultation_summary && (
+                  <div className="rounded-xl border border-[#E040D0]/18 bg-[#E040D0]/6 px-4 py-3">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#E040D0]">Extracted hierarchy</div>
+                    <div className="mt-3 grid gap-2">
+                      {Object.entries((client.consultation_summary.hierarchy as Record<string, unknown>) || {}).map(([key, value]) => (
+                        <div key={key} className="rounded-lg bg-bg-card px-3 py-2">
+                          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">{formatConsultationLabel(key)}</div>
+                          <div className="mt-1 whitespace-pre-wrap text-sm text-text-primary">{formatConsultationValue(value)}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {Array.isArray(client.consultation_summary.coach_notes) && client.consultation_summary.coach_notes.length > 0 && (
+                      <div className="mt-3 rounded-lg bg-bg-card px-3 py-2">
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">Coach notes</div>
+                        <div className="mt-1 whitespace-pre-wrap text-sm text-text-primary">{client.consultation_summary.coach_notes.map(formatConsultationValue).join("\n")}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {(client.profile_setup_completed_at || client.wearables_preference || client.wearables_notes) && (
+                  <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">Profile setup</div>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      <div>
+                        <div className="text-[10px] uppercase tracking-[0.14em] text-text-muted">Wearables</div>
+                        <div className="text-sm text-text-primary">{formatConsultationValue(client.wearables_preference)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-[0.14em] text-text-muted">Completed</div>
+                        <div className="text-sm text-text-primary">{client.profile_setup_completed_at ? new Date(client.profile_setup_completed_at).toLocaleDateString("en-GB") : "Not complete"}</div>
+                      </div>
+                    </div>
+                    {client.wearables_notes && (
+                      <div className="mt-2 whitespace-pre-wrap text-sm text-text-secondary">{client.wearables_notes}</div>
+                    )}
+                  </div>
+                )}
                 {Object.entries(client.consultation_data || {}).map(([key, value]) => (
                   <div key={key} className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
                     <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">{formatConsultationLabel(key)}</div>
@@ -3216,8 +3255,8 @@ function NutritionTabContent({
             </p>
 
             {/* Macro summary */}
-            {(activeNutPlan.target_calories || activeNutPlan.target_protein_g || activeNutPlan.target_carbs_g || activeNutPlan.target_fat_g) && (
-              <div className="grid grid-cols-4 gap-3 mb-4">
+            {(activeNutPlan.target_calories || activeNutPlan.target_protein_g || activeNutPlan.target_carbs_g || activeNutPlan.target_fat_g || activeNutPlan.target_fibre_g || activeNutPlan.target_sugar_g) && (
+              <div className="grid grid-cols-2 gap-3 mb-4 lg:grid-cols-6">
                 {activeNutPlan.target_calories && (
                   <div className="bg-[rgba(0,0,0,0.02)] rounded-xl p-3 text-center">
                     <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1">Calories</div>
@@ -3243,6 +3282,20 @@ function NutritionTabContent({
                   <div className="bg-amber-500/5 rounded-xl p-3 text-center">
                     <div className="text-[10px] text-amber-400 font-semibold uppercase tracking-wider mb-1">Fat</div>
                     <div className="text-base font-heading font-bold text-text-primary">{activeNutPlan.target_fat_g}</div>
+                    <div className="text-[10px] text-text-muted">g</div>
+                  </div>
+                )}
+                {activeNutPlan.target_fibre_g && (
+                  <div className="bg-emerald-500/5 rounded-xl p-3 text-center">
+                    <div className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider mb-1">Fibre</div>
+                    <div className="text-base font-heading font-bold text-text-primary">{activeNutPlan.target_fibre_g}</div>
+                    <div className="text-[10px] text-text-muted">g</div>
+                  </div>
+                )}
+                {activeNutPlan.target_sugar_g && (
+                  <div className="bg-orange-500/5 rounded-xl p-3 text-center">
+                    <div className="text-[10px] text-orange-400 font-semibold uppercase tracking-wider mb-1">Sugar cap</div>
+                    <div className="text-base font-heading font-bold text-text-primary">{activeNutPlan.target_sugar_g}</div>
                     <div className="text-[10px] text-text-muted">g</div>
                   </div>
                 )}

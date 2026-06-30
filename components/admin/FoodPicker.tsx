@@ -26,6 +26,8 @@ const emptyForm = () => ({
   protein_g: "",
   carbs_g: "",
   fat_g: "",
+  fibre_g: "",
+  sugar_g: "",
 });
 
 export default function FoodPicker({ onPick, onClose }: FoodPickerProps) {
@@ -72,6 +74,8 @@ export default function FoodPicker({ onPick, onClose }: FoodPickerProps) {
           protein_g: Number(addForm.protein_g) || 0,
           carbs_g: Number(addForm.carbs_g) || 0,
           fat_g: Number(addForm.fat_g) || 0,
+          fibre_g: Number(addForm.fibre_g) || 0,
+          sugar_g: Number(addForm.sugar_g) || 0,
         }),
       });
       if (res.ok) {
@@ -154,11 +158,11 @@ export default function FoodPicker({ onPick, onClose }: FoodPickerProps) {
                   onChange={(e) => setAddForm((f) => ({ ...f, serving_size: e.target.value }))}
                   className="w-full px-2.5 py-1.5 rounded-lg border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] bg-transparent text-text-primary text-[13px]"
                 />
-                <div className="grid grid-cols-4 gap-2">
-                  {(["calories", "protein_g", "carbs_g", "fat_g"] as const).map((field) => (
+                <div className="grid grid-cols-3 gap-2">
+                  {(["calories", "protein_g", "carbs_g", "fat_g", "fibre_g", "sugar_g"] as const).map((field) => (
                     <div key={field}>
                       <label className="text-[11px] text-text-secondary block mb-0.5">
-                        {field === "calories" ? "kcal" : field === "protein_g" ? "Protein g" : field === "carbs_g" ? "Carbs g" : "Fat g"}
+                        {field === "calories" ? "kcal" : field === "protein_g" ? "Protein g" : field === "carbs_g" ? "Carbs g" : field === "fat_g" ? "Fat g" : field === "fibre_g" ? "Fibre g" : "Sugar g"}
                       </label>
                       <input
                         type="number"
@@ -249,6 +253,8 @@ export default function FoodPicker({ onPick, onClose }: FoodPickerProps) {
                   <span className="text-blue-500">{food.protein_g}g P</span>
                   <span className="text-accent-bright">{food.carbs_g}g C</span>
                   <span className="text-red-500">{food.fat_g}g F</span>
+                  <span className="text-emerald-500">{food.fibre_g || 0}g fibre</span>
+                  <span className="text-amber-500">{food.sugar_g || 0}g sugar</span>
                 </div>
               </button>
             ))

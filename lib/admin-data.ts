@@ -42,6 +42,11 @@ export interface AdminClient {
   start_weight?: number;
   tier: ClientTier;
   consultation_data?: Record<string, unknown> | null;
+  consultation_summary?: Record<string, unknown> | null;
+  profile_setup_data?: Record<string, unknown> | null;
+  profile_setup_completed_at?: string | null;
+  wearables_preference?: string | null;
+  wearables_notes?: string | null;
   date_of_birth?: string | null;
   sex?: ClientSex | null;
   cycle_tracking_enabled?: boolean;
@@ -154,7 +159,8 @@ export async function getClients(): Promise<AdminClient[]> {
       primary_goal, target_date, goal_notes,
       start_date, last_login, last_checkin, created_at, checkin_day,
       checkin_form_id, coach_notes, start_weight, tier,
-      consultation_data, date_of_birth, sex, cycle_tracking_enabled,
+      consultation_data, consultation_summary, profile_setup_data, profile_setup_completed_at,
+      wearables_preference, wearables_notes, date_of_birth, sex, cycle_tracking_enabled,
       user:users!client_profiles_user_id_fkey(email, full_name)
     `)
     .order("created_at", { ascending: true });
@@ -239,6 +245,11 @@ export async function getClients(): Promise<AdminClient[]> {
       start_weight: p.start_weight ?? undefined,
       tier: (p.tier as ClientTier) || 'coached',
       consultation_data: (p.consultation_data as Record<string, unknown> | null) || null,
+      consultation_summary: (p.consultation_summary as Record<string, unknown> | null) || null,
+      profile_setup_data: (p.profile_setup_data as Record<string, unknown> | null) || null,
+      profile_setup_completed_at: p.profile_setup_completed_at || null,
+      wearables_preference: p.wearables_preference || null,
+      wearables_notes: p.wearables_notes || null,
       date_of_birth: p.date_of_birth || null,
       sex: (p.sex as ClientSex | null) || null,
       cycle_tracking_enabled: Boolean(p.cycle_tracking_enabled),
@@ -267,7 +278,8 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
       primary_goal, target_date, goal_notes,
       start_date, last_login, last_checkin, created_at, checkin_day,
       checkin_form_id, coach_notes, start_weight, tier,
-      consultation_data, date_of_birth, sex, cycle_tracking_enabled,
+      consultation_data, consultation_summary, profile_setup_data, profile_setup_completed_at,
+      wearables_preference, wearables_notes, date_of_birth, sex, cycle_tracking_enabled,
       user:users!client_profiles_user_id_fkey(email, full_name)
     `)
     .eq("id", id)
@@ -361,6 +373,11 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
     start_weight: p.start_weight ?? undefined,
     tier: (p.tier as ClientTier) || 'coached',
     consultation_data: (p.consultation_data as Record<string, unknown> | null) || null,
+    consultation_summary: (p.consultation_summary as Record<string, unknown> | null) || null,
+    profile_setup_data: (p.profile_setup_data as Record<string, unknown> | null) || null,
+    profile_setup_completed_at: p.profile_setup_completed_at || null,
+    wearables_preference: p.wearables_preference || null,
+    wearables_notes: p.wearables_notes || null,
     date_of_birth: p.date_of_birth || null,
     sex: (p.sex as ClientSex | null) || null,
     cycle_tracking_enabled: Boolean(p.cycle_tracking_enabled),

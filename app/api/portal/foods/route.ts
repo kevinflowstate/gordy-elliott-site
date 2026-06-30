@@ -13,7 +13,11 @@ export async function GET(request: Request) {
   const category = searchParams.get("category");
   const search = searchParams.get("search");
 
-  let query = admin.from("foods").select("id, name, category, serving_size, calories, protein_g, carbs_g, fat_g, photo_url").eq("is_active", true).order("name");
+  let query = admin
+    .from("foods")
+    .select("id, name, category, serving_size, calories, protein_g, carbs_g, fat_g, fibre_g, sugar_g, photo_url")
+    .eq("is_active", true)
+    .order("name");
   if (category) query = query.eq("category", category);
   if (search) query = query.ilike("name", `%${search}%`);
 

@@ -46,7 +46,7 @@ export async function GET(request: Request) {
   const { data: items } = mealIds.length
     ? await admin
         .from("client_nutrition_meal_items")
-        .select("*, food:foods(id, name, category, serving_size, calories, protein_g, carbs_g, fat_g, photo_url)")
+        .select("*, food:foods(id, name, category, serving_size, calories, protein_g, carbs_g, fat_g, fibre_g, sugar_g, photo_url)")
         .in("meal_id", mealIds)
         .order("order_index", { ascending: true })
     : { data: [] };

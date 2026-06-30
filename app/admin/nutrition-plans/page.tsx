@@ -136,7 +136,7 @@ export default function NutritionPlansPage() {
 
   // Calculate total macros for a template
   const calcTemplateMacros = (t: NutritionTemplate) => {
-    let calories = 0, protein = 0, carbs = 0, fat = 0;
+    let calories = 0, protein = 0, carbs = 0, fat = 0, fibre = 0, sugar = 0;
     for (const meal of t.meals) {
       for (const item of meal.items) {
         const food = item.food;
@@ -146,9 +146,11 @@ export default function NutritionPlansPage() {
         protein += food.protein_g * qty;
         carbs += food.carbs_g * qty;
         fat += food.fat_g * qty;
+        fibre += (food.fibre_g || 0) * qty;
+        sugar += (food.sugar_g || 0) * qty;
       }
     }
-    return { calories: Math.round(calories), protein: Math.round(protein), carbs: Math.round(carbs), fat: Math.round(fat) };
+    return { calories: Math.round(calories), protein: Math.round(protein), carbs: Math.round(carbs), fat: Math.round(fat), fibre: Math.round(fibre), sugar: Math.round(sugar) };
   };
 
   return (
@@ -264,13 +266,15 @@ export default function NutritionPlansPage() {
           {/* Gold top accent line */}
           <div className="h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent" />
           {/* Table header */}
-          <div className="grid grid-cols-[1fr_100px_80px_120px_120px_120px_80px] gap-2 px-5 py-3 border-b border-[rgba(0,0,0,0.06)] bg-[rgba(0,0,0,0.02)]">
+          <div className="grid grid-cols-[1fr_90px_70px_90px_90px_90px_90px_90px_80px] gap-2 px-5 py-3 border-b border-[rgba(0,0,0,0.06)] bg-[rgba(0,0,0,0.02)]">
             <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Plan Name</span>
             <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider text-center">Calories</span>
             <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider text-center">Meals</span>
             <span className="text-[11px] font-semibold text-blue-400 uppercase tracking-wider text-center">Protein</span>
             <span className="text-[11px] font-semibold text-accent-bright uppercase tracking-wider text-center">Carbs</span>
             <span className="text-[11px] font-semibold text-red-400 uppercase tracking-wider text-center">Fat</span>
+            <span className="text-[11px] font-semibold text-emerald-500 uppercase tracking-wider text-center">Fibre</span>
+            <span className="text-[11px] font-semibold text-amber-500 uppercase tracking-wider text-center">Sugar</span>
             <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider text-center">Actions</span>
           </div>
 
@@ -290,7 +294,7 @@ export default function NutritionPlansPage() {
               <div
                 key={t.id}
                 onClick={() => { setEditingTemplate(t); setShowBuilder(true); }}
-                className={`grid grid-cols-[1fr_100px_80px_120px_120px_120px_80px] gap-2 px-5 py-4 items-center cursor-pointer transition-colors border-b border-[rgba(0,0,0,0.04)] last:border-0 ${rowColor}`}
+                className={`grid grid-cols-[1fr_90px_70px_90px_90px_90px_90px_90px_80px] gap-2 px-5 py-4 items-center cursor-pointer transition-colors border-b border-[rgba(0,0,0,0.04)] last:border-0 ${rowColor}`}
               >
                 {/* Name + description */}
                 <div className="min-w-0">
@@ -329,6 +333,18 @@ export default function NutritionPlansPage() {
                 <div className="text-center">
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-500/10 text-red-500 font-bold text-[13px]">
                     {macros.fat}g
+                  </span>
+                </div>
+
+                <div className="text-center">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-500 font-bold text-[13px]">
+                    {macros.fibre}g
+                  </span>
+                </div>
+
+                <div className="text-center">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-500 font-bold text-[13px]">
+                    {macros.sugar}g
                   </span>
                 </div>
 

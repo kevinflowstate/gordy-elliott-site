@@ -1,8 +1,8 @@
 "use client";
 
 interface MacroSummaryBarProps {
-  actual: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
-  target?: { calories: number; protein_g: number; carbs_g: number; fat_g: number } | null;
+  actual: { calories: number; protein_g: number; carbs_g: number; fat_g: number; fibre_g?: number; sugar_g?: number };
+  target?: { calories: number; protein_g: number; carbs_g: number; fat_g: number; fibre_g?: number; sugar_g?: number } | null;
 }
 
 export default function MacroSummaryBar({ actual, target }: MacroSummaryBarProps) {
@@ -11,7 +11,9 @@ export default function MacroSummaryBar({ actual, target }: MacroSummaryBarProps
     { label: "Protein", value: Math.round(actual.protein_g), target: target?.protein_g, unit: "g", color: "text-blue-500" },
     { label: "Carbs", value: Math.round(actual.carbs_g), target: target?.carbs_g, unit: "g", color: "text-accent-bright" },
     { label: "Fat", value: Math.round(actual.fat_g), target: target?.fat_g, unit: "g", color: "text-red-500" },
-  ];
+    { label: "Fibre", value: Math.round(actual.fibre_g || 0), target: target?.fibre_g, unit: "g", color: "text-emerald-500" },
+    { label: "Sugar", value: Math.round(actual.sugar_g || 0), target: target?.sugar_g, unit: "g", color: "text-amber-500" },
+  ].filter((item) => item.label !== "Fibre" && item.label !== "Sugar" ? true : item.value > 0 || Boolean(item.target));
 
   return (
     <div className="flex gap-4 p-3 rounded-xl bg-[rgba(0,0,0,0.02)] dark:bg-[rgba(255,255,255,0.02)] border border-[rgba(0,0,0,0.04)] dark:border-[rgba(255,255,255,0.04)]">

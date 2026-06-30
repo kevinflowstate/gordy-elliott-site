@@ -64,7 +64,7 @@ function detectDayVariations(meals: NutritionMeal[]): string[] {
 }
 
 function calcMealMacros(meal: NutritionMeal) {
-  let calories = 0, protein_g = 0, carbs_g = 0, fat_g = 0;
+  let calories = 0, protein_g = 0, carbs_g = 0, fat_g = 0, fibre_g = 0, sugar_g = 0;
   for (const item of meal.items) {
     const food = item.food;
     if (!food) continue;
@@ -73,20 +73,24 @@ function calcMealMacros(meal: NutritionMeal) {
     protein_g += food.protein_g * qty;
     carbs_g += food.carbs_g * qty;
     fat_g += food.fat_g * qty;
+    fibre_g += (food.fibre_g || 0) * qty;
+    sugar_g += (food.sugar_g || 0) * qty;
   }
-  return { calories, protein_g, carbs_g, fat_g };
+  return { calories, protein_g, carbs_g, fat_g, fibre_g, sugar_g };
 }
 
 function calcTotalMacros(meals: NutritionMeal[]) {
-  let calories = 0, protein_g = 0, carbs_g = 0, fat_g = 0;
+  let calories = 0, protein_g = 0, carbs_g = 0, fat_g = 0, fibre_g = 0, sugar_g = 0;
   for (const meal of meals) {
     const m = calcMealMacros(meal);
     calories += m.calories;
     protein_g += m.protein_g;
     carbs_g += m.carbs_g;
     fat_g += m.fat_g;
+    fibre_g += m.fibre_g;
+    sugar_g += m.sugar_g;
   }
-  return { calories, protein_g, carbs_g, fat_g };
+  return { calories, protein_g, carbs_g, fat_g, fibre_g, sugar_g };
 }
 
 function parseMealNotes(notes?: string): Record<string, unknown> {
@@ -150,6 +154,8 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel, c
   const [targetProtein, setTargetProtein] = useState(template?.target_protein_g || 0);
   const [targetCarbs, setTargetCarbs] = useState(template?.target_carbs_g || 0);
   const [targetFat, setTargetFat] = useState(template?.target_fat_g || 0);
+  const [targetFibre, setTargetFibre] = useState(template?.target_fibre_g || 0);
+  const [targetSugar, setTargetSugar] = useState(template?.target_sugar_g || 0);
   const [meals, setMeals] = useState<NutritionMeal[]>(
     template?.meals || [
       { id: crypto.randomUUID(), name: "Breakfast", order_index: 0, items: [] },
@@ -350,6 +356,8 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel, c
     setTargetProtein(Math.round((cals * split.p) / 4));
     setTargetCarbs(Math.round((cals * split.c) / 4));
     setTargetFat(Math.round((cals * split.f) / 9));
+    setTargetFibre(30);
+    setTargetSugar(30);
     setShowTdee(false);
   };
 
@@ -587,6 +595,8 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel, c
       target_protein_g: targetProtein || undefined,
       target_carbs_g: targetCarbs || undefined,
       target_fat_g: targetFat || undefined,
+      target_fibre_g: targetFibre || undefined,
+      target_sugar_g: targetSugar || undefined,
       is_active: true,
       meals: mealsWithAlts,
       created_at: template?.created_at || new Date().toISOString(),
@@ -605,7 +615,7 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel, c
   };
 
   const totals = calcTotalMacros(visibleMeals);
-  const targets = targetCalories ? { calories: targetCalories, protein_g: targetProtein, carbs_g: targetCarbs, fat_g: targetFat } : null;
+  const targets = targetCalories ? { calories: targetCalories, protein_g: targetProtein, carbs_g: targetCarbs, fat_g: targetFat, fibre_g: targetFibre, sugar_g: targetSugar } : null;
   const proteinCalories = targetProtein * 4;
   const carbsCalories = targetCarbs * 4;
   const fatCalories = targetFat * 9;
@@ -923,6 +933,7 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel, c
                 </button>
               </div>
             ) : (
+              <>
               <div className="grid grid-cols-4 gap-3">
                 <div>
                   <label className="text-[13px] text-text-secondary mb-1 block">Calories</label>
@@ -965,6 +976,29 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel, c
                   />
                 </div>
               </div>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[13px] text-emerald-500 mb-1 block">Fibre target (g)</label>
+                  <input
+                    type="number"
+                    value={targetFibre || ""}
+                    onChange={(e) => setTargetFibre(Number(e.target.value))}
+                    placeholder="30"
+                    className="w-full px-3 py-2 rounded-xl border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] bg-transparent text-text-primary text-[13px]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[13px] text-amber-500 mb-1 block">Sugar cap (g)</label>
+                  <input
+                    type="number"
+                    value={targetSugar || ""}
+                    onChange={(e) => setTargetSugar(Number(e.target.value))}
+                    placeholder="30"
+                    className="w-full px-3 py-2 rounded-xl border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] bg-transparent text-text-primary text-[13px]"
+                  />
+                </div>
+              </div>
+              </>
             )}
             {targetCalories > 0 && (targetProtein > 0 || targetCarbs > 0 || targetFat > 0) && (
               <div className="mt-4 rounded-xl border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)] bg-bg-primary p-3">
@@ -1140,9 +1174,11 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel, c
                         protein_g: acc.protein_g + f.protein_g * qty,
                         carbs_g: acc.carbs_g + f.carbs_g * qty,
                         fat_g: acc.fat_g + f.fat_g * qty,
+                        fibre_g: acc.fibre_g + (f.fibre_g || 0) * qty,
+                        sugar_g: acc.sugar_g + (f.sugar_g || 0) * qty,
                       };
                     },
-                    { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 }
+                    { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fibre_g: 0, sugar_g: 0 }
                   )
                 : mealMacros;
               const mealExamples = getMealExamples(meal);
@@ -1167,6 +1203,11 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel, c
                       <span className="text-[13px] text-text-secondary flex-shrink-0">
                         {Math.round(displayMacros.calories)} kcal
                       </span>
+                      {(displayMacros.fibre_g > 0 || displayMacros.sugar_g > 0) && (
+                        <span className="hidden text-[12px] text-text-secondary flex-shrink-0 sm:inline">
+                          {Math.round(displayMacros.fibre_g)}g fibre / {Math.round(displayMacros.sugar_g)}g sugar
+                        </span>
+                      )}
                       {saveMealConfirm === meal.id ? (
                         <span className="text-[12px] text-green-500 flex-shrink-0">Saved!</span>
                       ) : (
@@ -1340,6 +1381,9 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel, c
                               })()}
                               <span className="text-[13px] text-text-secondary w-16 text-right flex-shrink-0">
                                 {Math.round(food.calories * qty)} kcal
+                              </span>
+                              <span className="hidden w-24 text-right text-[12px] text-text-secondary flex-shrink-0 sm:inline">
+                                {Math.round((food.fibre_g || 0) * qty)}g fibre / {Math.round((food.sugar_g || 0) * qty)}g sugar
                               </span>
                               <input
                                 type="text"

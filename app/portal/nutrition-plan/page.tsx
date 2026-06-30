@@ -15,7 +15,7 @@ function parseGrams(servingSize: string): number {
 }
 
 function calcMealMacros(meal: NutritionMeal) {
-  let calories = 0, protein = 0, carbs = 0, fat = 0;
+  let calories = 0, protein = 0, carbs = 0, fat = 0, fibre = 0, sugar = 0;
   for (const item of meal.items) {
     const food = item.food;
     if (!food) continue;
@@ -24,8 +24,10 @@ function calcMealMacros(meal: NutritionMeal) {
     protein += food.protein_g * qty;
     carbs += food.carbs_g * qty;
     fat += food.fat_g * qty;
+    fibre += (food.fibre_g || 0) * qty;
+    sugar += (food.sugar_g || 0) * qty;
   }
-  return { calories, protein, carbs, fat };
+  return { calories, protein, carbs, fat, fibre, sugar };
 }
 
 function formatDate(date: Date): string {
@@ -99,6 +101,8 @@ export default function PortalNutritionPlanPage() {
   const [qProtein, setQProtein] = useState("");
   const [qCarbs, setQCarbs] = useState("");
   const [qFat, setQFat] = useState("");
+  const [qFibre, setQFibre] = useState("");
+  const [qSugar, setQSugar] = useState("");
   const [qSave, setQSave] = useState(false);
   const [qSubmitting, setQSubmitting] = useState(false);
 
@@ -209,6 +213,8 @@ export default function PortalNutritionPlanPage() {
           protein_g: food.protein_g,
           carbs_g: food.carbs_g,
           fat_g: food.fat_g,
+          fibre_g: food.fibre_g || 0,
+          sugar_g: food.sugar_g || 0,
           date: dateStr,
           saveAsPreset: false,
         }),
@@ -255,6 +261,8 @@ export default function PortalNutritionPlanPage() {
           protein_g: saved.protein_g,
           carbs_g: saved.carbs_g,
           fat_g: saved.fat_g,
+          fibre_g: saved.fibre_g || 0,
+          sugar_g: saved.sugar_g || 0,
           date: dateStr,
           saveAsPreset: false,
         }),
@@ -318,6 +326,8 @@ export default function PortalNutritionPlanPage() {
           protein_g: Number(qProtein) || 0,
           carbs_g: Number(qCarbs) || 0,
           fat_g: Number(qFat) || 0,
+          fibre_g: Number(qFibre) || 0,
+          sugar_g: Number(qSugar) || 0,
           date: dateStr,
           saveAsPreset: qSave,
         }),
@@ -342,7 +352,7 @@ export default function PortalNutritionPlanPage() {
           }
         }
         setQuickMeals((prev) => [...prev.filter((meal) => !deletedIds.includes(meal.id)), data.quickMeal]);
-        setQName(""); setQCalories(""); setQProtein(""); setQCarbs(""); setQFat(""); setQSave(false);
+        setQName(""); setQCalories(""); setQProtein(""); setQCarbs(""); setQFat(""); setQFibre(""); setQSugar(""); setQSave(false);
         setShowManualAdd(false);
         vibrateOnAdd();
         toast(`Added ${data.quickMeal.name}`, "success");
@@ -431,6 +441,8 @@ export default function PortalNutritionPlanPage() {
     setQProtein("");
     setQCarbs("");
     setQFat("");
+    setQFibre("");
+    setQSugar("");
     setQSave(false);
     setShowManualAdd(true);
     setShowFoodBrowser(false);
@@ -449,7 +461,7 @@ export default function PortalNutritionPlanPage() {
 
   // MFP totals are the preferred whole-day signal; assigned meals still count
   // when the client uses Gordy's meal checklist instead of copying MFP totals.
-  let consumedCalories = 0, consumedProtein = 0, consumedCarbs = 0, consumedFat = 0;
+  let consumedCalories = 0, consumedProtein = 0, consumedCarbs = 0, consumedFat = 0, consumedFibre = 0, consumedSugar = 0;
   const hasCompletedMfpTotals = quickMeals.some(
     (meal) => meal.completed && meal.name.trim().toLowerCase() === "myfitnesspal totals",
   );
@@ -459,6 +471,8 @@ export default function PortalNutritionPlanPage() {
       consumedProtein += Number(qm.protein_g);
       consumedCarbs += Number(qm.carbs_g);
       consumedFat += Number(qm.fat_g);
+      consumedFibre += Number(qm.fibre_g || 0);
+      consumedSugar += Number(qm.sugar_g || 0);
     }
   }
   if (!hasCompletedMfpTotals && plan?.meals.length) {
@@ -470,17 +484,21 @@ export default function PortalNutritionPlanPage() {
       consumedProtein += macros.protein;
       consumedCarbs += macros.carbs;
       consumedFat += macros.fat;
+      consumedFibre += macros.fibre;
+      consumedSugar += macros.sugar;
     }
   }
 
   const hasResettableEntries = quickMeals.some((meal) => meal.completed) || tracking.some((t) => t.completed);
 
-  const hasAnyTargets = Boolean(plan?.target_calories || plan?.target_protein_g || plan?.target_carbs_g || plan?.target_fat_g);
+  const hasAnyTargets = Boolean(plan?.target_calories || plan?.target_protein_g || plan?.target_carbs_g || plan?.target_fat_g || plan?.target_fibre_g || plan?.target_sugar_g);
   const hasCompleteTargets = Boolean(plan?.target_calories && plan?.target_protein_g && plan?.target_carbs_g && plan?.target_fat_g);
   const targetCalories = plan?.target_calories || 0;
   const targetProtein = plan?.target_protein_g || 0;
   const targetCarbs = plan?.target_carbs_g || 0;
   const targetFat = plan?.target_fat_g || 0;
+  const targetFibre = plan?.target_fibre_g || 0;
+  const targetSugar = plan?.target_sugar_g || 0;
   const entryHeading = isToday(selectedDate) ? "Today's MFP entries" : `${formatDateDisplay(selectedDate)} MFP entries`;
 
   return (
@@ -574,6 +592,18 @@ export default function PortalNutritionPlanPage() {
                     <div className="text-lg font-heading font-bold text-red-500">{Math.round(targetFat)}g</div>
                   </div>
                 )}
+                {plan?.target_fibre_g && (
+                  <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-muted">Fibre</div>
+                    <div className="text-lg font-heading font-bold text-emerald-500">{Math.round(targetFibre)}g</div>
+                  </div>
+                )}
+                {plan?.target_sugar_g && (
+                  <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-muted">Sugar cap</div>
+                    <div className="text-lg font-heading font-bold text-amber-500">{Math.round(targetSugar)}g</div>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -592,6 +622,16 @@ export default function PortalNutritionPlanPage() {
               <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-text-muted">Protein</div>
               <div className="mt-1 text-xl font-heading font-bold text-blue-500">{Math.round(consumedProtein)}g</div>
               {plan?.target_protein_g ? <div className="text-xs text-text-secondary">of {Math.round(targetProtein)}g</div> : <div className="text-xs text-text-secondary">target not set</div>}
+            </div>
+            <div className="app-inset rounded-2xl px-4 py-3">
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-text-muted">Fibre</div>
+              <div className="mt-1 text-xl font-heading font-bold text-emerald-500">{Math.round(consumedFibre)}g</div>
+              {plan?.target_fibre_g ? <div className="text-xs text-text-secondary">of {Math.round(targetFibre)}g</div> : <div className="text-xs text-text-secondary">target not set</div>}
+            </div>
+            <div className="app-inset rounded-2xl px-4 py-3">
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-text-muted">Sugar</div>
+              <div className="mt-1 text-xl font-heading font-bold text-amber-500">{Math.round(consumedSugar)}g</div>
+              {plan?.target_sugar_g ? <div className="text-xs text-text-secondary">cap {Math.round(targetSugar)}g</div> : <div className="text-xs text-text-secondary">cap not set</div>}
             </div>
           </div>
           <button
@@ -634,6 +674,8 @@ export default function PortalNutritionPlanPage() {
                         <span className="text-[13px] text-blue-500">{Math.round(macros.protein)}g P</span>
                         <span className="text-[13px] text-[#B830A8]">{Math.round(macros.carbs)}g C</span>
                         <span className="text-[13px] text-red-500">{Math.round(macros.fat)}g F</span>
+                        <span className="text-[13px] text-emerald-500">{Math.round(macros.fibre)}g fibre</span>
+                        <span className="text-[13px] text-amber-500">{Math.round(macros.sugar)}g sugar</span>
                       </div>
                     </div>
                     <button
@@ -677,6 +719,9 @@ export default function PortalNutritionPlanPage() {
                             </div>
                             <span className="ml-2 flex-shrink-0 text-[13px] text-text-secondary">
                               {Math.round(food.calories * qty)} kcal
+                            </span>
+                            <span className="ml-2 hidden flex-shrink-0 text-[12px] text-text-secondary sm:inline">
+                              {Math.round((food.fibre_g || 0) * qty)}g fibre / {Math.round((food.sugar_g || 0) * qty)}g sugar
                             </span>
                           </div>
                         );
@@ -763,6 +808,8 @@ export default function PortalNutritionPlanPage() {
                         <span className="text-[13px] text-blue-500">{Number(qm.protein_g)}g P</span>
                         <span className="text-[13px] text-accent-bright">{Number(qm.carbs_g)}g C</span>
                         <span className="text-[13px] text-red-500">{Number(qm.fat_g)}g F</span>
+                        <span className="text-[13px] text-emerald-500">{Number(qm.fibre_g || 0)}g fibre</span>
+                        <span className="text-[13px] text-amber-500">{Number(qm.sugar_g || 0)}g sugar</span>
                       </div>
                     </div>
                     <button
@@ -934,6 +981,8 @@ export default function PortalNutritionPlanPage() {
                           <span className="text-[12px] text-blue-500">{food.protein_g}g P</span>
                           <span className="text-[12px] text-accent-bright">{food.carbs_g}g C</span>
                           <span className="text-[12px] text-red-500">{food.fat_g}g F</span>
+                          <span className="text-[12px] text-emerald-500">{food.fibre_g || 0}g fibre</span>
+                          <span className="text-[12px] text-amber-500">{food.sugar_g || 0}g sugar</span>
                         </div>
                       </div>
                       <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${wasAdded ? "bg-emerald-500" : "bg-accent-bright/10"}`}>
@@ -966,7 +1015,7 @@ export default function PortalNutritionPlanPage() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowManualAdd(false)}>
           <div className="app-card rounded-[28px] p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-text-primary mb-1">Log MyFitnessPal totals</h3>
-            <p className="text-[12px] text-text-muted mb-4">Copy the totals from MFP at the end of the day. Calories and protein matter most.</p>
+            <p className="text-[12px] text-text-muted mb-4">Copy the totals from MFP at the end of the day, including fibre and sugar when available.</p>
             <div className="space-y-3">
               <input
                 type="text"
@@ -975,7 +1024,7 @@ export default function PortalNutritionPlanPage() {
                 onChange={(e) => setQName(e.target.value)}
                 className="w-full px-3 py-2.5 rounded-xl border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] bg-transparent text-text-primary text-[13px] placeholder:text-text-secondary/50 focus:outline-none focus:border-accent-bright/40"
               />
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="block text-[11px] text-text-secondary mb-1">Calories</label>
                   <input type="number" value={qCalories} onChange={(e) => setQCalories(e.target.value)} placeholder="0"
@@ -995,6 +1044,16 @@ export default function PortalNutritionPlanPage() {
                   <label className="block text-[11px] text-red-500 mb-1">Fat</label>
                   <input type="number" value={qFat} onChange={(e) => setQFat(e.target.value)} placeholder="0g"
                     className="w-full px-2 py-2 rounded-lg border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] bg-transparent text-text-primary text-[13px] text-center focus:outline-none focus:border-red-500/40" />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-emerald-500 mb-1">Fibre</label>
+                  <input type="number" value={qFibre} onChange={(e) => setQFibre(e.target.value)} placeholder="0g"
+                    className="w-full px-2 py-2 rounded-lg border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] bg-transparent text-text-primary text-[13px] text-center focus:outline-none focus:border-emerald-500/40" />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-amber-500 mb-1">Sugar</label>
+                  <input type="number" value={qSugar} onChange={(e) => setQSugar(e.target.value)} placeholder="0g"
+                    className="w-full px-2 py-2 rounded-lg border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] bg-transparent text-text-primary text-[13px] text-center focus:outline-none focus:border-amber-500/40" />
                 </div>
               </div>
               <label className="flex items-center gap-2 cursor-pointer">

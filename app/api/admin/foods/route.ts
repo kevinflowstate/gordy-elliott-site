@@ -35,6 +35,7 @@ export async function POST(request: Request) {
     carbs_g: body.carbs_g,
     fat_g: body.fat_g,
     fibre_g: body.fibre_g ?? null,
+    sugar_g: body.sugar_g ?? 0,
     photo_url: body.photo_url ?? null,
   }).select().single();
 

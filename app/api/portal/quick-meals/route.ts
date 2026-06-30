@@ -53,7 +53,7 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
   const body = await request.json();
-  const { name, calories, protein_g, carbs_g, fat_g, date, saveAsPreset } = body;
+  const { name, calories, protein_g, carbs_g, fat_g, fibre_g, sugar_g, date, saveAsPreset } = body;
 
   if (!name?.trim()) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -72,6 +72,8 @@ export async function POST(request: Request) {
       protein_g: Number(protein_g) || 0,
       carbs_g: Number(carbs_g) || 0,
       fat_g: Number(fat_g) || 0,
+      fibre_g: Number(fibre_g) || 0,
+      sugar_g: Number(sugar_g) || 0,
       completed: true,
     })
     .select()
@@ -88,6 +90,8 @@ export async function POST(request: Request) {
       protein_g: Number(protein_g) || 0,
       carbs_g: Number(carbs_g) || 0,
       fat_g: Number(fat_g) || 0,
+      fibre_g: Number(fibre_g) || 0,
+      sugar_g: Number(sugar_g) || 0,
     });
   }
 

@@ -3,6 +3,7 @@ import type { Food } from "@/lib/types";
 type FoodPromptCandidate = Pick<
   Food,
   "id" | "name" | "category" | "serving_size" | "calories" | "protein_g" | "carbs_g" | "fat_g" | "fibre_g"
+  | "sugar_g"
 >;
 
 const FOOD_CATEGORIES = [

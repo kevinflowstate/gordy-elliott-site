@@ -51,6 +51,7 @@ interface FoodFormState {
   carbs_g: string;
   fat_g: string;
   fibre_g: string;
+  sugar_g: string;
   photo_url: string;
 }
 
@@ -63,6 +64,7 @@ const EMPTY_FORM: FoodFormState = {
   carbs_g: "",
   fat_g: "",
   fibre_g: "",
+  sugar_g: "",
   photo_url: "",
 };
 
@@ -82,6 +84,9 @@ export default function FoodLibraryPage() {
   const [form, setForm] = useState<FoodFormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+  const [bulkImporting, setBulkImporting] = useState(false);
 
   const fetchFoods = useCallback(async () => {
     setLoading(true);
@@ -121,6 +126,7 @@ export default function FoodLibraryPage() {
       carbs_g: String(food.carbs_g),
       fat_g: String(food.fat_g),
       fibre_g: food.fibre_g != null ? String(food.fibre_g) : "",
+      sugar_g: food.sugar_g != null ? String(food.sugar_g) : "",
       photo_url: food.photo_url || "",
     });
     setShowModal(true);
@@ -149,6 +155,7 @@ export default function FoodLibraryPage() {
         carbs_g: parseFloat(form.carbs_g) || 0,
         fat_g: parseFloat(form.fat_g) || 0,
         fibre_g: form.fibre_g ? parseFloat(form.fibre_g) : null,
+        sugar_g: parseFloat(form.sugar_g) || 0,
         photo_url: form.photo_url.trim() || null,
       };
 
@@ -176,6 +183,33 @@ export default function FoodLibraryPage() {
       toast("Failed to save food", "error");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleBulkImport() {
+    if (!bulkText.trim() || bulkImporting) return;
+    setBulkImporting(true);
+    try {
+      const res = await fetch("/api/admin/foods/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: bulkText }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast(data.error || "Failed to import foods", "error");
+        return;
+      }
+      const imported = data.imported?.length || 0;
+      const skipped = data.skipped?.length || 0;
+      toast(`Imported ${imported} food${imported === 1 ? "" : "s"}${skipped ? `, skipped ${skipped} duplicate${skipped === 1 ? "" : "s"}` : ""}`);
+      setBulkText("");
+      setShowBulkImport(false);
+      fetchFoods();
+    } catch {
+      toast("Failed to import foods", "error");
+    } finally {
+      setBulkImporting(false);
     }
   }
 
@@ -211,16 +245,55 @@ export default function FoodLibraryPage() {
             {loading ? "Loading..." : `${foods.length} item${foods.length !== 1 ? "s" : ""}${categoryFilter !== "all" ? ` in ${categoryFilter}` : ""}`}
           </p>
         </div>
-        <button
-          onClick={openAdd}
-          className="px-5 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Add Food
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowBulkImport((show) => !show)}
+            className="px-5 py-2.5 border border-[rgba(0,0,0,0.08)] bg-bg-card text-text-secondary rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
+          >
+            Bulk Import
+          </button>
+          <button
+            onClick={openAdd}
+            className="px-5 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Food
+          </button>
+        </div>
       </div>
+
+      {showBulkImport && (
+        <div className="mb-6 rounded-2xl border border-accent/20 bg-accent/5 p-5">
+          <div className="mb-3 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-sm font-heading font-bold text-text-primary">Bulk Import Foods</h2>
+              <p className="mt-1 text-xs text-text-secondary">
+                Paste rows as CSV or from a spreadsheet: name, category, serving_size, calories, protein_g, carbs_g, fat_g, fibre_g, sugar_g, photo_url.
+              </p>
+            </div>
+            <button type="button" onClick={() => setShowBulkImport(false)} className="text-xs font-semibold text-text-muted hover:text-text-primary">Close</button>
+          </div>
+          <textarea
+            value={bulkText}
+            onChange={(event) => setBulkText(event.target.value)}
+            rows={6}
+            placeholder={"Chicken Breast,protein,100g,165,31,0,3.6,0,0,\nGreek Yoghurt,dairy,170g,100,17,6,0,0,5,"}
+            className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/40 focus:outline-none"
+          />
+          <div className="mt-3 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={handleBulkImport}
+              disabled={!bulkText.trim() || bulkImporting}
+              className="rounded-xl gradient-accent px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {bulkImporting ? "Importing..." : "Import Foods"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Filter bar */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -292,6 +365,7 @@ export default function FoodLibraryPage() {
                   <th className="px-4 py-3.5 text-right text-[11px] font-semibold text-text-muted uppercase tracking-wider">Carbs</th>
                   <th className="px-4 py-3.5 text-right text-[11px] font-semibold text-text-muted uppercase tracking-wider">Fat</th>
                   <th className="px-4 py-3.5 text-right text-[11px] font-semibold text-text-muted uppercase tracking-wider">Fibre</th>
+                  <th className="px-4 py-3.5 text-right text-[11px] font-semibold text-text-muted uppercase tracking-wider">Sugar</th>
                   <th className="px-4 py-3.5 text-right text-[11px] font-semibold text-text-muted uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -321,6 +395,7 @@ export default function FoodLibraryPage() {
                     <td className="px-4 py-3 text-right text-text-secondary tabular-nums">{macroToString(food.carbs_g)}</td>
                     <td className="px-4 py-3 text-right text-text-secondary tabular-nums">{macroToString(food.fat_g)}</td>
                     <td className="px-4 py-3 text-right text-text-secondary tabular-nums">{macroToString(food.fibre_g)}</td>
+                    <td className="px-4 py-3 text-right text-text-secondary tabular-nums">{macroToString(food.sugar_g)}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
@@ -457,7 +532,7 @@ export default function FoodLibraryPage() {
                 </div>
               </div>
 
-              {/* Fibre + Photo URL (optional) */}
+              {/* Fibre + Sugar */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] text-text-muted mb-1">Fibre (g) <span className="text-text-muted/60">optional</span></label>
@@ -467,6 +542,18 @@ export default function FoodLibraryPage() {
                     step="0.1"
                     value={form.fibre_g}
                     onChange={(e) => setField("fibre_g", e.target.value)}
+                    placeholder="0"
+                    className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40"
+                    />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-text-muted mb-1">Sugar (g) <span className="text-text-muted/60">optional</span></label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={form.sugar_g}
+                    onChange={(e) => setField("sugar_g", e.target.value)}
                     placeholder="0"
                     className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40"
                   />

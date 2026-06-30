@@ -32,7 +32,7 @@ export async function GET() {
   const { data: items } = mealIds.length
     ? await admin
         .from("nutrition_template_meal_items")
-        .select("*, food:foods(id, name, category, serving_size, calories, protein_g, carbs_g, fat_g, fibre_g)")
+        .select("*, food:foods(id, name, category, serving_size, calories, protein_g, carbs_g, fat_g, fibre_g, sugar_g)")
         .in("meal_id", mealIds)
         .order("order_index", { ascending: true })
     : { data: [] };
@@ -83,6 +83,8 @@ export async function POST(request: Request) {
     target_protein_g: template.target_protein_g || null,
     target_carbs_g: template.target_carbs_g || null,
     target_fat_g: template.target_fat_g || null,
+    target_fibre_g: template.target_fibre_g || null,
+    target_sugar_g: template.target_sugar_g || null,
     is_active: true,
     updated_at: new Date().toISOString(),
   };

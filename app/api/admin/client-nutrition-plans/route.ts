@@ -38,7 +38,7 @@ export async function GET(request: Request) {
   const { data: items } = mealIds.length
     ? await admin
         .from("client_nutrition_meal_items")
-        .select("*, food:foods(id, name, category, serving_size, calories, protein_g, carbs_g, fat_g, fibre_g)")
+        .select("*, food:foods(id, name, category, serving_size, calories, protein_g, carbs_g, fat_g, fibre_g, sugar_g)")
         .in("meal_id", mealIds)
         .order("order_index", { ascending: true })
     : { data: [] };
@@ -123,6 +123,8 @@ export async function POST(request: Request) {
         target_protein_g: body.target_protein_g || template.target_protein_g,
         target_carbs_g: body.target_carbs_g || template.target_carbs_g,
         target_fat_g: body.target_fat_g || template.target_fat_g,
+        target_fibre_g: body.target_fibre_g || template.target_fibre_g,
+        target_sugar_g: body.target_sugar_g || template.target_sugar_g,
         start_date: new Date().toISOString().split("T")[0],
       })
       .select()
@@ -198,6 +200,8 @@ export async function POST(request: Request) {
         target_protein_g: plan.target_protein_g || null,
         target_carbs_g: plan.target_carbs_g || null,
         target_fat_g: plan.target_fat_g || null,
+        target_fibre_g: plan.target_fibre_g || null,
+        target_sugar_g: plan.target_sugar_g || null,
         start_date: plan.start_date || new Date().toISOString().split("T")[0],
         updated_at: new Date().toISOString(),
       })
@@ -259,7 +263,7 @@ export async function PATCH(request: Request) {
 
   const admin = createAdminClient();
   const body = await request.json();
-  const { id, status, target_calories, target_protein_g, target_carbs_g, target_fat_g } = body;
+  const { id, status, target_calories, target_protein_g, target_carbs_g, target_fat_g, target_fibre_g, target_sugar_g } = body;
 
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
@@ -269,6 +273,8 @@ export async function PATCH(request: Request) {
   if (target_protein_g !== undefined) updates.target_protein_g = target_protein_g;
   if (target_carbs_g !== undefined) updates.target_carbs_g = target_carbs_g;
   if (target_fat_g !== undefined) updates.target_fat_g = target_fat_g;
+  if (target_fibre_g !== undefined) updates.target_fibre_g = target_fibre_g;
+  if (target_sugar_g !== undefined) updates.target_sugar_g = target_sugar_g;
 
   const { data: existingPlan } = await admin
     .from("client_nutrition_plans")
