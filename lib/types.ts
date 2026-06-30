@@ -332,6 +332,20 @@ export interface ClientExercisePlan {
   updated_at: string;
 }
 
+export interface WeeklyTrainingAssignment {
+  id: string | null;
+  client_id?: string;
+  plan_id: string;
+  session_id: string;
+  week_start: string;
+  planned_date: string | null;
+  is_recurring: boolean;
+  recurrence_stopped?: boolean;
+  source?: 'explicit' | 'recurring';
+  created_at?: string;
+  updated_at?: string;
+}
+
 // ============================================
 // Nutrition Plan Types
 // ============================================

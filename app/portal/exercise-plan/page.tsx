@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
-import type { ClientExercisePlan, ExerciseSession } from "@/lib/types";
+import type { ClientExercisePlan, ExerciseSession, WeeklyTrainingAssignment } from "@/lib/types";
 
 interface SetData {
   set_number: number;
@@ -93,10 +93,6 @@ const WEEK_PATTERNS: Record<number, number[]> = {
   7: [0, 1, 2, 3, 4, 5, 6],
 };
 
-// Auto-place plan sessions onto calendar dates with rest days between
-// them. Sessions run in programme order at the plan's sessions-per-week
-// rate; a plan starting mid-week fits what it can into the remaining
-// pattern days and rolls the rest into the following week.
 function buildVirtualSchedule(plan: ClientExercisePlan): Map<string, ExerciseSession> {
   const map = new Map<string, ExerciseSession>();
   if (!plan.sessions?.length) return map;
@@ -106,32 +102,31 @@ function buildVirtualSchedule(plan: ClientExercisePlan): Map<string, ExerciseSes
   start.setHours(0, 0, 0, 0);
 
   const queue = [...plan.sessions].sort((a, b) => (a.day_number || 0) - (b.day_number || 0));
-
-  // Infer sessions per week from the programme's day numbering
   const perWeekCounts = new Map<number, number>();
+
   for (const session of queue) {
     const week = Math.floor((Math.max(1, session.day_number || 1) - 1) / 7);
     perWeekCounts.set(week, (perWeekCounts.get(week) || 0) + 1);
   }
+
   const sessionsPerWeek = Math.min(7, Math.max(1, ...perWeekCounts.values()));
   const pattern = WEEK_PATTERNS[sessionsPerWeek];
-
-  const weekStart = getWeekStart(start);
-  const startDayIdx = Math.round((start.getTime() - weekStart.getTime()) / 86400000);
+  const startWeek = getWeekStart(start);
+  const startDayIdx = Math.round((start.getTime() - startWeek.getTime()) / 86400000);
 
   let weekIndex = 0;
   while (queue.length > 0 && weekIndex < 80) {
-    // First (possibly partial) week only uses pattern days from the start date on
     const days = weekIndex === 0 ? pattern.filter((idx) => idx >= startDayIdx) : pattern;
     for (const dayIdx of days) {
       const session = queue.shift();
       if (!session) break;
-      const d = new Date(weekStart);
+      const d = new Date(startWeek);
       d.setDate(d.getDate() + weekIndex * 7 + dayIdx);
       map.set(formatDate(d), session);
     }
     weekIndex += 1;
   }
+
   return map;
 }
 
@@ -141,6 +136,12 @@ export default function PortalExercisePlanPage() {
   const [plan, setPlan] = useState<ClientExercisePlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [allLogs, setAllLogs] = useState<ExerciseLog[]>([]);
+  const [weeklyAssignments, setWeeklyAssignments] = useState<WeeklyTrainingAssignment[]>([]);
+  const [plannerLoadedWeek, setPlannerLoadedWeek] = useState<string | null>(null);
+  const [plannerLoading, setPlannerLoading] = useState(false);
+  const [plannerError, setPlannerError] = useState<string | null>(null);
+  const [plannerSavingSessionId, setPlannerSavingSessionId] = useState<string | null>(null);
+  const plannerRequestIdRef = useRef(0);
 
   // Calendar state
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
@@ -200,10 +201,105 @@ export default function PortalExercisePlanPage() {
     fetchWeekLogs(weekStart);
   }, [weekStart, fetchWeekLogs]);
 
-  const virtualSchedule = useMemo(
-    () => (plan ? buildVirtualSchedule(plan) : new Map<string, ExerciseSession>()),
-    [plan]
+  const fetchWeekPlanner = useCallback(
+    (ws: Date) => {
+      if (!plan?.id) {
+        setWeeklyAssignments([]);
+        setPlannerLoadedWeek(null);
+        return;
+      }
+      const week = formatDate(ws);
+      const requestId = plannerRequestIdRef.current + 1;
+      plannerRequestIdRef.current = requestId;
+      setWeeklyAssignments([]);
+      setPlannerLoadedWeek(null);
+      setPlannerError(null);
+      setPlannerLoading(true);
+      fetch(`/api/portal/training-planner?plan_id=${plan.id}&week_start=${week}`)
+        .then(async (r) => {
+          const data = await r.json().catch(() => ({}));
+          if (!r.ok) {
+            throw new Error(data?.error || "Weekly planner could not load");
+          }
+          return data;
+        })
+        .then((data) => {
+          if (requestId !== plannerRequestIdRef.current) return;
+          setWeeklyAssignments(data.assignments || []);
+          setPlannerLoadedWeek(week);
+          setPlannerError(null);
+        })
+        .catch((err) => {
+          if (requestId !== plannerRequestIdRef.current) return;
+          console.error("Failed to fetch weekly planner:", err);
+          setWeeklyAssignments([]);
+          setPlannerLoadedWeek(null);
+          setPlannerError("Weekly planner could not load. Try refreshing the page.");
+        })
+        .finally(() => {
+          if (requestId === plannerRequestIdRef.current) {
+            setPlannerLoading(false);
+          }
+        });
+    },
+    [plan?.id],
   );
+
+  useEffect(() => {
+    fetchWeekPlanner(weekStart);
+  }, [weekStart, fetchWeekPlanner]);
+
+  const sortedSessions = useMemo(
+    () => [...(plan?.sessions || [])].sort((a, b) => (a.day_number || 0) - (b.day_number || 0)),
+    [plan?.sessions],
+  );
+  const plannerLoadedForVisibleWeek = plannerLoadedWeek === formatDate(weekStart);
+  const visibleWeeklyAssignments = useMemo(
+    () => (plannerLoadedForVisibleWeek ? weeklyAssignments : []),
+    [plannerLoadedForVisibleWeek, weeklyAssignments],
+  );
+
+  const assignmentBySessionId = useMemo(() => {
+    const map = new Map<string, WeeklyTrainingAssignment>();
+    for (const assignment of visibleWeeklyAssignments) {
+      map.set(assignment.session_id, assignment);
+    }
+    return map;
+  }, [visibleWeeklyAssignments]);
+
+  const plannedSessionsByDate = useMemo(() => {
+    const map = new Map<string, ExerciseSession[]>();
+    if (!plan?.sessions?.length) return map;
+
+    for (const assignment of visibleWeeklyAssignments) {
+      if (!assignment.planned_date) continue;
+      const session = plan.sessions.find((s) => s.id === assignment.session_id);
+      if (!session) continue;
+      const list = map.get(assignment.planned_date) || [];
+      list.push(session);
+      map.set(assignment.planned_date, list);
+    }
+
+    for (const sessions of map.values()) {
+      sessions.sort((a, b) => (a.day_number || 0) - (b.day_number || 0));
+    }
+
+    return map;
+  }, [plan?.sessions, visibleWeeklyAssignments]);
+
+  const fallbackSessionsByDate = useMemo(() => {
+    const map = new Map<string, ExerciseSession[]>();
+    if (!plan || !plannerLoadedForVisibleWeek || visibleWeeklyAssignments.length > 0) return map;
+
+    const virtualSchedule = buildVirtualSchedule(plan);
+    for (const [date, session] of virtualSchedule.entries()) {
+      map.set(date, [session]);
+    }
+
+    return map;
+  }, [plan, plannerLoadedForVisibleWeek, visibleWeeklyAssignments.length]);
+
+  const calendarSessionsByDate = visibleWeeklyAssignments.length > 0 ? plannedSessionsByDate : fallbackSessionsByDate;
 
   // When selected date changes, figure out what session to show
   useEffect(() => {
@@ -225,7 +321,7 @@ export default function PortalExercisePlanPage() {
       // user explicitly picked a session). Days with nothing scheduled are
       // rest days and get Start Next Session / Add Session instead.
       if (!manuallyPicked) {
-        const scheduled = virtualSchedule.get(dateStr);
+        const scheduled = calendarSessionsByDate.get(dateStr)?.[0] || null;
         if (scheduled) {
           setActiveSession(scheduled);
           initDrafts(scheduled);
@@ -236,7 +332,7 @@ export default function PortalExercisePlanPage() {
       }
       setViewMode("log");
     }
-  }, [selectedDate, allLogs, plan, manuallyPicked, virtualSchedule]);
+  }, [selectedDate, allLogs, plan, manuallyPicked, calendarSessionsByDate]);
 
   function initDrafts(session: ExerciseSession) {
     const drafts: Record<string, SetData[]> = {};
@@ -359,25 +455,71 @@ export default function PortalExercisePlanPage() {
     setShowSessionPicker(false);
   }
 
+  async function savePlannerAssignment(
+    sessionId: string,
+    plannedDate: string | null,
+    isRecurring?: boolean,
+    recurrenceStopped?: boolean,
+  ) {
+    if (!plan) return;
+    const existing = assignmentBySessionId.get(sessionId);
+    const nextRecurring = Boolean(plannedDate && (isRecurring ?? existing?.is_recurring));
+    const nextRecurrenceStopped = Boolean(recurrenceStopped ?? existing?.recurrence_stopped);
+
+    setPlannerSavingSessionId(sessionId);
+    setPlannerError(null);
+    try {
+      const response = await fetch("/api/portal/training-planner", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan_id: plan.id,
+          session_id: sessionId,
+          week_start: formatDate(weekStart),
+          planned_date: plannedDate,
+          is_recurring: nextRecurring,
+          recurrence_stopped: nextRecurring ? false : nextRecurrenceStopped,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || "Planner update failed");
+      }
+
+      const assignment = data.assignment as WeeklyTrainingAssignment;
+      setPlannerLoadedWeek(formatDate(weekStart));
+      setWeeklyAssignments((prev) => [
+        ...prev.filter((item) => item.session_id !== sessionId),
+        assignment,
+      ]);
+
+      if (!manuallyPicked) {
+        const selected = formatDate(selectedDate);
+        const movedSession = plan.sessions.find((session) => session.id === sessionId);
+        const wasActive = activeSession?.id === sessionId;
+        if (plannedDate === selected && movedSession) {
+          setActiveSession(movedSession);
+          initDrafts(movedSession);
+          setViewMode("log");
+        } else if (wasActive && existing?.planned_date === selected) {
+          setActiveSession(null);
+          setSessionOpen(false);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to save weekly planner assignment:", err);
+      setPlannerError(err instanceof Error ? err.message : "Planner update failed");
+    } finally {
+      setPlannerSavingSessionId(null);
+    }
+  }
+
   const selectedDateStr = formatDate(selectedDate);
   const dayLogs = allLogs.filter((l) => l.log_date === selectedDateStr);
   const isPast = !isToday(selectedDate) && !isFuture(selectedDate);
 
-  // Sessions planned for the calendar week being viewed — keeps the Add
-  // Session picker to this week's work instead of the whole programme.
-  const weekSessions = (() => {
-    if (!plan?.sessions?.length) return [];
-    const inWeek = getWeekDays(weekStart)
-      .map((day) => virtualSchedule.get(formatDate(day)))
-      .filter((session): session is ExerciseSession => Boolean(session));
-    if (inWeek.length > 0) return inWeek;
-    // Past the programme's mapped dates — fall back to the next few in rotation
-    const next = getNextSession(plan.sessions, allLogs.filter((log) => log.log_date <= selectedDateStr));
-    const startIdx = Math.max(0, plan.sessions.findIndex((s) => s.id === next.id));
-    return Array.from({ length: Math.min(4, plan.sessions.length) }, (_, i) =>
-      plan.sessions[(startIdx + i) % plan.sessions.length]
-    );
-  })();
+  // Keep the picker aligned with the active plan order.
+  const weekSessions = sortedSessions;
 
   // Sessions logged in the visible week (for weekly summary trust signal)
   const weekStartStr = formatDate(weekStart);
@@ -389,9 +531,46 @@ export default function PortalExercisePlanPage() {
       .filter((l) => l.log_date >= weekStartStr && l.log_date <= weekEndStr && l.completed && l.session_id)
       .map((l) => `${l.log_date}:${l.session_id}`),
   ).size;
-  const plannedSessionsCount = plan?.sessions?.length || 0;
+  const totalPlanSessions = plan?.sessions?.length || 0;
+  const placedSessionsCount = sortedSessions.filter((session) => Boolean(assignmentBySessionId.get(session.id)?.planned_date)).length;
+  const unassignedSessions = sortedSessions.filter((session) => !assignmentBySessionId.get(session.id)?.planned_date);
   const loggedExerciseCount = dayLogs.filter((l) => l.completed).length;
   const activeExerciseCount = activeSession?.items.filter((i) => i.exercise_id !== "__section__").length || 0;
+
+  function dayChipClass(active: boolean, disabled: boolean) {
+    return `min-w-10 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold transition-colors ${
+      active
+        ? "border-[#E040D0] bg-[#E040D0] text-white"
+        : "border-[rgba(0,0,0,0.08)] text-text-secondary hover:border-[#E040D0]/40 hover:text-[#E040D0]"
+    } ${disabled ? "cursor-wait opacity-50" : "cursor-pointer"}`;
+  }
+
+  function renderPlannerDayChips(session: ExerciseSession, labelPrefix: string) {
+    const assignment = assignmentBySessionId.get(session.id);
+    const saving = plannerSavingSessionId === session.id;
+    return (
+      <div className="mt-3 flex flex-wrap gap-1.5" aria-label={`${labelPrefix} ${session.name}`}>
+        {weekDays.map((day, i) => {
+          const dayStr = formatDate(day);
+          const active = assignment?.planned_date === dayStr;
+          const occupied = Boolean(plannedSessionsByDate.get(dayStr)?.some((plannedSession) => plannedSession.id !== session.id));
+          const disabled = saving || active || occupied;
+          return (
+            <button
+              key={dayStr}
+              type="button"
+              disabled={disabled}
+              onClick={() => savePlannerAssignment(session.id, dayStr, assignment?.is_recurring, assignment?.recurrence_stopped)}
+              className={dayChipClass(active, disabled)}
+              title={occupied ? "That day already has a planned session" : undefined}
+            >
+              {DAY_NAMES[i]}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
 
   // ---- render ----
 
@@ -477,8 +656,8 @@ export default function PortalExercisePlanPage() {
                 ? "No sessions logged"
                 : `${sessionsThisWeek} session${sessionsThisWeek === 1 ? "" : "s"} logged`}
             </div>
-            {plannedSessionsCount > 0 && (
-              <div className="mt-1 text-xs text-text-secondary">{plannedSessionsCount} sessions in your rotation</div>
+            {totalPlanSessions > 0 && (
+              <div className="mt-1 text-xs text-text-secondary">{placedSessionsCount}/{totalPlanSessions} sessions placed</div>
             )}
           </section>
           <section className="app-rise app-rise-3 rounded-2xl border border-[#E040D0]/25 bg-[linear-gradient(150deg,#251426_0%,#1a1320_55%,#140f18_100%)] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_40px_-22px_rgba(0,0,0,0.85)]">
@@ -538,7 +717,7 @@ export default function PortalExercisePlanPage() {
           </div>
           {viewMode === "log" && activeSession && plan && plan.sessions.length > 1 && !manuallyPicked && (
             <p className="mt-2 text-[11px] text-text-muted">
-              Scheduled from your programme. Tap the session name to swap.
+              Planned from your week. Tap the session name to swap.
             </p>
           )}
           {viewMode === "log" && manuallyPicked && (
@@ -614,7 +793,7 @@ export default function PortalExercisePlanPage() {
             const isSelected = dayStr === selectedDateStr;
             const todayDay = isToday(day);
             const hasLog = hasLogOnDay(day);
-            const hasPlanned = virtualSchedule.has(dayStr);
+            const hasPlanned = Boolean(calendarSessionsByDate.get(dayStr)?.length);
 
             return (
               <button
@@ -645,6 +824,156 @@ export default function PortalExercisePlanPage() {
           })}
         </div>
       </div>
+
+      {/* ---- Weekly Planner ---- */}
+      <section className="app-card rounded-[28px] p-4 mb-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#E667D6]">Plan Your Week</div>
+            <h2 className="mt-1 text-lg font-heading font-bold text-text-primary">
+              {placedSessionsCount}/{totalPlanSessions} sessions placed
+            </h2>
+          </div>
+          <div className={`rounded-xl border px-3 py-2 text-xs font-semibold ${
+            unassignedSessions.length > 0
+              ? "border-amber-500/25 bg-amber-500/10 text-amber-500"
+              : "border-emerald-500/25 bg-emerald-500/10 text-emerald-500"
+          }`}>
+            {unassignedSessions.length > 0
+              ? `${unassignedSessions.length} unassigned`
+              : "Week ready"}
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-2 sm:grid-cols-7">
+          {weekDays.map((day, i) => {
+            const dayStr = formatDate(day);
+            const planned = plannedSessionsByDate.get(dayStr) || [];
+            return (
+              <button
+                key={dayStr}
+                type="button"
+                onClick={() => selectDay(day)}
+                className={`min-h-[92px] rounded-2xl border p-3 text-left transition-colors cursor-pointer ${
+                  selectedDateStr === dayStr
+                    ? "border-[#E040D0] bg-[#E040D0]/8"
+                    : "border-[rgba(0,0,0,0.06)] bg-[rgba(0,0,0,0.015)] hover:border-[#E040D0]/30"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-muted">{DAY_NAMES[i]}</span>
+                  <span className="text-xs font-heading font-bold text-text-primary">{day.getDate()}</span>
+                </div>
+                <div className="mt-2 space-y-1">
+                  {planned.length > 0 ? planned.map((session) => (
+                    <div key={session.id} className="truncate rounded-lg bg-[#E040D0]/10 px-2 py-1 text-[11px] font-semibold text-[#E040D0]">
+                      {session.name}
+                    </div>
+                  )) : (
+                    <div className="text-[11px] text-text-muted">Open</div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {plannerLoading ? (
+          <div className="mt-4 rounded-2xl border border-[rgba(0,0,0,0.06)] px-4 py-3 text-sm text-text-muted">
+            Loading weekly planner...
+          </div>
+        ) : (
+          <div className="mt-5 space-y-4">
+            {plannerError && (
+              <div className="rounded-2xl border border-red-500/20 bg-red-500/8 px-4 py-3 text-sm font-semibold text-red-400">
+                {plannerError}
+              </div>
+            )}
+            {unassignedSessions.length > 0 && (
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-[0.16em] text-amber-500">Needs Assigning</h3>
+                <div className="mt-2 space-y-2">
+                  {unassignedSessions.map((session) => (
+                    <div key={session.id} className="rounded-2xl border border-amber-500/15 bg-amber-500/5 px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-bold text-text-primary">{session.name}</div>
+                          <div className="mt-0.5 text-[11px] text-text-muted">Session {session.day_number}</div>
+                        </div>
+                        {plannerSavingSessionId === session.id && (
+                          <span className="text-[11px] font-semibold text-text-muted">Saving...</span>
+                        )}
+                      </div>
+                      {renderPlannerDayChips(session, "Assign")}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {sortedSessions.some((session) => assignmentBySessionId.get(session.id)?.planned_date) && (
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-[0.16em] text-text-muted">Placed Sessions</h3>
+                <div className="mt-2 space-y-2">
+                  {sortedSessions.map((session) => {
+                    const assignment = assignmentBySessionId.get(session.id);
+                    if (!assignment?.planned_date) return null;
+                    const plannedLabel = new Date(`${assignment.planned_date}T00:00:00`).toLocaleDateString("en-GB", {
+                      weekday: "short",
+                      day: "numeric",
+                      month: "short",
+                    });
+                    const saving = plannerSavingSessionId === session.id;
+                    return (
+                      <div key={session.id} className="rounded-2xl border border-[rgba(0,0,0,0.06)] px-4 py-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0">
+                            <div className="text-sm font-bold text-text-primary">{session.name}</div>
+                            <div className="mt-1 flex flex-wrap gap-1.5">
+                              <span className="rounded-full bg-[#E040D0]/10 px-2.5 py-1 text-[11px] font-semibold text-[#E040D0]">
+                                {plannedLabel}
+                              </span>
+                              {assignment.is_recurring && (
+                                <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-500">
+                                  Weekly
+                                </span>
+                              )}
+                              {assignment.source === "recurring" && (
+                                <span className="rounded-full bg-[rgba(0,0,0,0.04)] px-2.5 py-1 text-[11px] font-semibold text-text-muted">
+                                  Recurring plan
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              disabled={saving}
+                              onClick={() => savePlannerAssignment(session.id, assignment.planned_date, !assignment.is_recurring, assignment.is_recurring)}
+                              className="rounded-xl border border-[rgba(0,0,0,0.08)] px-3 py-2 text-[11px] font-semibold text-text-secondary transition-colors hover:border-[#E040D0]/35 hover:text-[#E040D0] disabled:opacity-50"
+                            >
+                              {assignment.is_recurring ? "Stop Weekly" : "Make Weekly"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={saving}
+                              onClick={() => savePlannerAssignment(session.id, null, false, assignment.recurrence_stopped)}
+                              className="rounded-xl border border-amber-500/20 px-3 py-2 text-[11px] font-semibold text-amber-500 transition-colors hover:bg-amber-500/10 disabled:opacity-50"
+                            >
+                              Unassign
+                            </button>
+                          </div>
+                        </div>
+                        {renderPlannerDayChips(session, "Move")}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
 
       {/* ---- Rest day: nothing scheduled on this date ---- */}
       {!activeSession && (

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { AdminClient } from "@/lib/admin-data";
-import type { TrafficLight, CheckInMood, TrainingPlan, TrainingPlanPhase, CheckinFormConfig, CheckinFormTemplate, FormQuestion, ClientExercisePlan, ClientNutritionPlan, ProgressMetric, ClientTask, ClientTier, ClientKeyDate, NutritionTemplate } from "@/lib/types";
+import type { TrafficLight, CheckInMood, TrainingPlan, TrainingPlanPhase, CheckinFormConfig, CheckinFormTemplate, FormQuestion, ClientExercisePlan, ClientNutritionPlan, ProgressMetric, ClientTask, ClientTier, ClientKeyDate, NutritionTemplate, WeeklyTrainingAssignment } from "@/lib/types";
 import TrainingPlanBuilder from "@/components/admin/TrainingPlanBuilder";
 import AssignActionChooser from "@/components/admin/AssignActionChooser";
 import ExerciseTemplateBuilder from "@/components/admin/ExerciseTemplateBuilder";
@@ -2750,6 +2750,9 @@ function TrainingTabContent({
   // Training logs for the selected week
   const [weekLogs, setWeekLogs] = useState<Array<{ id: string; exercise_item_id: string; session_id: string | null; log_date: string; sets_data: Array<{ set_number: number; weight: string; reps: string; notes: string }>; completed: boolean }>>([]);
   const [logsLoading, setLogsLoading] = useState(false);
+  const [weeklyPlanner, setWeeklyPlanner] = useState<WeeklyTrainingAssignment[]>([]);
+  const [plannerWeekStart, setPlannerWeekStart] = useState<string | null>(null);
+  const [plannerLoading, setPlannerLoading] = useState(false);
 
   const getWeekRange = (weekNum: number) => {
     const weekStart = new Date(startDate);
@@ -2762,6 +2765,13 @@ function TrainingTabContent({
     };
   };
 
+  const formatLocalDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
   useEffect(() => {
     const { from, to } = getWeekRange(selectedWeek);
     setLogsLoading(true);
@@ -2772,6 +2782,28 @@ function TrainingTabContent({
       .finally(() => setLogsLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client.id, selectedWeek]);
+
+  useEffect(() => {
+    if (!activeExPlan?.id) {
+      setWeeklyPlanner([]);
+      return;
+    }
+
+    const { from } = getWeekRange(selectedWeek);
+    setPlannerLoading(true);
+    fetch(`/api/admin/client-training-planner?clientId=${client.id}&planId=${activeExPlan.id}&weekStart=${from}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setWeeklyPlanner(data.assignments || []);
+        setPlannerWeekStart(data.week_start || from);
+      })
+      .catch(() => {
+        setWeeklyPlanner([]);
+        setPlannerWeekStart(from);
+      })
+      .finally(() => setPlannerLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client.id, activeExPlan?.id, selectedWeek]);
 
   function toggleSession(sessionId: string) {
     setExpandedSessions((prev) => {
@@ -2791,6 +2823,20 @@ function TrainingTabContent({
   const logDates = Object.keys(logsByDate).sort((a, b) => a.localeCompare(b));
 
   const { from: weekFrom, to: weekTo } = getWeekRange(selectedWeek);
+  const plannerStart = new Date(`${plannerWeekStart || weekFrom}T00:00:00`);
+  const plannerDays = Array.from({ length: 7 }, (_, index) => {
+    const d = new Date(plannerStart);
+    d.setDate(d.getDate() + index);
+    return formatLocalDate(d);
+  });
+  const plannerByDate = weeklyPlanner.reduce((acc, assignment) => {
+    if (!assignment.planned_date) return acc;
+    if (!acc[assignment.planned_date]) acc[assignment.planned_date] = [];
+    acc[assignment.planned_date].push(assignment);
+    return acc;
+  }, {} as Record<string, WeeklyTrainingAssignment[]>);
+  const plannedSessionIds = new Set(weeklyPlanner.filter((assignment) => assignment.planned_date).map((assignment) => assignment.session_id));
+  const plannerUnassigned = activeExPlan?.sessions.filter((session) => !plannedSessionIds.has(session.id)) || [];
 
   return (
     <div className="space-y-6">
@@ -2923,6 +2969,59 @@ function TrainingTabContent({
           </div>
         )}
       </div>
+
+      {activeExPlan && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-heading font-bold text-text-primary">Weekly Plan</h2>
+            <span className={`text-xs font-semibold rounded-full px-3 py-1 ${
+              plannerUnassigned.length > 0
+                ? "bg-amber-500/10 text-amber-500"
+                : "bg-emerald-500/10 text-emerald-500"
+            }`}>
+              {plannerUnassigned.length > 0 ? `${plannerUnassigned.length} unassigned` : "Week ready"}
+            </span>
+          </div>
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4">
+            {plannerLoading ? (
+              <p className="text-sm text-text-muted">Loading weekly plan...</p>
+            ) : (
+              <>
+                <div className="grid gap-2 sm:grid-cols-7">
+                  {plannerDays.map((date) => {
+                    const assignments = plannerByDate[date] || [];
+                    return (
+                      <div key={date} className="min-h-[82px] rounded-xl border border-[rgba(0,0,0,0.06)] p-3">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-muted">
+                          {new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric" })}
+                        </div>
+                        <div className="mt-2 space-y-1">
+                          {assignments.length > 0 ? assignments.map((assignment) => {
+                            const session = activeExPlan.sessions.find((s) => s.id === assignment.session_id);
+                            return (
+                              <div key={assignment.session_id} className="rounded-lg bg-[#E040D0]/10 px-2 py-1 text-[11px] font-semibold text-[#E040D0]">
+                                {session?.name || "Session"}
+                                {assignment.is_recurring ? " · weekly" : ""}
+                              </div>
+                            );
+                          }) : (
+                            <p className="text-[11px] text-text-muted">Open</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {plannerUnassigned.length > 0 && (
+                  <div className="mt-4 rounded-xl border border-amber-500/15 bg-amber-500/5 px-3 py-2 text-xs text-amber-500">
+                    Not placed: {plannerUnassigned.map((session) => session.name).join(", ")}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Section 2: Training Logs ── */}
       <div>

@@ -4,6 +4,11 @@ import { getShiftBrainContextResult } from "@/lib/brain-retrieval";
 import { trackAIUsage } from "@/lib/ai-usage";
 import { rateLimit } from "@/lib/rate-limit";
 import { getCyclePhase, isCycleEligible, toDateKey, type CycleSettings } from "@/lib/cycle-tracking";
+import {
+  formatPlannerDate,
+  getPlannerWeekStart,
+  loadWeeklyTrainingAssignments,
+} from "@/lib/training-planner";
 import { NextRequest, NextResponse } from "next/server";
 
 const tools = [
@@ -413,7 +418,54 @@ Help with quick questions: meal ideas, short workouts, sleep tips, finding Educa
     distinct_days_logged_last_14_days: distinctDaysLogged,
   };
 
-  // Next scheduled session via rotation (mirrors /portal/exercise-plan behavior).
+  const todayStr = formatPlannerDate(new Date());
+  const currentWeekStart = formatPlannerDate(getPlannerWeekStart(new Date()));
+
+  let weeklyPlannedSessions: Array<{
+    date: string;
+    day_number: number;
+    name: string;
+    is_recurring: boolean;
+    source: string;
+  }> = [];
+  let weeklyUnassignedSessions: Array<{ day_number: number; name: string }> = [];
+  let hasWeeklyPlannerData = false;
+  if (activeExercisePlan?.id && exerciseSessionOrder.length > 0 && profile?.id) {
+    const weeklyPlanner = await loadWeeklyTrainingAssignments(admin, {
+      clientId: profile.id,
+      planId: activeExercisePlan.id,
+      weekStart: currentWeekStart,
+      sessionIds: exerciseSessionOrder.map((session) => session.id),
+    });
+
+    if (!weeklyPlanner.error) {
+      hasWeeklyPlannerData = weeklyPlanner.assignments.length > 0;
+      const plannedBySessionId = new Map(weeklyPlanner.assignments.map((assignment) => [assignment.session_id, assignment]));
+      weeklyPlannedSessions = weeklyPlanner.assignments
+        .filter((assignment) => assignment.planned_date)
+        .flatMap((assignment) => {
+          const session = exerciseSessionOrder.find((item) => item.id === assignment.session_id);
+          return session && assignment.planned_date
+            ? {
+                date: assignment.planned_date || "",
+                day_number: session.day_number,
+                name: session.name,
+                is_recurring: assignment.is_recurring,
+                source: assignment.source || "explicit",
+              }
+            : [];
+        })
+        .sort((a, b) => a.date.localeCompare(b.date) || a.day_number - b.day_number);
+
+      weeklyUnassignedSessions = exerciseSessionOrder
+        .filter((session) => !plannedBySessionId.get(session.id)?.planned_date)
+        .map((session) => ({ day_number: session.day_number, name: session.name }));
+    }
+  }
+
+  const plannedToday = weeklyPlannedSessions.find((session) => session.date === todayStr) || null;
+
+  // Next scheduled session via rotation fallback.
   // day_number is a 1..N sequence index in the plan, NOT a weekday. The portal
   // advances from the most recently logged session_id, whether that session was
   // fully completed or just started, because the UI flips a day into readonly as
@@ -435,8 +487,10 @@ Help with quick questions: meal ideas, short workouts, sleep tips, finding Educa
   }
   // Has the client already logged any session today? This mirrors the training UI,
   // which flips today's session into readonly once there is a session log for it.
-  const todayStr = new Date().toISOString().split("T")[0];
   const loggedToday = (recentLogs || []).some((l) => l.session_id && l.log_date === todayStr);
+  const nextPlannedThisWeek = weeklyPlannedSessions.find((session) =>
+    loggedToday ? session.date > todayStr : session.date >= todayStr
+  ) || null;
 
   const systemPrompt = `You are SHIFT AI, ${userData?.full_name ? `${userData.full_name.split(" ")[0]}'s` : "the"} coaching assistant inside Gordy Elliott's SHIFT Coaching client portal. You know this specific client's real training plan, nutrition plan, recent adherence, latest check-in, published education material, and private de-identified SHIFT Coaching Brain context. You answer from that data first and only fall back to general principles when the data genuinely doesn't cover the question.
 
@@ -463,7 +517,12 @@ ${activeExercisePlan
 Description: ${activeExercisePlan.description || "—"}
 NOTE on day_number: this is a SEQUENCE INDEX (Day 1, Day 2, Day 3…), not a weekday. The portal advances through sessions in order — the next session after the most recently logged session is simply (last logged index + 1) mod total.
 Already logged a session today (${todayStr}): ${loggedToday ? "yes" : "no"}
-Next scheduled session (rotation-based, matches the portal UI): ${upcomingSession ? `Day ${upcomingSession.day_number} — ${upcomingSession.name}` : "none yet — tell the client to start at Day 1 when they open the training page"}
+Weekly planner has explicit rows this week: ${hasWeeklyPlannerData ? "yes" : "no"}
+Weekly planner week starting ${currentWeekStart}: ${weeklyPlannedSessions.length > 0 ? JSON.stringify(weeklyPlannedSessions, null, 2) : "No sessions placed onto specific days this week."}
+Unassigned sessions this week: ${weeklyUnassignedSessions.length > 0 ? JSON.stringify(weeklyUnassignedSessions, null, 2) : "None"}
+Today's planned session from weekly planner: ${plannedToday ? `Day ${plannedToday.day_number} — ${plannedToday.name}` : "None placed for today"}
+Next planned session this week: ${nextPlannedThisWeek ? `${nextPlannedThisWeek.date}: Day ${nextPlannedThisWeek.day_number} — ${nextPlannedThisWeek.name}` : "None placed later this week"}
+Rotation fallback if weekly planner has no explicit rows this week: ${!hasWeeklyPlannerData && upcomingSession ? `Day ${upcomingSession.day_number} — ${upcomingSession.name}` : !hasWeeklyPlannerData ? "none yet — tell the client to start at Day 1 when they open the training page" : "disabled because this week has explicit planner rows, including any intentionally unassigned sessions"}
 All sessions in order: ${JSON.stringify(exerciseSessions, null, 2)}`
   : "No active training plan assigned yet — recommend they ask Gordy to assign one."}
 
@@ -511,7 +570,7 @@ PRIORITY ORDER when forming any answer:
   4. SHIFT Coaching Brain + Education Hub modules — use these heavily for technique, mindset, nutrition education, habits, and "how should I think about..." questions
 
 SPECIFIC QUESTION TYPES:
-- "What training do I have today / next?" → If loggedToday=yes, confirm they've already logged today's session and point to what's next in the rotation. Otherwise, name the upcomingSession above (rotation-based, NOT weekday-based) and list its exercises with sets x reps. Never invent a weekday-to-session mapping — the plan doesn't have one. If no plan is assigned, say so plainly.
+- "What training do I have today / next?" → If loggedToday=yes, confirm they've already logged today's session and point to the next placed weekly session if there is one. If not logged today and Today's planned session from weekly planner exists, name that first and list its exercises with sets x reps. If today is open but there is a Next planned session this week, name that date/session. Only use Rotation fallback when "Weekly planner has explicit rows this week" is "no". If explicit planner rows exist but no session is placed for today/later, say the week is open/unassigned rather than recommending the rotation fallback. Never invent a weekday-to-session mapping — only use the Weekly planner data above. If no plan is assigned, say so plainly.
 - "What should I focus on this week?" → Lead with any priority_message / support_ask from the LATEST CHECK-IN. Then reference Gordy's coaching plan phases. Then adherence gaps from RECENT TRAINING ADHERENCE.
 - "What can I swap X with?" → You do NOT have access to Gordy's full foods library here — only the foods that are in the client's active meal plan above. Strategy: (1) if an alternative in the same meal plan has similar macros, suggest that first with gram amounts; (2) otherwise suggest a common fitness staple substitute (e.g. almond butter ↔ peanut butter ↔ sunflower seed butter) with approximate macros per the typical serving, and flag that Gordy would need to add it to the meal plan if they want it tracked. Always state the macro delta (kcal/P/C/F) when estimating, and prefix estimates with "roughly".
 - "What lesson should I do next?" → Recommend an assigned education module that hasn't been completed (status !== "completed"). Use its plain English title. If all assigned modules are completed, recommend the closest relevant published Education Hub module and say it may need Gordy to assign/unlock it.

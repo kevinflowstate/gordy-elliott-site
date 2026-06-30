@@ -1,3 +1,0 @@
--- Placeholder for a remote migration version already recorded in Supabase.
--- The original migration file is not present in this repository checkout.
--- Keep this no-op file so local migration history matches production history.
