@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { ExerciseTemplate } from "@/lib/types";
+import { formatExercisePrescription } from "@/lib/exercise-prescriptions";
 import ExerciseTemplateBuilder from "@/components/admin/ExerciseTemplateBuilder";
 
 const CATEGORIES = ["strength", "hypertrophy", "conditioning", "flexibility", "general"] as const;
@@ -564,7 +565,7 @@ function TemplatePreview({ template, onEdit, onClose }: TemplatePreviewProps) {
                             </div>
                             <div className="flex gap-2 flex-shrink-0">
                               <span className="text-[13px] px-2 py-0.5 rounded-md bg-accent-bright/10 text-accent-bright font-medium">
-                                {item.sets} x {item.reps}
+                                {formatExercisePrescription(item)}
                               </span>
                               {item.rest_seconds && (
                                 <span className="text-[13px] px-2 py-0.5 rounded-md bg-[rgba(0,0,0,0.04)] text-text-secondary">

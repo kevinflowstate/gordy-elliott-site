@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
+import { formatExercisePrescription, shouldUseSetLogging } from "@/lib/exercise-prescriptions";
 import type { ClientExercisePlan, ExerciseSession, WeeklyTrainingAssignment } from "@/lib/types";
 
 interface SetData {
@@ -338,7 +339,7 @@ export default function PortalExercisePlanPage() {
     const drafts: Record<string, SetData[]> = {};
     for (const item of session.items) {
       if (item.exercise_id === "__section__") continue;
-      const setsCount = Number(item.sets) || 3;
+      const setsCount = shouldUseSetLogging(item) ? Number(item.sets) || 3 : 1;
       drafts[item.id] = Array.from({ length: setsCount }, (_, i) => ({
         set_number: i + 1,
         weight: "",
@@ -1135,7 +1136,7 @@ export default function PortalExercisePlanPage() {
                         )}
                       </div>
                       <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-[rgba(224,64,208,0.10)] text-[#E040D0] flex-shrink-0">
-                        {item.sets} x {item.reps}
+                        {formatExercisePrescription(item)}
                       </span>
                     </div>
                     {(log?.sets_data?.length ?? 0) > 0 && (
@@ -1145,7 +1146,9 @@ export default function PortalExercisePlanPage() {
                             key={i}
                             className="text-xs px-2.5 py-1 rounded-lg bg-[rgba(0,0,0,0.04)] text-text-secondary font-medium"
                           >
-                            {s.weight ? `${s.weight}kg` : "--"} x {s.reps || "--"}
+                            {shouldUseSetLogging(item)
+                              ? `${s.weight ? `${s.weight}kg` : "--"} x ${s.reps || "--"}`
+                              : s.reps || s.notes || "--"}
                           </span>
                         ))}
                       </div>
@@ -1192,6 +1195,7 @@ export default function PortalExercisePlanPage() {
                 }
 
                 const sets = draftSets[item.id] || [];
+                const useSetLogging = shouldUseSetLogging(item);
 
                 return (
                   <div key={item.id} className="px-3 py-3 sm:px-5 sm:py-4">
@@ -1209,7 +1213,7 @@ export default function PortalExercisePlanPage() {
                       </div>
                       <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                         <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-[rgba(224,64,208,0.10)] text-[#E040D0]">
-                          {item.sets} x {item.reps}
+                          {formatExercisePrescription(item)}
                         </span>
                         <div className="flex gap-1.5">
                           {item.rest_seconds && (
@@ -1247,47 +1251,67 @@ export default function PortalExercisePlanPage() {
 
                     {/* Sets input grid */}
                     <div className="space-y-3">
-                      <div className="hidden sm:grid sm:grid-cols-[28px_1fr_1fr_1fr] gap-2 px-1">
-                        <span className="text-[10px] text-text-secondary font-medium text-center">#</span>
-                        <span className="text-[10px] text-text-secondary font-medium">Weight (kg)</span>
-                        <span className="text-[10px] text-text-secondary font-medium">Reps</span>
-                        <span className="text-[10px] text-text-secondary font-medium">Notes</span>
-                      </div>
+                      {useSetLogging && (
+                        <div className="hidden sm:grid sm:grid-cols-[28px_1fr_1fr_1fr] gap-2 px-1">
+                          <span className="text-[10px] text-text-secondary font-medium text-center">#</span>
+                          <span className="text-[10px] text-text-secondary font-medium">Weight (kg)</span>
+                          <span className="text-[10px] text-text-secondary font-medium">Reps</span>
+                          <span className="text-[10px] text-text-secondary font-medium">Notes</span>
+                        </div>
+                      )}
                       {sets.map((set, setIdx) => (
                         <div key={setIdx} className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.025)] p-3">
-                          <div className="grid grid-cols-[3.25rem_1fr_1fr] gap-2 sm:grid-cols-[28px_1fr_1fr_1fr] sm:items-center">
-                            <div className="flex h-full min-h-[54px] flex-col items-center justify-center rounded-xl border border-[#E040D0]/20 bg-[#E040D0]/8 text-center sm:min-h-0 sm:border-0 sm:bg-transparent">
-                              <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#E040D0] sm:hidden">Set</span>
-                              <span className="text-base font-heading font-bold text-text-primary sm:text-xs sm:text-text-secondary" aria-label={`Set ${set.set_number}`}>{set.set_number}</span>
-                            </div>
-                            <label className="block">
-                              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted sm:hidden">Weight</span>
-                              <div className="relative">
+                          <div className={useSetLogging ? "grid grid-cols-[3.25rem_1fr_1fr] gap-2 sm:grid-cols-[28px_1fr_1fr_1fr] sm:items-center" : "grid gap-2 sm:grid-cols-[1fr_1fr]"}>
+                            {useSetLogging && (
+                              <div className="flex h-full min-h-[54px] flex-col items-center justify-center rounded-xl border border-[#E040D0]/20 bg-[#E040D0]/8 text-center sm:min-h-0 sm:border-0 sm:bg-transparent">
+                                <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#E040D0] sm:hidden">Set</span>
+                                <span className="text-base font-heading font-bold text-text-primary sm:text-xs sm:text-text-secondary" aria-label={`Set ${set.set_number}`}>{set.set_number}</span>
+                              </div>
+                            )}
+                            {useSetLogging ? (
+                              <>
+                                <label className="block">
+                                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted sm:hidden">Weight</span>
+                                  <div className="relative">
+                                    <input
+                                      type="text"
+                                      inputMode="decimal"
+                                      placeholder="0"
+                                      aria-label={`Set ${set.set_number} weight in kg`}
+                                      value={set.weight}
+                                      onChange={(e) => updateSet(item.id, setIdx, "weight", e.target.value)}
+                                      className="w-full rounded-xl border border-[#E040D0]/20 bg-white px-3 py-3 pr-9 text-base font-semibold text-text-primary placeholder:text-text-muted/40 shadow-inner focus:outline-none focus:border-[#E040D0]/60 sm:bg-[rgba(0,0,0,0.03)] sm:py-1.5 sm:text-sm"
+                                    />
+                                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-text-muted">kg</span>
+                                  </div>
+                                </label>
+                                <label className="block">
+                                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted sm:hidden">Reps</span>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    placeholder={item.reps}
+                                    aria-label={`Set ${set.set_number} reps`}
+                                    value={set.reps}
+                                    onChange={(e) => updateSet(item.id, setIdx, "reps", e.target.value)}
+                                    className="w-full rounded-xl border border-[#E040D0]/20 bg-white px-3 py-3 text-base font-semibold text-text-primary placeholder:text-text-muted/40 shadow-inner focus:outline-none focus:border-[#E040D0]/60 sm:bg-[rgba(0,0,0,0.03)] sm:py-1.5 sm:text-sm"
+                                  />
+                                </label>
+                              </>
+                            ) : (
+                              <label className="block">
+                                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">Result</span>
                                 <input
                                   type="text"
-                                  inputMode="decimal"
-                                  placeholder="0"
-                                  aria-label={`Set ${set.set_number} weight in kg`}
-                                  value={set.weight}
-                                  onChange={(e) => updateSet(item.id, setIdx, "weight", e.target.value)}
-                                  className="w-full rounded-xl border border-[#E040D0]/20 bg-white px-3 py-3 pr-9 text-base font-semibold text-text-primary placeholder:text-text-muted/40 shadow-inner focus:outline-none focus:border-[#E040D0]/60 sm:bg-[rgba(0,0,0,0.03)] sm:py-1.5 sm:text-sm"
+                                  placeholder={formatExercisePrescription(item)}
+                                  aria-label={`${item.exercise?.name || "Exercise"} result`}
+                                  value={set.reps}
+                                  onChange={(e) => updateSet(item.id, setIdx, "reps", e.target.value)}
+                                  className="w-full rounded-xl border border-[#E040D0]/20 bg-white px-3 py-3 text-base font-semibold text-text-primary placeholder:text-text-muted/40 shadow-inner focus:outline-none focus:border-[#E040D0]/60 sm:bg-[rgba(0,0,0,0.03)] sm:py-2 sm:text-sm"
                                 />
-                                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-text-muted">kg</span>
-                              </div>
-                            </label>
-                            <label className="block">
-                              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted sm:hidden">Reps</span>
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                placeholder={item.reps}
-                                aria-label={`Set ${set.set_number} reps`}
-                                value={set.reps}
-                                onChange={(e) => updateSet(item.id, setIdx, "reps", e.target.value)}
-                                className="w-full rounded-xl border border-[#E040D0]/20 bg-white px-3 py-3 text-base font-semibold text-text-primary placeholder:text-text-muted/40 shadow-inner focus:outline-none focus:border-[#E040D0]/60 sm:bg-[rgba(0,0,0,0.03)] sm:py-1.5 sm:text-sm"
-                              />
-                            </label>
-                            <label className="col-span-3 block sm:col-span-1">
+                              </label>
+                            )}
+                            <label className={useSetLogging ? "col-span-3 block sm:col-span-1" : "block"}>
                               <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted sm:hidden">Notes</span>
                               <input
                                 type="text"
@@ -1303,12 +1327,14 @@ export default function PortalExercisePlanPage() {
                       ))}
                     </div>
 
-                    <button
-                      onClick={() => addSet(item.id)}
-                      className="mt-3 rounded-xl border border-[#E040D0]/20 bg-[#E040D0]/8 px-3 py-2 text-xs font-semibold text-[#E040D0] transition-colors hover:bg-[#E040D0]/12 cursor-pointer"
-                    >
-                      + Add set
-                    </button>
+                    {useSetLogging && (
+                      <button
+                        onClick={() => addSet(item.id)}
+                        className="mt-3 rounded-xl border border-[#E040D0]/20 bg-[#E040D0]/8 px-3 py-2 text-xs font-semibold text-[#E040D0] transition-colors hover:bg-[#E040D0]/12 cursor-pointer"
+                      >
+                        + Add set
+                      </button>
+                    )}
                     </div>
                   </div>
                 );

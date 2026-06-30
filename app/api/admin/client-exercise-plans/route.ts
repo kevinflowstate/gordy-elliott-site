@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/admin-auth";
 import { dbError } from "@/lib/api-errors";
 import { notifyClientProfile } from "@/lib/client-notifications";
+import { normalisePrescriptionType } from "@/lib/exercise-prescriptions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
@@ -175,6 +176,8 @@ export async function POST(request: Request) {
             order_index: item.order_index,
             sets: item.sets,
             reps: item.reps,
+            prescription_type: normalisePrescriptionType(item.prescription_type),
+            prescription_text: item.prescription_text || null,
             rest_seconds: item.rest_seconds,
             tempo: item.tempo,
             notes: item.notes,
@@ -255,12 +258,14 @@ export async function POST(request: Request) {
 
       if (realItems.length > 0) {
         await admin.from("client_exercise_session_items").insert(
-          realItems.map((item: { exercise_id: string; order_index: number; sets: number; reps: string; rest_seconds?: number; tempo?: string; notes?: string; section_label?: string; superset_group?: string }) => ({
+          realItems.map((item: { exercise_id: string; order_index: number; sets: number; reps: string; prescription_type?: string | null; prescription_text?: string | null; rest_seconds?: number; tempo?: string; notes?: string; section_label?: string; superset_group?: string }) => ({
             session_id: newSession.id,
             exercise_id: item.exercise_id,
             order_index: item.order_index,
             sets: item.sets,
             reps: item.reps,
+            prescription_type: normalisePrescriptionType(item.prescription_type),
+            prescription_text: item.prescription_text || null,
             rest_seconds: item.rest_seconds || null,
             tempo: item.tempo || null,
             notes: item.notes || null,

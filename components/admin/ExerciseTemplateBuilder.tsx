@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { ExerciseTemplate, ExerciseSession, ExerciseSessionItem, Exercise } from "@/lib/types";
 import DndSortableList, { DragHandle } from "@/components/ui/DndSortableList";
+import { PRESCRIPTION_TYPES, normalisePrescriptionType } from "@/lib/exercise-prescriptions";
 import ExercisePicker from "./ExercisePicker";
 
 interface ExerciseTemplateBuilderProps {
@@ -51,6 +52,8 @@ function createEmptyItem(exercise: Exercise, orderIndex: number): ExerciseSessio
     order_index: orderIndex,
     sets: 3,
     reps: "10",
+    prescription_type: "sets_reps",
+    prescription_text: "",
     rest_seconds: 60,
     tempo: "",
     notes: "",
@@ -531,11 +534,10 @@ function SessionCard({
           <div>
             <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-2">Exercises</label>
             {/* Column headers - must match ExerciseItemRow flex widths exactly */}
-            {/* drag(16) gap(4) name(flex) gap(4) sets(52) gap(4) reps(64) gap(4) rest(72) gap(4) tempo(80) gap(4) notes(80) gap(4) ss(28) gap(4) remove(28) */}
             <div className="flex items-center gap-1 mb-1 pl-[20px]">
               <div className="flex-1 text-[9px] font-semibold text-text-muted uppercase tracking-wider">Exercise</div>
-              <div className="w-[52px] text-[9px] font-semibold text-text-muted uppercase tracking-wider text-center">Sets</div>
-              <div className="w-16 text-[9px] font-semibold text-text-muted uppercase tracking-wider text-center">Reps</div>
+              <div className="w-[92px] text-[9px] font-semibold text-text-muted uppercase tracking-wider text-center">Type</div>
+              <div className="w-[116px] text-[9px] font-semibold text-text-muted uppercase tracking-wider text-center">Target</div>
               <div className="w-[72px] text-[9px] font-semibold text-text-muted uppercase tracking-wider text-center">Rest (s)</div>
               <div className="w-20 text-[9px] font-semibold text-text-muted uppercase tracking-wider text-center">Tempo</div>
               <div className="w-20 text-[9px] font-semibold text-text-muted uppercase tracking-wider text-center">Notes</div>
@@ -605,6 +607,8 @@ function ExerciseItemRow({ item, itemIndex, totalItems, dragHandleProps, onUpdat
     "w-full bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-lg px-2 py-1.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/30 transition-colors text-center";
 
   const inSuperset = !!item.superset_group;
+  const prescriptionType = normalisePrescriptionType(item.prescription_type);
+  const prescriptionOption = PRESCRIPTION_TYPES.find((option) => option.value === prescriptionType) || PRESCRIPTION_TYPES[0];
 
   // Section divider item (no exercise, just a label)
   if (item.exercise_id === "__section__") {
@@ -663,26 +667,55 @@ function ExerciseItemRow({ item, itemIndex, totalItems, dragHandleProps, onUpdat
             )}
           </div>
         </div>
-        {/* Sets */}
-        <div className="w-[52px]">
-          <input
-            type="number"
-            min="1"
-            max="20"
-            value={item.sets}
-            onChange={(e) => onUpdate({ sets: parseInt(e.target.value, 10) || 1 })}
-            className={inputClass}
-          />
+        {/* Prescription type */}
+        <div className="w-[92px]">
+          <select
+            value={prescriptionType}
+            onChange={(e) => {
+              const nextType = normalisePrescriptionType(e.target.value);
+              onUpdate({
+                prescription_type: nextType,
+                prescription_text: nextType === "sets_reps" ? "" : item.prescription_text || PRESCRIPTION_TYPES.find((option) => option.value === nextType)?.placeholder || "",
+              });
+            }}
+            className="w-full bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-lg px-2 py-1.5 text-[11px] text-text-primary focus:outline-none focus:border-accent/30 transition-colors"
+          >
+            {PRESCRIPTION_TYPES.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
         </div>
-        {/* Reps */}
-        <div className="w-16">
-          <input
-            type="text"
-            value={item.reps}
-            onChange={(e) => onUpdate({ reps: e.target.value })}
-            placeholder="10"
-            className={inputClass}
-          />
+        {/* Target */}
+        <div className="w-[116px]">
+          {prescriptionType === "sets_reps" ? (
+            <div className="grid grid-cols-[44px_1fr] gap-1">
+              <input
+                type="number"
+                min="1"
+                max="20"
+                value={item.sets}
+                onChange={(e) => onUpdate({ sets: parseInt(e.target.value, 10) || 1 })}
+                aria-label="Sets"
+                className={inputClass}
+              />
+              <input
+                type="text"
+                value={item.reps}
+                onChange={(e) => onUpdate({ reps: e.target.value })}
+                placeholder="10"
+                aria-label="Reps"
+                className={inputClass}
+              />
+            </div>
+          ) : (
+            <input
+              type="text"
+              value={item.prescription_text || ""}
+              onChange={(e) => onUpdate({ prescription_text: e.target.value })}
+              placeholder={prescriptionOption.placeholder}
+              className={inputClass}
+            />
+          )}
         </div>
         {/* Rest */}
         <div className="w-[72px]">

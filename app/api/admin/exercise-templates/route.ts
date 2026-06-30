@@ -1,5 +1,6 @@
 import { requireAdmin } from "@/lib/admin-auth";
 import { dbError } from "@/lib/api-errors";
+import { normalisePrescriptionType } from "@/lib/exercise-prescriptions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
@@ -164,6 +165,8 @@ export async function POST(request: Request) {
             order_index: number;
             sets: number;
             reps: string;
+            prescription_type?: string | null;
+            prescription_text?: string | null;
             rest_seconds?: number;
             tempo?: string;
             notes?: string;
@@ -175,6 +178,8 @@ export async function POST(request: Request) {
             order_index: item.order_index,
             sets: item.sets,
             reps: item.reps,
+            prescription_type: normalisePrescriptionType(item.prescription_type),
+            prescription_text: item.prescription_text || null,
             rest_seconds: item.rest_seconds || null,
             tempo: item.tempo || null,
             notes: item.notes || null,

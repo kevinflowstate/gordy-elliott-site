@@ -4,6 +4,7 @@ import { getShiftBrainContextResult } from "@/lib/brain-retrieval";
 import { trackAIUsage } from "@/lib/ai-usage";
 import { rateLimit } from "@/lib/rate-limit";
 import { getCyclePhase, isCycleEligible, toDateKey, type CycleSettings } from "@/lib/cycle-tracking";
+import { formatExercisePrescription } from "@/lib/exercise-prescriptions";
 import {
   formatPlannerDate,
   getPlannerWeekStart,
@@ -163,12 +164,12 @@ export async function POST(req: NextRequest) {
     .limit(1);
   const activeExercisePlan = activeExercisePlans?.[0] || null;
 
-  let exerciseSessions: Array<{ day_number: number; name: string; notes: string | null; items: Array<{ exercise_name: string; sets: number; reps: string; rest_seconds: number | null; notes: string | null }> }> = [];
+  let exerciseSessions: Array<{ day_number: number; name: string; notes: string | null; items: Array<{ exercise_name: string; prescription: string; rest_seconds: number | null; notes: string | null }> }> = [];
   let exerciseSessionOrder: Array<{ id: string; day_number: number; name: string }> = [];
   if (activeExercisePlan?.id) {
     const { data: sessions } = await admin
       .from("client_exercise_sessions")
-      .select("id, day_number, name, notes, items:client_exercise_session_items(sets, reps, rest_seconds, notes, order_index, exercise:exercises(name))")
+      .select("id, day_number, name, notes, items:client_exercise_session_items(sets, reps, prescription_type, prescription_text, rest_seconds, notes, order_index, exercise:exercises(name))")
       .eq("plan_id", activeExercisePlan.id)
       .order("day_number");
     exerciseSessionOrder = (sessions || []).map((s: { id: string; day_number: number; name: string }) => ({
@@ -176,7 +177,7 @@ export async function POST(req: NextRequest) {
       day_number: s.day_number,
       name: s.name,
     }));
-    exerciseSessions = (sessions || []).map((s: { id: string; day_number: number; name: string; notes: string | null; items: Array<{ sets: number; reps: string; rest_seconds: number | null; notes: string | null; order_index: number; exercise: { name: string } | { name: string }[] | null }> }) => ({
+    exerciseSessions = (sessions || []).map((s: { id: string; day_number: number; name: string; notes: string | null; items: Array<{ sets: number; reps: string; prescription_type?: string; prescription_text?: string | null; rest_seconds: number | null; notes: string | null; order_index: number; exercise: { name: string } | { name: string }[] | null }> }) => ({
       day_number: s.day_number,
       name: s.name,
       notes: s.notes,
@@ -186,8 +187,7 @@ export async function POST(req: NextRequest) {
           const ex = Array.isArray(item.exercise) ? item.exercise[0] : item.exercise;
           return {
             exercise_name: ex?.name || "(section)",
-            sets: item.sets,
-            reps: item.reps,
+            prescription: formatExercisePrescription(item),
             rest_seconds: item.rest_seconds,
             notes: item.notes,
           };
@@ -570,7 +570,7 @@ PRIORITY ORDER when forming any answer:
   4. SHIFT Coaching Brain + Education Hub modules — use these heavily for technique, mindset, nutrition education, habits, and "how should I think about..." questions
 
 SPECIFIC QUESTION TYPES:
-- "What training do I have today / next?" → If loggedToday=yes, confirm they've already logged today's session and point to the next placed weekly session if there is one. If not logged today and Today's planned session from weekly planner exists, name that first and list its exercises with sets x reps. If today is open but there is a Next planned session this week, name that date/session. Only use Rotation fallback when "Weekly planner has explicit rows this week" is "no". If explicit planner rows exist but no session is placed for today/later, say the week is open/unassigned rather than recommending the rotation fallback. Never invent a weekday-to-session mapping — only use the Weekly planner data above. If no plan is assigned, say so plainly.
+- "What training do I have today / next?" → If loggedToday=yes, confirm they've already logged today's session and point to the next placed weekly session if there is one. If not logged today and Today's planned session from weekly planner exists, name that first and list its exercises with their prescription targets. If today is open but there is a Next planned session this week, name that date/session. Only use Rotation fallback when "Weekly planner has explicit rows this week" is "no". If explicit planner rows exist but no session is placed for today/later, say the week is open/unassigned rather than recommending the rotation fallback. Never invent a weekday-to-session mapping — only use the Weekly planner data above. If no plan is assigned, say so plainly.
 - "What should I focus on this week?" → Lead with any priority_message / support_ask from the LATEST CHECK-IN. Then reference Gordy's coaching plan phases. Then adherence gaps from RECENT TRAINING ADHERENCE.
 - "What can I swap X with?" → You do NOT have access to Gordy's full foods library here — only the foods that are in the client's active meal plan above. Strategy: (1) if an alternative in the same meal plan has similar macros, suggest that first with gram amounts; (2) otherwise suggest a common fitness staple substitute (e.g. almond butter ↔ peanut butter ↔ sunflower seed butter) with approximate macros per the typical serving, and flag that Gordy would need to add it to the meal plan if they want it tracked. Always state the macro delta (kcal/P/C/F) when estimating, and prefix estimates with "roughly".
 - "What lesson should I do next?" → Recommend an assigned education module that hasn't been completed (status !== "completed"). Use its plain English title. If all assigned modules are completed, recommend the closest relevant published Education Hub module and say it may need Gordy to assign/unlock it.

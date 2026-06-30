@@ -279,6 +279,8 @@ export interface Exercise {
   created_at: string;
 }
 
+export type PrescriptionType = "sets_reps" | "time" | "calories" | "rounds" | "amrap" | "distance" | "custom";
+
 export interface ExerciseSessionItem {
   id: string;
   session_id: string;
@@ -287,6 +289,8 @@ export interface ExerciseSessionItem {
   order_index: number;
   sets: number;
   reps: string;
+  prescription_type?: PrescriptionType;
+  prescription_text?: string | null;
   rest_seconds?: number;
   tempo?: string;
   notes?: string;

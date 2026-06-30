@@ -18,7 +18,10 @@ export default function ExercisePicker({ onPick, onClose }: ExercisePickerProps)
   const [muscleGroup, setMuscleGroup] = useState("");
   const [equipment, setEquipment] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [showBulk, setShowBulk] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [bulkText, setBulkText] = useState("");
   const [createForm, setCreateForm] = useState({
     name: "",
     muscle_group: "legs",
@@ -98,6 +101,38 @@ export default function ExercisePicker({ onPick, onClose }: ExercisePickerProps)
       toast("Couldn't reach the exercise library API", "error");
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function importExercises() {
+    if (!bulkText.trim()) {
+      toast("Paste at least one exercise row", "error");
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const res = await fetch("/api/admin/exercises/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: bulkText }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast(data.error || "Couldn't import those exercises", "error");
+        return;
+      }
+
+      const imported = data.imported || [];
+      const skipped = data.skipped || [];
+      setExercises((prev) => [...imported, ...prev]);
+      setBulkText("");
+      setShowBulk(false);
+      toast(`Imported ${imported.length} exercise${imported.length === 1 ? "" : "s"}${skipped.length ? `, skipped ${skipped.length}` : ""}`);
+    } catch {
+      toast("Couldn't reach the exercise import API", "error");
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -236,6 +271,40 @@ export default function ExercisePicker({ onPick, onClose }: ExercisePickerProps)
                 </button>
               </div>
             </div>
+          ) : showBulk ? (
+            <div className="px-5 py-4 space-y-3">
+              <div>
+                <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-text-muted">Paste Exercises</label>
+                <textarea
+                  value={bulkText}
+                  onChange={(e) => setBulkText(e.target.value)}
+                  rows={9}
+                  className="w-full resize-none rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 font-mono text-xs text-text-primary placeholder:text-text-muted focus:border-accent/40 focus:outline-none"
+                  placeholder={"name,muscle_group,equipment,description,video_url\nSled Push,legs,sled,Heavy push for distance,\nAssault Bike,cardio,cardio_machine,Conditioning calories,"}
+                  autoFocus
+                />
+                <p className="mt-2 text-[11px] leading-snug text-text-muted">
+                  Columns: name, muscle group, equipment, description, video URL. Commas or tabs both work. Existing active exercise names are skipped.
+                </p>
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowBulk(false)}
+                  className="rounded-xl border border-[rgba(0,0,0,0.08)] px-4 py-2 text-xs font-medium text-text-secondary transition-colors hover:bg-[rgba(0,0,0,0.03)]"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={importExercises}
+                  disabled={importing || !bulkText.trim()}
+                  className="rounded-xl bg-accent-bright px-4 py-2 text-xs font-semibold text-black transition-opacity disabled:opacity-40"
+                >
+                  {importing ? "Importing..." : "Import"}
+                </button>
+              </div>
+            </div>
           ) : loading ? (
             <div className="px-5 py-8 text-center">
               <div className="text-text-muted text-sm">Loading...</div>
@@ -307,17 +376,26 @@ export default function ExercisePicker({ onPick, onClose }: ExercisePickerProps)
             {loading ? "Loading..." : `${exercises.length} exercise${exercises.length !== 1 ? "s" : ""}`}
           </span>
           <div className="flex items-center gap-2">
-            {!showCreate && (
-              <button
-                type="button"
-                onClick={() => {
-                  setCreateForm((prev) => ({ ...prev, name: search.trim() }));
-                  setShowCreate(true);
-                }}
-                className="rounded-xl border border-accent/20 bg-accent/10 px-4 py-2 text-xs font-semibold text-accent-bright transition-colors hover:bg-accent/15"
-              >
-                Add New
-              </button>
+            {!showCreate && !showBulk && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreateForm((prev) => ({ ...prev, name: search.trim() }));
+                    setShowCreate(true);
+                  }}
+                  className="rounded-xl border border-accent/20 bg-accent/10 px-4 py-2 text-xs font-semibold text-accent-bright transition-colors hover:bg-accent/15"
+                >
+                  Add New
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowBulk(true)}
+                  className="rounded-xl border border-[rgba(0,0,0,0.08)] px-4 py-2 text-xs font-semibold text-text-secondary transition-colors hover:bg-[rgba(0,0,0,0.03)]"
+                >
+                  Bulk Import
+                </button>
+              </>
             )}
             <button
               type="button"

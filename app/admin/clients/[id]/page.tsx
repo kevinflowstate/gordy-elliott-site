@@ -14,6 +14,7 @@ import NutritionTemplatePicker from "@/components/admin/NutritionTemplatePicker"
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Dot } from "recharts";
 import PhotoGallery from "@/components/portal/PhotoGallery";
 import { normalizeCheckinConfig } from "@/lib/checkin-form";
+import { formatExercisePrescription } from "@/lib/exercise-prescriptions";
 import { useToast } from "@/components/ui/Toast";
 
 type TabId = "dashboard" | "checkins" | "training" | "nutrition" | "gallery" | "tasks";
@@ -2938,9 +2939,7 @@ function TrainingTabContent({
                               )}
                             </div>
                             <div className="flex items-center gap-2 text-xs text-text-secondary flex-shrink-0">
-                              <span>{item.sets} sets</span>
-                              <span className="text-text-muted">x</span>
-                              <span>{item.reps}</span>
+                              <span>{formatExercisePrescription(item)}</span>
                               {item.rest_seconds && (
                                 <span className="text-text-muted">{item.rest_seconds}s rest</span>
                               )}
