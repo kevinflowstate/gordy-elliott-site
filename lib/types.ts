@@ -43,6 +43,8 @@ export interface ClientProfile {
   sex?: ClientSex | null;
   cycle_tracking_enabled?: boolean;
   key_dates?: ClientKeyDate[];
+  wearable_connections?: import("./wearable-insights").WearableConnection[];
+  wearable_summaries?: import("./wearable-insights").WearableDailySummary[];
 }
 
 export interface ClientKeyDate {

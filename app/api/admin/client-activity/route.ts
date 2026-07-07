@@ -133,6 +133,26 @@ export async function GET(request: Request) {
     });
   }
 
+  // 7. Coaching notes saved from calls/transcripts/manual notes
+  const { data: coachingNotes } = await admin
+    .from("client_coaching_notes")
+    .select("id, source_type, source_title, created_at")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  for (const note of coachingNotes || []) {
+    const source = typeof note.source_type === "string"
+      ? note.source_type.replace(/_/g, " ").replace(/\b\w/g, (char: string) => char.toUpperCase())
+      : "Coaching";
+    events.push({
+      type: "coaching_note_saved",
+      description: `Coaching notes saved — ${note.source_title || source}`,
+      timestamp: note.created_at,
+      color: "bg-sky-400",
+    });
+  }
+
   // Sort by timestamp descending, limit to 50
   events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   const limited = events.slice(0, 50);

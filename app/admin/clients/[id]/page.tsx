@@ -16,10 +16,32 @@ import PhotoGallery from "@/components/portal/PhotoGallery";
 import { normalizeCheckinConfig } from "@/lib/checkin-form";
 import { formatExercisePrescription } from "@/lib/exercise-prescriptions";
 import { useToast } from "@/components/ui/Toast";
+import { titleCaseProvider } from "@/lib/wearable-insights";
 
 type TabId = "dashboard" | "checkins" | "training" | "nutrition" | "gallery" | "tasks";
 type PushResult = { sent?: number; failed?: number; subscriptionCount?: number; reason?: string };
 type ClientSexInput = "" | "female" | "male" | "prefer_not_to_say";
+type CoachingNoteSourceType = "call" | "zoom" | "loom" | "fathom" | "whatsapp" | "voice_note" | "email" | "other";
+type CoachingPriority = { title: string; detail?: string; urgency?: "low" | "medium" | "high" };
+type CoachingTaskSuggestion = { task_text: string; reason?: string };
+type CoachingNoteExtraction = {
+  coach_summary: string;
+  client_summary: string;
+  coach_notes: string;
+  priorities: CoachingPriority[];
+  task_suggestions: CoachingTaskSuggestion[];
+  follow_up_questions: string[];
+  risk_flags: string[];
+};
+type CoachingNote = CoachingNoteExtraction & {
+  id: string;
+  source_type: CoachingNoteSourceType;
+  source_title: string | null;
+  source_date: string | null;
+  saved_task_ids: string[];
+  client_visible: boolean;
+  created_at: string;
+};
 
 const glowClass: Record<TrafficLight, string> = {
   green: "glow-green",
@@ -53,6 +75,17 @@ const tierOptions: Array<{ value: ClientTier; label: string }> = [
   { value: "premium", label: "Premium" },
   { value: "vip", label: "VIP" },
   { value: "ai_only", label: "AI Only" },
+];
+
+const coachingNoteSourceOptions: Array<{ value: CoachingNoteSourceType; label: string }> = [
+  { value: "call", label: "Call" },
+  { value: "zoom", label: "Zoom" },
+  { value: "loom", label: "Loom" },
+  { value: "fathom", label: "Fathom" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "voice_note", label: "Voice note" },
+  { value: "email", label: "Email" },
+  { value: "other", label: "Other" },
 ];
 
 function getPhaseIcon(phaseName: string): string {
@@ -114,6 +147,17 @@ function notificationFeedback(notification?: PushResult): string {
   if ((notification.sent || 0) > 0) return "push sent";
   if (notification.reason) return `portal notification created; push not delivered (${notification.reason})`;
   return `portal notification created; no device push sent (${notification.subscriptionCount ?? 0} subscriptions)`;
+}
+
+function formatWearableDate(value: string | null | undefined): string {
+  if (!value) return "Not synced";
+  return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+function recoveryBadgeClass(status: string | null | undefined): string {
+  if (status === "reduce_intensity") return "border-red-500/30 bg-red-500/10 text-red-400";
+  if (status === "watch") return "border-amber-500/30 bg-amber-500/10 text-amber-400";
+  return "border-emerald-500/30 bg-emerald-500/10 text-emerald-400";
 }
 
 interface PhotoGroup {
@@ -215,6 +259,17 @@ export default function ClientDetailPage() {
   const [tasks, setTasks] = useState<ClientTask[]>([]);
   const [newTaskText, setNewTaskText] = useState("");
   const [addingTask, setAddingTask] = useState(false);
+  const [coachingNotes, setCoachingNotes] = useState<CoachingNote[]>([]);
+  const [coachingNotesLoaded, setCoachingNotesLoaded] = useState(false);
+  const [coachingNotesOpen, setCoachingNotesOpen] = useState(false);
+  const [coachingSourceType, setCoachingSourceType] = useState<CoachingNoteSourceType>("call");
+  const [coachingSourceTitle, setCoachingSourceTitle] = useState("");
+  const [coachingSourceDate, setCoachingSourceDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [coachingRawNotes, setCoachingRawNotes] = useState("");
+  const [coachingExtraction, setCoachingExtraction] = useState<CoachingNoteExtraction | null>(null);
+  const [selectedCoachingTaskIndexes, setSelectedCoachingTaskIndexes] = useState<number[]>([]);
+  const [coachingExtracting, setCoachingExtracting] = useState(false);
+  const [coachingSaving, setCoachingSaving] = useState(false);
   const [consultationOpen, setConsultationOpen] = useState(false);
   const [consultationLinkSending, setConsultationLinkSending] = useState(false);
   const [consultationLinkCopied, setConsultationLinkCopied] = useState(false);
@@ -320,7 +375,22 @@ export default function ClientDetailPage() {
     if (res.ok) { const data = await res.json(); setTasks(data.tasks || []); }
   }
 
+  const loadCoachingNotes = useCallback(async () => {
+    if (!id) return;
+    const res = await fetch(`/api/admin/client-coaching-notes?clientId=${id}`);
+    if (res.ok) {
+      const data = await res.json();
+      setCoachingNotes(data.notes || []);
+    }
+    setCoachingNotesLoaded(true);
+  }, [id]);
+
   useEffect(() => { if (activeTab === "tasks" && client) { loadTasks(); } }, [activeTab, client?.id]);
+
+  useEffect(() => {
+    if (!client || coachingNotesLoaded) return;
+    loadCoachingNotes();
+  }, [client?.id, coachingNotesLoaded, loadCoachingNotes]);
 
   // For Premium/VIP clients also preload tasks on first load so the high-touch cue banner can
   // show an accurate open-task count without requiring the coach to switch tabs.
@@ -368,6 +438,88 @@ export default function ClientDetailPage() {
       toast("Task deleted");
     } catch {
       toast("Couldn't reach the tasks API. Try again.", "error");
+    }
+  }
+
+  function resetCoachingNoteForm() {
+    setCoachingSourceType("call");
+    setCoachingSourceTitle("");
+    setCoachingSourceDate(new Date().toISOString().split("T")[0]);
+    setCoachingRawNotes("");
+    setCoachingExtraction(null);
+    setSelectedCoachingTaskIndexes([]);
+  }
+
+  function updateCoachingExtraction<K extends keyof CoachingNoteExtraction>(key: K, value: CoachingNoteExtraction[K]) {
+    setCoachingExtraction((current) => current ? { ...current, [key]: value } : current);
+  }
+
+  async function extractCoachingNotes() {
+    if (!client || coachingExtracting) return;
+    if (coachingRawNotes.trim().length < 50) {
+      toast("Paste at least a short transcript or notes first.", "error");
+      return;
+    }
+    setCoachingExtracting(true);
+    try {
+      const res = await fetch("/api/admin/client-coaching-notes/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: client.id,
+          source_type: coachingSourceType,
+          source_title: coachingSourceTitle,
+          source_date: coachingSourceDate,
+          raw_notes: coachingRawNotes,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast(data.error || "Couldn't extract those notes.", "error");
+        return;
+      }
+      setCoachingExtraction(data.extraction);
+      setSelectedCoachingTaskIndexes((data.extraction?.task_suggestions || []).map((_: unknown, index: number) => index));
+      toast("Notes extracted for review");
+    } catch {
+      toast("Couldn't reach the note extraction API.", "error");
+    } finally {
+      setCoachingExtracting(false);
+    }
+  }
+
+  async function saveCoachingNotes() {
+    if (!client || !coachingExtraction || coachingSaving) return;
+    setCoachingSaving(true);
+    try {
+      const selectedTasks = coachingExtraction.task_suggestions.filter((_, index) => selectedCoachingTaskIndexes.includes(index));
+      const res = await fetch("/api/admin/client-coaching-notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: client.id,
+          source_type: coachingSourceType,
+          source_title: coachingSourceTitle,
+          source_date: coachingSourceDate,
+          raw_notes: coachingRawNotes,
+          extraction: coachingExtraction,
+          selected_task_suggestions: selectedTasks,
+          client_visible: false,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast(data.error || "Couldn't save those coaching notes.", "error");
+        return;
+      }
+      await Promise.all([loadCoachingNotes(), loadTasks()]);
+      setCoachingNotesOpen(false);
+      resetCoachingNoteForm();
+      toast(`Coaching notes saved${data.tasks?.length ? ` with ${data.tasks.length} task${data.tasks.length === 1 ? "" : "s"}` : ""}`);
+    } catch {
+      toast("Couldn't reach the coaching notes API.", "error");
+    } finally {
+      setCoachingSaving(false);
     }
   }
 
@@ -820,6 +972,8 @@ export default function ClientDetailPage() {
   const actualCheckins = client.checkins.length;
   const missedCheckins = Math.max(0, expectedCheckins - actualCheckins);
   const hasConsultationData = !!client.consultation_data && Object.keys(client.consultation_data).length > 0;
+  const latestWearableSummary = client.wearable_summaries?.[0] || null;
+  const activeWearableConnections = (client.wearable_connections || []).filter((connection) => connection.status === "connected");
 
   function consultationUrl() {
     if (typeof window === "undefined") return "/portal/consultation?setup=true";
@@ -1136,6 +1290,12 @@ export default function ClientDetailPage() {
               >
                 Add Task
               </button>
+              <button
+                onClick={() => setCoachingNotesOpen(true)}
+                className="px-3 py-1.5 text-xs font-semibold text-[#E040D0] bg-[#E040D0]/10 hover:bg-[#E040D0]/15 border border-[#E040D0]/20 rounded-lg transition-colors"
+              >
+                Add Notes
+              </button>
               <div className="relative">
                 <button
                   onClick={() => setSettingsOpen(!settingsOpen)}
@@ -1348,6 +1508,75 @@ export default function ClientDetailPage() {
             {lastCheckinDays === 0 ? "Checked in today" : `${lastCheckinDays}d since check-in`}
           </div>
         </div>
+      </div>
+
+      <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mb-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1.5">Connected Apps</div>
+            <h2 className="text-lg font-heading font-bold text-text-primary">Recovery and nutrition signals</h2>
+            <p className="mt-1 text-sm text-text-secondary">
+              {activeWearableConnections.length > 0
+                ? `${activeWearableConnections.map((connection) => titleCaseProvider(connection.provider)).join(", ")} connected.`
+                : "No wearable or nutrition app connected yet."}
+            </p>
+          </div>
+          {latestWearableSummary ? (
+            <span className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] ${recoveryBadgeClass(latestWearableSummary.recovery_status)}`}>
+              {latestWearableSummary.recovery_status.replace(/_/g, " ")}
+            </span>
+          ) : (
+            <span className="inline-flex rounded-full border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-1.5 text-xs font-semibold text-text-muted">
+              Awaiting data
+            </span>
+          )}
+        </div>
+
+        {latestWearableSummary ? (
+          <>
+            <div className="mt-4 grid gap-3 sm:grid-cols-5">
+              <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Readiness</div>
+                <div className="mt-1 text-xl font-heading font-bold text-text-primary">{latestWearableSummary.readiness_score ?? "—"}/100</div>
+              </div>
+              <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Sleep</div>
+                <div className="mt-1 text-xl font-heading font-bold text-text-primary">
+                  {latestWearableSummary.sleep_minutes ? `${Math.floor(latestWearableSummary.sleep_minutes / 60)}h ${latestWearableSummary.sleep_minutes % 60}m` : "—"}
+                </div>
+              </div>
+              <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">HRV</div>
+                <div className="mt-1 text-xl font-heading font-bold text-text-primary">{latestWearableSummary.hrv_ms ? `${Math.round(latestWearableSummary.hrv_ms)} ms` : "—"}</div>
+              </div>
+              <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Steps</div>
+                <div className="mt-1 text-xl font-heading font-bold text-text-primary">{latestWearableSummary.steps ? latestWearableSummary.steps.toLocaleString("en-GB") : "—"}</div>
+              </div>
+              <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Protein</div>
+                <div className="mt-1 text-xl font-heading font-bold text-text-primary">{latestWearableSummary.protein_g ? `${Math.round(latestWearableSummary.protein_g)}g` : "—"}</div>
+              </div>
+            </div>
+            <p className="mt-3 rounded-xl border border-[#E040D0]/15 bg-[#E040D0]/5 px-3 py-2 text-sm text-text-secondary">
+              {latestWearableSummary.insight}
+            </p>
+          </>
+        ) : (
+          <div className="mt-4 rounded-xl border border-dashed border-[rgba(0,0,0,0.10)] bg-bg-primary px-4 py-3 text-sm text-text-secondary">
+            Ask the client to open Connected Apps in their portal. In preview mode, they can add a demo sync before Terra is live.
+          </div>
+        )}
+
+        {activeWearableConnections.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {activeWearableConnections.map((connection) => (
+              <span key={connection.id} className="rounded-full border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-1 text-xs text-text-secondary">
+                {titleCaseProvider(connection.provider)} · {formatWearableDate(connection.last_sync_at)}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 mb-6 lg:grid-cols-2">
@@ -1660,6 +1889,52 @@ export default function ClientDetailPage() {
           <div>
             <h3 className="text-sm font-heading font-bold text-text-primary mb-3">Activity</h3>
             <ActivityTimeline clientId={client.id} />
+
+            <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mt-4">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <h3 className="text-sm font-heading font-bold text-text-primary">Coaching Notes</h3>
+                <button
+                  type="button"
+                  onClick={() => setCoachingNotesOpen(true)}
+                  className="text-xs font-semibold text-[#E040D0] hover:text-[#b830a8]"
+                >
+                  Add
+                </button>
+              </div>
+              {!coachingNotesLoaded ? (
+                <p className="text-xs text-text-muted">Loading notes...</p>
+              ) : coachingNotes.length === 0 ? (
+                <p className="text-xs text-text-muted">No saved call, Loom, Fathom, or manual notes yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {coachingNotes.slice(0, 3).map((note) => (
+                    <div key={note.id} className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-text-primary truncate">
+                            {note.source_title || coachingNoteSourceOptions.find((option) => option.value === note.source_type)?.label || "Coaching note"}
+                          </div>
+                          <div className="mt-1 text-[10px] uppercase tracking-[0.14em] text-text-muted">
+                            {note.source_date
+                              ? new Date(note.source_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+                              : new Date(note.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                          </div>
+                        </div>
+                        <span className="rounded-full bg-sky-500/10 px-2 py-1 text-[10px] font-semibold text-sky-400">
+                          Private
+                        </span>
+                      </div>
+                      {note.coach_summary && (
+                        <p className="mt-2 line-clamp-3 text-xs text-text-secondary">{note.coach_summary}</p>
+                      )}
+                      {note.saved_task_ids?.length > 0 && (
+                        <p className="mt-2 text-[11px] text-text-muted">{note.saved_task_ids.length} task{note.saved_task_ids.length === 1 ? "" : "s"} created</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Programme Timeline */}
             <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mt-4">
@@ -2316,6 +2591,270 @@ export default function ClientDetailPage() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {coachingNotesOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 max-w-5xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-heading font-bold text-text-primary">Add Coaching Notes</h3>
+                <p className="mt-1 text-sm text-text-secondary">
+                  Paste Zoom, Loom, Fathom, call, or manual notes. Gordy reviews everything before it is saved.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCoachingNotesOpen(false)}
+                className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-[rgba(255,255,255,0.04)] hover:text-text-primary"
+                aria-label="Close coaching notes"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-text-secondary">Source</label>
+                    <select
+                      value={coachingSourceType}
+                      onChange={(event) => setCoachingSourceType(event.target.value as CoachingNoteSourceType)}
+                      className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-[#E040D0] focus:outline-none"
+                    >
+                      {coachingNoteSourceOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-text-secondary">Date</label>
+                    <input
+                      type="date"
+                      value={coachingSourceDate}
+                      onChange={(event) => setCoachingSourceDate(event.target.value)}
+                      className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-[#E040D0] focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-text-secondary">Title</label>
+                  <input
+                    value={coachingSourceTitle}
+                    onChange={(event) => setCoachingSourceTitle(event.target.value)}
+                    placeholder={`${client.name.split(" ")[0]} check-in call`}
+                    className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-[#E040D0] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-text-secondary">Transcript or notes</label>
+                  <textarea
+                    value={coachingRawNotes}
+                    onChange={(event) => setCoachingRawNotes(event.target.value)}
+                    rows={16}
+                    placeholder="Paste Fathom notes, a Loom transcript, Zoom summary, WhatsApp recap, or Gordy's manual call notes..."
+                    className="w-full resize-y rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-[#E040D0] focus:outline-none"
+                  />
+                  <div className="mt-1 text-[11px] text-text-muted">{coachingRawNotes.length.toLocaleString()} / 30,000 characters</div>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={extractCoachingNotes}
+                    disabled={coachingExtracting || coachingRawNotes.trim().length < 50}
+                    className="rounded-xl bg-[#E040D0] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#b830a8] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {coachingExtracting ? "Extracting..." : coachingExtraction ? "Extract Again" : "Extract Notes"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetCoachingNoteForm}
+                    className="rounded-xl border border-[rgba(0,0,0,0.08)] px-4 py-2 text-xs font-semibold text-text-secondary transition-colors hover:bg-[rgba(0,0,0,0.03)]"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {!coachingExtraction ? (
+                  <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-dashed border-[rgba(0,0,0,0.12)] bg-bg-primary px-6 text-center">
+                    <div>
+                      <div className="text-sm font-semibold text-text-primary">No extraction yet</div>
+                      <p className="mx-auto mt-2 max-w-sm text-sm text-text-muted">
+                        The extracted summary, private notes, priorities, and optional task suggestions will appear here for review.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="rounded-2xl border border-sky-500/20 bg-sky-500/8 px-4 py-3">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-400">Private by default</div>
+                      <p className="mt-1 text-xs text-text-secondary">
+                        Saved notes are for Gordy/admin context only. They are not shown to the client and do not automatically change training or nutrition plans.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-text-secondary">Coach summary</label>
+                      <textarea
+                        value={coachingExtraction.coach_summary}
+                        onChange={(event) => updateCoachingExtraction("coach_summary", event.target.value)}
+                        rows={4}
+                        className="w-full resize-y rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-[#E040D0] focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-text-secondary">Coach-only notes</label>
+                      <textarea
+                        value={coachingExtraction.coach_notes}
+                        onChange={(event) => updateCoachingExtraction("coach_notes", event.target.value)}
+                        rows={4}
+                        className="w-full resize-y rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-[#E040D0] focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-text-secondary">Client-friendly recap draft</label>
+                      <textarea
+                        value={coachingExtraction.client_summary}
+                        onChange={(event) => updateCoachingExtraction("client_summary", event.target.value)}
+                        rows={3}
+                        className="w-full resize-y rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-[#E040D0] focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <label className="block text-xs font-medium text-text-secondary">Priorities</label>
+                        <button
+                          type="button"
+                          onClick={() => updateCoachingExtraction("priorities", [...coachingExtraction.priorities, { title: "", detail: "", urgency: "medium" }])}
+                          className="text-xs font-semibold text-[#E040D0] hover:text-[#b830a8]"
+                        >
+                          Add priority
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        {coachingExtraction.priorities.length === 0 ? (
+                          <p className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-2 text-xs text-text-muted">No priorities extracted.</p>
+                        ) : coachingExtraction.priorities.map((priority, index) => (
+                          <div key={index} className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary p-3">
+                            <div className="grid gap-2 sm:grid-cols-[1fr_120px]">
+                              <input
+                                value={priority.title}
+                                onChange={(event) => updateCoachingExtraction("priorities", coachingExtraction.priorities.map((item, i) => i === index ? { ...item, title: event.target.value } : item))}
+                                placeholder="Priority"
+                                className="rounded-lg border border-[rgba(0,0,0,0.08)] bg-bg-card px-3 py-2 text-sm text-text-primary focus:border-[#E040D0] focus:outline-none"
+                              />
+                              <select
+                                value={priority.urgency || "medium"}
+                                onChange={(event) => updateCoachingExtraction("priorities", coachingExtraction.priorities.map((item, i) => i === index ? { ...item, urgency: event.target.value as CoachingPriority["urgency"] } : item))}
+                                className="rounded-lg border border-[rgba(0,0,0,0.08)] bg-bg-card px-3 py-2 text-sm text-text-primary focus:border-[#E040D0] focus:outline-none"
+                              >
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                              </select>
+                            </div>
+                            <textarea
+                              value={priority.detail || ""}
+                              onChange={(event) => updateCoachingExtraction("priorities", coachingExtraction.priorities.map((item, i) => i === index ? { ...item, detail: event.target.value } : item))}
+                              rows={2}
+                              placeholder="Detail"
+                              className="mt-2 w-full resize-y rounded-lg border border-[rgba(0,0,0,0.08)] bg-bg-card px-3 py-2 text-sm text-text-primary focus:border-[#E040D0] focus:outline-none"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="mb-2 text-xs font-medium text-text-secondary">Optional tasks to create</div>
+                      <div className="space-y-2">
+                        {coachingExtraction.task_suggestions.length === 0 ? (
+                          <p className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-2 text-xs text-text-muted">No task suggestions extracted.</p>
+                        ) : coachingExtraction.task_suggestions.map((task, index) => {
+                          const selected = selectedCoachingTaskIndexes.includes(index);
+                          return (
+                            <div key={index} className={`rounded-xl border p-3 ${selected ? "border-[#E040D0]/30 bg-[#E040D0]/8" : "border-[rgba(0,0,0,0.06)] bg-bg-primary"}`}>
+                              <label className="flex items-start gap-3">
+                                <input
+                                  type="checkbox"
+                                  checked={selected}
+                                  onChange={(event) => setSelectedCoachingTaskIndexes((current) =>
+                                    event.target.checked ? [...current, index] : current.filter((item) => item !== index)
+                                  )}
+                                  className="mt-1"
+                                />
+                                <div className="min-w-0 flex-1 space-y-2">
+                                  <input
+                                    value={task.task_text}
+                                    onChange={(event) => updateCoachingExtraction("task_suggestions", coachingExtraction.task_suggestions.map((item, i) => i === index ? { ...item, task_text: event.target.value } : item))}
+                                    className="w-full rounded-lg border border-[rgba(0,0,0,0.08)] bg-bg-card px-3 py-2 text-sm font-semibold text-text-primary focus:border-[#E040D0] focus:outline-none"
+                                  />
+                                  <input
+                                    value={task.reason || ""}
+                                    onChange={(event) => updateCoachingExtraction("task_suggestions", coachingExtraction.task_suggestions.map((item, i) => i === index ? { ...item, reason: event.target.value } : item))}
+                                    placeholder="Reason"
+                                    className="w-full rounded-lg border border-[rgba(0,0,0,0.08)] bg-bg-card px-3 py-2 text-xs text-text-secondary focus:border-[#E040D0] focus:outline-none"
+                                  />
+                                </div>
+                              </label>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {(coachingExtraction.follow_up_questions.length > 0 || coachingExtraction.risk_flags.length > 0) && (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {coachingExtraction.follow_up_questions.length > 0 && (
+                          <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-3">
+                            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">Follow-up questions</div>
+                            <ul className="mt-2 space-y-1 text-xs text-text-secondary">
+                              {coachingExtraction.follow_up_questions.map((item, index) => <li key={index}>{item}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {coachingExtraction.risk_flags.length > 0 && (
+                          <div className="rounded-xl border border-amber-500/20 bg-amber-500/8 px-3 py-3">
+                            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-400">Flags</div>
+                            <ul className="mt-2 space-y-1 text-xs text-text-secondary">
+                              {coachingExtraction.risk_flags.map((item, index) => <li key={index}>{item}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex flex-col justify-end gap-2 border-t border-[rgba(0,0,0,0.06)] pt-4 sm:flex-row">
+                      <button
+                        type="button"
+                        onClick={() => setCoachingNotesOpen(false)}
+                        className="rounded-xl border border-[rgba(0,0,0,0.08)] px-4 py-2 text-xs font-semibold text-text-secondary transition-colors hover:bg-[rgba(0,0,0,0.03)]"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={saveCoachingNotes}
+                        disabled={coachingSaving}
+                        className="rounded-xl bg-[#E040D0] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#b830a8] disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {coachingSaving ? "Saving..." : "Save Reviewed Notes"}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

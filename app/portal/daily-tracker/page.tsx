@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
+import type { WearableDailySummary } from "@/lib/wearable-insights";
 
 type DailyMetric = {
   id: string;
@@ -94,6 +95,7 @@ export default function DailyTrackerPage() {
   const [entries, setEntries] = useState<DailyMetric[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [wearableSummary, setWearableSummary] = useState<WearableDailySummary | null>(null);
   const [form, setForm] = useState({
     tracked_date: todayKey,
     sleep_hours: "",
@@ -120,6 +122,7 @@ export default function DailyTrackerPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to load tracker");
       setEntries(data.entries || []);
+      setWearableSummary(data.wearableSummary || null);
       if (data.today) {
         setForm({
           tracked_date: data.today.tracked_date,
@@ -181,6 +184,34 @@ export default function DailyTrackerPage() {
           <div className="mt-1 text-xs text-white/70">7-day average: {sevenDayScore ?? "—"}/10</div>
         </div>
       </div>
+
+      {wearableSummary && (
+        <TrackerCard title="Synced from connected apps" hint="This is separate from your manual daily tracker entry.">
+          <div className="grid gap-3 sm:grid-cols-4">
+            <SyncedMetric
+              label="Readiness"
+              value={wearableSummary.readiness_score !== null ? `${wearableSummary.readiness_score}/100` : "—"}
+            />
+            <SyncedMetric
+              label="Sleep"
+              value={wearableSummary.sleep_minutes ? `${Math.floor(wearableSummary.sleep_minutes / 60)}h ${wearableSummary.sleep_minutes % 60}m` : "—"}
+            />
+            <SyncedMetric
+              label="Steps"
+              value={wearableSummary.steps ? wearableSummary.steps.toLocaleString("en-GB") : "—"}
+            />
+            <SyncedMetric
+              label="Protein"
+              value={wearableSummary.protein_g ? `${Math.round(wearableSummary.protein_g)}g` : "—"}
+            />
+          </div>
+          {wearableSummary.insight && (
+            <p className="mt-4 rounded-2xl border border-[#E040D0]/15 bg-[#E040D0]/5 px-4 py-3 text-sm leading-relaxed text-text-secondary">
+              {wearableSummary.insight}
+            </p>
+          )}
+        </TrackerCard>
+      )}
 
       <TrackerCard title="Today's basics" hint="The quick numbers first.">
         <div className="space-y-4">
@@ -291,6 +322,15 @@ export default function DailyTrackerPage() {
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function SyncedMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">{label}</div>
+      <div className="mt-1 text-lg font-heading font-bold text-text-primary">{value}</div>
     </div>
   );
 }

@@ -1,8 +1,10 @@
 import { requireAdmin } from "@/lib/admin-auth";
+import { formatCoachingNotesForAdminPrompt } from "@/lib/coaching-notes";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { trackAIUsage } from "@/lib/ai-usage";
 import { rateLimit } from "@/lib/rate-limit";
+import type { WearableConnection, WearableDailySummary } from "@/lib/wearable-insights";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
@@ -105,6 +107,23 @@ export async function POST(req: NextRequest) {
     .select("client_id, tracked_date")
     .gte("tracked_date", sevenDaysAgoIso);
 
+  const { data: wearableConnectionsData } = await admin
+    .from("client_wearable_connections")
+    .select("client_id, provider, status, last_sync_at")
+    .eq("status", "connected");
+
+  const { data: recentWearableSummariesData } = await admin
+    .from("client_wearable_daily_summaries")
+    .select("*")
+    .gte("summary_date", sevenDaysAgoIso)
+    .order("summary_date", { ascending: false });
+
+  const { data: recentCoachingNotesData } = await admin
+    .from("client_coaching_notes")
+    .select("client_id, source_type, source_title, source_date, coach_summary, coach_notes, priorities, task_suggestions, created_at")
+    .order("created_at", { ascending: false })
+    .limit(150);
+
   // Coach tasks (open count per client)
   const { data: allTasks } = await admin
     .from("client_tasks")
@@ -126,6 +145,43 @@ export async function POST(req: NextRequest) {
     const days = metricsByClient.get(m.client_id) || new Set<string>();
     days.add(m.tracked_date);
     metricsByClient.set(m.client_id, days);
+  }
+
+  const wearableConnectionsByClient = new Map<string, Array<Pick<WearableConnection, "provider" | "status" | "last_sync_at">>>();
+  for (const connection of (wearableConnectionsData || []) as Array<Pick<WearableConnection, "client_id" | "provider" | "status" | "last_sync_at">>) {
+    const list = wearableConnectionsByClient.get(connection.client_id) || [];
+    list.push({
+      provider: connection.provider,
+      status: connection.status,
+      last_sync_at: connection.last_sync_at,
+    });
+    wearableConnectionsByClient.set(connection.client_id, list);
+  }
+
+  const latestWearableSummaryByClient = new Map<string, WearableDailySummary>();
+  for (const summary of (recentWearableSummariesData || []) as WearableDailySummary[]) {
+    if (!summary.client_id || latestWearableSummaryByClient.has(summary.client_id)) continue;
+    latestWearableSummaryByClient.set(summary.client_id, summary);
+  }
+
+  type CoachingNotePromptRow = {
+    client_id: string;
+    source_type: string | null;
+    source_title: string | null;
+    source_date: string | null;
+    coach_summary: string | null;
+    coach_notes: string | null;
+    priorities: unknown;
+    task_suggestions: unknown;
+    created_at: string;
+  };
+  const coachingNotesByClient = new Map<string, CoachingNotePromptRow[]>();
+  for (const note of (recentCoachingNotesData || []) as CoachingNotePromptRow[]) {
+    const list = coachingNotesByClient.get(note.client_id) || [];
+    if (list.length < 3) {
+      list.push(note);
+      coachingNotesByClient.set(note.client_id, list);
+    }
   }
 
   const openTasksByClient = new Map<string, number>();
@@ -179,6 +235,9 @@ export async function POST(req: NextRequest) {
     const metricDays = metricsByClient.get(p.id);
     const openTaskCount = openTasksByClient.get(p.id) || 0;
     const latestCk = latestCheckinByClient.get(p.id) || null;
+    const latestWearable = latestWearableSummaryByClient.get(p.id) || null;
+    const wearableConnections = wearableConnectionsByClient.get(p.id) || [];
+    const recentCoachingNotes = coachingNotesByClient.get(p.id) || [];
 
     const now = Date.now();
     const DAY = 1000 * 60 * 60 * 24;
@@ -222,8 +281,31 @@ export async function POST(req: NextRequest) {
         days_logged: metricDays?.size || 0,
         possible_days: 7,
       },
+      connected_apps: {
+        providers: wearableConnections.map((connection) => connection.provider),
+        last_sync_at: wearableConnections
+          .map((connection) => connection.last_sync_at)
+          .filter(Boolean)
+          .sort()
+          .at(-1) || null,
+      },
+      latest_wearable_summary: latestWearable ? {
+        date: latestWearable.summary_date,
+        readiness_score: latestWearable.readiness_score,
+        recovery_status: latestWearable.recovery_status,
+        flags: latestWearable.flags,
+        insight: latestWearable.insight,
+        sleep_minutes: latestWearable.sleep_minutes,
+        sleep_score: latestWearable.sleep_score,
+        hrv_ms: latestWearable.hrv_ms,
+        resting_hr_bpm: latestWearable.resting_hr_bpm,
+        steps: latestWearable.steps,
+        protein_g: latestWearable.protein_g,
+        nutrition_calories: latestWearable.nutrition_calories,
+      } : null,
       open_coach_tasks: openTaskCount,
       latest_checkin: latestCk,
+      recent_coaching_notes: formatCoachingNotesForAdminPrompt(recentCoachingNotes),
       coaching_plan: activePlan ? {
         summary: activePlan.summary,
         phases: ((activePlan as Record<string, unknown>)?.phases as Array<Record<string, unknown>> || []).map((ph) => ({
@@ -273,6 +355,9 @@ export async function POST(req: NextRequest) {
   const slippingClients = clientSummaries.filter((c) => c.engagement_label === "slipping");
   const noPlanClients = clientSummaries.filter((c) => c.engagement_label === "no_training_plan_assigned");
   const lowMetricsClients = clientSummaries.filter((c) => (c.daily_metrics_7d?.days_logged || 0) <= 2);
+  const connectedAppClients = clientSummaries.filter((c) => c.connected_apps.providers.length > 0);
+  const recoveryWatchClients = clientSummaries.filter((c) => c.latest_wearable_summary?.recovery_status === "watch");
+  const reduceIntensityClients = clientSummaries.filter((c) => c.latest_wearable_summary?.recovery_status === "reduce_intensity");
   const unrepliedPriorityCheckins = clientSummaries.filter(
     (c) => c.latest_checkin && (c.latest_checkin.priority_message || c.latest_checkin.support_ask) && !c.latest_checkin.replied,
   );
@@ -320,6 +405,9 @@ Ghosting training (has an active plan but 0 sessions in 14d): ${ghostingClients.
 Slipping training (has an active plan but only 1-2 sessions in 14d): ${slippingClients.length} — names: ${slippingClients.map((c) => c.name).join(", ") || "none"}
 No active training plan assigned (not the same as ghosting — these need a plan, not a prod): ${noPlanClients.length} — names: ${noPlanClients.map((c) => c.name).join(", ") || "none"}
 Low daily-metrics engagement (<=2 of last 7 days): ${lowMetricsClients.length} — names: ${lowMetricsClients.map((c) => c.name).join(", ") || "none"}
+Connected app clients: ${connectedAppClients.length} — names/providers: ${connectedAppClients.map((c) => `${c.name} (${c.connected_apps.providers.join("+")})`).join(", ") || "none"}
+Recovery watch from connected apps: ${recoveryWatchClients.length} — names: ${recoveryWatchClients.map((c) => c.name).join(", ") || "none"}
+Reduce-intensity recovery flags: ${reduceIntensityClients.length} — names: ${reduceIntensityClients.map((c) => c.name).join(", ") || "none"}
 Unreplied priority/support check-ins (Premium/VIP surfaces Gordy hasn't answered yet): ${unrepliedPriorityCheckins.length} — names: ${unrepliedPriorityCheckins.map((c) => c.name).join(", ") || "none"}
 
 ===========================
@@ -331,7 +419,7 @@ ${priorityQueueText}
 ===========================
 ALL CLIENTS
 ===========================
-(each entry includes tier, primary goal, active training + nutrition plans, training_adherence_14d with has_active_plan flag, engagement_label (no_training_plan_assigned | ghosting | slipping | steady | strong), daily_metrics_7d, open_coach_tasks, latest_checkin (mood + priority_message + support_ask + replied + days_ago), coaching-plan phase state, days_since_login, days_since_checkin, and status)
+(each entry includes tier, primary goal, active training + nutrition plans, training_adherence_14d with has_active_plan flag, engagement_label (no_training_plan_assigned | ghosting | slipping | steady | strong), daily_metrics_7d, open_coach_tasks, latest_checkin (mood + priority_message + support_ask + replied + days_ago), recent_coaching_notes from saved calls/transcripts/manual notes, coaching-plan phase state, days_since_login, days_since_checkin, and status)
 ${JSON.stringify(clientSummaries, null, 2)}
 
 ===========================
@@ -352,15 +440,19 @@ PRIORITY ORDER when forming any answer:
   1. The exact numbers in training_adherence_14d / daily_metrics_7d / status — never round, never guess
   2. priority_message and support_ask on the latest check-in for that client
   3. open_coach_tasks + coaching-plan phases — what is already on Gordy's plate
-  4. Education modules — only when the question is about content, not coaching operations
+  4. recent_coaching_notes — private coach-only context from saved calls/transcripts/manual notes
+  5. Education modules — only when the question is about content, not coaching operations
 
 SPECIFIC QUESTION TYPES:
 - "Who needs Gordy's attention most today?" / "top priorities today" → Use the pre-computed PRIORITY QUEUE above. Do not re-derive — just name the top 3-5 with their reason. Lead with unreplied priority check-ins (Gordy owes a response), then red at-risk, then ghosting training. Each line: name (tier) — 1-line reason — 1-line suggested coach action.
 - "Which clients are slipping but not ghosting?" → Name only clients with engagement_label === "slipping" (has an active plan AND 1-2 sessions in 14d). Do NOT include ghosting (0 sessions) or no_training_plan_assigned (never had a plan) in this answer. Quote the sessions_completed number per client so Gordy sees the gap.
 - "What are the highest-priority follow-ups this week?" → Lead with unreplied priority/support check-ins (these are replies Gordy owes). Then VIP at-risk. Then Premium at-risk. Then ghosting with an active plan. Name clients explicitly. Each bullet: name + one-sentence reason + one-sentence suggested action (not just "check in"). If the follow-up is a reply, draft the first line.
 - "Which clients are under-engaging with metrics?" → Use daily_metrics_7d. Split into two groups: "0-1 days logged out of 7" (severe) and "2-3 days logged" (soft). Name them. Do NOT conflate with training adherence — metrics and training are separate signals.
+- "What did I last discuss with [client]?" / "What notes do we have?" → Use recent_coaching_notes. Make clear these are private coach notes. Do not invent notes if recent_coaching_notes says none.
 - "What's the main risk across the roster right now?" → Pick the single biggest risk pattern (e.g. "4 Premium clients with unreplied priority messages", "3 clients ghosting training", "7 clients with zero daily metrics this week"). One sentence. Then the top 3 named clients that embody it.
 - "Are clients completing daily metrics?" → Answer from daily_metrics_7d. Name the clients at <=2 days. Don't give a vague "most are fine".
+- "Who needs training adjusted because of sleep/recovery?" → Use latest_wearable_summary only. Name clients with recovery_status reduce_intensity first, then watch. Suggest intensity guidance only; do not claim the app has automatically changed their plan.
+- Connected app / wearable questions → Use connected_apps and latest_wearable_summary as coaching signals. Treat them as performance guidance, not diagnosis. Avoid medical claims and avoid telling Gordy the programme was automatically changed.
 - "Biggest risk with this client?" → Combine status + days_since_checkin + training_adherence_14d + latest_checkin on that client's own record (already joined — do NOT cross-reference recentCheckins by name). Name the specific risk (e.g. "VIP, 11 days no login, 0 sessions in 14 days, priority_message flagged hip pain"). If engagement_label is "no_training_plan_assigned", say that explicitly — it's not ghosting, it's a plan gap.
 - "What should Gordy follow up on next?" → Lead with unrepliedPriorityCheckins (Gordy owes a reply), then VIP/Premium at-risk, then standard at-risk, then slipping with an assigned plan. Call out "no plan assigned" clients separately as a coach-action (assign a plan) rather than a follow-up.
 - "Are they engaging or ghosting?" → Use engagement_label directly — it is the source of truth. Never call a client without an active plan "ghosting". If engagement_label is "no_training_plan_assigned", the honest answer is "can't measure yet — no active training plan is assigned." Otherwise: ghosting = 0 sessions/14d (with a plan), slipping = 1-2 sessions/14d, steady = 3-5, strong = 6+.

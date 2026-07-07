@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/admin-auth";
+import { getTerraConfig } from "@/lib/terra/client";
 import { NextResponse } from "next/server";
 
 type StatusLevel = "ok" | "warning" | "blocked";
@@ -14,6 +15,14 @@ export async function GET() {
   const emailReady = envStatus("RESEND_API_KEY");
   const pushReady = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY ? "ok" : "blocked";
   const brainReady = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY ? "ok" : "blocked";
+  const terra = getTerraConfig();
+  const terraStatus: StatusLevel = terra.partialCredentials
+    ? "blocked"
+    : terra.mockMode
+      ? "warning"
+      : terra.webhookToken
+        ? "ok"
+        : "blocked";
 
   return NextResponse.json({
     checks: [
@@ -58,6 +67,18 @@ export async function GET() {
         label: "SHIFT Brain retrieval",
         status: brainReady,
         detail: brainReady === "ok" ? "Embedding provider key is configured." : "OPENROUTER_API_KEY or OPENAI_API_KEY is missing.",
+      },
+      {
+        key: "terra",
+        label: "Terra connected apps",
+        status: terraStatus,
+        detail: terra.partialCredentials
+          ? "Terra is partially configured. Add both TERRA_DEV_ID and TERRA_API_KEY, or remove both for preview mode."
+          : terra.mockMode
+            ? "Preview mode is active. Add TERRA_DEV_ID, TERRA_API_KEY, and TERRA_WEBHOOK_TOKEN before real client sync."
+            : terra.webhookToken
+              ? "Terra API credentials and webhook token are configured."
+              : "Terra API credentials are set, but TERRA_WEBHOOK_TOKEN is missing.",
       },
       {
         key: "auth-signups",

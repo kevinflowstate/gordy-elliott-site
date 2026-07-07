@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
@@ -262,6 +263,21 @@ function SettingsContent() {
                 </p>
               )}
             </div>
+          </div>
+        </div>
+
+        <div className="app-card rounded-2xl p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-heading font-bold text-text-primary">Connected Apps</h2>
+              <p className="mt-1 text-sm text-text-secondary">Link wearables and nutrition apps for sleep, recovery and nutrition signals.</p>
+            </div>
+            <Link
+              href="/portal/connected-apps"
+              className="inline-flex items-center justify-center rounded-xl border border-accent/20 bg-accent/10 px-4 py-2 text-sm font-semibold text-accent-bright no-underline transition-colors hover:bg-accent/15"
+            >
+              Manage apps
+            </Link>
           </div>
         </div>
 

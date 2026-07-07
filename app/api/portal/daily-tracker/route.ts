@@ -63,10 +63,21 @@ export async function GET() {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  const { data: wearableSummaries, error: wearableError } = await admin
+    .from("client_wearable_daily_summaries")
+    .select("*")
+    .eq("client_id", profile.id)
+    .order("summary_date", { ascending: false })
+    .limit(14);
+
+  if (wearableError) return NextResponse.json({ error: wearableError.message }, { status: 500 });
+
   const entries = (data || []) as DailyMetric[];
   return NextResponse.json({
     today: entries.find((entry) => entry.tracked_date === todayKey()) || null,
     entries,
+    wearableSummary: (wearableSummaries || []).find((entry) => entry.summary_date === todayKey()) || wearableSummaries?.[0] || null,
+    wearableSummaries: wearableSummaries || [],
   });
 }
 
