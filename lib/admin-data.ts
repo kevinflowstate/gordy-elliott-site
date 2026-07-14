@@ -11,6 +11,7 @@ import type {
   ModuleContent,
   ClientKeyDate,
 } from "./types";
+import type { WearableConnection, WearableDailySummary } from "./wearable-insights";
 
 // ============================================
 // Types for admin data layer
@@ -51,6 +52,8 @@ export interface AdminClient {
   sex?: ClientSex | null;
   cycle_tracking_enabled?: boolean;
   key_dates?: ClientKeyDate[];
+  wearable_connections?: WearableConnection[];
+  wearable_summaries?: WearableDailySummary[];
 }
 
 // ============================================
@@ -341,6 +344,20 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
     .eq("client_id", id)
     .order("date", { ascending: true });
 
+  const [{ data: wearableConnections }, { data: wearableSummaries }] = await Promise.all([
+    admin
+      .from("client_wearable_connections")
+      .select("*")
+      .eq("client_id", id)
+      .order("updated_at", { ascending: false }),
+    admin
+      .from("client_wearable_daily_summaries")
+      .select("*")
+      .eq("client_id", id)
+      .order("summary_date", { ascending: false })
+      .limit(7),
+  ]);
+
   // Build nested structures using shared helper
   const plansByClient = buildPlanTree(plans || [], phases || [], items || [], links || []);
   const trainingPlans: TrainingPlan[] = plansByClient.get(id) || [];
@@ -382,6 +399,8 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
     sex: (p.sex as ClientSex | null) || null,
     cycle_tracking_enabled: Boolean(p.cycle_tracking_enabled),
     key_dates: keyDates || [],
+    wearable_connections: (wearableConnections || []) as WearableConnection[],
+    wearable_summaries: (wearableSummaries || []) as WearableDailySummary[],
   };
 }
 
