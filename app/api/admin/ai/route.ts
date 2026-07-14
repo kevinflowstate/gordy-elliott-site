@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { trackAIUsage } from "@/lib/ai-usage";
 import { rateLimit } from "@/lib/rate-limit";
 import type { WearableConnection, WearableDailySummary } from "@/lib/wearable-insights";
+import { resolveClientLifecycleStatus } from "@/lib/client-attention";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
@@ -43,23 +44,32 @@ export async function POST(req: NextRequest) {
   const admin = createAdminClient();
 
   // Fetch all clients with fitness-coaching-relevant profile fields
-  const { data: profiles } = await admin
+  const { data: profileRows } = await admin
     .from("client_profiles")
     .select(`
       id, primary_goal, goals, target_date, tier, checkin_day, start_date, last_login, last_checkin,
+      lifecycle_status, lifecycle_resumes_at,
       user:users!client_profiles_user_id_fkey(full_name, email)
     `)
     .order("created_at", { ascending: true });
 
+  const profiles = (profileRows || []).filter((profile) =>
+    resolveClientLifecycleStatus(profile.lifecycle_status, profile.lifecycle_resumes_at) === "active"
+  );
+  const activeClientIds = profiles.map((profile) => profile.id);
+
   // Fetch recent check-ins (include responses so we can surface priority_message / support_ask)
-  const { data: recentCheckins } = await admin
-    .from("checkins")
-    .select(`
-      mood, wins, challenges, questions, responses, admin_reply, week_number, created_at,
-      client:client_profiles!checkins_client_id_fkey(user:users!client_profiles_user_id_fkey(full_name))
-    `)
-    .order("created_at", { ascending: false })
-    .limit(30);
+  const { data: recentCheckins } = activeClientIds.length > 0
+    ? await admin
+        .from("checkins")
+        .select(`
+          client_id, mood, wins, challenges, questions, responses, admin_reply, week_number, created_at,
+          client:client_profiles!checkins_client_id_fkey(user:users!client_profiles_user_id_fkey(full_name))
+        `)
+        .in("client_id", activeClientIds)
+        .order("created_at", { ascending: false })
+        .limit(30)
+    : { data: [] };
 
   // Fetch all education modules
   const { data: modules } = await admin
@@ -202,10 +212,13 @@ export async function POST(req: NextRequest) {
     replied: boolean;
     days_ago: number | null;
   }>();
-  const { data: allCheckinsForLatest } = await admin
-    .from("checkins")
-    .select("client_id, mood, wins, challenges, responses, admin_reply, week_number, created_at")
-    .order("created_at", { ascending: false });
+  const { data: allCheckinsForLatest } = activeClientIds.length > 0
+    ? await admin
+        .from("checkins")
+        .select("client_id, mood, wins, challenges, responses, admin_reply, week_number, created_at")
+        .in("client_id", activeClientIds)
+        .order("created_at", { ascending: false })
+    : { data: [] };
   for (const ck of allCheckinsForLatest || []) {
     if (latestCheckinByClient.has(ck.client_id)) continue;
     const responses = ck.responses as Record<string, string> | null;
@@ -225,7 +238,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Build client summaries — strictly fitness-coaching context
-  const clientSummaries = (profiles || []).map((p) => {
+  const clientSummaries = profiles.map((p) => {
     const user = Array.isArray(p.user) ? p.user[0] : p.user;
     const clientPlans = (plans || []).filter((pl) => pl.client_id === p.id);
     const assignments = (clientModules || []).filter((cm) => cm.client_id === p.id);

@@ -6,16 +6,10 @@ import { useToast } from "@/components/ui/Toast";
 import type { AdminClient } from "@/lib/admin-data";
 import type { TrafficLight, CheckInMood, CheckIn } from "@/lib/types";
 
-const glowClass: Record<TrafficLight, string> = {
-  green: "glow-green",
-  amber: "glow-amber",
-  red: "glow-red",
-};
-
 const statusLabel: Record<TrafficLight, { text: string; dotClass: string; bgClass: string; textClass: string }> = {
   red: { text: "Needs Attention", dotClass: "bg-red-500", bgClass: "bg-red-500/10", textClass: "text-red-400" },
-  amber: { text: "Check In Due", dotClass: "bg-amber-500", bgClass: "bg-amber-500/10", textClass: "text-amber-400" },
-  green: { text: "On Track", dotClass: "bg-emerald-500", bgClass: "bg-emerald-500/10", textClass: "text-emerald-400" },
+  amber: { text: "Needs Attention", dotClass: "bg-amber-500", bgClass: "bg-amber-500/10", textClass: "text-amber-400" },
+  green: { text: "Up to Date", dotClass: "bg-emerald-500", bgClass: "bg-emerald-500/10", textClass: "text-emerald-400" },
 };
 
 const moodConfig: Record<CheckInMood, { bgClass: string; textClass: string }> = {
@@ -122,13 +116,16 @@ export default function AdminDashboard() {
     );
   }
 
-  const greenCount = clients.filter((c) => c.status === "green").length;
-  const amberCount = clients.filter((c) => c.status === "amber").length;
-  const redCount = clients.filter((c) => c.status === "red").length;
-  const unreplied = recentCheckins.filter((c) => !c.admin_reply).length;
+  const activeClients = clients.filter((c) => c.lifecycle_status === "active");
+  const pausedCount = clients.length - activeClients.length;
+  const greenCount = activeClients.filter((c) => c.status === "green").length;
+  const amberCount = activeClients.filter((c) => c.status === "amber").length;
+  const redCount = activeClients.filter((c) => c.status === "red").length;
+  const activeClientIds = new Set(activeClients.map((client) => client.id));
+  const unreplied = recentCheckins.filter((c) => !c.admin_reply && activeClientIds.has(c.client_id)).length;
   const today = new Date();
   const todayMonthDay = `${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  const todaysKeyDates = clients.flatMap((client) => {
+  const todaysKeyDates = activeClients.flatMap((client) => {
     const birthday = client.date_of_birth?.slice(5) === todayMonthDay
       ? [{ client, label: "Birthday" }]
       : [];
@@ -165,10 +162,11 @@ export default function AdminDashboard() {
           </div>
           <div className="text-text-muted text-xs uppercase tracking-wider mb-1">Total Clients</div>
           <div className="text-3xl font-heading font-bold text-text-primary">{clients.length}</div>
+          {pausedCount > 0 && <div className="mt-1 text-xs text-text-muted">{pausedCount} paused or frozen</div>}
         </div>
 
-        {/* On Track - emerald accent */}
-        <div className="group relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(16,185,129,0.15)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(16,185,129,0.14)] hover:border-emerald-500/30">
+        {/* Up to Date - emerald accent */}
+        <Link href="/admin/clients?status=green" className="group relative block bg-bg-card/80 backdrop-blur-sm border border-[rgba(16,185,129,0.15)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(16,185,129,0.14)] hover:border-emerald-500/30 no-underline">
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-emerald-500/70 rounded-t-2xl" />
           <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.06] transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(16,185,129,1)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
           <div className="flex items-start justify-between mb-3">
@@ -178,12 +176,12 @@ export default function AdminDashboard() {
               </svg>
             </div>
           </div>
-          <div className="text-text-muted text-xs uppercase tracking-wider mb-1">On Track</div>
+          <div className="text-text-muted text-xs uppercase tracking-wider mb-1">Up to Date</div>
           <div className="text-3xl font-heading font-bold text-emerald-400">{greenCount}</div>
-        </div>
+        </Link>
 
         {/* Needs Attention - amber/red accent */}
-        <div className="group relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(245,158,11,0.15)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(245,158,11,0.14)] hover:border-amber-500/30">
+        <Link href="/admin/clients?status=attention" className="group relative block bg-bg-card/80 backdrop-blur-sm border border-[rgba(245,158,11,0.15)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(245,158,11,0.14)] hover:border-amber-500/30 no-underline">
           <div className={`absolute top-0 left-0 right-0 h-[2px] rounded-t-2xl ${redCount > 0 ? "bg-red-500/70" : "bg-amber-500/70"}`} />
           <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.06] transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(245,158,11,1)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
           <div className="flex items-start justify-between mb-3">
@@ -200,7 +198,7 @@ export default function AdminDashboard() {
           {redCount > 0 && (
             <div className="text-red-400 text-xs mt-1">{redCount} behind schedule</div>
           )}
-        </div>
+        </Link>
 
         {/* Unreplied - red if any, neutral if zero */}
         <div className="group relative bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(0,0,0,0.12)] hover:border-[rgba(0,0,0,0.1)]">
@@ -512,15 +510,18 @@ interface BriefingInsight {
 
 function ShiftOverview({ clients, recentCheckins }: { clients: AdminClient[]; recentCheckins: EnrichedCheckin[] }) {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
-  const [nudgeTarget, setNudgeTarget] = useState<{ name: string; userId: string } | null>(null);
+  const [nudgeTarget, setNudgeTarget] = useState<{ name: string; userId: string; clientId: string } | null>(null);
   const [nudgeMessage, setNudgeMessage] = useState("");
   const [nudgeSending, setNudgeSending] = useState(false);
   const [nudgeSent, setNudgeSent] = useState(false);
+  const [nudgeDelivery, setNudgeDelivery] = useState("");
 
-  const redClients = clients.filter(c => c.status === "red");
-  const amberClients = clients.filter(c => c.status === "amber");
-  const unrepliedCheckins = recentCheckins.filter(c => !c.admin_reply);
-  const stalledClients = clients.filter(c => {
+  const activeClients = clients.filter(c => c.lifecycle_status === "active");
+  const activeClientIds = new Set(activeClients.map(c => c.id));
+  const redClients = activeClients.filter(c => c.status === "red");
+  const amberClients = activeClients.filter(c => c.status === "amber");
+  const unrepliedCheckins = recentCheckins.filter(c => !c.admin_reply && activeClientIds.has(c.client_id));
+  const stalledClients = activeClients.filter(c => {
     const activePlan = c.training_plan.find(p => p.status === "active");
     if (!activePlan) return false;
     const items = activePlan.phases.flatMap(ph => ph.items);
@@ -531,19 +532,15 @@ function ShiftOverview({ clients, recentCheckins }: { clients: AdminClient[]; re
 
   const insights: BriefingInsight[] = [];
 
-  for (const c of redClients) {
-    const daysSinceLogin = Math.floor((Date.now() - new Date(c.last_login).getTime()) / (1000 * 60 * 60 * 24));
-    const daysSinceCheckin = Math.floor((Date.now() - new Date(c.last_checkin).getTime()) / (1000 * 60 * 60 * 24));
-    if (daysSinceLogin > 10) {
-      insights.push({ id: `login-${c.id}`, icon: "alert", text: `${c.name} hasn't logged in for ${daysSinceLogin} days - consider reaching out`, action: { type: "nudge", clientName: c.name, userId: c.user_id, clientId: c.id } });
-    } else if (daysSinceCheckin > 14) {
-      insights.push({ id: `checkin-${c.id}`, icon: "alert", text: `${c.name} hasn't checked in for ${daysSinceCheckin} days`, action: { type: "nudge", clientName: c.name, userId: c.user_id, clientId: c.id } });
-    }
-  }
-
-  for (const c of amberClients) {
-    const daysSinceCheckin = Math.floor((Date.now() - new Date(c.last_checkin).getTime()) / (1000 * 60 * 60 * 24));
-    insights.push({ id: `amber-${c.id}`, icon: "clock", text: `${c.name} is ${daysSinceCheckin} days since last check-in`, action: { type: "nudge", clientName: c.name, userId: c.user_id, clientId: c.id } });
+  for (const c of [...redClients, ...amberClients]) {
+    const reason = c.attention_reasons[0];
+    if (!reason) continue;
+    insights.push({
+      id: `${reason.signal}-${c.id}`,
+      icon: reason.severity === "red" ? "alert" : "clock",
+      text: `${c.name}: ${reason.detail}`,
+      action: { type: "nudge", clientName: c.name, userId: c.user_id, clientId: c.id },
+    });
   }
 
   if (unrepliedCheckins.length > 0) {
@@ -572,7 +569,7 @@ function ShiftOverview({ clients, recentCheckins }: { clients: AdminClient[]; re
     // All dismissed
     visibleInsights.push({ id: "all-clear", icon: "check", text: "All caught up - no actions remaining" });
   } else if (insights.length === 0) {
-    visibleInsights.push({ id: "on-track", icon: "check", text: "All clients are on track - no immediate actions needed" });
+    visibleInsights.push({ id: "on-track", icon: "check", text: "All active clients are up to date - no immediate actions needed" });
   }
 
   const iconMap: Record<string, React.ReactNode> = {
@@ -586,35 +583,36 @@ function ShiftOverview({ clients, recentCheckins }: { clients: AdminClient[]; re
   function handleNudge(insight: BriefingInsight) {
     if (insight.action?.type !== "nudge") return;
     const firstName = insight.action.clientName.split(" ")[0];
-    setNudgeTarget({ name: insight.action.clientName, userId: insight.action.userId });
+    setNudgeTarget({ name: insight.action.clientName, userId: insight.action.userId, clientId: insight.action.clientId });
     setNudgeMessage(`Hey ${firstName}, just checking in - haven't seen you in the portal for a bit. Everything OK? Jump back in when you're ready, your plan is waiting.`);
     setNudgeSent(false);
+    setNudgeDelivery("");
   }
 
   async function sendNudge(insightId: string) {
     if (!nudgeTarget) return;
     setNudgeSending(true);
     try {
-      const res = await fetch("/api/push/send", {
+      const res = await fetch("/api/inbox/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: nudgeTarget.userId,
-          title: "Gordy Elliott",
-          body: nudgeMessage,
-          url: "/portal",
-          tag: "nudge",
+          client_id: nudgeTarget.clientId,
+          message: nudgeMessage,
         }),
       });
       const result = await res.json().catch(() => ({}));
-      if (res.ok && result.sent > 0) {
+      if (res.ok) {
+        const notification = result.notification || {};
         setNudgeSent(true);
+        setNudgeDelivery(notification.suppressed
+          ? "DM saved. Notifications are paused for this client."
+          : notification.sent > 0
+            ? "DM saved and device notification delivered."
+            : "DM saved. No device notification is currently enabled.");
         setDismissed(prev => new Set([...prev, insightId]));
-        setTimeout(() => { setNudgeTarget(null); }, 1500);
       } else {
-        alert(result.reason
-          ? `Push notification could not be delivered. ${result.reason}`
-          : `Push notification could not be delivered. Subscriptions found: ${result.subscriptionCount ?? 0}, failed: ${result.failed ?? 0}.`);
+        alert(result.error || "The DM could not be sent.");
       }
     } finally {
       setNudgeSending(false);
@@ -696,7 +694,7 @@ function ShiftOverview({ clients, recentCheckins }: { clients: AdminClient[]; re
               </div>
               <div>
                 <h3 className="text-lg font-heading font-bold text-text-primary">Nudge {nudgeTarget.name.split(" ")[0]}</h3>
-                <p className="text-xs text-text-muted">Send a push notification to their device</p>
+                <p className="text-xs text-text-muted">Save a DM and alert their device when notifications are enabled</p>
               </div>
             </div>
 
@@ -705,7 +703,10 @@ function ShiftOverview({ clients, recentCheckins }: { clients: AdminClient[]; re
                 <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                <span className="text-sm text-emerald-400 font-medium">Nudge sent</span>
+                <div>
+                  <div className="text-sm text-emerald-400 font-medium">Nudge sent by DM</div>
+                  <div className="mt-0.5 text-xs text-text-muted">{nudgeDelivery}</div>
+                </div>
               </div>
             ) : (
               <textarea

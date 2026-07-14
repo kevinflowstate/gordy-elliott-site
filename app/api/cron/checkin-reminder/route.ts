@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyClientProfile } from "@/lib/client-notifications";
 import { sendPushToUser } from "@/lib/push";
 import { sendCheckinReminderEmail } from "@/lib/email-templates";
+import { resolveClientLifecycleStatus } from "@/lib/client-attention";
 import { NextResponse } from "next/server";
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -41,7 +42,11 @@ export async function GET(request: Request) {
   // Get client_profiles to map user_id -> client_id
   const { data: profiles } = await admin
     .from("client_profiles")
-    .select("id, user_id, date_of_birth");
+    .select("id, user_id, date_of_birth, lifecycle_status, lifecycle_resumes_at");
+
+  const activeClientIds = new Set((profiles || [])
+    .filter((profile) => resolveClientLifecycleStatus(profile.lifecycle_status, profile.lifecycle_resumes_at) === "active")
+    .map((profile) => profile.id));
 
   const userToClientId = new Map(
     (profiles || []).map((p) => [p.user_id, p.id])
@@ -56,7 +61,7 @@ export async function GET(request: Request) {
 
   const wishEvents = [
     ...(profiles || [])
-      .filter((profile) => profile.date_of_birth?.slice(5) === todayMonthDay)
+      .filter((profile) => activeClientIds.has(profile.id) && profile.date_of_birth?.slice(5) === todayMonthDay)
       .map((profile) => ({
         clientId: profile.id,
         tag: `birthday-${profile.id}-${currentYear}`,
@@ -64,7 +69,7 @@ export async function GET(request: Request) {
         message: "Have a good one - then get back to work tomorrow. - Gordy",
       })),
     ...(keyDates || [])
-      .filter((item) => item.recurring ? item.date.slice(5) === todayMonthDay : item.date === todayIso)
+      .filter((item) => activeClientIds.has(item.client_id) && (item.recurring ? item.date.slice(5) === todayMonthDay : item.date === todayIso))
       .map((item) => {
         const userId = userIdByClientId.get(item.client_id);
         const firstName = (userId ? nameByUserId.get(userId) : "there")?.split(" ")[0] || "there";
@@ -130,6 +135,10 @@ export async function GET(request: Request) {
 
     for (const client of clients) {
       const clientId = userToClientId.get(client.id);
+      if (!clientId || !activeClientIds.has(clientId)) {
+        skipped++;
+        continue;
+      }
       if (clientId && checkedInClientIds.has(clientId)) {
         skipped++;
         continue;

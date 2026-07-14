@@ -1,4 +1,5 @@
 import { sendPushToUser } from "@/lib/push";
+import { getClientNotificationSuppression } from "@/lib/client-lifecycle";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type ClientNotification = {
@@ -9,6 +10,17 @@ type ClientNotification = {
 };
 
 export async function notifyClientUser(userId: string, notification: ClientNotification) {
+  const suppression = await getClientNotificationSuppression(userId);
+  if (suppression) {
+    return {
+      sent: 0,
+      failed: 0,
+      subscriptionCount: 0,
+      suppressed: true,
+      reason: suppression.reason,
+    };
+  }
+
   const admin = createAdminClient();
   const link = notification.link || "/portal";
 
@@ -30,7 +42,7 @@ export async function notifyClientUser(userId: string, notification: ClientNotif
       body: notification.message.slice(0, 160),
       url: link,
       tag: notification.tag,
-    });
+    }, { lifecycleVerified: true });
 
     if (pushResult.failed > 0 || pushResult.sent === 0) {
       console.error("Failed to deliver client push:", pushResult);

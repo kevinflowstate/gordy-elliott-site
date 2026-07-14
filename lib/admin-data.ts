@@ -12,6 +12,16 @@ import type {
   ClientKeyDate,
 } from "./types";
 import type { WearableConnection, WearableDailySummary } from "./wearable-insights";
+import {
+  computeClientAttention,
+  DEFAULT_MONITORING_PREFERENCES,
+  isAttentionSnoozeActive,
+  resolveClientLifecycleStatus,
+  type ClientAttentionReason,
+  type ClientAttentionSnooze,
+  type ClientLifecycleStatus,
+  type ClientMonitoringPreferences,
+} from "./client-attention";
 
 // ============================================
 // Types for admin data layer
@@ -54,27 +64,13 @@ export interface AdminClient {
   key_dates?: ClientKeyDate[];
   wearable_connections?: WearableConnection[];
   wearable_summaries?: WearableDailySummary[];
-}
-
-// ============================================
-// Status calculation
-// ============================================
-
-function computeStatus(lastLogin: string | null, lastCheckin: string | null, createdAt: string): TrafficLight {
-  const now = Date.now();
-  const DAY = 1000 * 60 * 60 * 24;
-
-  // Use created_at as fallback for last_login (new clients who haven't had login tracked yet)
-  const loginRef = lastLogin || createdAt;
-  const loginDays = loginRef ? (now - new Date(loginRef).getTime()) / DAY : Infinity;
-
-  // If client has never checked in, use created_at as reference (don't penalise new clients)
-  const checkinRef = lastCheckin || createdAt;
-  const checkinDays = checkinRef ? (now - new Date(checkinRef).getTime()) / DAY : Infinity;
-
-  if (loginDays > 10 || checkinDays > 14) return "red";
-  if (checkinDays > 7) return "amber";
-  return "green";
+  lifecycle_status: ClientLifecycleStatus;
+  lifecycle_paused_at?: string | null;
+  lifecycle_resumes_at?: string | null;
+  lifecycle_note?: string | null;
+  monitoring_preferences: ClientMonitoringPreferences;
+  attention_snoozes: ClientAttentionSnooze[];
+  attention_reasons: ClientAttentionReason[];
 }
 
 interface RawPhase { id: string; plan_id: string; name: string; notes: string; order_index: number }
@@ -164,6 +160,7 @@ export async function getClients(): Promise<AdminClient[]> {
       checkin_form_id, coach_notes, start_weight, tier,
       consultation_data, consultation_summary, profile_setup_data, profile_setup_completed_at,
       wearables_preference, wearables_notes, date_of_birth, sex, cycle_tracking_enabled,
+      lifecycle_status, lifecycle_paused_at, lifecycle_resumes_at,
       user:users!client_profiles_user_id_fkey(email, full_name)
     `)
     .order("created_at", { ascending: true });
@@ -220,9 +217,60 @@ export async function getClients(): Promise<AdminClient[]> {
     keyDatesByClient.set(item.client_id, list);
   }
 
+  const [
+    { data: monitoringRows },
+    { data: snoozeRows },
+    { data: lifecycleNotes },
+    { data: latestActivity },
+    { data: activeExercisePlans },
+    { data: activeNutritionPlans },
+    { data: wearableConnections },
+  ] = await Promise.all([
+    admin.from("client_monitoring_preferences").select("*"),
+    admin.from("client_attention_snoozes").select("client_id, signal, ignored, snoozed_until, reason"),
+    admin.from("client_lifecycle_notes").select("client_id, note"),
+    admin.from("client_attention_latest_activity").select("client_id, last_training, last_daily_metric, last_nutrition, last_wearable_sync"),
+    admin.from("client_exercise_plans").select("client_id").eq("status", "active"),
+    admin.from("client_nutrition_plans").select("client_id").eq("status", "active"),
+    admin.from("client_wearable_connections").select("client_id").eq("status", "connected"),
+  ]);
+
+  const monitoringByClient = new Map((monitoringRows || []).map((row) => [row.client_id, row as ClientMonitoringPreferences]));
+  const lifecycleNotesByClient = new Map((lifecycleNotes || []).map((row) => [row.client_id, row.note as string]));
+  const activityByClient = new Map((latestActivity || []).map((row) => [row.client_id, row]));
+  const snoozesByClient = new Map<string, ClientAttentionSnooze[]>();
+  for (const row of (snoozeRows || []) as Array<ClientAttentionSnooze & { client_id: string }>) {
+    if (!isAttentionSnoozeActive(row)) continue;
+    const list = snoozesByClient.get(row.client_id) || [];
+    list.push(row);
+    snoozesByClient.set(row.client_id, list);
+  }
+  const exercisePlanClients = new Set((activeExercisePlans || []).map((row) => row.client_id));
+  const nutritionPlanClients = new Set((activeNutritionPlans || []).map((row) => row.client_id));
+  const wearableClients = new Set((wearableConnections || []).map((row) => row.client_id));
+
   // Assemble clients
   const clients: AdminClient[] = profiles.map((p) => {
     const user = Array.isArray(p.user) ? p.user[0] : p.user;
+    const lifecycleStatus = resolveClientLifecycleStatus(p.lifecycle_status, p.lifecycle_resumes_at);
+    const latest = activityByClient.get(p.id);
+    const monitoring = monitoringByClient.get(p.id) || DEFAULT_MONITORING_PREFERENCES;
+    const attentionSnoozes = snoozesByClient.get(p.id) || [];
+    const attention = computeClientAttention({
+      lifecycleStatus,
+      createdAt: p.created_at,
+      lastLogin: p.last_login,
+      lastCheckin: p.last_checkin,
+      lastTraining: latest?.last_training,
+      lastDailyMetric: latest?.last_daily_metric,
+      lastNutrition: latest?.last_nutrition,
+      lastWearableSync: latest?.last_wearable_sync,
+      hasActiveTrainingPlan: exercisePlanClients.has(p.id),
+      hasActiveNutritionPlan: nutritionPlanClients.has(p.id),
+      hasWearableConnection: wearableClients.has(p.id),
+      preferences: monitoring,
+      snoozes: attentionSnoozes,
+    });
     return {
       id: p.id,
       user_id: p.user_id,
@@ -236,7 +284,7 @@ export async function getClients(): Promise<AdminClient[]> {
       target_date: p.target_date || undefined,
       goal_notes: p.goal_notes || undefined,
       start_date: p.start_date,
-      status: computeStatus(p.last_login, p.last_checkin, p.created_at),
+      status: attention.status,
       current_week: computeCurrentWeek(p.start_date),
       last_login: p.last_login || p.created_at,
       last_checkin: p.last_checkin || p.created_at,
@@ -257,6 +305,13 @@ export async function getClients(): Promise<AdminClient[]> {
       sex: (p.sex as ClientSex | null) || null,
       cycle_tracking_enabled: Boolean(p.cycle_tracking_enabled),
       key_dates: keyDatesByClient.get(p.id) || [],
+      lifecycle_status: lifecycleStatus,
+      lifecycle_paused_at: p.lifecycle_paused_at || null,
+      lifecycle_resumes_at: p.lifecycle_resumes_at || null,
+      lifecycle_note: lifecycleNotesByClient.get(p.id) || null,
+      monitoring_preferences: monitoring,
+      attention_snoozes: attentionSnoozes,
+      attention_reasons: attention.reasons,
     };
   });
 
@@ -283,6 +338,7 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
       checkin_form_id, coach_notes, start_weight, tier,
       consultation_data, consultation_summary, profile_setup_data, profile_setup_completed_at,
       wearables_preference, wearables_notes, date_of_birth, sex, cycle_tracking_enabled,
+      lifecycle_status, lifecycle_paused_at, lifecycle_resumes_at,
       user:users!client_profiles_user_id_fkey(email, full_name)
     `)
     .eq("id", id)
@@ -344,7 +400,18 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
     .eq("client_id", id)
     .order("date", { ascending: true });
 
-  const [{ data: wearableConnections }, { data: wearableSummaries }] = await Promise.all([
+  const [
+    { data: wearableConnections },
+    { data: wearableSummaries },
+    { data: monitoringRow },
+    { data: lifecycleNote },
+    { data: attentionSnoozes },
+    { data: latestExerciseLogs },
+    { data: latestDailyMetrics },
+    { data: latestNutritionLogs },
+    { data: activeExercisePlans },
+    { data: activeNutritionPlans },
+  ] = await Promise.all([
     admin
       .from("client_wearable_connections")
       .select("*")
@@ -356,6 +423,52 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
       .eq("client_id", id)
       .order("summary_date", { ascending: false })
       .limit(7),
+    admin
+      .from("client_monitoring_preferences")
+      .select("*")
+      .eq("client_id", id)
+      .maybeSingle(),
+    admin
+      .from("client_lifecycle_notes")
+      .select("note")
+      .eq("client_id", id)
+      .maybeSingle(),
+    admin
+      .from("client_attention_snoozes")
+      .select("signal, ignored, snoozed_until, reason")
+      .eq("client_id", id),
+    admin
+      .from("client_exercise_logs")
+      .select("log_date")
+      .eq("client_id", id)
+      .eq("completed", true)
+      .order("log_date", { ascending: false })
+      .limit(1),
+    admin
+      .from("client_daily_metrics")
+      .select("tracked_date")
+      .eq("client_id", id)
+      .order("tracked_date", { ascending: false })
+      .limit(1),
+    admin
+      .from("client_meal_tracking")
+      .select("tracked_date")
+      .eq("client_id", id)
+      .eq("completed", true)
+      .order("tracked_date", { ascending: false })
+      .limit(1),
+    admin
+      .from("client_exercise_plans")
+      .select("id")
+      .eq("client_id", id)
+      .eq("status", "active")
+      .limit(1),
+    admin
+      .from("client_nutrition_plans")
+      .select("id")
+      .eq("client_id", id)
+      .eq("status", "active")
+      .limit(1),
   ]);
 
   // Build nested structures using shared helper
@@ -363,6 +476,24 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
   const trainingPlans: TrainingPlan[] = plansByClient.get(id) || [];
 
   const user = Array.isArray(p.user) ? p.user[0] : p.user;
+  const lifecycleStatus = resolveClientLifecycleStatus(p.lifecycle_status, p.lifecycle_resumes_at);
+  const monitoring = (monitoringRow || DEFAULT_MONITORING_PREFERENCES) as ClientMonitoringPreferences;
+  const snoozes = ((attentionSnoozes || []) as ClientAttentionSnooze[]).filter((item) => isAttentionSnoozeActive(item));
+  const attention = computeClientAttention({
+    lifecycleStatus,
+    createdAt: p.created_at,
+    lastLogin: p.last_login,
+    lastCheckin: p.last_checkin,
+    lastTraining: latestExerciseLogs?.[0]?.log_date || null,
+    lastDailyMetric: latestDailyMetrics?.[0]?.tracked_date || null,
+    lastNutrition: latestNutritionLogs?.[0]?.tracked_date || null,
+    lastWearableSync: wearableSummaries?.[0]?.summary_date || null,
+    hasActiveTrainingPlan: Boolean(activeExercisePlans?.length),
+    hasActiveNutritionPlan: Boolean(activeNutritionPlans?.length),
+    hasWearableConnection: (wearableConnections || []).some((connection) => connection.status === "connected"),
+    preferences: monitoring,
+    snoozes,
+  });
 
   return {
     id: p.id,
@@ -377,7 +508,7 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
     target_date: p.target_date || undefined,
     goal_notes: p.goal_notes || undefined,
     start_date: p.start_date,
-    status: computeStatus(p.last_login, p.last_checkin, p.created_at),
+    status: attention.status,
     current_week: computeCurrentWeek(p.start_date),
     last_login: p.last_login || p.created_at,
     last_checkin: p.last_checkin || p.created_at,
@@ -401,6 +532,13 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
     key_dates: keyDates || [],
     wearable_connections: (wearableConnections || []) as WearableConnection[],
     wearable_summaries: (wearableSummaries || []) as WearableDailySummary[],
+    lifecycle_status: lifecycleStatus,
+    lifecycle_paused_at: p.lifecycle_paused_at || null,
+    lifecycle_resumes_at: p.lifecycle_resumes_at || null,
+    lifecycle_note: lifecycleNote?.note || null,
+    monitoring_preferences: monitoring,
+    attention_snoozes: snoozes,
+    attention_reasons: attention.reasons,
   };
 }
 

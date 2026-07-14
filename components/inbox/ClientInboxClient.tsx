@@ -23,7 +23,7 @@ export default function ClientInboxClient() {
   const loadThread = useCallback(async () => {
     try {
       const res = await fetch("/api/inbox/thread");
-      if (!res.ok) throw new Error("Could not load your inbox.");
+      if (!res.ok) throw new Error("Could not load your DMs.");
       const data = await res.json();
       setThread(data);
       setError(null);
@@ -33,7 +33,7 @@ export default function ClientInboxClient() {
         body: JSON.stringify({}),
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load your inbox.");
+      setError(err instanceof Error ? err.message : "Could not load your DMs.");
     } finally {
       setLoading(false);
     }
@@ -76,14 +76,14 @@ export default function ClientInboxClient() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-4 sm:px-0 sm:py-0">
       <div className="mb-5">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-bright">Coach Inbox</div>
-        <h1 className="mt-2 text-2xl font-heading font-extrabold text-text-primary">Inbox</h1>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-bright">Direct Messages</div>
+        <h1 className="mt-2 text-2xl font-heading font-extrabold text-text-primary">DM</h1>
         <p className="mt-1 text-sm text-text-secondary">Message Gordy directly from your SHIFT portal.</p>
       </div>
 
       {loading ? (
         <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.025)] px-6 py-12 text-sm text-text-muted">
-          Loading inbox...
+          Loading DMs...
         </div>
       ) : (
         <InboxThread

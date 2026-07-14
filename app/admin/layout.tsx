@@ -13,7 +13,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <AdminBackground />
         <AdminSidebar />
         <main className="lg:ml-[260px] min-h-screen relative z-[1]">
-          <div className="max-w-7xl mx-auto px-6 py-8">
+          <div className="max-w-7xl mx-auto px-6 pb-8 pt-20 lg:py-8">
             {children}
           </div>
         </main>

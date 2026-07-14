@@ -1,11 +1,20 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeVapidKey } from "@/lib/vapid";
+import { getClientNotificationSuppression } from "@/lib/client-lifecycle";
 import webpush from "web-push";
 
 export async function sendPushToUser(
   userId: string,
-  notification: { title: string; body?: string; url?: string; tag?: string }
-): Promise<{ sent: number; failed: number; reason?: string; subscriptionCount?: number }> {
+  notification: { title: string; body?: string; url?: string; tag?: string },
+  options: { lifecycleVerified?: boolean } = {},
+): Promise<{ sent: number; failed: number; reason?: string; subscriptionCount?: number; suppressed?: boolean }> {
+  if (!options.lifecycleVerified) {
+    const suppression = await getClientNotificationSuppression(userId);
+    if (suppression) {
+      return { sent: 0, failed: 0, reason: suppression.reason, subscriptionCount: 0, suppressed: true };
+    }
+  }
+
   const vapidPublicKey = normalizeVapidKey(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY);
   const vapidPrivateKey = normalizeVapidKey(process.env.VAPID_PRIVATE_KEY);
 

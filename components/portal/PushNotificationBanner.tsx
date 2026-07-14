@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { usePush } from "@/lib/use-push";
 import { useInstall } from "@/lib/use-install";
 
@@ -19,21 +19,30 @@ function hasPushSupport() {
   return typeof window !== "undefined" && "PushManager" in window && "Notification" in window;
 }
 
+const subscribeToHydration = () => () => {};
+
+function useHydrated() {
+  return useSyncExternalStore(subscribeToHydration, () => true, () => false);
+}
+
 export default function PushNotificationBanner() {
   const { permission, subscribed, subscribe } = usePush();
   const { canInstall, installed, install } = useInstall();
-  const [dismissed, setDismissed] = useState(() => {
-    if (typeof window === "undefined") return true;
-    if (!hasPushSupport()) return true;
-    return localStorage.getItem(DISMISSED_KEY) === "true";
-  });
-  const [installDismissed, setInstallDismissed] = useState(() => {
-    if (typeof window === "undefined") return true;
-    const standaloneMode = isStandalone();
-    return localStorage.getItem(INSTALL_DISMISSED_KEY) === "true" || standaloneMode;
-  });
+  const [dismissed, setDismissed] = useState(false);
+  const [installDismissed, setInstallDismissed] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [standalone] = useState(() => isStandalone());
+  const hydrated = useHydrated();
+  const standalone = hydrated && isStandalone();
+  const pushBannerDismissed =
+    !hydrated ||
+    dismissed ||
+    !hasPushSupport() ||
+    localStorage.getItem(DISMISSED_KEY) === "true";
+  const installBannerDismissed =
+    !hydrated ||
+    installDismissed ||
+    standalone ||
+    localStorage.getItem(INSTALL_DISMISSED_KEY) === "true";
 
   const handleEnable = async () => {
     setLoading(true);
@@ -65,8 +74,10 @@ export default function PushNotificationBanner() {
     setInstallDismissed(true);
   };
 
+  if (!hydrated) return null;
+
   // Show install banner if not standalone and not dismissed
-  if (!installDismissed && !standalone && !installed) {
+  if (!installBannerDismissed && !installed) {
     return (
       <div className="mb-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#121212]/92 px-3 py-2.5 shadow-lg">
         <div className="flex items-center justify-between gap-3">
@@ -123,7 +134,7 @@ export default function PushNotificationBanner() {
   }
 
   // Push notification banner
-  if (dismissed || permission === "granted" || subscribed) {
+  if (pushBannerDismissed || permission === "granted" || subscribed) {
     return null;
   }
 

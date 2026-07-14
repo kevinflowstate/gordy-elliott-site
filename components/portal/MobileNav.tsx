@@ -17,11 +17,11 @@ const allVisibleItems: PortalNavItem[] = [
   { href: "/portal", label: "Home", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6", tiers: ["coached", "premium", "vip", "ai_only"] },
   { href: "/portal/exercise-plan", label: "Training", icon: "M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z", tiers: ["coached", "premium", "vip", "ai_only"] },
   { href: "/portal/nutrition-plan", label: "Nutrition", icon: "M12 8.25v-1.5m0 1.5c-1.355 0-2.697.056-4.024.166C6.845 8.51 6 9.473 6 10.608v2.513m6-4.871c1.355 0 2.697.056 4.024.166C17.155 8.51 18 9.473 18 10.608v2.513M15 9.75l-3-3m0 0l-3 3m3-3v12", tiers: ["coached", "premium", "vip", "ai_only"] },
-  { href: "/portal/daily-tracker", label: "Daily", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z", tiers: ["coached", "premium", "vip", "ai_only"] },
+  { href: "/portal/inbox", label: "DM", icon: "M8 10h8m-8 4h5m-7 6h12a2 2 0 002-2V8a2 2 0 00-.586-1.414l-4-4A2 2 0 0014 2H6a2 2 0 00-2 2v14a2 2 0 002 2z", tiers: ["coached", "premium", "vip", "ai_only"] },
 ];
 
 const allMoreItems: PortalNavItem[] = [
-  { href: "/portal/inbox", label: "Inbox", icon: "M8 10h8m-8 4h5m-7 6h12a2 2 0 002-2V8a2 2 0 00-.586-1.414l-4-4A2 2 0 0014 2H6a2 2 0 00-2 2v14a2 2 0 002 2z", tiers: ["coached", "premium", "vip", "ai_only"] },
+  { href: "/portal/daily-tracker", label: "Daily Tracker", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z", tiers: ["coached", "premium", "vip", "ai_only"] },
   { href: "/portal/cycle", label: "Cycle Tracker", icon: "M12 6v6l4 2m5-2a9 9 0 11-2.64-6.36M21 3v6h-6", tiers: ["coached", "premium", "vip", "ai_only"], requiresCycle: true },
   { href: "/portal/checkin", label: "Check-in", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4", tiers: ["coached", "premium", "vip"] },
   { href: "/portal/ai", label: "SHIFT AI", icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z", tiers: ["coached", "premium", "vip", "ai_only"] },
@@ -116,7 +116,7 @@ export default function MobileNav() {
                 href={item.href}
                 onClick={() => setShowMore(false)}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-1.5 transition-colors no-underline min-h-[48px] ${
+                className={`relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-1.5 transition-colors no-underline min-h-[48px] ${
                   isActive ? "text-accent-bright" : "text-[#aeb0bb]"
                 }`}
               >
@@ -126,6 +126,11 @@ export default function MobileNav() {
                   </svg>
                 </span>
                 <span className="text-[11px] font-semibold leading-tight tracking-tight">{item.label}</span>
+                {item.href === "/portal/inbox" && inboxUnreadCount > 0 && (
+                  <span className="absolute left-1/2 top-1 ml-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-bright px-1 text-[9px] font-bold text-black">
+                    {inboxUnreadCount > 9 ? "9+" : inboxUnreadCount}
+                  </span>
+                )}
               </Link>
             );
           })}

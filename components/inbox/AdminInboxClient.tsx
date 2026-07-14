@@ -57,13 +57,13 @@ export default function AdminInboxClient() {
   const loadConversations = useCallback(async () => {
     try {
       const res = await fetch("/api/inbox");
-      if (!res.ok) throw new Error("Could not load inbox conversations.");
+      if (!res.ok) throw new Error("Could not load DM conversations.");
       const data = await res.json();
       setConversations(data.conversations || []);
       setSelectedClientId((current) => current || data.conversations?.[0]?.client_id || null);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load inbox conversations.");
+      setError(err instanceof Error ? err.message : "Could not load DM conversations.");
     } finally {
       setLoadingList(false);
     }
@@ -142,8 +142,8 @@ export default function AdminInboxClient() {
   return (
     <div className="space-y-5">
       <div>
-        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-bright">Coach Inbox</div>
-        <h1 className="mt-2 text-2xl font-heading font-bold text-text-primary">Inbox</h1>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-bright">Direct Messages</div>
+        <h1 className="mt-2 text-2xl font-heading font-bold text-text-primary">DM</h1>
         <p className="mt-1 text-sm text-text-secondary">Message clients directly and keep replies in one place.</p>
       </div>
 

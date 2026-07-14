@@ -13,8 +13,8 @@ const glowClass: Record<TrafficLight, string> = {
 
 const statusConfig: Record<TrafficLight, { label: string; dotClass: string; bgClass: string; textClass: string }> = {
   red: { label: "Needs Attention", dotClass: "bg-red-500", bgClass: "bg-red-500/10", textClass: "text-red-400" },
-  amber: { label: "Check In Due", dotClass: "bg-amber-500", bgClass: "bg-amber-500/10", textClass: "text-amber-400" },
-  green: { label: "On Track", dotClass: "bg-emerald-500", bgClass: "bg-emerald-500/10", textClass: "text-emerald-400" },
+  amber: { label: "Needs Attention", dotClass: "bg-amber-500", bgClass: "bg-amber-500/10", textClass: "text-amber-400" },
+  green: { label: "Up to Date", dotClass: "bg-emerald-500", bgClass: "bg-emerald-500/10", textClass: "text-emerald-400" },
 };
 
 const tierOptions: Array<{
@@ -55,6 +55,7 @@ function timeAgo(dateStr: string): string {
 }
 
 type TierFilter = ClientTier | "all";
+type ClientFilter = "all" | "attention" | "green" | "paused";
 
 const TIER_PRIORITY: Record<ClientTier, number> = {
   vip: 0,
@@ -82,7 +83,7 @@ const tierCountLabel: Record<ClientTier, string> = {
 export default function ClientsPage() {
   const [allClients, setAllClients] = useState<AdminClient[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<TrafficLight | "all">("all");
+  const [filter, setFilter] = useState<ClientFilter>("all");
   const [tierFilter, setTierFilter] = useState<TierFilter>("all");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteName, setInviteName] = useState("");
@@ -104,7 +105,11 @@ export default function ClientsPage() {
     }
   }
 
-  useEffect(() => { loadClients(); }, []);
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("status");
+    if (requested === "attention" || requested === "green" || requested === "paused") setFilter(requested);
+    loadClients();
+  }, []);
 
   if (loading) {
     return (
@@ -133,7 +138,12 @@ export default function ClientsPage() {
     );
   }
 
-  const statusFiltered = filter === "all" ? allClients : allClients.filter((c) => c.status === filter);
+  const statusFiltered = allClients.filter((client) => {
+    if (filter === "all") return true;
+    if (filter === "paused") return client.lifecycle_status !== "active";
+    if (filter === "attention") return client.lifecycle_status === "active" && client.status !== "green";
+    return client.lifecycle_status === "active" && client.status === "green";
+  });
   const filtered = tierFilter === "all" ? statusFiltered : statusFiltered.filter((c) => c.tier === tierFilter);
   const sortedFiltered = [...filtered].sort((a, b) => {
     const statusDiff = STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status];
@@ -144,7 +154,7 @@ export default function ClientsPage() {
   const tierCounts: Record<ClientTier, number> = { coached: 0, premium: 0, vip: 0, ai_only: 0 };
   for (const c of allClients) tierCounts[c.tier]++;
   const vipPremiumAtRisk = allClients.filter(
-    (c) => (c.tier === "vip" || c.tier === "premium") && (c.status === "amber" || c.status === "red"),
+    (c) => c.lifecycle_status === "active" && (c.tier === "vip" || c.tier === "premium") && (c.status === "amber" || c.status === "red"),
   );
   const highTouchTotal = tierCounts.vip + tierCounts.premium;
 
@@ -334,7 +344,7 @@ export default function ClientsPage() {
                 {vipPremiumAtRisk.length > 0 ? (
                   <span className="text-amber-500 font-semibold">{vipPremiumAtRisk.length} need{vipPremiumAtRisk.length === 1 ? "s" : ""} attention</span>
                 ) : (
-                  <span className="text-emerald-400 font-semibold">all on track</span>
+                  <span className="text-emerald-400 font-semibold">all up to date</span>
                 )}
               </div>
             </div>
@@ -353,7 +363,7 @@ export default function ClientsPage() {
       {/* Status filters */}
       <div className="flex gap-2 mb-3 flex-wrap items-center">
         <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted mr-1">Status</div>
-        {(["all", "red", "amber", "green"] as const).map((f) => (
+        {(["all", "attention", "green", "paused"] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -363,29 +373,12 @@ export default function ClientsPage() {
                 : "text-text-muted hover:text-text-secondary border border-[rgba(0,0,0,0.08)]"
             }`}
           >
-            {f === "all"
-              ? `All (${allClients.length})`
-              : `${statusConfig[f].label} (${allClients.filter((c) => c.status === f).length})`}
+            {f === "all" && `All (${allClients.length})`}
+            {f === "attention" && `Needs Attention (${allClients.filter((c) => c.lifecycle_status === "active" && c.status !== "green").length})`}
+            {f === "green" && `Up to Date (${allClients.filter((c) => c.lifecycle_status === "active" && c.status === "green").length})`}
+            {f === "paused" && `Paused (${allClients.filter((c) => c.lifecycle_status !== "active").length})`}
           </button>
         ))}
-        {/* At-risk shortcut — combines amber + red into one outreach-prioritised view */}
-        {(() => {
-          const atRiskCount = allClients.filter((c) => c.status === "amber" || c.status === "red").length;
-          const active = filter === "amber" || filter === "red";
-          return (
-            <button
-              onClick={() => setFilter(atRiskCount === 0 ? "all" : "red")}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold uppercase tracking-[0.12em] transition-all cursor-pointer border ${
-                active
-                  ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-                  : "text-text-muted hover:text-text-secondary border-[rgba(0,0,0,0.08)]"
-              }`}
-              title="Show clients who need outreach — combines Needs Attention + Check-in Due"
-            >
-              At risk ({atRiskCount})
-            </button>
-          );
-        })()}
       </div>
 
       {/* Tier filters */}
@@ -435,6 +428,8 @@ export default function ClientsPage() {
         ) : (
           sortedFiltered.map((client) => {
             const sc = statusConfig[client.status];
+            const isPaused = client.lifecycle_status !== "active";
+            const lifecycleLabel = client.lifecycle_status === "access_frozen" ? "Access Frozen" : "Coaching Paused";
             const activePlans = client.training_plan.filter((p) => p.status === "active");
             const activePlan = activePlans.find((p) => p.phases.length > 0) || activePlans[0];
             const allItems = activePlan?.phases.flatMap((ph) => ph.items) || [];
@@ -446,7 +441,7 @@ export default function ClientsPage() {
               <Link
                 key={client.id}
                 href={`/admin/clients/${client.id}`}
-                className={`group relative block bg-bg-card/80 backdrop-blur-sm border rounded-2xl p-5 overflow-hidden transition-all duration-300 no-underline hover:-translate-y-0.5 cursor-pointer ${glowClass[client.status]} ${tierRowAccent[client.tier]}`}
+                className={`group relative block bg-bg-card/80 backdrop-blur-sm border rounded-2xl p-5 overflow-hidden transition-all duration-300 no-underline hover:-translate-y-0.5 cursor-pointer ${isPaused ? "border-[rgba(0,0,0,0.12)]" : glowClass[client.status]} ${tierRowAccent[client.tier]}`}
               >
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
                 <div className="flex items-center justify-between relative">
@@ -461,7 +456,12 @@ export default function ClientsPage() {
                         <span className="text-sm font-semibold text-text-primary">{client.name}</span>
                         {renderTierBadge(client.tier)}
                       </div>
-                      <div className="text-xs text-text-muted">{client.business_name} - {client.business_type}</div>
+                      {(client.business_name || client.business_type) && <div className="text-xs text-text-muted">{[client.business_name, client.business_type].filter(Boolean).join(" - ")}</div>}
+                      {!isPaused && client.attention_reasons[0] && (
+                        <div className={`mt-1 text-xs ${client.attention_reasons[0].severity === "red" ? "text-red-400" : "text-amber-500"}`}>
+                          {client.attention_reasons[0].detail}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -501,9 +501,9 @@ export default function ClientsPage() {
                       </div>
                     </div>
 
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider ${sc.bgClass} ${sc.textClass}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${sc.dotClass}`} />
-                      {sc.label}
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider ${isPaused ? "bg-[rgba(0,0,0,0.05)] text-text-secondary" : `${sc.bgClass} ${sc.textClass}`}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${isPaused ? "bg-text-muted" : sc.dotClass}`} />
+                      {isPaused ? lifecycleLabel : sc.label}
                     </span>
 
                     <svg className="w-4 h-4 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
