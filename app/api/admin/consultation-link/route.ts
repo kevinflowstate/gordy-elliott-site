@@ -42,11 +42,13 @@ export async function POST(request: Request) {
   });
 
   let emailSent = false;
-  try {
-    await sendConsultationLinkEmail(user.email, clientName, consultationUrl);
-    emailSent = true;
-  } catch (sendError) {
-    console.log("[CONSULTATION_LINK] Email send failed:", sendError instanceof Error ? sendError.message : sendError);
+  if (!notification.suppressed) {
+    try {
+      await sendConsultationLinkEmail(user.email, clientName, consultationUrl);
+      emailSent = true;
+    } catch (sendError) {
+      console.log("[CONSULTATION_LINK] Email send failed:", sendError instanceof Error ? sendError.message : sendError);
+    }
   }
 
   return NextResponse.json({

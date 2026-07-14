@@ -105,7 +105,7 @@ async function notifyAdmins(
       body: preview.slice(0, 160),
       url: link,
       tag: `inbox-${clientProfile.id}`,
-    }),
+    }, { lifecycleVerified: true }),
   ));
 
   return results.reduce<{ sent: number; failed: number; reason?: string; subscriptionCount: number }>(

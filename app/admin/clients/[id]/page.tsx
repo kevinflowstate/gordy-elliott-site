@@ -17,9 +17,16 @@ import { normalizeCheckinConfig } from "@/lib/checkin-form";
 import { formatExercisePrescription } from "@/lib/exercise-prescriptions";
 import { useToast } from "@/components/ui/Toast";
 import { titleCaseProvider } from "@/lib/wearable-insights";
+import {
+  ATTENTION_SIGNAL_LABELS,
+  DEFAULT_MONITORING_PREFERENCES,
+  type AttentionSignal,
+  type ClientLifecycleStatus,
+  type ClientMonitoringPreferences,
+} from "@/lib/client-attention";
 
 type TabId = "dashboard" | "checkins" | "training" | "nutrition" | "gallery" | "tasks";
-type PushResult = { sent?: number; failed?: number; subscriptionCount?: number; reason?: string };
+type PushResult = { sent?: number; failed?: number; subscriptionCount?: number; reason?: string; suppressed?: boolean };
 type ClientSexInput = "" | "female" | "male" | "prefer_not_to_say";
 type CoachingNoteSourceType = "call" | "zoom" | "loom" | "fathom" | "whatsapp" | "voice_note" | "email" | "other";
 type CoachingPriority = { title: string; detail?: string; urgency?: "low" | "medium" | "high" };
@@ -51,8 +58,17 @@ const glowClass: Record<TrafficLight, string> = {
 
 const statusConfig: Record<TrafficLight, { label: string; dotClass: string; bgClass: string; textClass: string; ringClass: string }> = {
   red: { label: "Needs Attention", dotClass: "bg-red-500", bgClass: "bg-red-500/10", textClass: "text-red-400", ringClass: "ring-red-500" },
-  amber: { label: "Check In Due", dotClass: "bg-amber-500", bgClass: "bg-amber-500/10", textClass: "text-amber-400", ringClass: "ring-amber-500" },
-  green: { label: "On Track", dotClass: "bg-emerald-500", bgClass: "bg-emerald-500/10", textClass: "text-emerald-400", ringClass: "ring-emerald-500" },
+  amber: { label: "Needs Attention", dotClass: "bg-amber-500", bgClass: "bg-amber-500/10", textClass: "text-amber-400", ringClass: "ring-amber-500" },
+  green: { label: "Up to Date", dotClass: "bg-emerald-500", bgClass: "bg-emerald-500/10", textClass: "text-emerald-400", ringClass: "ring-emerald-500" },
+};
+
+const attentionPreferenceKeys: Record<AttentionSignal, keyof ClientMonitoringPreferences> = {
+  login: "monitor_login",
+  checkin: "monitor_checkins",
+  training: "monitor_training",
+  daily_metrics: "monitor_daily_metrics",
+  nutrition: "monitor_nutrition",
+  wearables: "monitor_wearables",
 };
 
 const moodConfig: Record<CheckInMood, { bgClass: string; textClass: string }> = {
@@ -144,6 +160,7 @@ function formatConsultationValue(value: unknown): string {
 
 function notificationFeedback(notification?: PushResult): string {
   if (!notification) return "portal notification created";
+  if (notification.suppressed) return "notification held while this client is paused";
   if ((notification.sent || 0) > 0) return "push sent";
   if (notification.reason) return `portal notification created; push not delivered (${notification.reason})`;
   return `portal notification created; no device push sent (${notification.subscriptionCount ?? 0} subscriptions)`;
@@ -218,6 +235,12 @@ export default function ClientDetailPage() {
   const [contentLookup, setContentLookup] = useState<Map<string, { title: string; moduleName: string; moduleId: string; duration?: number }>>(new Map());
   const [checkinConfig, setCheckinConfig] = useState<CheckinFormConfig | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [operationsOpen, setOperationsOpen] = useState(false);
+  const [operationsSaving, setOperationsSaving] = useState(false);
+  const [lifecycleStatus, setLifecycleStatus] = useState<ClientLifecycleStatus>("active");
+  const [lifecycleResumeDate, setLifecycleResumeDate] = useState("");
+  const [lifecycleNote, setLifecycleNote] = useState("");
+  const [monitoringPreferences, setMonitoringPreferences] = useState<ClientMonitoringPreferences>(DEFAULT_MONITORING_PREFERENCES);
   const [revokeModalOpen, setRevokeModalOpen] = useState(false);
   const [revokeConfirmText, setRevokeConfirmText] = useState("");
   const [revoking, setRevoking] = useState(false);
@@ -241,6 +264,8 @@ export default function ClientDetailPage() {
   const [assigningNutrition, setAssigningNutrition] = useState(false);
   const [nudgeSending, setNudgeSending] = useState(false);
   const [nudgeSent, setNudgeSent] = useState(false);
+  const [nudgeDelivery, setNudgeDelivery] = useState("");
+  const [nudgeIsPushTest, setNudgeIsPushTest] = useState(false);
   const [checkinDay, setCheckinDay] = useState<string>("");
   const [checkinDaySaving, setCheckinDaySaving] = useState(false);
   const [checkinTemplates, setCheckinTemplates] = useState<CheckinFormTemplate[]>([]);
@@ -259,6 +284,7 @@ export default function ClientDetailPage() {
   const [tasks, setTasks] = useState<ClientTask[]>([]);
   const [newTaskText, setNewTaskText] = useState("");
   const [addingTask, setAddingTask] = useState(false);
+  const [quickTaskOpen, setQuickTaskOpen] = useState(false);
   const [coachingNotes, setCoachingNotes] = useState<CoachingNote[]>([]);
   const [coachingNotesLoaded, setCoachingNotesLoaded] = useState(false);
   const [coachingNotesOpen, setCoachingNotesOpen] = useState(false);
@@ -310,6 +336,10 @@ export default function ClientDetailPage() {
         setSex(data.client?.sex || "");
         setCycleTrackingEnabled(Boolean(data.client?.sex === "female" && data.client?.cycle_tracking_enabled));
         setKeyDates(data.client?.key_dates || []);
+        setLifecycleStatus(data.client?.lifecycle_status || "active");
+        setLifecycleResumeDate(data.client?.lifecycle_resumes_at?.split("T")[0] || "");
+        setLifecycleNote(data.client?.lifecycle_note || "");
+        setMonitoringPreferences(data.client?.monitoring_preferences || DEFAULT_MONITORING_PREFERENCES);
       }
 
       if (trainingRes.ok) {
@@ -417,6 +447,7 @@ export default function ClientDetailPage() {
       }
       const data = await res.json().catch(() => ({}));
       setNewTaskText("");
+      setQuickTaskOpen(false);
       loadTasks();
       toast(`Task added - ${notificationFeedback(data.notification)}`);
     } catch {
@@ -957,6 +988,11 @@ export default function ClientDetailPage() {
   const activePlan = activePlans.find((p) => p.phases.length > 0) || activePlans[0];
   const completedPlans = plans.filter((p) => p.status === "completed");
   const sc = statusConfig[client.status];
+  const isClientPaused = client.lifecycle_status !== "active";
+  const lifecycleLabel = client.lifecycle_status === "access_frozen" ? "Access Frozen" : "Coaching Paused";
+  const lifecycleStyle = client.lifecycle_status === "access_frozen"
+    ? "bg-red-500/10 text-red-400 border-red-500/20"
+    : "bg-amber-500/10 text-amber-500 border-amber-500/20";
 
   const allItems = activePlan?.phases.flatMap((ph) => ph.items) || [];
   const planTotal = allItems.length;
@@ -1192,6 +1228,92 @@ export default function ClientDetailPage() {
     loadClient();
   }
 
+  function resetOperationsDraft() {
+    if (!client) return;
+    setLifecycleStatus(client.lifecycle_status || "active");
+    if (client.lifecycle_resumes_at) {
+      const resumeDate = new Date(client.lifecycle_resumes_at);
+      const year = resumeDate.getFullYear();
+      const month = String(resumeDate.getMonth() + 1).padStart(2, "0");
+      const day = String(resumeDate.getDate()).padStart(2, "0");
+      setLifecycleResumeDate(`${year}-${month}-${day}`);
+    } else {
+      setLifecycleResumeDate("");
+    }
+    setLifecycleNote(client.lifecycle_note || "");
+    setMonitoringPreferences(client.monitoring_preferences || DEFAULT_MONITORING_PREFERENCES);
+  }
+
+  function openClientOperations() {
+    resetOperationsDraft();
+    setOperationsOpen(true);
+  }
+
+  function closeClientOperations() {
+    resetOperationsDraft();
+    setOperationsOpen(false);
+  }
+
+  async function saveClientOperations() {
+    if (!client || operationsSaving) return;
+    setOperationsSaving(true);
+    try {
+      const response = await fetch("/api/admin/client-operations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: client.id,
+          lifecycle: {
+            status: lifecycleStatus,
+            resumes_at: lifecycleStatus === "active" || !lifecycleResumeDate
+              ? null
+              : new Date(`${lifecycleResumeDate}T00:00:00`).toISOString(),
+            note: lifecycleNote,
+          },
+          monitoring: monitoringPreferences,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Client settings could not be saved");
+      await loadClient();
+      setOperationsOpen(false);
+      toast("Client status and monitoring updated");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Client settings could not be saved", "error");
+    } finally {
+      setOperationsSaving(false);
+    }
+  }
+
+  async function updateAttentionSnooze(signal: AttentionSignal, mode: "snooze" | "ignore" | "clear") {
+    if (!client) return;
+    const until = mode === "snooze"
+      ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      : null;
+    const response = await fetch("/api/admin/client-operations", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id: client.id, snooze: { signal, mode, until } }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      toast(data.error || "Attention setting could not be updated", "error");
+      return;
+    }
+    const draft = {
+      status: lifecycleStatus,
+      resumeDate: lifecycleResumeDate,
+      note: lifecycleNote,
+      monitoring: monitoringPreferences,
+    };
+    await loadClient();
+    setLifecycleStatus(draft.status);
+    setLifecycleResumeDate(draft.resumeDate);
+    setLifecycleNote(draft.note);
+    setMonitoringPreferences(draft.monitoring);
+    toast(mode === "clear" ? "Monitoring restored" : mode === "ignore" ? "Signal ignored for this client" : "Signal snoozed for 7 days");
+  }
+
   const tabs: { id: TabId; label: string }[] = [
     { id: "dashboard", label: "Dashboard" },
     { id: "checkins", label: "Check-ins" },
@@ -1215,7 +1337,7 @@ export default function ClientDetailPage() {
       </Link>
 
       {/* Top bar - client identity */}
-      <div className={`bg-bg-card border rounded-2xl p-6 mb-6 transition-all duration-300 overflow-visible ${glowClass[client.status]}`}>
+      <div className={`bg-bg-card border rounded-2xl p-6 mb-6 transition-all duration-300 overflow-visible ${isClientPaused ? "border-[rgba(0,0,0,0.1)]" : glowClass[client.status]}`}>
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           {/* Left: avatar + name */}
           <div className="flex items-center gap-4">
@@ -1236,9 +1358,9 @@ export default function ClientDetailPage() {
           {/* Right: last active + actions */}
           <div className="flex flex-col items-start sm:items-end gap-3">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${sc.bgClass} ${sc.textClass}`}>
-                <span className={`w-2 h-2 rounded-full ${sc.dotClass}`} />
-                {sc.label}
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold ${isClientPaused ? lifecycleStyle : `${sc.bgClass} ${sc.textClass} border-transparent`}`}>
+                <span className={`w-2 h-2 rounded-full ${isClientPaused ? (client.lifecycle_status === "access_frozen" ? "bg-red-500" : "bg-amber-500") : sc.dotClass}`} />
+                {isClientPaused ? lifecycleLabel : sc.label}
               </span>
               <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-[0.12em] border ${
                 client.tier === "vip"
@@ -1255,7 +1377,7 @@ export default function ClientDetailPage() {
                 Last active: {timeAgoDetailed(client.last_login)}
               </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex max-w-full flex-wrap items-center gap-2 sm:justify-end">
               <button
                 onClick={() => setConsultationOpen(true)}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
@@ -1285,7 +1407,7 @@ export default function ClientDetailPage() {
                 Assign Check-in
               </button>
               <button
-                onClick={() => setActiveTab("tasks")}
+                onClick={() => { setNewTaskText(""); setQuickTaskOpen(true); }}
                 className="px-3 py-1.5 text-xs font-semibold text-white bg-[#E040D0] hover:bg-[#b830a8] rounded-lg transition-colors"
               >
                 Add Task
@@ -1311,10 +1433,21 @@ export default function ClientDetailPage() {
                     <div className="fixed inset-0 z-40" onClick={() => setSettingsOpen(false)} />
                     <div className="absolute right-0 top-full mt-1 z-50 bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-xl shadow-xl py-1 min-w-[180px]">
                       <button
+                        onClick={() => { setSettingsOpen(false); openClientOperations(); }}
+                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-text-secondary hover:bg-[rgba(255,255,255,0.04)] transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M7 12h10M10 18h4" />
+                        </svg>
+                        Status & Monitoring
+                      </button>
+                      <button
                         onClick={() => {
                           setSettingsOpen(false);
                           setNudgeOpen(true);
                           setNudgeSent(false);
+                          setNudgeDelivery("");
+                          setNudgeIsPushTest(true);
                           setNudgeMessage("Test notification from Gordy's portal. If you see this, push notifications are working.");
                         }}
                         className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-text-secondary hover:bg-[rgba(255,255,255,0.04)] transition-colors"
@@ -1498,16 +1631,18 @@ export default function ClientDetailPage() {
         </div>
 
         {/* Status */}
-        <div className={`border rounded-xl p-4 ${sc.bgClass}`}>
+        <button type="button" onClick={openClientOperations} className={`border rounded-xl p-4 text-left transition-colors hover:border-[#E040D0]/30 ${isClientPaused ? lifecycleStyle : sc.bgClass}`}>
           <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1.5">Status</div>
           <div className={`flex items-center gap-1.5`}>
-            <span className={`w-2 h-2 rounded-full ${sc.dotClass}`} />
-            <span className={`text-sm font-bold ${sc.textClass}`}>{sc.label}</span>
+            <span className={`w-2 h-2 rounded-full ${isClientPaused ? (client.lifecycle_status === "access_frozen" ? "bg-red-500" : "bg-amber-500") : sc.dotClass}`} />
+            <span className={`text-sm font-bold ${isClientPaused ? "" : sc.textClass}`}>{isClientPaused ? lifecycleLabel : sc.label}</span>
           </div>
           <div className="text-[11px] text-text-muted mt-1">
-            {lastCheckinDays === 0 ? "Checked in today" : `${lastCheckinDays}d since check-in`}
+            {isClientPaused
+              ? client.lifecycle_resumes_at ? `Until ${new Date(client.lifecycle_resumes_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : "No automatic resume date"
+              : client.attention_reasons[0]?.detail || "No monitored items are overdue"}
           </div>
-        </div>
+        </button>
       </div>
 
       <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mb-6">
@@ -1713,7 +1848,7 @@ export default function ClientDetailPage() {
             </div>
           </div>
           <button
-            onClick={() => { setNudgeOpen(true); setNudgeSent(false); setNudgeMessage(`Hey ${client.name.split(" ")[0]}, just checking in - haven't seen you in the portal for a bit. Everything OK? Jump back in when you're ready, your plan is waiting.`); }}
+            onClick={() => { setNudgeOpen(true); setNudgeSent(false); setNudgeDelivery(""); setNudgeIsPushTest(false); setNudgeMessage(`Hey ${client.name.split(" ")[0]}, just checking in - haven't seen you in the portal for a bit. Everything OK? Jump back in when you're ready, your plan is waiting.`); }}
             className="mt-3 ml-11 px-4 py-2 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5 cursor-pointer"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1744,7 +1879,7 @@ export default function ClientDetailPage() {
             </div>
           </div>
           <button
-            onClick={() => { setNudgeOpen(true); setNudgeSent(false); setNudgeMessage(`Hey ${client.name.split(" ")[0]}, your weekly check-in is due. Takes 2 minutes - let me know how things are going.`); }}
+            onClick={() => { setNudgeOpen(true); setNudgeSent(false); setNudgeDelivery(""); setNudgeIsPushTest(false); setNudgeMessage(`Hey ${client.name.split(" ")[0]}, your weekly check-in is due. Takes 2 minutes - let me know how things are going.`); }}
             className="mt-3 ml-11 px-4 py-2 text-xs font-semibold text-white gradient-accent rounded-lg inline-flex items-center gap-1.5 cursor-pointer"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2919,6 +3054,153 @@ export default function ClientDetailPage() {
         </div>
       )}
 
+      {/* Client Status and Monitoring Modal */}
+      {operationsOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 px-4 py-6 backdrop-blur-sm">
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-card shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-[rgba(0,0,0,0.06)] px-5 py-4 sm:px-6">
+              <div>
+                <h3 className="text-lg font-heading font-bold text-text-primary">Status & Monitoring</h3>
+                <p className="mt-1 text-xs text-text-muted">Control access, notifications, and what counts as needing attention.</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeClientOperations}
+                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-[rgba(0,0,0,0.04)] hover:text-text-primary"
+                aria-label="Close status and monitoring"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-6 overflow-y-auto px-5 py-5 sm:px-6">
+              <section>
+                <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">Client Status</div>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {([
+                    { value: "active", label: "Active", detail: "Normal access and alerts" },
+                    { value: "paused", label: "Pause Coaching", detail: "Access stays open; alerts stop" },
+                    { value: "access_frozen", label: "Freeze Access", detail: "Portal access and alerts stop" },
+                  ] as const).map((option) => (
+                    <label
+                      key={option.value}
+                      className={`cursor-pointer rounded-xl border px-4 py-3 transition-colors ${lifecycleStatus === option.value ? "border-[#E040D0]/40 bg-[#E040D0]/10" : "border-[rgba(0,0,0,0.08)] hover:border-[rgba(0,0,0,0.14)]"}`}
+                    >
+                      <input
+                        type="radio"
+                        name="lifecycle-status"
+                        value={option.value}
+                        checked={lifecycleStatus === option.value}
+                        onChange={() => setLifecycleStatus(option.value)}
+                        className="sr-only"
+                      />
+                      <span className="block text-sm font-semibold text-text-primary">{option.label}</span>
+                      <span className="mt-1 block text-xs leading-relaxed text-text-muted">{option.detail}</span>
+                    </label>
+                  ))}
+                </div>
+
+                {lifecycleStatus !== "active" && (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-text-secondary">Resume date <span className="font-normal text-text-muted">(optional)</span></label>
+                      <input
+                        type="date"
+                        value={lifecycleResumeDate}
+                        min={new Date().toISOString().split("T")[0]}
+                        onChange={(event) => setLifecycleResumeDate(event.target.value)}
+                        className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-sm text-text-primary focus:border-[#E040D0]/40 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-text-secondary">Internal note <span className="font-normal text-text-muted">(optional)</span></label>
+                      <input
+                        type="text"
+                        value={lifecycleNote}
+                        maxLength={300}
+                        onChange={(event) => setLifecycleNote(event.target.value)}
+                        placeholder="e.g. recovering from surgery"
+                        className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-[#E040D0]/40 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              <section className="border-t border-[rgba(0,0,0,0.06)] pt-5">
+                <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">Needs Attention Rules</div>
+                <p className="mb-3 text-xs leading-relaxed text-text-muted">Only enabled signals can place this client in Needs Attention.</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {(Object.keys(ATTENTION_SIGNAL_LABELS) as AttentionSignal[]).map((signal) => {
+                    const preferenceKey = attentionPreferenceKeys[signal];
+                    const enabled = monitoringPreferences[preferenceKey];
+                    return (
+                      <label key={signal} className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[rgba(0,0,0,0.08)] px-4 py-3">
+                        <span className="text-sm font-medium text-text-primary">{ATTENTION_SIGNAL_LABELS[signal]}</span>
+                        <input
+                          type="checkbox"
+                          checked={enabled}
+                          onChange={(event) => setMonitoringPreferences((current) => ({ ...current, [preferenceKey]: event.target.checked }))}
+                          className="h-5 w-5 rounded border-[rgba(0,0,0,0.2)] accent-[#E040D0]"
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+              </section>
+
+              {client.attention_reasons.length > 0 && (
+                <section className="border-t border-[rgba(0,0,0,0.06)] pt-5">
+                  <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">Currently Needs Attention</div>
+                  <div className="space-y-2">
+                    {client.attention_reasons.map((reason) => (
+                      <div key={reason.signal} className="flex flex-col gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <div className="text-sm font-semibold text-text-primary">{reason.label}</div>
+                          <div className="mt-0.5 text-xs text-text-muted">{reason.detail}</div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => void updateAttentionSnooze(reason.signal, "snooze")} className="min-h-10 rounded-lg border border-[rgba(0,0,0,0.08)] px-3 py-2 text-xs font-semibold text-text-secondary hover:text-text-primary">Snooze 7 Days</button>
+                          <button type="button" onClick={() => void updateAttentionSnooze(reason.signal, "ignore")} className="min-h-10 rounded-lg border border-[rgba(0,0,0,0.08)] px-3 py-2 text-xs font-semibold text-text-secondary hover:text-text-primary">Ignore</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {client.attention_snoozes.length > 0 && (
+                <section className="border-t border-[rgba(0,0,0,0.06)] pt-5">
+                  <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">Suppressed Signals</div>
+                  <div className="space-y-2">
+                    {client.attention_snoozes.map((item) => (
+                      <div key={item.signal} className="flex items-center justify-between gap-3 rounded-xl border border-[rgba(0,0,0,0.08)] px-4 py-3">
+                        <div>
+                          <div className="text-sm font-medium text-text-primary">{ATTENTION_SIGNAL_LABELS[item.signal]}</div>
+                          <div className="mt-0.5 text-xs text-text-muted">
+                            {item.ignored ? "Ignored until restored" : item.snoozed_until ? `Snoozed until ${new Date(item.snoozed_until).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : "Suppressed"}
+                          </div>
+                        </div>
+                        <button type="button" onClick={() => void updateAttentionSnooze(item.signal, "clear")} className="min-h-10 rounded-lg border border-[rgba(0,0,0,0.08)] px-3 py-2 text-xs font-semibold text-[#E040D0]">Restore</button>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
+
+            <div className="flex gap-3 border-t border-[rgba(0,0,0,0.06)] px-5 py-4 sm:px-6">
+              <button type="button" onClick={closeClientOperations} className="min-h-11 flex-1 rounded-xl bg-[rgba(0,0,0,0.04)] px-4 py-2.5 text-sm font-medium text-text-secondary">Cancel</button>
+              <button type="button" disabled={operationsSaving} onClick={() => void saveClientOperations()} className="min-h-11 flex-1 rounded-xl bg-[#E040D0] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#b830a8] disabled:opacity-40">
+                {operationsSaving ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Revoke Access Modal */}
       {revokeModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -3042,8 +3324,61 @@ export default function ClientDetailPage() {
       )}
 
       {/* Nudge Modal */}
+      {quickTaskOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-card p-6 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-heading font-bold text-text-primary">Add task for {client.name.split(" ")[0]}</h3>
+                <p className="mt-1 text-xs text-text-muted">It appears on their dashboard immediately.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickTaskOpen(false)}
+                className="flex h-10 w-10 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-[rgba(0,0,0,0.04)] hover:text-text-primary"
+                aria-label="Close task dialog"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <textarea
+              autoFocus
+              value={newTaskText}
+              onChange={(event) => setNewTaskText(event.target.value)}
+              onKeyDown={(event) => {
+                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void addTask();
+              }}
+              rows={4}
+              maxLength={500}
+              placeholder="What does this client need to do?"
+              className="w-full resize-none rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-[#E040D0]/40 focus:outline-none"
+            />
+            <div className="mt-4 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setQuickTaskOpen(false)}
+                className="min-h-11 flex-1 rounded-xl bg-[rgba(0,0,0,0.04)] px-4 py-2.5 text-sm font-medium text-text-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void addTask()}
+                disabled={!newTaskText.trim() || addingTask}
+                className="min-h-11 flex-1 rounded-xl bg-[#E040D0] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#b830a8] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {addingTask ? "Adding..." : "Add Task"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Nudge Modal */}
       {nudgeOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
@@ -3053,7 +3388,9 @@ export default function ClientDetailPage() {
               </div>
               <div>
                 <h3 className="text-lg font-heading font-bold text-text-primary">Nudge {client.name.split(" ")[0]}</h3>
-                <p className="text-xs text-text-muted">Send a push notification to their device</p>
+                <p className="text-xs text-text-muted">
+                  {nudgeIsPushTest ? "Test this client's device notification" : "Save a DM and alert their device when notifications are enabled"}
+                </p>
               </div>
             </div>
             {nudgeSent ? (
@@ -3061,7 +3398,10 @@ export default function ClientDetailPage() {
                 <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                <span className="text-sm text-emerald-400 font-medium">Nudge sent</span>
+                <div>
+                  <div className="text-sm text-emerald-400 font-medium">{nudgeIsPushTest ? "Test push sent" : "Nudge sent by DM"}</div>
+                  <div className="mt-0.5 text-xs text-text-muted">{nudgeDelivery}</div>
+                </div>
               </div>
             ) : (
               <textarea
@@ -3082,16 +3422,30 @@ export default function ClientDetailPage() {
                   onClick={async () => {
                     setNudgeSending(true);
                     try {
-                      const res = await fetch("/api/push/send", {
+                      const res = await fetch(nudgeIsPushTest ? "/api/push/send" : "/api/inbox/send", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ userId: client.user_id, title: "Gordy Elliott", body: nudgeMessage, url: "/portal", tag: "nudge" }),
+                        body: JSON.stringify(nudgeIsPushTest
+                          ? { userId: client.user_id, title: "Gordy Elliott", body: nudgeMessage, url: "/portal", tag: "push-test" }
+                          : { client_id: client.id, message: nudgeMessage }),
                       });
                       const result = await res.json().catch(() => ({}));
-                      if (res.ok && result.sent > 0) setNudgeSent(true);
-                      else alert(result.reason
-                        ? `Push notification could not be delivered. ${result.reason}`
-                        : `Push notification could not be delivered. Subscriptions found: ${result.subscriptionCount ?? 0}, failed: ${result.failed ?? 0}.`);
+                      if (res.ok && (!nudgeIsPushTest || result.sent > 0)) {
+                        const notification = nudgeIsPushTest ? result : result.notification || {};
+                        setNudgeSent(true);
+                        setNudgeDelivery(notification.suppressed
+                          ? nudgeIsPushTest ? "Notifications are paused for this client." : "DM saved. Notifications are paused for this client."
+                          : notification.sent > 0
+                            ? nudgeIsPushTest ? "Device notification delivered." : "DM saved and device notification delivered."
+                            : nudgeIsPushTest ? "No device notification is currently enabled." : "DM saved. No device notification is currently enabled.");
+                      } else if (nudgeIsPushTest && res.ok) {
+                        const failureSummary = result.failed > 0
+                          ? `${result.failed} device notification${result.failed === 1 ? "" : "s"} failed.`
+                          : "No device notification was delivered.";
+                        alert(result.reason || failureSummary);
+                      } else {
+                        alert(result.error || "The DM could not be sent.");
+                      }
                     } finally {
                       setNudgeSending(false);
                     }
@@ -3332,6 +3686,8 @@ function TrainingTabContent({
   const [weeklyPlanner, setWeeklyPlanner] = useState<WeeklyTrainingAssignment[]>([]);
   const [plannerWeekStart, setPlannerWeekStart] = useState<string | null>(null);
   const [plannerLoading, setPlannerLoading] = useState(false);
+  const [plannerSaving, setPlannerSaving] = useState<string | null>(null);
+  const [plannerError, setPlannerError] = useState<string | null>(null);
 
   const getWeekRange = (weekNum: number) => {
     const weekStart = new Date(startDate);
@@ -3369,20 +3725,159 @@ function TrainingTabContent({
     }
 
     const { from } = getWeekRange(selectedWeek);
+    const controller = new AbortController();
     setPlannerLoading(true);
-    fetch(`/api/admin/client-training-planner?clientId=${client.id}&planId=${activeExPlan.id}&weekStart=${from}`)
+    fetch(`/api/admin/client-training-planner?clientId=${client.id}&planId=${activeExPlan.id}&weekStart=${from}`, {
+      signal: controller.signal,
+    })
       .then((r) => r.json())
       .then((data) => {
         setWeeklyPlanner(data.assignments || []);
         setPlannerWeekStart(data.week_start || from);
       })
-      .catch(() => {
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
         setWeeklyPlanner([]);
         setPlannerWeekStart(from);
       })
-      .finally(() => setPlannerLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setPlannerLoading(false);
+      });
+    return () => controller.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client.id, activeExPlan?.id, selectedWeek]);
+
+  async function savePlannerAssignment(
+    sessionId: string,
+    plannedDate: string | null,
+    isRecurring = false,
+    recurrenceStopped = false,
+    keepSavingState = false,
+  ) {
+    if (!activeExPlan?.id) return null;
+    if (!keepSavingState) setPlannerSaving(sessionId);
+    setPlannerError(null);
+
+    try {
+      const response = await fetch("/api/admin/client-training-planner", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: client.id,
+          plan_id: activeExPlan.id,
+          session_id: sessionId,
+          week_start: plannerWeekStart,
+          planned_date: plannedDate,
+          is_recurring: isRecurring,
+          recurrence_stopped: recurrenceStopped,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Weekly plan could not be updated");
+
+      const assignment = data.assignment as WeeklyTrainingAssignment;
+      setWeeklyPlanner((current) => [
+        ...current.filter((item) => item.session_id !== sessionId),
+        assignment,
+      ]);
+      return assignment;
+    } catch (error) {
+      setPlannerError(error instanceof Error ? error.message : "Weekly plan could not be updated");
+      return null;
+    } finally {
+      if (!keepSavingState) setPlannerSaving(null);
+    }
+  }
+
+  async function savePlannerBatch(assignments: Array<{
+    session_id: string;
+    week_start: string;
+    planned_date: string | null;
+    is_recurring: boolean;
+    recurrence_stopped: boolean;
+  }>) {
+    if (!activeExPlan?.id || assignments.length === 0) return false;
+    try {
+      const response = await fetch("/api/admin/client-training-planner", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: client.id,
+          plan_id: activeExPlan.id,
+          assignments,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Weekly plan could not be updated");
+
+      const saved = (data.assignments || []) as WeeklyTrainingAssignment[];
+      const savedSessionIds = new Set(saved.map((assignment) => assignment.session_id));
+      setWeeklyPlanner((current) => [
+        ...current.filter((assignment) => !savedSessionIds.has(assignment.session_id)),
+        ...saved,
+      ]);
+      return true;
+    } catch (error) {
+      setPlannerError(error instanceof Error ? error.message : "Weekly plan could not be updated");
+      return false;
+    }
+  }
+
+  async function repeatCurrentSchedule() {
+    if (plannerLoading || !plannerWeekStart) return;
+    const placed = weeklyPlanner.filter((assignment) => assignment.planned_date);
+    if (placed.length === 0) return;
+    setPlannerSaving("repeat-week");
+    setPlannerError(null);
+    await savePlannerBatch(placed.map((assignment) => ({
+      session_id: assignment.session_id,
+      week_start: plannerWeekStart,
+      planned_date: assignment.planned_date,
+      is_recurring: true,
+      recurrence_stopped: false,
+    })));
+    setPlannerSaving(null);
+  }
+
+  async function copyPreviousWeek() {
+    if (plannerLoading || !activeExPlan?.id || !plannerWeekStart) return;
+    if (weeklyPlanner.some((assignment) => assignment.planned_date)) {
+      setPlannerError("This week already has sessions. Clear them before copying the previous week.");
+      return;
+    }
+
+    setPlannerSaving("copy-week");
+    setPlannerError(null);
+    const previous = new Date(`${plannerWeekStart}T00:00:00`);
+    previous.setDate(previous.getDate() - 7);
+    const previousStart = formatLocalDate(previous);
+
+    try {
+      const response = await fetch(`/api/admin/client-training-planner?clientId=${client.id}&planId=${activeExPlan.id}&weekStart=${previousStart}`);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Previous week could not be loaded");
+      const previousAssignments = (data.assignments || []) as WeeklyTrainingAssignment[];
+      const placed = previousAssignments.filter((assignment) => assignment.planned_date);
+      if (placed.length === 0) throw new Error("The previous week has no placed sessions to copy.");
+
+      const assignments = placed.map((assignment) => {
+        const previousDate = new Date(`${assignment.planned_date}T00:00:00`);
+        previousDate.setDate(previousDate.getDate() + 7);
+        return {
+          session_id: assignment.session_id,
+          week_start: plannerWeekStart,
+          planned_date: formatLocalDate(previousDate),
+          is_recurring: false,
+          recurrence_stopped: false,
+        };
+      });
+      await savePlannerBatch(assignments);
+    } catch (error) {
+      setPlannerError(error instanceof Error ? error.message : "Previous week could not be copied");
+    } finally {
+      setPlannerSaving(null);
+    }
+  }
 
   function toggleSession(sessionId: string) {
     setExpandedSessions((prev) => {
@@ -3551,13 +4046,24 @@ function TrainingTabContent({
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-heading font-bold text-text-primary">Weekly Plan</h2>
-            <span className={`text-xs font-semibold rounded-full px-3 py-1 ${
-              plannerUnassigned.length > 0
-                ? "bg-amber-500/10 text-amber-500"
-                : "bg-emerald-500/10 text-emerald-500"
-            }`}>
-              {plannerUnassigned.length > 0 ? `${plannerUnassigned.length} unassigned` : "Week ready"}
-            </span>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => void copyPreviousWeek()}
+                disabled={plannerLoading || Boolean(plannerSaving) || weeklyPlanner.some((assignment) => assignment.planned_date)}
+                className="min-h-10 rounded-xl border border-[rgba(0,0,0,0.08)] px-3 py-2 text-xs font-semibold text-text-secondary transition-colors hover:border-[#E040D0]/30 hover:text-[#E040D0] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {plannerSaving === "copy-week" ? "Copying..." : "Copy Previous Week"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void repeatCurrentSchedule()}
+                disabled={plannerLoading || Boolean(plannerSaving) || !weeklyPlanner.some((assignment) => assignment.planned_date)}
+                className="min-h-10 rounded-xl bg-[#E040D0] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#b830a8] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {plannerSaving === "repeat-week" ? "Saving..." : "Repeat Schedule Weekly"}
+              </button>
+            </div>
           </div>
           <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4">
             {plannerLoading ? (
@@ -3585,6 +4091,94 @@ function TrainingTabContent({
                             <p className="text-[11px] text-text-muted">Open</p>
                           )}
                         </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {plannerError && (
+                  <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/8 px-3 py-2 text-xs font-semibold text-red-400">
+                    {plannerError}
+                  </div>
+                )}
+                <div className="mt-5 divide-y divide-[rgba(0,0,0,0.06)] border-t border-[rgba(0,0,0,0.06)]">
+                  {activeExPlan.sessions.map((session) => {
+                    const assignment = weeklyPlanner.find((item) => item.session_id === session.id);
+                    const saving = plannerSaving === session.id;
+                    return (
+                      <div key={session.id} className="py-4 first:pt-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-text-primary">{session.name}</div>
+                            <div className="mt-1 text-[11px] text-text-muted">
+                              {assignment?.is_recurring
+                                ? assignment.source === "recurring" ? "Following weekly schedule" : "Repeats weekly"
+                                : assignment?.planned_date ? "This week only" : "Not placed"}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {plannerDays.map((date) => {
+                              const dayOccupied = (plannerByDate[date] || []).some((item) => item.session_id !== session.id);
+                              const selected = assignment?.planned_date === date;
+                              return (
+                                <button
+                                  key={date}
+                                  type="button"
+                                  disabled={Boolean(plannerSaving) || dayOccupied}
+                                  onClick={() => void savePlannerAssignment(
+                                    session.id,
+                                    date,
+                                    Boolean(assignment?.is_recurring),
+                                    Boolean(assignment?.recurrence_stopped),
+                                  )}
+                                  title={dayOccupied ? "Another session is already planned that day" : undefined}
+                                  className={`min-h-10 min-w-10 rounded-xl px-2 text-[11px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-30 ${
+                                    selected
+                                      ? "bg-[#E040D0] text-white"
+                                      : "border border-[rgba(0,0,0,0.08)] text-text-secondary hover:border-[#E040D0]/30 hover:text-[#E040D0]"
+                                  }`}
+                                >
+                                  {new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short" }).slice(0, 2)}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {assignment?.planned_date && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              disabled={Boolean(plannerSaving)}
+                              onClick={() => void savePlannerAssignment(
+                                session.id,
+                                assignment.planned_date,
+                                !assignment.is_recurring,
+                                Boolean(assignment.is_recurring),
+                              )}
+                              className="min-h-10 rounded-xl border border-[rgba(0,0,0,0.08)] px-3 py-2 text-[11px] font-semibold text-text-secondary transition-colors hover:border-[#E040D0]/30 hover:text-[#E040D0] disabled:opacity-40"
+                            >
+                              {saving ? "Saving..." : assignment.is_recurring ? "Stop Repeating" : "Repeat Weekly"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={Boolean(plannerSaving)}
+                              onClick={() => void savePlannerAssignment(
+                                session.id,
+                                null,
+                                false,
+                                assignment.source === "explicit" && assignment.is_recurring
+                                  ? true
+                                  : Boolean(assignment.recurrence_stopped),
+                              )}
+                              className="min-h-10 rounded-xl border border-amber-500/20 px-3 py-2 text-[11px] font-semibold text-amber-500 transition-colors hover:bg-amber-500/8 disabled:opacity-40"
+                            >
+                              {assignment.source === "recurring"
+                                ? "Skip This Week"
+                                : assignment.is_recurring
+                                  ? "Remove & Stop Repeating"
+                                  : "Remove From Week"}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

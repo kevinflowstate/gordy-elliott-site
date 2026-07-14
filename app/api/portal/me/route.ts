@@ -22,7 +22,7 @@ export async function GET() {
 
   const { data: profile } = await admin
     .from("client_profiles")
-    .select("*")
+    .select("id, tier, start_date, date_of_birth, sex, cycle_tracking_enabled")
     .eq("user_id", userId)
     .maybeSingle();
 

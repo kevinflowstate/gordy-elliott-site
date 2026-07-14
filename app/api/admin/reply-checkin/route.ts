@@ -63,19 +63,20 @@ export async function POST(request: Request) {
       clientEmail = clientUser.email;
       clientName = clientUser.full_name;
 
-      await notifyClientUser(clientProfile.user_id, {
+      const notification = await notifyClientUser(clientProfile.user_id, {
         title: "New reply from Gordy",
         message: reply_text.trim().slice(0, 200),
         link: "/portal",
         tag: `checkin-reply-${checkin_id}`,
       });
 
-      // Send email
-      try {
-        await sendCheckinReplyEmail(clientEmail, clientName, reply_text.trim());
-      } catch (emailErr) {
-        // Log but don't fail the request - reply is already saved
-        console.error("Failed to send reply email:", emailErr);
+      if (!notification.suppressed) {
+        try {
+          await sendCheckinReplyEmail(clientEmail, clientName, reply_text.trim());
+        } catch (emailErr) {
+          // Log but don't fail the request - reply is already saved
+          console.error("Failed to send reply email:", emailErr);
+        }
       }
     }
   }

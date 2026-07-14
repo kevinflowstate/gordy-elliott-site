@@ -142,7 +142,7 @@ export default function AdminShiftAIPage() {
                 "Summarise recent check-ins",
                 "Who hasn't checked in recently?",
                 "Draft a reply to the latest check-in",
-                "Which clients are on track?",
+                "Which clients are up to date?",
                 "What training should I assign next?",
               ].map((q) => (
                 <button

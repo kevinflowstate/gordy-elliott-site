@@ -26,7 +26,8 @@ export function formatPlannerDate(date: Date): string {
 export function parsePlannerDate(value: string): Date | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const date = new Date(`${value}T00:00:00`);
-  return Number.isNaN(date.getTime()) ? null : date;
+  if (Number.isNaN(date.getTime()) || formatPlannerDate(date) !== value) return null;
+  return date;
 }
 
 export function getPlannerWeekStart(date: Date): Date {
