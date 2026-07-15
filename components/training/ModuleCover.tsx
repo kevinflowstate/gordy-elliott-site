@@ -23,6 +23,7 @@ export default function ModuleCover({
       <svg
         className="absolute inset-0 w-full h-full"
         xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 100 100"
         preserveAspectRatio="none"
       >
         {/* Dot grid */}
@@ -54,15 +55,15 @@ export default function ModuleCover({
         <line x1="25%" y1="65%" x2="25%" y2="85%" stroke="#E040D0" strokeWidth="1.5" opacity="0.15" />
 
         {/* L-shaped brackets */}
-        <path d="M 70% 15% L 82% 15% L 82% 30%" fill="none" stroke="#E040D0" strokeWidth="1.5" opacity="0.22" />
+        <path d="M 70 15 L 82 15 L 82 30" fill="none" stroke="#E040D0" strokeWidth="1.5" opacity="0.22" />
         <circle cx="70%" cy="15%" r="3.5" fill="#E040D0" opacity="0.28" />
         <rect x="79%" y="28%" width="6%" height="4%" rx="1" fill="none" stroke="#E040D0" strokeWidth="1" opacity="0.18" />
 
-        <path d="M 15% 75% L 30% 75% L 30% 90%" fill="none" stroke="#E040D0" strokeWidth="1.5" opacity="0.18" />
+        <path d="M 15 75 L 30 75 L 30 90" fill="none" stroke="#E040D0" strokeWidth="1.5" opacity="0.18" />
         <circle cx="15%" cy="75%" r="3" fill="#E040D0" opacity="0.22" />
         <rect x="27%" y="88%" width="5%" height="3.5%" rx="1" fill="none" stroke="#E040D0" strokeWidth="1" opacity="0.15" />
 
-        <path d="M 85% 55% L 95% 55% L 95% 72%" fill="none" stroke="#E040D0" strokeWidth="1.5" opacity="0.2" />
+        <path d="M 85 55 L 95 55 L 95 72" fill="none" stroke="#E040D0" strokeWidth="1.5" opacity="0.2" />
         <circle cx="85%" cy="55%" r="3" fill="#E040D0" opacity="0.25" />
         <rect x="92%" y="70%" width="5%" height="3.5%" rx="1" fill="none" stroke="#E040D0" strokeWidth="1" opacity="0.16" />
       </svg>

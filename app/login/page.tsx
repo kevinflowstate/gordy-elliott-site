@@ -5,11 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { safeLocalRedirect } from "@/lib/safe-redirect";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") || "/portal";
+  const redirect = safeLocalRedirect(searchParams.get("redirect"));
   const callbackError = searchParams.get("error");
 
   const [email, setEmail] = useState("");

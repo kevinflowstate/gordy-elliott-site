@@ -65,8 +65,8 @@ function ProgressRing({ pct, label, sublabel }: { pct: number; label: string; su
   const clamped = Math.max(0, Math.min(100, pct));
   const offset = circumference * (1 - clamped / 100);
   return (
-    <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+    <div className="relative h-[132px] w-[132px] flex-shrink-0 sm:h-[148px] sm:w-[148px]">
+      <svg width="100%" height="100%" viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
         <defs>
           <linearGradient id="ring-accent" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#B830A8" />
@@ -88,7 +88,7 @@ function ProgressRing({ pct, label, sublabel }: { pct: number; label: string; su
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <div className="metric-num text-[2.4rem] font-bold leading-none text-white">{clamped}<span className="text-lg text-white/55">%</span></div>
+        <div className="metric-num text-[2.1rem] font-bold leading-none text-white sm:text-[2.4rem]">{clamped}<span className="text-base text-white/55 sm:text-lg">%</span></div>
         <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#F7A8EE]">{label}</div>
         <div className="mt-0.5 text-[10px] text-white/55">{sublabel}</div>
       </div>
@@ -98,8 +98,8 @@ function ProgressRing({ pct, label, sublabel }: { pct: number; label: string; su
 
 function MetricTile({ value, unit, label, hint }: { value: string; unit?: string; label: string; hint: string }) {
   return (
-    <div className="app-hero-tile rounded-2xl px-3 py-3">
-      <div className="metric-num text-[1.5rem] font-bold leading-none text-white">
+    <div className="app-hero-tile min-w-0 rounded-2xl px-2.5 py-3 sm:px-3">
+      <div className="metric-num text-xl font-bold leading-none text-white sm:text-[1.5rem]">
         {value}
         {unit && <span className="ml-1 text-sm font-medium text-white/55">{unit}</span>}
       </div>
@@ -203,7 +203,7 @@ function DashboardSkeleton() {
     <div className="space-y-6">
       <div className="rounded-3xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-6">
         <div className="mb-3 h-5 w-40 animate-pulse rounded-lg bg-[rgba(0,0,0,0.08)]" />
-        <div className="mb-2 h-8 w-72 animate-pulse rounded-lg bg-[rgba(0,0,0,0.08)]" />
+        <div className="mb-2 h-8 w-72 max-w-full animate-pulse rounded-lg bg-[rgba(0,0,0,0.08)]" />
         <div className="h-4 w-52 animate-pulse rounded-lg bg-[rgba(0,0,0,0.06)]" />
       </div>
       <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
@@ -448,10 +448,10 @@ export default function PortalDashboard() {
           </button>
         </div>
       )}
-      <section className="app-hero app-rise app-rise-1 flex flex-col overflow-hidden rounded-[30px] px-5 py-5 text-white sm:px-6">
+      <section className="app-hero app-rise app-rise-1 flex flex-col overflow-hidden rounded-[24px] px-4 py-4 text-white sm:rounded-[30px] sm:px-6 sm:py-5">
         <div className="min-w-0">
           <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#F7A8EE]">SHIFT Today</div>
-          <h1 className="mt-1 text-3xl font-heading font-bold leading-none text-white">
+          <h1 className="mt-1 text-2xl font-heading font-bold leading-none text-white sm:text-3xl">
             {`${getGreeting()}${userName ? `, ${userName.split(" ")[0]}` : ""}`}
           </h1>
           <p className="mt-1.5 text-[13px] text-white/60">
@@ -525,7 +525,7 @@ export default function PortalDashboard() {
           >
             <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">Upcoming</div>
             <div>
-              <div className="truncate text-[15px] font-semibold text-white">{nextEvent ? nextEvent.title : "Nothing booked"}</div>
+              <div className="line-clamp-2 text-[15px] font-semibold leading-tight text-white">{nextEvent ? nextEvent.title : "Nothing booked"}</div>
               <div className="mt-0.5 text-[11px] text-white/50">{nextEvent ? nextEvent.date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "Open calendar"}</div>
             </div>
           </Link>

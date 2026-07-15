@@ -74,7 +74,7 @@ export default function ClientInboxClient() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-4 sm:px-0 sm:py-0">
+    <div className="mx-auto max-w-4xl px-0 py-1 sm:py-0">
       <div className="mb-5">
         <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-bright">Direct Messages</div>
         <h1 className="mt-2 text-2xl font-heading font-extrabold text-text-primary">DM</h1>

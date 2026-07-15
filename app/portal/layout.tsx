@@ -23,7 +23,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     <ToastProvider>
       <div className="portal-shell dark min-h-screen bg-bg-primary text-text-primary">
         <Sidebar />
-        <main className="portal-main min-h-screen pb-[calc(8.5rem+env(safe-area-inset-bottom,0px))] sm:pb-32 lg:ml-[260px] lg:pb-0">
+        <main className="portal-main min-h-screen pb-[calc(8.5rem+env(safe-area-inset-bottom,0px))] sm:pb-32 lg:ml-[260px] lg:!w-[calc(100%_-_260px)] lg:!max-w-[calc(100vw_-_260px)] lg:pb-0">
           <div className="portal-page-frame mx-auto px-0 pb-5 sm:px-6 sm:py-8">
             <PushNotificationBanner />
             {children}

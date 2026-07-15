@@ -788,7 +788,7 @@ export default function PortalExercisePlanPage() {
         </div>
 
         {/* Day buttons */}
-        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+        <div className="grid grid-cols-7 gap-1 pb-1">
           {weekDays.map((day, i) => {
             const dayStr = formatDate(day);
             const isSelected = dayStr === selectedDateStr;
@@ -800,7 +800,7 @@ export default function PortalExercisePlanPage() {
               <button
                 key={i}
                 onClick={() => selectDay(day)}
-                className={`flex flex-col items-center justify-center flex-1 min-w-[40px] py-2.5 px-1 rounded-xl transition-all cursor-pointer relative
+                className={`relative flex min-w-0 flex-col items-center justify-center rounded-xl px-0.5 py-2.5 transition-all cursor-pointer
                   ${todayDay
                     ? "bg-[#E040D0] text-white"
                     : isSelected
@@ -1366,7 +1366,7 @@ export default function PortalExercisePlanPage() {
       {/* Session picker modal — swap to any session in the rotation for this day */}
       {showSessionPicker && plan && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center"
+          className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center"
           onClick={() => setShowSessionPicker(false)}
         >
           <div

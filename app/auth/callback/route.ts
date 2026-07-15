@@ -1,16 +1,14 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { safeLocalRedirect } from '@/lib/safe-redirect';
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
   const tokenHash = searchParams.get('token_hash');
   const type = searchParams.get('type') as 'recovery' | 'magiclink' | 'signup' | 'invite' | 'email';
-  const rawRedirect = searchParams.get('redirect') || '/portal';
-  // Validate redirect to prevent open redirect attacks:
-  // must start with "/" and must not start with "//" (protocol-relative URL)
-  const redirect = (rawRedirect.startsWith('/') && !rawRedirect.startsWith('//')) ? rawRedirect : '/portal';
+  const redirect = safeLocalRedirect(searchParams.get('redirect'));
 
   const cookieStore = await cookies();
   const supabase = createServerClient(

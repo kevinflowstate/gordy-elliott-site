@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0A0A0A" />
+    <title>SHIFT Coaching</title>
+    <style>
+      :root { color-scheme: dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: #0a0a0a; color: #fff; }
+      main { width: min(100% - 40px, 360px); text-align: center; padding-bottom: env(safe-area-inset-bottom); }
+      img { width: 104px; height: 104px; border-radius: 22px; }
+      h1 { margin: 24px 0 8px; font-size: 28px; letter-spacing: 0; }
+      p { margin: 0; color: #b9b4bc; font-size: 15px; line-height: 1.55; }
+      .pulse { width: 8px; height: 8px; margin: 28px auto 0; border-radius: 50%; background: #e040d0; animation: pulse 1.2s ease-in-out infinite; }
+      @keyframes pulse { 50% { opacity: .35; transform: scale(.75); } }
+      @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="shift-icon-512x512.png" alt="" />
+      <h1>SHIFT Coaching</h1>
+      <p>Preparing your coaching app.</p>
+      <div class="pulse" aria-hidden="true"></div>
+    </main>
+  </body>
+</html>
