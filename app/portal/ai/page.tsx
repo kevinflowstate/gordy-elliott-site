@@ -72,7 +72,11 @@ export default function ShiftAIPage() {
   const resetDocumentScroll = useCallback(() => {
     window.scrollTo(0, 0);
     document.documentElement.scrollTop = 0;
-    if (document.body) document.body.scrollTop = 0;
+    document.documentElement.scrollLeft = 0;
+    if (document.body) {
+      document.body.scrollTop = 0;
+      document.body.scrollLeft = 0;
+    }
   }, []);
 
   const pinLatestToComposer = useCallback(() => {
@@ -197,11 +201,10 @@ export default function ShiftAIPage() {
       window.visualViewport?.removeEventListener("resize", scheduleSettle);
       window.visualViewport?.removeEventListener("scroll", scheduleSettle);
       document.removeEventListener("selectionchange", scheduleSettle);
-      if (!composerFocused) {
-        root.classList.remove("shift-ai-keyboard-open");
-        root.classList.remove("shift-ai-composer-focused");
-        root.style.setProperty("--shift-ai-keyboard-inset", "0px");
-      }
+      root.classList.remove("shift-ai-keyboard-open");
+      root.classList.remove("shift-ai-composer-focused");
+      root.style.setProperty("--shift-ai-keyboard-inset", "0px");
+      root.style.setProperty("--shift-ai-visual-height", `${window.innerHeight}px`);
     };
   }, [composerFocused, pinLatestToComposer, resetDocumentScroll]);
 
@@ -286,15 +289,15 @@ export default function ShiftAIPage() {
   }
 
   return (
-    <div className="shift-ai-shell mx-auto flex w-full max-w-3xl flex-col h-[calc(100dvh-10rem)] sm:h-[calc(100dvh-8rem)] lg:h-[calc(100vh-4rem)] pb-[env(safe-area-inset-bottom)]">
-      <div className="mb-6">
-        <h1 className="text-2xl font-heading font-extrabold text-text-primary">SHIFT AI</h1>
+    <div className="shift-ai-shell mx-auto flex w-full max-w-3xl flex-col h-[calc(100dvh-10rem)] sm:h-[calc(100dvh-8rem)] lg:h-[calc(100vh-4rem)]">
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl font-heading font-extrabold text-text-primary sm:text-2xl">SHIFT AI</h1>
         <p className="text-sm text-text-secondary mt-1">
           Your personal coaching assistant - ask about training, your plan, or next steps.
         </p>
       </div>
 
-      <div ref={threadRef} className="shift-ai-thread app-card-quiet flex-1 min-h-0 overflow-y-auto p-4 space-y-4 mb-4 rounded-[24px] flex flex-col">
+      <div ref={threadRef} className="shift-ai-thread app-card-quiet flex-1 min-h-0 overflow-y-auto p-4 space-y-4 mb-3 rounded-[20px] sm:mb-4 sm:rounded-[24px] flex flex-col">
         {messages.length === 0 && !loading && (
           <div className="flex flex-col items-center justify-center h-full text-center px-4">
             <div className="w-14 h-14 rounded-2xl bg-[rgba(224,64,208,0.1)] border border-[rgba(224,64,208,0.2)] flex items-center justify-center mb-4">

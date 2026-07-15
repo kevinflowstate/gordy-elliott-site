@@ -48,12 +48,12 @@ function scoreEntry(entry: {
 
 function ScalePills({ label, value, onChange, lowGood = false }: { label: string; value: number | ""; onChange: (value: number) => void; lowGood?: boolean }) {
   return (
-    <div className="app-inset rounded-2xl p-4">
+    <div className="app-inset rounded-2xl p-3 min-[360px]:p-4">
       <div className="mb-2 flex items-center justify-between gap-3">
         <label className="text-sm font-semibold text-text-primary">{label}</label>
         <span className="text-xs font-semibold text-text-muted">{value || "Tap 1-10"}</span>
       </div>
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="grid grid-cols-5 gap-0 min-[360px]:gap-2 sm:grid-cols-[repeat(10,2.75rem)] sm:justify-between sm:gap-0">
         {Array.from({ length: 10 }, (_, index) => index + 1).map((num) => {
           const active = value === num;
           return (
@@ -61,7 +61,7 @@ function ScalePills({ label, value, onChange, lowGood = false }: { label: string
               key={num}
               type="button"
               onClick={() => onChange(num)}
-              className={`app-tap h-10 min-w-10 rounded-full border text-sm font-semibold transition-all ${
+              className={`app-tap h-11 w-full min-w-0 rounded-full border text-sm font-semibold transition-all sm:w-11 ${
                 active
                   ? lowGood
                     ? "border-emerald-400 bg-emerald-500 text-white shadow-[0_4px_14px_rgba(16,185,129,0.4)]"
@@ -80,7 +80,7 @@ function ScalePills({ label, value, onChange, lowGood = false }: { label: string
 
 function TrackerCard({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <section className="app-card app-rise rounded-[28px] p-5 sm:p-6">
+    <section className="app-card app-rise rounded-[28px] p-4 min-[360px]:p-5 sm:p-6">
       <div className="mb-4">
         <h2 className="font-heading text-lg font-bold text-text-primary">{title}</h2>
         {hint && <p className="mt-1 text-sm text-text-secondary">{hint}</p>}

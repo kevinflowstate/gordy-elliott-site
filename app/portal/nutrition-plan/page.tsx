@@ -841,7 +841,7 @@ export default function PortalNutritionPlanPage() {
 
       {/* Food Browser Modal */}
       {showFoodBrowser && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center" onClick={() => setShowFoodBrowser(false)}>
+        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center" onClick={() => setShowFoodBrowser(false)}>
           <div
             className="app-card rounded-t-[28px] sm:rounded-[28px] w-full sm:max-w-md max-h-[85vh] flex flex-col pb-[env(safe-area-inset-bottom)]"
             onClick={(e) => e.stopPropagation()}
@@ -1012,8 +1012,8 @@ export default function PortalNutritionPlanPage() {
 
       {/* Manual Entry Modal */}
       {showManualAdd && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowManualAdd(false)}>
-          <div className="app-card rounded-[28px] p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] backdrop-blur-sm" onClick={() => setShowManualAdd(false)}>
+          <div className="app-card max-h-[calc(100dvh-2rem-env(safe-area-inset-bottom,0px))] w-full max-w-sm overflow-y-auto rounded-[24px] p-5 sm:rounded-[28px]" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-text-primary mb-1">Log MyFitnessPal totals</h3>
             <p className="text-[12px] text-text-muted mb-4">Copy the totals from MFP at the end of the day, including fibre and sugar when available.</p>
             <div className="space-y-3">

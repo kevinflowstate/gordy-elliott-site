@@ -65,7 +65,7 @@ export default function InboxThread({
   }
 
   return (
-    <div className="flex min-h-[min(72dvh,48rem)] flex-col overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.025)]">
+    <div className="portal-dm-thread flex min-h-[min(72dvh,48rem)] flex-col overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.025)]">
       {(threadLabel || threadMeta) && (
         <div className="border-b border-[rgba(255,255,255,0.06)] px-5 py-4">
           {threadLabel && <div className="text-sm font-semibold text-text-primary">{threadLabel}</div>}
@@ -75,7 +75,7 @@ export default function InboxThread({
 
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-5 sm:px-5">
         {groupedMessages.length === 0 ? (
-          <div className="flex min-h-80 flex-col items-center justify-center text-center">
+          <div className="portal-dm-empty flex min-h-80 flex-col items-center justify-center text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent-bright">
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 10h8m-8 4h5m-7 6h12a2 2 0 002-2V8a2 2 0 00-.586-1.414l-4-4A2 2 0 0014 2H6a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -115,7 +115,7 @@ export default function InboxThread({
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="border-t border-[rgba(255,255,255,0.06)] p-3 sm:p-4">
+      <form onSubmit={handleSubmit} className="portal-dm-composer border-t border-[rgba(255,255,255,0.06)] p-3 sm:p-4">
         <div className="flex items-end gap-2">
           <textarea
             value={draft}

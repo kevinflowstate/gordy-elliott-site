@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Barlow_Condensed } from "next/font/google";
 import Script from "next/script";
 import { getSiteUrl } from "@/lib/site-url";
+import NativeAppBridge from "@/components/native/NativeAppBridge";
 import "./globals.css";
 
 const inter = Inter({
@@ -84,30 +85,15 @@ export default function RootLayout({
     <html lang="en-GB" data-scroll-behavior="smooth">
       <head>
         <link rel="apple-touch-icon" href="/shift-apple-touch-icon.png" />
-        <Script
-          id="meta-pixel"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','1878616869461878');fbq('track','PageView');`,
-          }}
-        />
-        <noscript>
-          <img
-            height="1"
-            width="1"
-            style={{ display: "none" }}
-            src="https://www.facebook.com/tr?id=1878616869461878&ev=PageView&noscript=1"
-            alt=""
-          />
-        </noscript>
       </head>
       <body className={`${inter.variable} ${barlowCondensed.variable} antialiased`}>
+        <NativeAppBridge />
         {children}
         <Script
           id="pwa-registration"
           strategy="afterInteractive"
           dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker' in navigator){var registerServiceWorker=function(){navigator.serviceWorker.register('/sw.js').then(function(reg){reg.update();reg.addEventListener('updatefound',function(){var worker=reg.installing;if(!worker)return;worker.addEventListener('statechange',function(){if(worker.state==='installed'&&navigator.serviceWorker.controller){worker.postMessage({type:'SKIP_WAITING'});}});});});var refreshing=false;navigator.serviceWorker.addEventListener('controllerchange',function(){if(refreshing)return;refreshing=true;window.location.reload();});};if(document.readyState==='complete'){registerServiceWorker();}else{window.addEventListener('load',registerServiceWorker,{once:true});}}window.__pwaInstallPrompt=null;window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__pwaInstallPrompt=e});`,
+            __html: `var isNative=window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform();var isLocal=/^(localhost|127\\.0\\.0\\.1|\\[::1\\])$/.test(window.location.hostname);if(!isNative&&!isLocal&&'serviceWorker' in navigator){var registerServiceWorker=function(){navigator.serviceWorker.register('/sw.js').then(function(reg){reg.update();reg.addEventListener('updatefound',function(){var worker=reg.installing;if(!worker)return;worker.addEventListener('statechange',function(){if(worker.state==='installed'&&navigator.serviceWorker.controller){worker.postMessage({type:'SKIP_WAITING'});}});});});var refreshing=false;navigator.serviceWorker.addEventListener('controllerchange',function(){if(refreshing)return;refreshing=true;window.location.reload();});};if(document.readyState==='complete'){registerServiceWorker();}else{window.addEventListener('load',registerServiceWorker,{once:true});}}window.__pwaInstallPrompt=null;if(!isNative){window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__pwaInstallPrompt=e});}`,
           }}
         />
       </body>

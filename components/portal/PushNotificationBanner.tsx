@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import { Capacitor } from "@capacitor/core";
 import { usePush } from "@/lib/use-push";
 import { useInstall } from "@/lib/use-install";
 
@@ -31,15 +32,19 @@ export default function PushNotificationBanner() {
   const [dismissed, setDismissed] = useState(false);
   const [installDismissed, setInstallDismissed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showManual, setShowManual] = useState(false);
   const hydrated = useHydrated();
+  const nativeApp = hydrated && Capacitor.isNativePlatform();
   const standalone = hydrated && isStandalone();
   const pushBannerDismissed =
     !hydrated ||
+    nativeApp ||
     dismissed ||
     !hasPushSupport() ||
     localStorage.getItem(DISMISSED_KEY) === "true";
   const installBannerDismissed =
     !hydrated ||
+    nativeApp ||
     installDismissed ||
     standalone ||
     localStorage.getItem(INSTALL_DISMISSED_KEY) === "true";
@@ -49,8 +54,6 @@ export default function PushNotificationBanner() {
     await subscribe();
     setLoading(false);
   };
-
-  const [showManual, setShowManual] = useState(false);
 
   const handleInstall = async () => {
     setLoading(true);
@@ -74,7 +77,7 @@ export default function PushNotificationBanner() {
     setInstallDismissed(true);
   };
 
-  if (!hydrated) return null;
+  if (!hydrated || nativeApp) return null;
 
   // Show install banner if not standalone and not dismissed
   if (!installBannerDismissed && !installed) {
