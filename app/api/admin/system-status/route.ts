@@ -20,7 +20,7 @@ export async function GET() {
     ? "blocked"
     : terra.mockMode
       ? "warning"
-      : terra.webhookToken
+      : terra.configured && terra.webhookSigningSecret
         ? "ok"
         : "blocked";
 
@@ -75,10 +75,12 @@ export async function GET() {
         detail: terra.partialCredentials
           ? "Terra is partially configured. Add both TERRA_DEV_ID and TERRA_API_KEY, or remove both for preview mode."
           : terra.mockMode
-            ? "Preview mode is active. Add TERRA_DEV_ID, TERRA_API_KEY, and TERRA_WEBHOOK_TOKEN before real client sync."
-            : terra.webhookToken
-              ? "Terra API credentials and webhook token are configured."
-              : "Terra API credentials are set, but TERRA_WEBHOOK_TOKEN is missing.",
+            ? "Preview mode is active outside production. Add Terra credentials and a webhook signing secret before real client sync."
+            : terra.configured && terra.webhookSigningSecret
+              ? "Terra API credentials and webhook signing are configured."
+              : terra.configured
+                ? "Terra API credentials are set, but TERRA_WEBHOOK_SIGNING_SECRET is missing."
+                : "Terra production credentials are not configured. Mock data is disabled in production.",
       },
       {
         key: "auth-signups",

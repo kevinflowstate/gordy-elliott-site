@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { getSiteUrl } from "@/lib/site-url";
 
 export type TerraWidgetSession = {
@@ -12,14 +13,19 @@ export function getTerraConfig() {
   const devId = process.env.TERRA_DEV_ID || "";
   const apiKey = process.env.TERRA_API_KEY || "";
   const partialCredentials = Boolean(devId) !== Boolean(apiKey);
-  const mockMode = process.env.TERRA_MOCK_MODE === "true" || (!devId && !apiKey);
+  const configured = Boolean(devId && apiKey);
+  const mockMode = process.env.NODE_ENV !== "production" && (
+    process.env.TERRA_MOCK_MODE === "true" || (!devId && !apiKey)
+  );
 
   return {
     devId,
     apiKey,
+    configured,
     mockMode,
     partialCredentials,
-    webhookToken: process.env.TERRA_WEBHOOK_TOKEN || process.env.TERRA_WEBHOOK_SECRET || "",
+    available: configured || mockMode,
+    webhookSigningSecret: process.env.TERRA_WEBHOOK_SIGNING_SECRET || process.env.TERRA_WEBHOOK_SECRET || "",
   };
 }
 
@@ -51,6 +57,10 @@ export async function generateTerraWidgetSession(clientProfileId: string): Promi
     };
   }
 
+  if (!config.configured) {
+    throw new Error("Connected apps are not available yet.");
+  }
+
   const response = await fetch("https://api.tryterra.co/v2/auth/generateWidgetSession", {
     method: "POST",
     headers: {
@@ -74,17 +84,49 @@ export async function generateTerraWidgetSession(clientProfileId: string): Promi
   return data as TerraWidgetSession;
 }
 
-export function verifyTerraWebhookRequest(request: Request) {
-  const { webhookToken } = getTerraConfig();
-  if (!webhookToken) return process.env.NODE_ENV !== "production";
+export function verifyTerraWebhookSignature(
+  rawBody: string,
+  signatureHeader: string,
+  signingSecret: string,
+  nowMs = Date.now(),
+) {
+  if (!rawBody || !signatureHeader || !signingSecret) return false;
 
-  const auth = request.headers.get("authorization") || "";
-  const bearer = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
-  const headerToken =
-    request.headers.get("x-terra-webhook-token") ||
-    request.headers.get("x-webhook-token") ||
-    request.headers.get("x-terra-signature") ||
-    "";
+  const values = signatureHeader.split(",").reduce<Record<string, string[]>>((result, item) => {
+    const separator = item.indexOf("=");
+    if (separator === -1) return result;
+    const key = item.slice(0, separator).trim();
+    const value = item.slice(separator + 1).trim();
+    if (key && value) result[key] = [...(result[key] || []), value];
+    return result;
+  }, {});
 
-  return bearer === webhookToken || headerToken === webhookToken;
+  const timestamp = values.t?.[0];
+  const signatures = values.v1 || [];
+  if (!timestamp || !/^\d+$/.test(timestamp) || signatures.length === 0) return false;
+
+  const toleranceSeconds = Number(process.env.TERRA_WEBHOOK_TOLERANCE_SECONDS || 300);
+  const ageSeconds = Math.abs(Math.floor(nowMs / 1000) - Number(timestamp));
+  if (!Number.isFinite(toleranceSeconds) || toleranceSeconds < 0 || ageSeconds > toleranceSeconds) return false;
+
+  const expected = crypto
+    .createHmac("sha256", signingSecret)
+    .update(`${timestamp}.${rawBody}`)
+    .digest("hex");
+
+  return signatures.some((signature) => {
+    if (!/^[a-f0-9]{64}$/i.test(signature) || signature.length !== expected.length) return false;
+    return crypto.timingSafeEqual(Buffer.from(signature, "hex"), Buffer.from(expected, "hex"));
+  });
+}
+
+export function verifyTerraWebhookRequest(request: Request, rawBody: string) {
+  const { webhookSigningSecret } = getTerraConfig();
+  if (!webhookSigningSecret) return process.env.NODE_ENV !== "production";
+
+  return verifyTerraWebhookSignature(
+    rawBody,
+    request.headers.get("terra-signature") || "",
+    webhookSigningSecret,
+  );
 }

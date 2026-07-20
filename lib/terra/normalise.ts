@@ -34,6 +34,11 @@ function uniqueProviders(provider: string | null) {
   return provider ? [provider.toLowerCase()] : [];
 }
 
+function sumNumbers(values: unknown[]) {
+  const numbers = values.map((value) => getNumber(value)).filter((value): value is number => value !== null);
+  return numbers.length ? numbers.reduce((sum, value) => sum + value, 0) : null;
+}
+
 export function extractTerraUser(payload: AnyRecord) {
   const user = asRecord(payload.user);
   const metadata = asRecord(user.metadata);
@@ -51,17 +56,32 @@ export function extractTerraUser(payload: AnyRecord) {
     terraUserId: getString(user.user_id, user.id, payload.user_id, payload.terra_user_id),
     referenceId: getString(user.reference_id, metadata.reference_id, payload.reference_id),
     eventType: getString(payload.type, payload.event_type, payload.status) || "unknown",
+    authStatus: getString(payload.status),
     rawUser: user,
   };
 }
 
-export function normaliseTerraPayload(payload: AnyRecord): Omit<WearableDailySummary, "id" | "client_id" | "source_payload_ids" | "created_at" | "updated_at"> | null {
+function normaliseTerraEntry(payload: AnyRecord): Omit<WearableDailySummary, "id" | "client_id" | "source_payload_ids" | "created_at" | "updated_at"> | null {
   const data = asRecord(payload.data);
-  const sleep = asRecord(data.sleep || payload.sleep);
-  const daily = asRecord(data.daily || payload.daily);
-  const activity = asRecord(data.activity || payload.activity);
-  const nutrition = asRecord(data.nutrition || payload.nutrition);
+  const sleep = asRecord(data.sleep || payload.sleep || data);
+  const daily = asRecord(data.daily || payload.daily || data);
+  const activity = asRecord(data.activity || payload.activity || data);
+  const nutrition = asRecord(data.nutrition || payload.nutrition || data);
   const summary = asRecord(data.summary || payload.summary);
+  const macros = asRecord(summary.macros || nutrition.macros);
+  const metadata = asRecord(data.metadata || summary.metadata);
+  const distanceData = asRecord(daily.distance_data || activity.distance_data);
+  const distanceSummary = asRecord(distanceData.summary);
+  const caloriesData = asRecord(daily.calories_data || activity.calories_data);
+  const sleepDurations = asRecord(sleep.sleep_durations_data);
+  const asleep = asRecord(sleepDurations.asleep);
+  const inBed = asRecord(sleepDurations.other);
+  const heartRateData = asRecord(sleep.heart_rate_data || daily.heart_rate_data || activity.heart_rate_data);
+  const heartRateSummary = asRecord(heartRateData.summary);
+  const scores = asRecord(sleep.scores);
+  const enrichment = asRecord(sleep.data_enrichment || daily.data_enrichment);
+  const strain = asRecord(activity.strain_data || daily.strain_data);
+  const drinks = Array.isArray(nutrition.drink_samples) ? nutrition.drink_samples.map(asRecord) : [];
   const userInfo = extractTerraUser(payload);
 
   const summaryDate = getDateKey(
@@ -70,6 +90,8 @@ export function normaliseTerraPayload(payload: AnyRecord): Omit<WearableDailySum
     sleep.summary_date,
     nutrition.summary_date,
     activity.summary_date,
+    metadata.start_time,
+    metadata.end_time,
     data.start_time,
     payload.start_time,
     payload.created_at,
@@ -80,23 +102,36 @@ export function normaliseTerraPayload(payload: AnyRecord): Omit<WearableDailySum
     providers: uniqueProviders(userInfo.provider),
     sleep_minutes: getNumber(
       sleep.sleep_minutes,
+      asleep.duration_asleep_state_seconds ? Number(asleep.duration_asleep_state_seconds) / 60 : null,
+      inBed.duration_in_bed_seconds ? Number(inBed.duration_in_bed_seconds) / 60 : null,
       sleep.duration_in_bed_seconds ? Number(sleep.duration_in_bed_seconds) / 60 : null,
       sleep.total_sleep_duration_seconds ? Number(sleep.total_sleep_duration_seconds) / 60 : null,
       summary.sleep_minutes,
     ),
-    sleep_score: getNumber(sleep.score, sleep.sleep_score, summary.sleep_score),
-    hrv_ms: getNumber(sleep.hrv_ms, sleep.avg_hrv, daily.hrv_ms, summary.hrv_ms),
-    resting_hr_bpm: getNumber(sleep.resting_hr_bpm, daily.resting_hr_bpm, daily.resting_heart_rate, summary.resting_hr_bpm),
-    steps: getNumber(daily.steps, activity.steps, summary.steps),
-    active_calories: getNumber(daily.active_calories, activity.active_calories, activity.calories, summary.active_calories),
-    total_calories_burned: getNumber(daily.total_calories_burned, daily.calories_burned, summary.total_calories_burned),
-    training_load: getNumber(activity.training_load, daily.training_load, summary.training_load),
-    workout_count: getNumber(activity.workout_count, daily.workout_count, summary.workout_count),
-    nutrition_calories: getNumber(nutrition.calories, nutrition.energy_kcal, summary.nutrition_calories),
-    protein_g: getNumber(nutrition.protein_g, nutrition.protein, summary.protein_g),
-    carbs_g: getNumber(nutrition.carbs_g, nutrition.carbohydrates_g, nutrition.carbs, summary.carbs_g),
-    fat_g: getNumber(nutrition.fat_g, nutrition.fat, summary.fat_g),
-    water_ml: getNumber(nutrition.water_ml, nutrition.water, summary.water_ml),
+    sleep_score: getNumber(sleep.score, sleep.sleep_score, scores.sleep, enrichment.sleep_score, summary.sleep_score),
+    hrv_ms: getNumber(sleep.hrv_ms, sleep.avg_hrv, heartRateSummary.avg_hrv_rmssd, heartRateSummary.avg_hrv_sdnn, daily.hrv_ms, summary.hrv_ms),
+    resting_hr_bpm: getNumber(sleep.resting_hr_bpm, heartRateSummary.resting_hr_bpm, daily.resting_hr_bpm, daily.resting_heart_rate, summary.resting_hr_bpm),
+    steps: getNumber(daily.steps, activity.steps, distanceData.steps, distanceSummary.steps, summary.steps),
+    active_calories: getNumber(daily.active_calories, activity.active_calories, activity.calories, caloriesData.net_activity_calories, summary.active_calories),
+    total_calories_burned: getNumber(daily.total_calories_burned, daily.calories_burned, caloriesData.total_burned_calories, summary.total_calories_burned),
+    training_load: getNumber(activity.training_load, daily.training_load, strain.strain_level, summary.training_load),
+    workout_count: getNumber(
+      activity.workout_count,
+      daily.workout_count,
+      summary.workout_count,
+      userInfo.eventType.toLowerCase() === "activity" ? 1 : null,
+    ),
+    nutrition_calories: getNumber(nutrition.calories, nutrition.energy_kcal, macros.calories, summary.nutrition_calories),
+    protein_g: getNumber(nutrition.protein_g, nutrition.protein, macros.protein_g, summary.protein_g),
+    carbs_g: getNumber(nutrition.carbs_g, nutrition.carbohydrates_g, nutrition.carbs, macros.carbohydrates_g, summary.carbs_g),
+    fat_g: getNumber(nutrition.fat_g, nutrition.fat, macros.fat_g, summary.fat_g),
+    water_ml: getNumber(
+      nutrition.water_ml,
+      nutrition.water,
+      summary.water_ml,
+      summary.drink_ml,
+      sumNumbers(drinks.map((drink) => drink.drink_volume)),
+    ),
   };
 
   const hasSignal = Object.entries(base).some(([key, value]) =>
@@ -108,6 +143,22 @@ export function normaliseTerraPayload(payload: AnyRecord): Omit<WearableDailySum
     ...base,
     ...buildWearableInsight(base),
   };
+}
+
+export function normaliseTerraPayloads(payload: AnyRecord) {
+  const entries = Array.isArray(payload.data) ? payload.data.map(asRecord) : [];
+  if (!entries.length) {
+    const summary = normaliseTerraEntry(payload);
+    return summary ? [summary] : [];
+  }
+
+  return entries
+    .map((entry) => normaliseTerraEntry({ ...payload, data: entry }))
+    .filter((summary): summary is NonNullable<typeof summary> => summary !== null);
+}
+
+export function normaliseTerraPayload(payload: AnyRecord) {
+  return normaliseTerraPayloads(payload)[0] || null;
 }
 
 export function mergeDailySummary(

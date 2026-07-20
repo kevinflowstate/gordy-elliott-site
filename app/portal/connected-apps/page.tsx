@@ -8,6 +8,7 @@ import type { WearableConnection, WearableDailySummary } from "@/lib/wearable-in
 
 type IntegrationsPayload = {
   mockMode: boolean;
+  available: boolean;
   connections: WearableConnection[];
   latestSummary: WearableDailySummary | null;
   summaries: WearableDailySummary[];
@@ -26,7 +27,7 @@ const providers: ProviderCard[] = [
   { id: "myfitnesspal", name: "MyFitnessPal", description: "Calories, protein, carbs, fats and hydration when available." },
   { id: "fitbit", name: "Fitbit", description: "Daily activity, sleep and heart-rate data through Terra." },
   { id: "whoop", name: "WHOOP / Strava", description: "Recovery, strain and workout history, depending on provider." },
-  { id: "apple_health", name: "Apple Health", description: "Future mobile app phase. Apple Health needs a native/mobile wrapper.", disabled: true },
+  { id: "apple_health", name: "Apple Health", description: "Later native HealthKit phase. Apple Health is not included in the first App Store release.", disabled: true },
 ] as const;
 
 function formatDate(value: string | null | undefined) {
@@ -132,6 +133,11 @@ export default function ConnectedAppsPage() {
             Preview mode: Terra credentials are not live yet.
           </div>
         )}
+        {data && !data.available && (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-text-secondary">
+            Connected apps are coming soon.
+          </div>
+        )}
       </div>
 
       {latest && (
@@ -191,7 +197,7 @@ export default function ConnectedAppsPage() {
                   <button
                     type="button"
                     onClick={() => connect(provider.id)}
-                    disabled={Boolean(provider.disabled) || connecting === provider.id}
+                    disabled={Boolean(provider.disabled) || data?.available === false || connecting === provider.id}
                     className="rounded-xl gradient-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
                   >
                     <CyclingStatusText active={connecting === provider.id} idle={data?.mockMode ? "Preview sync" : "Connect"} messages={["Starting...", "Creating session...", "Opening Terra...", "Nearly there..."]} />

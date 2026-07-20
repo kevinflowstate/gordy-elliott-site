@@ -79,6 +79,7 @@ export default function MobileNav() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  data-native-haptic
                   onClick={() => setShowMore(false)}
                   className={`flex min-h-[52px] items-center gap-3 rounded-2xl px-4 py-3 no-underline transition-colors ${
                     isActive
@@ -114,6 +115,7 @@ export default function MobileNav() {
               <Link
                 key={item.href}
                 href={item.href}
+                data-native-haptic
                 onClick={() => setShowMore(false)}
                 aria-current={isActive ? "page" : undefined}
                 className={`relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-1.5 transition-colors no-underline min-h-[48px] ${
@@ -138,6 +140,7 @@ export default function MobileNav() {
           {/* More button */}
           <button
             type="button"
+            data-native-haptic
             onClick={() => setShowMore(!showMore)}
             aria-expanded={showMore}
             aria-haspopup="menu"

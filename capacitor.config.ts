@@ -4,7 +4,7 @@ const serverUrl = process.env.CAPACITOR_SERVER_URL;
 const serverOrigin = serverUrl ? new URL(serverUrl) : undefined;
 
 const config: CapacitorConfig = {
-  // Provisional until the final Apple Developer identifier is registered.
+  // Registered App ID in the Apple Developer account.
   appId: "com.gordyelliott.shift",
   appName: "SHIFT Coaching",
   webDir: "native-shell",
