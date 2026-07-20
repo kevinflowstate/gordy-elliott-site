@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { App, type URLOpenListenerEvent } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { Capacitor } from "@capacitor/core";
+import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { SplashScreen } from "@capacitor/splash-screen";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { safeLocalRedirect } from "@/lib/safe-redirect";
@@ -111,12 +112,20 @@ export default function NativeAppBridge() {
       void Browser.open({ url: destination.href });
     };
 
+    const provideHapticFeedback = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element) || !target.closest("[data-native-haptic]")) return;
+      void Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
+    };
+
     document.addEventListener("click", openExternalLinks);
+    document.addEventListener("click", provideHapticFeedback);
 
     return () => {
       disposed = true;
       document.documentElement.classList.remove("native-app");
       document.removeEventListener("click", openExternalLinks);
+      document.removeEventListener("click", provideHapticFeedback);
       void removeDeepLinkListener?.();
     };
   }, []);

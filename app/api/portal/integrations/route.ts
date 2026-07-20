@@ -41,8 +41,10 @@ export async function GET() {
   if (connectionsRes.error) return NextResponse.json({ error: connectionsRes.error.message }, { status: 500 });
   if (summariesRes.error) return NextResponse.json({ error: summariesRes.error.message }, { status: 500 });
 
+  const terra = getTerraConfig();
   return NextResponse.json({
-    mockMode: getTerraConfig().mockMode,
+    mockMode: terra.mockMode,
+    available: terra.available,
     connections: connectionsRes.data || [],
     latestSummary: summariesRes.data?.[0] || null,
     summaries: summariesRes.data || [],

@@ -8,6 +8,8 @@ import { useToast } from "@/components/ui/Toast";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import { Suspense } from "react";
 import type { ClientKeyDate } from "@/lib/types";
+import { App } from "@capacitor/app";
+import { Capacitor } from "@capacitor/core";
 
 type ClientSexInput = "" | "female" | "male" | "prefer_not_to_say";
 
@@ -85,6 +87,11 @@ function SettingsContent() {
   const [cycleTrackingEnabled, setCycleTrackingEnabled] = useState(false);
   const [keyDates, setKeyDates] = useState<Array<Pick<ClientKeyDate, "label" | "date" | "recurring">>>([]);
   const [newKeyDate, setNewKeyDate] = useState({ label: "", date: "", recurring: true });
+  const [nativeVersion, setNativeVersion] = useState<string | null>(null);
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const searchParams = useSearchParams();
 
@@ -92,6 +99,11 @@ function SettingsContent() {
     if (searchParams.get("setup") === "true") setIsSetup(true);
     if (searchParams.get("reset") === "true") setIsReset(true);
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    void App.getInfo().then((info) => setNativeVersion(`${info.version} (${info.build})`));
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -182,6 +194,30 @@ function SettingsContent() {
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");
+  }
+
+  async function handleDeleteAccount() {
+    if (deleteConfirmation !== "DELETE") return;
+    setDeletingAccount(true);
+    setDeleteError(null);
+
+    try {
+      const response = await fetch("/api/portal/account", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation: deleteConfirmation }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Your account could not be deleted.");
+
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.replace("/login?account=deleted");
+      router.refresh();
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Your account could not be deleted.");
+      setDeletingAccount(false);
+    }
   }
 
   function addKeyDate() {
@@ -504,6 +540,71 @@ function SettingsContent() {
           </button>
         </div>
       </form>
+
+      <div className="app-card mt-6 rounded-2xl p-6">
+        <h2 className="text-lg font-heading font-bold text-text-primary">App information</h2>
+        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
+          <Link href="/privacy" className="font-semibold text-accent-bright no-underline">Privacy policy</Link>
+          <Link href="/support" className="font-semibold text-accent-bright no-underline">Support</Link>
+          {nativeVersion && <span className="text-text-muted">Version {nativeVersion}</span>}
+        </div>
+      </div>
+
+      <div className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/[0.04] p-6">
+        <h2 className="text-lg font-heading font-bold text-text-primary">Delete account</h2>
+        <p className="mt-2 text-sm leading-6 text-text-secondary">
+          Permanently delete your login, coaching plans, messages, check-ins, progress data and connected-app history. This cannot be undone.
+        </p>
+
+        {!showDeleteAccount ? (
+          <button
+            type="button"
+            onClick={() => setShowDeleteAccount(true)}
+            className="mt-4 min-h-11 rounded-xl border border-red-500/30 px-4 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/10"
+          >
+            Delete my account
+          </button>
+        ) : (
+          <div className="mt-5 rounded-xl border border-red-500/20 bg-bg-primary p-4">
+            <label htmlFor="delete-account-confirmation" className="block text-sm font-semibold text-text-primary">
+              Type DELETE to confirm
+            </label>
+            <input
+              id="delete-account-confirmation"
+              type="text"
+              autoCapitalize="characters"
+              autoComplete="off"
+              value={deleteConfirmation}
+              onChange={(event) => setDeleteConfirmation(event.target.value)}
+              disabled={deletingAccount}
+              className="mt-3 w-full rounded-xl border border-red-500/20 bg-bg-card px-4 py-3 text-base text-text-primary focus:border-red-500/50 focus:outline-none"
+            />
+            {deleteError && <p role="alert" className="mt-3 text-sm text-red-400">{deleteError}</p>}
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={deleteConfirmation !== "DELETE" || deletingAccount}
+                className="min-h-11 rounded-xl bg-red-600 px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {deletingAccount ? "Deleting..." : "Permanently delete account"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteAccount(false);
+                  setDeleteConfirmation("");
+                  setDeleteError(null);
+                }}
+                disabled={deletingAccount}
+                className="min-h-11 px-3 text-sm font-semibold text-text-secondary"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

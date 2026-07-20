@@ -19,6 +19,10 @@ export default function HomePage() {
           Client Login
         </Link>
       </div>
+      <nav aria-label="Legal" className="absolute bottom-6 left-0 right-0 z-10 flex justify-center gap-5 text-sm text-[#aeb0bb]">
+        <Link href="/privacy" className="text-inherit no-underline hover:text-white">Privacy</Link>
+        <Link href="/support" className="text-inherit no-underline hover:text-white">Support</Link>
+      </nav>
     </main>
   );
 }

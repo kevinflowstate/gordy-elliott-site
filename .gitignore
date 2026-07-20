@@ -5,6 +5,7 @@ node_modules/
 next-env.d.ts
 .env*.local
 .playwright-cli/
+.qa/
 .ios-derived-data/
 native-shell/runtime-config.js
 ios/App/App/public/runtime-config.js
