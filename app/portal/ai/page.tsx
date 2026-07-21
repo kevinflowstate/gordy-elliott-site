@@ -247,13 +247,17 @@ export default function ShiftAIPage() {
             event.currentTarget.style.height = "auto";
             event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 120)}px`;
           }}
+          aria-label="Ask SHIFT AI"
           placeholder="Ask SHIFT AI..."
           rows={1}
           disabled={loading}
         />
         <button
+          type="button"
           onClick={() => handleSend()}
           disabled={!input.trim() || loading}
+          aria-label={loading ? "SHIFT AI is replying" : "Send message to SHIFT AI"}
+          title="Send message"
           className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl bg-accent-bright/20 hover:bg-accent-bright/30 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors cursor-pointer"
         >
           <svg className="w-4 h-4 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">

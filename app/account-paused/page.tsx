@@ -1,14 +1,7 @@
 import Image from "next/image";
-import { redirect } from "next/navigation";
+import NativeSafeSignOutButton from "@/components/native/NativeSafeSignOutButton";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-
-async function signOut() {
-  "use server";
-  const supabase = await createClient();
-  await supabase.auth.signOut();
-  redirect("/login");
-}
 
 export default async function AccountPausedPage() {
   const supabase = await createClient();
@@ -43,14 +36,9 @@ export default async function AccountPausedPage() {
         {resumeLabel && (
           <p className="mt-4 text-sm font-semibold">Scheduled to resume {resumeLabel}</p>
         )}
-        <form action={signOut} className="mt-7">
-          <button
-            type="submit"
-            className="min-h-11 border border-white/15 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 hover:bg-white/5"
-          >
-            Sign out
-          </button>
-        </form>
+        <div className="mt-7">
+          <NativeSafeSignOutButton />
+        </div>
       </div>
     </main>
   );

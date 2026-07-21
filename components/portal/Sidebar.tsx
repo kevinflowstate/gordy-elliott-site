@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { unregisterNativePushDevice } from "@/lib/native-push-client";
 import { useInboxUnreadCount } from "@/components/inbox/useInboxUnreadCount";
 
 type PortalNavItem = {
@@ -139,6 +140,7 @@ export default function Sidebar() {
 
   async function handleSignOut() {
     const supabase = createClient();
+    await unregisterNativePushDevice();
     await supabase.auth.signOut();
     router.push("/login");
   }

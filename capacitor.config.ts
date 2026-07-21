@@ -1,15 +1,18 @@
 import type { CapacitorConfig } from "@capacitor/cli";
+import appIdentity from "./config/app-identity.json";
 
 const serverUrl = process.env.CAPACITOR_SERVER_URL;
 const serverOrigin = serverUrl ? new URL(serverUrl) : undefined;
+const apnsEnvironment = process.env.CAPACITOR_APNS_ENVIRONMENT === "sandbox" ? "sandbox" : "production";
 
 const config: CapacitorConfig = {
   // Registered App ID in the Apple Developer account.
-  appId: "com.gordyelliott.shift",
-  appName: "SHIFT Coaching",
+  appId: appIdentity.bundleId,
+  appName: appIdentity.appName,
   webDir: "native-shell",
   backgroundColor: "#0A0A0A",
   loggingBehavior: "debug",
+  appendUserAgent: `SHIFT-APNS/${apnsEnvironment}`,
   ios: {
     contentInset: "never",
     preferredContentMode: "mobile",
@@ -17,6 +20,9 @@ const config: CapacitorConfig = {
     scheme: "App",
   },
   plugins: {
+    PushNotifications: {
+      presentationOptions: ["badge", "sound", "banner", "list"],
+    },
     StatusBar: {
       overlaysWebView: false,
       // Capacitor names this from the background theme: DARK renders light system text.

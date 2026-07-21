@@ -6,12 +6,14 @@ import { resolveClientLifecycleStatus } from '@/lib/client-attention';
 export async function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
   const path = request.nextUrl.pathname;
+  const isNativePushRemoval = path.startsWith('/api/push/native') && request.method === 'DELETE';
   const isClientAppApi =
     path.startsWith('/api/portal') ||
     path.startsWith('/api/inbox') ||
     path.startsWith('/api/notifications') ||
     path.startsWith('/api/calendar') ||
-    path.startsWith('/api/push/subscribe');
+    path.startsWith('/api/push/subscribe') ||
+    (path.startsWith('/api/push/native') && !isNativePushRemoval);
 
   // Subdomain routing
   if (hostname.startsWith('portal.')) {

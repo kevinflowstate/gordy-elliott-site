@@ -1,11 +1,13 @@
 # SHIFT Coaching iOS Roadmap
 
-## Current position - 20 July 2026
+## Current position - 21 July 2026
 
 - App Store Connect record created as **SHIFT Coaching by Gordy** (`6792719833`).
 - Registered bundle ID: `com.gordyelliott.shift` on Apple team `H4J3XX8R8M`.
 - Build 1 uploaded successfully and available to the `SHIFT Internal` TestFlight group.
-- Build 2 is the current hardening candidate. It includes registered signing metadata, portrait-only iPhone presentation, release preflight/archive tooling, native navigation haptics, public privacy/support pages, self-service account deletion, and hardened Terra webhook contracts.
+- Build 2 is the current hardening candidate. It includes portrait-only iPhone presentation, native navigation haptics, public privacy/support pages, self-service account deletion, hardened Terra contracts, and reviewed APNs registration/delivery groundwork.
+- The production database now has a locked-down native device-token store. A live authenticated register/read/remove round trip passes without exposing tokens to browser roles.
+- The App Store metadata, privacy answers, age-rating worksheet, review notes and screenshot plan are drafted and machine-checked. They still need to be entered in App Store Connect and confirmed by Gordy.
 - The web/PWA remains the source application. The iOS target is an additional signed client, not a replacement repository or separate product database.
 
 ## Product shape
@@ -37,8 +39,11 @@ The initial native shell uses the existing hosted portal so training, nutrition,
 
 - [x] App icon, launch assets, camera/photo permission copy and dependency privacy manifests.
 - [x] Native haptic feedback on primary mobile navigation.
-- [ ] APNs push registration and a server-side native-device token store.
-- [ ] DM, coach nudge, task and training reminders routed to web push or APNs as appropriate.
+- [x] APNs permission/registration bridge and a server-side native-device token store.
+- [x] Existing DM, coach nudge, task and reminder notifications fan out to web push and native APNs.
+- [x] Device tokens are removed on sign-out, scoped to the app topic and classified by sandbox/production build.
+- [ ] Enable Push Notifications for the production App ID and add APNs key credentials to Vercel.
+- [ ] Prove delivery and deep-link opening on a physical TestFlight device.
 - [ ] Native sharing where it improves an established client workflow.
 
 ### 4. Terra and connected health
@@ -56,8 +61,10 @@ The initial native shell uses the existing hosted portal so training, nutrition,
 - [x] Confirm bundle ID, Apple Developer team and App Store product name.
 - [x] Create the App Store Connect record and internal TestFlight group.
 - [x] Add deployable privacy/support URLs and an App Privacy data inventory.
-- [ ] Complete App Store privacy answers, age rating, description, screenshots and review notes.
-- [ ] Provide a dedicated review account with representative, non-personal client data.
+- [x] Draft and validate App Store privacy answers, age rating, description and review notes.
+- [x] Provide a dedicated review account with representative, non-personal client data.
+- [ ] Enter the approved metadata and privacy answers in App Store Connect.
+- [ ] Capture final screenshots from the deployed, approved candidate.
 - [ ] Test pause/freeze states, DM, training, nutrition, cycle tracking and Terra fallback on physical devices.
 - [ ] Complete internal/external TestFlight, accessibility, crash review and final submission.
 
@@ -68,13 +75,14 @@ The initial native shell uses the existing hosted portal so training, nutrition,
 - No automatic programme changes based on wearable data.
 - No medical diagnosis or treatment language.
 - Production authentication callbacks and Universal Links must use Gordy's final domain.
-- Native push requires Apple Developer capabilities and backend token routing before it is advertised.
+- Native push requires the Apple capability, APNs key and a physical-device delivery pass before it is advertised as complete.
 - The remote portal shell must gain enough native value for App Review before submission.
 
 ## Inputs still required
 
-- Gordy's final production domain and a monitored public support email/address.
+- Gordy's final production domain. The public Vercel URLs and Kevin's monitored support email are valid launch fallbacks.
 - Terra production Dev ID, API key, webhook signing secret and confirmed launch providers.
-- App Store description, keywords, category, age-rating answers, review contact and final screenshots.
-- A dedicated App Review login and explicit confirmation that its sample data may be reviewed by Apple.
-- Decision on whether native push is a version 1 submission gate or a post-launch update.
+- Gordy's approval of the drafted listing copy, content-rights answer and fictional review fixture.
+- Apple Push Notifications capability plus APNs signing key details.
+- Final candidate screenshots and completed physical-device TestFlight evidence.
+- Supabase leaked-password protection enabled in the project dashboard.
