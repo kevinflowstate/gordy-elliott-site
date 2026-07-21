@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import AIComposerTextarea from "@/components/ui/AIComposerTextarea";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
+  action?: { label: string; href: string };
 }
 
 function renderMarkdown(text: string) {
@@ -63,150 +64,22 @@ export default function ShiftAIPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [tier, setTier] = useState<string>("coached");
-  const [composerFocused, setComposerFocused] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
-  const composerBarRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const resetDocumentScroll = useCallback(() => {
-    window.scrollTo(0, 0);
-    document.documentElement.scrollTop = 0;
-    document.documentElement.scrollLeft = 0;
-    if (document.body) {
-      document.body.scrollTop = 0;
-      document.body.scrollLeft = 0;
-    }
-  }, []);
-
-  const pinLatestToComposer = useCallback(() => {
-    const scroller = threadRef.current;
-    const composer = composerBarRef.current;
-    if (!scroller || !composer) return;
-
-    scroller.scrollTop = scroller.scrollHeight;
-    window.requestAnimationFrame(() => {
-      const latest = scroller.querySelector(".shift-ai-message:last-of-type");
-      if (!latest) return;
-      const latestRect = latest.getBoundingClientRect();
-      const composerRect = composer.getBoundingClientRect();
-      const visualBottom = window.visualViewport
-        ? Math.min(window.visualViewport.height + window.visualViewport.offsetTop, window.innerHeight)
-        : window.innerHeight;
-      const targetBottom = Math.min(composerRect.top, visualBottom) - 8;
-      if (latestRect.bottom > targetBottom) {
-        scroller.scrollTop += latestRect.bottom - targetBottom;
-      }
-    });
-  }, []);
-
-  const keepComposerVisible = useCallback(() => {
-    resetDocumentScroll();
-    pinLatestToComposer();
-    for (const delay of [16, 48, 120, 220]) {
-      window.setTimeout(() => {
-        resetDocumentScroll();
-        pinLatestToComposer();
-      }, delay);
-    }
-  }, [pinLatestToComposer, resetDocumentScroll]);
-
   useEffect(() => {
-    if (threadRef.current) {
-      threadRef.current.scrollTop = threadRef.current.scrollHeight;
-    } else {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-    if (composerFocused) keepComposerVisible();
-  }, [composerFocused, keepComposerVisible, messages, loading]);
+    const frame = window.requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: loading ? "auto" : "smooth", block: "end" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [messages, loading]);
 
   useEffect(() => {
     if (window.matchMedia("(min-width: 768px)").matches) {
       inputRef.current?.focus();
     }
   }, []);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const composer = composerBarRef.current;
-    if (!composer) return undefined;
-
-    const measureComposer = () => {
-      const rect = composer.getBoundingClientRect();
-      root.style.setProperty("--shift-ai-composer-height", `${Math.ceil(rect.height || 72)}px`);
-    };
-
-    measureComposer();
-    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measureComposer) : null;
-    observer?.observe(composer);
-    window.addEventListener("resize", measureComposer, { passive: true });
-
-    return () => {
-      observer?.disconnect();
-      window.removeEventListener("resize", measureComposer);
-    };
-  }, []);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    let frame = 0;
-    let timers: number[] = [];
-
-    const clearTimers = () => {
-      for (const timer of timers) window.clearTimeout(timer);
-      timers = [];
-    };
-
-    const keyboardInset = () => {
-      const viewport = window.visualViewport;
-      if (!viewport || !composerFocused) return 0;
-      return Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop));
-    };
-
-    const applyViewportVars = () => {
-      const viewport = window.visualViewport;
-      const inset = keyboardInset();
-      root.style.setProperty("--shift-ai-keyboard-inset", `${inset}px`);
-      root.style.setProperty("--shift-ai-visual-height", `${Math.round(viewport?.height || window.innerHeight)}px`);
-      root.classList.toggle("shift-ai-keyboard-open", composerFocused && inset > 24);
-      root.classList.toggle("shift-ai-composer-focused", composerFocused);
-    };
-
-    const settle = () => {
-      applyViewportVars();
-      if (!composerFocused) return;
-      resetDocumentScroll();
-      pinLatestToComposer();
-    };
-
-    const scheduleSettle = () => {
-      window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(settle);
-      clearTimers();
-      if (composerFocused) {
-        timers = [0, 24, 72, 150, 260].map((delay) => window.setTimeout(settle, delay));
-      }
-    };
-
-    scheduleSettle();
-    window.addEventListener("resize", scheduleSettle, { passive: true });
-    window.visualViewport?.addEventListener("resize", scheduleSettle, { passive: true });
-    window.visualViewport?.addEventListener("scroll", scheduleSettle, { passive: true });
-    document.addEventListener("selectionchange", scheduleSettle, { passive: true });
-
-    return () => {
-      clearTimers();
-      window.cancelAnimationFrame(frame);
-      window.removeEventListener("resize", scheduleSettle);
-      window.visualViewport?.removeEventListener("resize", scheduleSettle);
-      window.visualViewport?.removeEventListener("scroll", scheduleSettle);
-      document.removeEventListener("selectionchange", scheduleSettle);
-      root.classList.remove("shift-ai-keyboard-open");
-      root.classList.remove("shift-ai-composer-focused");
-      root.style.setProperty("--shift-ai-keyboard-inset", "0px");
-      root.style.setProperty("--shift-ai-visual-height", `${window.innerHeight}px`);
-    };
-  }, [composerFocused, pinLatestToComposer, resetDocumentScroll]);
 
   useEffect(() => {
     fetch("/api/portal/me")
@@ -269,15 +142,11 @@ export default function ShiftAIPage() {
       }
 
       const data = await res.json();
-      setMessages([...updated, { role: "assistant", content: data.reply }]);
+      setMessages([...updated, { role: "assistant", content: data.reply, action: data.action }]);
     } catch {
       setMessages([...updated, { role: "assistant", content: "Sorry, something went wrong. Please try again." }]);
     } finally {
       setLoading(false);
-      setTimeout(() => {
-        inputRef.current?.focus();
-        keepComposerVisible();
-      }, 60);
     }
   }
 
@@ -340,6 +209,11 @@ export default function ShiftAIPage() {
               <div className="space-y-1.5">
                 {msg.role === "assistant" ? renderContent(msg.content) : msg.content}
               </div>
+              {msg.role === "assistant" && msg.action && (
+                <Link href={msg.action.href} className="mt-3 inline-flex min-h-10 items-center rounded-xl bg-accent/15 px-4 py-2 text-sm font-semibold text-accent-bright no-underline">
+                  {msg.action.label}
+                </Link>
+              )}
             </div>
           </div>
         ))}
@@ -360,8 +234,7 @@ export default function ShiftAIPage() {
       </div>
 
       <div
-        ref={composerBarRef}
-        className={`shift-ai-composer-bar ${composerFocused ? "is-focused" : ""}`}
+        className="shift-ai-composer-bar"
       >
         <div className="relative">
         <AIComposerTextarea
@@ -369,12 +242,11 @@ export default function ShiftAIPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          onFocus={() => {
-            setComposerFocused(true);
-            keepComposerVisible();
+          onFocus={() => window.setTimeout(() => messagesEndRef.current?.scrollIntoView({ block: "end" }), 80)}
+          onInput={(event) => {
+            event.currentTarget.style.height = "auto";
+            event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 120)}px`;
           }}
-          onBlur={() => setComposerFocused(false)}
-          onInput={() => keepComposerVisible()}
           placeholder="Ask SHIFT AI..."
           rows={1}
           disabled={loading}

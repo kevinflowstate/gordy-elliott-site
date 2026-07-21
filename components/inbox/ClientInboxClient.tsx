@@ -61,8 +61,11 @@ export default function ClientInboxClient() {
         throw new Error(data.error || "Failed to send message.");
       }
 
+      const data = await res.json();
+      setThread((current) => current && data.message
+        ? { ...current, messages: [...current.messages, data.message] }
+        : current);
       toast("Message sent");
-      await loadThread();
     } catch (err) {
       const messageText = err instanceof Error ? err.message : "Failed to send message.";
       setError(messageText);
@@ -82,8 +85,19 @@ export default function ClientInboxClient() {
       </div>
 
       {loading ? (
-        <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.025)] px-6 py-12 text-sm text-text-muted">
-          Loading DMs...
+        <div className="flex min-h-[min(72dvh,48rem)] animate-pulse flex-col overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.025)]">
+          <div className="border-b border-white/[0.06] px-5 py-4">
+            <div className="h-4 w-28 rounded bg-white/[0.08]" />
+            <div className="mt-2 h-3 w-20 rounded bg-white/[0.05]" />
+          </div>
+          <div className="flex flex-1 flex-col justify-end gap-4 px-4 py-5">
+            <div className="h-16 w-2/3 rounded-2xl bg-white/[0.05]" />
+            <div className="ml-auto h-20 w-3/4 rounded-2xl bg-accent/10" />
+            <div className="h-14 w-1/2 rounded-2xl bg-white/[0.05]" />
+          </div>
+          <div className="border-t border-white/[0.06] p-3">
+            <div className="h-11 rounded-xl bg-white/[0.06]" />
+          </div>
         </div>
       ) : (
         <InboxThread

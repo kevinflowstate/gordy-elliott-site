@@ -13,7 +13,7 @@ export const DEFAULT_CONSULTATION_QUESTIONS: FormQuestion[] = [
     id: "date_of_birth",
     label: "Date of Birth",
     placeholder: "",
-    type: "date",
+    type: "text",
     enabled: true,
   },
   {
@@ -83,9 +83,8 @@ export const DEFAULT_CONSULTATION_QUESTIONS: FormQuestion[] = [
   {
     id: "primary_goal",
     label: "Primary Goal",
-    placeholder: "",
-    type: "select",
-    options: ["Weight Loss", "Muscle Gain", "General Fitness", "Sport Specific", "Flexibility & Mobility"],
+    placeholder: "Tell Gordy what you want to achieve and why it matters to you.",
+    type: "textarea",
     enabled: true,
     required: true,
   },
@@ -168,7 +167,12 @@ export function normalizeConsultationConfig(config: ConsultationFormConfig | nul
   const loadedQuestions = Array.isArray(config.questions) ? config.questions : [];
   const mergedQuestions = DEFAULT_CONSULTATION_QUESTIONS.map((defaultQuestion) => {
     const found = loadedQuestions.find((question) => question.id === defaultQuestion.id);
-    return normalizeQuestion(found ? { ...defaultQuestion, ...found } : defaultQuestion);
+    const merged = found ? { ...defaultQuestion, ...found } : defaultQuestion;
+    if (defaultQuestion.id === "date_of_birth" || defaultQuestion.id === "primary_goal") {
+      merged.type = defaultQuestion.type;
+      merged.options = defaultQuestion.options;
+    }
+    return normalizeQuestion(merged);
   });
   const customQuestions = loadedQuestions
     .filter((question) => !DEFAULT_CONSULTATION_QUESTIONS.find((defaultQuestion) => defaultQuestion.id === question.id))

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { dbError } from "@/lib/api-errors";
 import { normalizeConsultationConfig } from "@/lib/consultation-form";
 import { NextRequest, NextResponse } from "next/server";
+import { isValidIsoDateOfBirth } from "@/lib/date-of-birth";
 
 const VALID_SEX_VALUES = ["female", "male", "prefer_not_to_say"];
 const PROFILE_FIELD_IDS = new Set(["date_of_birth", "sex", "cycle_tracking_enabled"]);
@@ -183,7 +184,6 @@ export async function POST(req: NextRequest) {
 
   const updates: Record<string, unknown> = {
     consultation_data: consultationData,
-    consultation_summary: await extractConsultationSummary(consultationData),
   };
 
   if (body.profile_setup && typeof body.profile_setup === "object") {
@@ -196,7 +196,11 @@ export async function POST(req: NextRequest) {
   }
 
   if (enabledIds.has("date_of_birth")) {
-    updates.date_of_birth = typeof body.date_of_birth === "string" && body.date_of_birth ? body.date_of_birth : null;
+    const dateOfBirth = typeof body.date_of_birth === "string" ? body.date_of_birth.trim() : "";
+    if (dateOfBirth && !isValidIsoDateOfBirth(dateOfBirth)) {
+      return NextResponse.json({ error: "Enter a valid date of birth in DD/MM/YYYY format" }, { status: 400 });
+    }
+    updates.date_of_birth = dateOfBirth || null;
   }
 
   if (enabledIds.has("sex")) {
@@ -211,6 +215,8 @@ export async function POST(req: NextRequest) {
         ? Boolean(body.cycle_tracking_enabled)
         : false;
   }
+
+  updates.consultation_summary = await extractConsultationSummary(consultationData);
 
   const { error } = await admin
     .from("client_profiles")

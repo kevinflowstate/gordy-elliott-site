@@ -8,6 +8,12 @@ interface PhotoGroup {
   signedUrls: Record<string, string>;
 }
 
+export function getProgressPhotoDateFolders(files: Array<{ name: string }>) {
+  return files
+    .map((file) => file.name)
+    .filter((name) => /^\d{4}-\d{2}-\d{2}$/.test(name));
+}
+
 export async function getPhotoGroups(
   admin: SupabaseClient,
   clientId: string
@@ -26,20 +32,24 @@ export async function getPhotoGroups(
 
   const dateGroups: Record<string, { front?: string; back?: string; side?: string; signedUrls: Record<string, string> }> = {};
 
-  for (const dateFolder of files) {
-    if (!dateFolder.id) continue;
-
-    const { data: photoFiles } = await admin.storage
+  for (const folderName of getProgressPhotoDateFolders(files)) {
+    const { data: photoFiles, error: photoListError } = await admin.storage
       .from("progress-photos")
-      .list(`${clientId}/${dateFolder.name}`);
+      .list(`${clientId}/${folderName}`);
 
-    if (!photoFiles || photoFiles.length === 0) continue;
+    if (photoListError || !photoFiles || photoFiles.length === 0) continue;
 
-    const paths = photoFiles.map((f) => `${clientId}/${dateFolder.name}/${f.name}`);
+    const paths = photoFiles
+      .filter((file) => Boolean(file.id) && !file.name.startsWith("."))
+      .map((file) => `${clientId}/${folderName}/${file.name}`);
 
-    const { data: signedData } = await admin.storage
+    if (paths.length === 0) continue;
+
+    const { data: signedData, error: signedUrlError } = await admin.storage
       .from("progress-photos")
       .createSignedUrls(paths, 3600);
+
+    if (signedUrlError) continue;
 
     const signedUrls: Record<string, string> = {};
     const angles: { front?: string; back?: string; side?: string } = {};
@@ -55,7 +65,9 @@ export async function getPhotoGroups(
       }
     }
 
-    dateGroups[dateFolder.name] = { ...angles, signedUrls };
+    if (Object.keys(signedUrls).length > 0) {
+      dateGroups[folderName] = { ...angles, signedUrls };
+    }
   }
 
   const groups = Object.entries(dateGroups)

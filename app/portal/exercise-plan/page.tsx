@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import Link from "next/link";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import { formatExercisePrescription, shouldUseSetLogging } from "@/lib/exercise-prescriptions";
 import type { ClientExercisePlan, ExerciseSession, WeeklyTrainingAssignment } from "@/lib/types";
@@ -67,6 +66,35 @@ function weekLabel(weekStart: Date): string {
 }
 
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function sessionTimerKey(planId: string, sessionId: string, date: string) {
+  return `shift-session-timer:${planId}:${sessionId}:${date}`;
+}
+
+function activeSessionPointerKey(planId: string) {
+  return `shift-active-session:${planId}`;
+}
+
+function formatElapsed(ms: number) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+    : `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function ElapsedTime({ startedAt }: { startedAt: number }) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  return formatElapsed(now - startedAt);
+}
 
 // ---- rotation logic ----
 
@@ -143,6 +171,7 @@ export default function PortalExercisePlanPage() {
   const [plannerError, setPlannerError] = useState<string | null>(null);
   const [plannerSavingSessionId, setPlannerSavingSessionId] = useState<string | null>(null);
   const plannerRequestIdRef = useRef(0);
+  const resumePointerHandledRef = useRef<string | null>(null);
 
   // Calendar state
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
@@ -158,13 +187,13 @@ export default function PortalExercisePlanPage() {
   const [showSessionPicker, setShowSessionPicker] = useState(false);
   const [manuallyPicked, setManuallyPicked] = useState(false);
   const [sessionOpen, setSessionOpen] = useState(false);
+  const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null);
 
   // Draft inputs: exerciseItemId -> SetData[]
   const [draftSets, setDraftSets] = useState<Record<string, SetData[]>>({});
   const [saving, setSaving] = useState(false);
   const [savedToast, setSavedToast] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
 
   // Fetch plan once
   useEffect(() => {
@@ -403,10 +432,9 @@ export default function PortalExercisePlanPage() {
 
       // Refresh week logs
       await fetchWeekLogs(weekStart);
+      finishSessionTimer(activeSession.id, dateStr);
       setViewMode("readonly");
       setSessionOpen(false);
-      const stamp = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-      setLastSavedAt(`${formatDate(selectedDate)} at ${stamp}`);
       setSavedToast(true);
       setTimeout(() => setSavedToast(false), 2500);
     } catch (err) {
@@ -535,8 +563,141 @@ export default function PortalExercisePlanPage() {
   const totalPlanSessions = plan?.sessions?.length || 0;
   const placedSessionsCount = sortedSessions.filter((session) => Boolean(assignmentBySessionId.get(session.id)?.planned_date)).length;
   const unassignedSessions = sortedSessions.filter((session) => !assignmentBySessionId.get(session.id)?.planned_date);
-  const loggedExerciseCount = dayLogs.filter((l) => l.completed).length;
-  const activeExerciseCount = activeSession?.items.filter((i) => i.exercise_id !== "__section__").length || 0;
+  const nextSession = sortedSessions.length > 0
+    ? getNextSession(sortedSessions, allLogs.filter((log) => log.log_date <= selectedDateStr))
+    : null;
+  const primarySession = activeSession || nextSession;
+
+  useEffect(() => {
+    if (!plan?.id || resumePointerHandledRef.current === plan.id) return;
+    resumePointerHandledRef.current = plan.id;
+    try {
+      const raw = window.localStorage.getItem(activeSessionPointerKey(plan.id));
+      const pointer = raw ? JSON.parse(raw) as {
+        sessionId?: string;
+        date?: string;
+        startedAt?: number;
+        draftSets?: Record<string, SetData[]>;
+      } : null;
+      const session = pointer?.sessionId ? plan.sessions.find((item) => item.id === pointer.sessionId) : null;
+      const date = pointer?.date ? new Date(`${pointer.date}T00:00:00`) : null;
+      const valid = session && date && !Number.isNaN(date.getTime()) && pointer?.startedAt && Date.now() - pointer.startedAt < 6 * 60 * 60 * 1000;
+      if (!valid || !session || !date) {
+        window.localStorage.removeItem(activeSessionPointerKey(plan.id));
+        return;
+      }
+      setWeekStart(getWeekStart(date));
+      setSelectedDate(date);
+      setActiveSession(session);
+      if (pointer.draftSets && typeof pointer.draftSets === "object") {
+        setDraftSets(pointer.draftSets);
+      } else {
+        initDrafts(session);
+      }
+      setViewMode("log");
+      setManuallyPicked(true);
+      setSessionOpen(true);
+    } catch {
+      window.localStorage.removeItem(activeSessionPointerKey(plan.id));
+    }
+  }, [plan]);
+
+  useEffect(() => {
+    if (!plan?.id || !activeSession || !sessionStartedAt || viewMode !== "log") return;
+    const timeout = window.setTimeout(() => {
+      try {
+        window.localStorage.setItem(activeSessionPointerKey(plan.id), JSON.stringify({
+          sessionId: activeSession.id,
+          date: selectedDateStr,
+          startedAt: sessionStartedAt,
+          draftSets,
+        }));
+      } catch {
+        // Draft persistence is best-effort when storage is unavailable.
+      }
+    }, 150);
+    return () => window.clearTimeout(timeout);
+  }, [activeSession, draftSets, plan?.id, selectedDateStr, sessionStartedAt, viewMode]);
+
+  useEffect(() => {
+    if (!plan?.id || !activeSession || viewMode !== "log") {
+      setSessionStartedAt(null);
+      return;
+    }
+
+    let startedAt: number | null = null;
+    try {
+      const raw = window.localStorage.getItem(sessionTimerKey(plan.id, activeSession.id, selectedDateStr));
+      const parsed = raw ? Number(raw) : NaN;
+      startedAt = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+      if (startedAt && Date.now() - startedAt > 6 * 60 * 60 * 1000) {
+        window.localStorage.removeItem(sessionTimerKey(plan.id, activeSession.id, selectedDateStr));
+        window.localStorage.removeItem(activeSessionPointerKey(plan.id));
+        startedAt = null;
+      }
+    } catch {
+      startedAt = null;
+    }
+    setSessionStartedAt(startedAt);
+    if (startedAt) setSessionOpen(true);
+  }, [activeSession, plan?.id, selectedDateStr, viewMode]);
+
+  function startSessionTimer(session: ExerciseSession) {
+    if (!plan?.id || viewMode === "readonly") return;
+    if (activeSession?.id !== session.id) {
+      setActiveSession(session);
+      initDrafts(session);
+      setViewMode("log");
+      setManuallyPicked(true);
+    }
+    const startedAt = Date.now();
+    setSessionStartedAt(startedAt);
+    setSessionOpen(true);
+    try {
+      const pointerRaw = window.localStorage.getItem(activeSessionPointerKey(plan.id));
+      const pointer = pointerRaw ? JSON.parse(pointerRaw) as { sessionId?: string; date?: string } : null;
+      if (pointer?.sessionId && pointer.date && (pointer.sessionId !== session.id || pointer.date !== selectedDateStr)) {
+        window.localStorage.removeItem(sessionTimerKey(plan.id, pointer.sessionId, pointer.date));
+      }
+      window.localStorage.setItem(sessionTimerKey(plan.id, session.id, selectedDateStr), String(startedAt));
+      window.localStorage.setItem(activeSessionPointerKey(plan.id), JSON.stringify({
+        sessionId: session.id,
+        date: selectedDateStr,
+        startedAt,
+        draftSets,
+      }));
+    } catch {
+      // The timer still works for this visit when local storage is unavailable.
+    }
+  }
+
+  function finishSessionTimer(sessionId: string, dateStr: string) {
+    if (!plan?.id) return;
+    setSessionStartedAt(null);
+    try {
+      window.localStorage.removeItem(sessionTimerKey(plan.id, sessionId, dateStr));
+      const pointerRaw = window.localStorage.getItem(activeSessionPointerKey(plan.id));
+      const pointer = pointerRaw ? JSON.parse(pointerRaw) as { sessionId?: string; date?: string } : null;
+      if (pointer?.sessionId === sessionId && pointer.date === dateStr) {
+        window.localStorage.removeItem(activeSessionPointerKey(plan.id));
+      }
+    } catch {
+      // Completion persistence is best-effort.
+    }
+  }
+
+  function openPrimarySession() {
+    if (!primarySession) return;
+    if (viewMode === "readonly" && activeSession?.id === primarySession.id) {
+      setSessionOpen(true);
+      return;
+    }
+    if (sessionStartedAt && activeSession?.id === primarySession.id) {
+      setSessionOpen(true);
+      return;
+    }
+    startSessionTimer(primarySession);
+  }
 
   function dayChipClass(active: boolean, disabled: boolean) {
     return `min-w-10 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold transition-colors ${
@@ -564,6 +725,12 @@ export default function PortalExercisePlanPage() {
               onClick={() => savePlannerAssignment(session.id, dayStr, assignment?.is_recurring, assignment?.recurrence_stopped)}
               className={dayChipClass(active, disabled)}
               title={occupied ? "That day already has a planned session" : undefined}
+              aria-pressed={active}
+              aria-label={active
+                ? `${DAY_NAMES[i]}, assigned to ${session.name}`
+                : occupied
+                  ? `${DAY_NAMES[i]}, unavailable because another session is assigned`
+                  : `Assign ${session.name} to ${DAY_NAMES[i]}`}
             >
               {DAY_NAMES[i]}
             </button>
@@ -611,141 +778,131 @@ export default function PortalExercisePlanPage() {
         </div>
       )}
 
-      {/* Page header */}
-      <div className="mb-5 space-y-4">
-        <div className="app-hero app-rise app-rise-1 overflow-hidden rounded-[30px] p-5 text-white">
+      {/* First-screen training actions */}
+      <div className="mb-5 space-y-3">
+        <div className="app-hero app-rise app-rise-1 overflow-hidden rounded-[24px] p-4 text-white">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.24em] text-[#F7A8EE]">Training</div>
-              <h1 className="text-3xl font-heading font-bold leading-none text-white">{plan.name}</h1>
-              <p className="mt-2 text-sm leading-snug text-white/75">Open today&apos;s session fast, log what you did, and move on.</p>
+              <h1 className="text-2xl font-heading font-bold leading-tight text-white">{plan.name}</h1>
+              <p className="mt-1 text-xs text-white/65">{sessionsThisWeek} logged this week · {placedSessionsCount}/{totalPlanSessions} scheduled</p>
             </div>
-            <div className="app-hero-tile flex-shrink-0 rounded-2xl px-3 py-2 text-right">
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/60">
-                {isToday(selectedDate) ? "Today" : "Selected"}
-              </div>
-              <div className="text-lg font-heading font-bold text-white">{viewMode === "readonly" ? "Logged" : "Ready"}</div>
-            </div>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-2.5">
-            <div className="app-hero-tile rounded-2xl px-3 py-3">
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">This Week</div>
-              <div className="mt-1 text-sm font-semibold text-white">{sessionsThisWeek} logged</div>
-            </div>
-            <div className="app-hero-tile rounded-2xl px-3 py-3">
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">Session</div>
-              <div className="mt-1 truncate text-sm font-semibold text-white">{activeSession?.name || "Rest day"}</div>
-            </div>
-          </div>
-          <div className="mt-3 flex items-center justify-between gap-3">
-            {lastSavedAt && (
-              <p className="text-[11px] font-semibold text-emerald-300">
-                Saved {lastSavedAt}
-              </p>
-            )}
-            <Link href="/portal" className="ml-auto hidden text-xs font-semibold text-white/70 no-underline transition-colors hover:text-white sm:inline-flex">
-              ← Dashboard
-            </Link>
-          </div>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <section className="app-card-quiet app-rise app-rise-2 rounded-2xl px-4 py-3">
-            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#E667D6]">This Week</div>
-            <div className="mt-1 text-base font-heading font-bold text-text-primary">
-              {sessionsThisWeek === 0
-                ? "No sessions logged"
-                : `${sessionsThisWeek} session${sessionsThisWeek === 1 ? "" : "s"} logged`}
-            </div>
-            {totalPlanSessions > 0 && (
-              <div className="mt-1 text-xs text-text-secondary">{placedSessionsCount}/{totalPlanSessions} sessions placed</div>
-            )}
-          </section>
-          <section className="app-rise app-rise-3 rounded-2xl border border-[#E040D0]/25 bg-[linear-gradient(150deg,#251426_0%,#1a1320_55%,#140f18_100%)] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_40px_-22px_rgba(0,0,0,0.85)]">
-            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#F060E0]">
-              {isToday(selectedDate) ? "Today" : "Selected Day"}
-            </div>
-            <div className="mt-1 text-base font-heading font-bold text-text-primary">
-              {viewMode === "readonly" ? `${loggedExerciseCount} exercise${loggedExerciseCount === 1 ? "" : "s"} logged` : "Ready to log"}
-            </div>
-            <div className="mt-1 text-xs text-text-secondary">
-              {selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}
-            </div>
-          </section>
-        </div>
-        {plan.description && (
-          <section className="app-card-quiet rounded-2xl px-4 py-3">
-            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">Current Session Notes</div>
-            <p className="mt-1 text-sm text-text-secondary">{plan.description}</p>
-          </section>
-        )}
-
-        {/* Selected day + session context. Tap the session chip to pick a different one. */}
-        <section className="app-card rounded-2xl px-4 py-3.5">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#E667D6]">
-                {isToday(selectedDate)
-                  ? "Today"
-                  : selectedDate.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
-              </div>
-              <button
-                type="button"
-                onClick={() => plan?.sessions?.length && viewMode === "log" && setShowSessionPicker(true)}
-                disabled={viewMode !== "log" || !plan?.sessions?.length}
-                className="mt-0.5 flex items-center gap-1.5 text-left text-base font-heading font-bold text-text-primary enabled:hover:text-accent-bright transition-colors disabled:cursor-default"
-                aria-label="Switch to a different session"
-              >
-                <span className="truncate">{activeSession?.name || "Rest day"}</span>
-                {viewMode === "log" && plan && plan.sessions.length > 1 && (
-                  <svg className="w-3.5 h-3.5 text-text-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                )}
-              </button>
-            </div>
-            <span className={`flex-shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full border ${
-              viewMode === "readonly"
-                ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-500"
-                : !activeSession
-                ? "border-white/[0.14] bg-white/[0.04] text-text-secondary"
-                : isPast
-                ? "border-amber-500/25 bg-amber-500/10 text-amber-500"
-                : "border-[#E040D0]/25 bg-[#E040D0]/10 text-[#E040D0]"
-            }`}>
-              {viewMode === "readonly" ? "Logged" : !activeSession ? "Rest day" : isPast ? "Retro log" : "Ready to log"}
+            <span className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white/75">
+              {weekLabel(weekStart)}
             </span>
           </div>
-          {viewMode === "log" && activeSession && plan && plan.sessions.length > 1 && !manuallyPicked && (
-            <p className="mt-2 text-[11px] text-text-muted">
-              Planned from your week. Tap the session name to swap.
-            </p>
-          )}
-          {viewMode === "log" && manuallyPicked && (
-            <p className="mt-2 text-[11px] text-text-muted">
-              You picked this session manually. Switching days resets to auto-pick.
-            </p>
-          )}
-        </section>
-        <section className="app-card-quiet rounded-2xl px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">
-                {viewMode === "readonly" ? "Logged Session Summary" : "AI Help"}
+        </div>
+
+        <section className={`rounded-[24px] border bg-bg-card p-4 transition-all duration-300 ${
+          sessionStartedAt
+            ? "border-[#E040D0]/55 shadow-[0_0_0_1px_rgba(224,64,208,0.35),0_0_28px_rgba(224,64,208,0.25)]"
+            : "border-white/[0.08]"
+        }`}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#E667D6]">
+                {sessionStartedAt ? "Session in progress" : activeSession ? "Selected session" : "Next in your plan"}
               </div>
-              <p className="mt-1 text-sm font-semibold text-text-primary">
-                {viewMode === "readonly"
-                  ? `${loggedExerciseCount}/${activeExerciseCount} exercises marked complete`
-                  : "Ask SHIFT AI if you need a swap or form cue."}
+              <h2 className="mt-1 text-xl font-heading font-bold text-text-primary">{primarySession?.name || "No session available"}</h2>
+              <p className="mt-1 text-xs text-text-secondary">
+                {selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}
+                {primarySession ? ` · ${primarySession.items.filter((item) => item.exercise_id !== "__section__").length} exercises` : ""}
               </p>
             </div>
-            <Link
-              href="/portal/ai"
-              className="rounded-xl border border-[#E040D0]/30 bg-[#E040D0]/10 px-3 py-1.5 text-[11px] font-semibold text-[#F060E0] no-underline hover:border-[#F060E0]/45"
-            >
-              SHIFT AI
-            </Link>
+            {sessionStartedAt && (
+              <span className="metric-num inline-flex shrink-0 items-center gap-2 rounded-full border border-[#E040D0]/30 bg-[#E040D0]/10 px-3 py-1.5 text-base font-bold text-[#F060E0]">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-[#F060E0]" />
+                <ElapsedTime startedAt={sessionStartedAt} />
+              </span>
+            )}
           </div>
+          <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
+            <button
+              type="button"
+              onClick={openPrimarySession}
+              disabled={!primarySession}
+              className="min-h-12 rounded-xl bg-[#E040D0] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[#F060E0] disabled:opacity-40"
+            >
+              {viewMode === "readonly" && activeSession ? "View logged session" : sessionStartedAt ? "Resume session" : activeSession ? "Start session" : "Start next session"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowSessionPicker(true)}
+              disabled={viewMode === "readonly"}
+              className="min-h-12 rounded-xl border border-[#E040D0]/30 px-4 py-3 text-sm font-semibold text-[#F060E0] disabled:cursor-not-allowed disabled:border-white/10 disabled:text-text-muted"
+            >
+              {viewMode === "readonly" ? "Logged" : "Choose"}
+            </button>
+          </div>
+        </section>
+
+        <section className="app-card rounded-[24px] p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#E667D6]">Your Training Plan</div>
+              <h2 className="mt-1 text-lg font-heading font-bold text-text-primary">Browse and schedule sessions</h2>
+            </div>
+            <span className="rounded-full border border-white/[0.08] px-3 py-1 text-xs font-semibold text-text-secondary">{totalPlanSessions} session{totalPlanSessions === 1 ? "" : "s"}</span>
+          </div>
+          {plannerLoading ? (
+            <div className="mt-4 h-20 animate-pulse rounded-2xl bg-white/[0.04]" />
+          ) : (
+            <div className="mt-4 space-y-2">
+              {sortedSessions.map((session) => {
+                const assignment = assignmentBySessionId.get(session.id);
+                const exerciseItems = session.items.filter((item) => item.exercise_id !== "__section__");
+                return (
+                  <details key={session.id} className="group rounded-2xl border border-white/[0.08] bg-white/[0.025] px-4 py-3">
+                    <summary className="flex list-none items-center gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#E040D0]/10 text-sm font-bold text-[#F060E0]">{session.day_number}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-bold text-text-primary">{session.name}</span>
+                        <span className="mt-0.5 block text-[11px] text-text-muted">
+                          {exerciseItems.length} exercises{assignment?.planned_date ? ` · ${new Date(`${assignment.planned_date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short" })}` : " · Not scheduled"}
+                        </span>
+                      </span>
+                      <svg className="h-4 w-4 shrink-0 text-text-muted transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m6 9 6 6 6-6" /></svg>
+                    </summary>
+                    <div className="mt-3 border-t border-white/[0.06] pt-3">
+                      <div className="space-y-2">
+                        {exerciseItems.map((item) => (
+                          <div key={item.id} className="flex items-start justify-between gap-3 text-sm">
+                            <span className="text-text-secondary">{item.exercise?.name || "Exercise"}</span>
+                            <span className="shrink-0 font-semibold text-[#F060E0]">{formatExercisePrescription(item)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-4 border-t border-white/[0.06] pt-3">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-muted">Assign this week</div>
+                        {renderPlannerDayChips(session, "Assign")}
+                        {assignment?.planned_date && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              disabled={plannerSavingSessionId === session.id}
+                              onClick={() => savePlannerAssignment(session.id, assignment.planned_date, !assignment.is_recurring, assignment.is_recurring)}
+                              className="rounded-xl border border-white/[0.10] px-3 py-2 text-[11px] font-semibold text-text-secondary"
+                            >
+                              {assignment.is_recurring ? "Stop repeating" : "Repeat weekly"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={plannerSavingSessionId === session.id}
+                              onClick={() => savePlannerAssignment(session.id, null, false, assignment.recurrence_stopped)}
+                              className="rounded-xl border border-amber-500/20 px-3 py-2 text-[11px] font-semibold text-amber-500"
+                            >
+                              Unassign
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </details>
+                );
+              })}
+            </div>
+          )}
+          {plannerError && <p className="mt-3 text-sm text-red-400">{plannerError}</p>}
         </section>
       </div>
 
@@ -1016,7 +1173,11 @@ export default function PortalExercisePlanPage() {
 
       {/* ---- Selected Day Content ---- */}
       {activeSession && (
-        <div className="app-card rounded-[28px] overflow-hidden">
+        <div className={`app-card rounded-[28px] overflow-hidden transition-all duration-300 ${
+          sessionStartedAt
+            ? "border-[#E040D0]/55 shadow-[0_0_0_1px_rgba(224,64,208,0.35),0_0_28px_rgba(224,64,208,0.25)]"
+            : ""
+        }`}>
           <button
             type="button"
             onClick={() => setSessionOpen((open) => !open)}
@@ -1034,13 +1195,20 @@ export default function PortalExercisePlanPage() {
                 )}
               </div>
               <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wider ${
-                  viewMode === "readonly"
-                    ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-500"
-                    : "border-[#E040D0]/25 bg-[#E040D0]/10 text-[#E040D0]"
-                }`}>
-                  {viewMode === "readonly" ? "Logged" : "Start"}
-                </span>
+                {sessionStartedAt ? (
+                  <span className="metric-num inline-flex items-center gap-1.5 rounded-full border border-[#E040D0]/30 bg-[#E040D0]/10 px-3 py-1 text-sm font-bold text-[#F060E0]">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#F060E0]" />
+                    <ElapsedTime startedAt={sessionStartedAt} />
+                  </span>
+                ) : (
+                  <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wider ${
+                    viewMode === "readonly"
+                      ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-500"
+                      : "border-[#E040D0]/25 bg-[#E040D0]/10 text-[#E040D0]"
+                  }`}>
+                    {viewMode === "readonly" ? "Logged" : "Start"}
+                  </span>
+                )}
                 <span className="text-xs px-3 py-1 rounded-full bg-[rgba(224,64,208,0.12)] text-[#E040D0] font-semibold">
                   {activeSession.items.filter((i) => i.exercise_id !== "__section__").length} exercises
                 </span>
@@ -1048,7 +1216,7 @@ export default function PortalExercisePlanPage() {
             </div>
             {!sessionOpen && (
               <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-[#E040D0]/25 bg-[linear-gradient(135deg,rgba(224,64,208,0.16),rgba(224,64,208,0.04))] px-4 py-3.5 text-sm font-semibold text-text-primary">
-                <span>{viewMode === "readonly" ? "Tap to view the logged session" : "Tap to start logging this session"}</span>
+                <span>{viewMode === "readonly" ? "Tap to view the logged session" : sessionStartedAt ? "Session in progress · tap to continue" : "Tap to view this session"}</span>
                 <svg className="h-4 w-4 flex-shrink-0 text-[#F060E0]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
               </div>
             )}
@@ -1056,6 +1224,20 @@ export default function PortalExercisePlanPage() {
 
           {sessionOpen && (
             <>
+          {viewMode === "log" && (
+            <div className="px-5 pb-4">
+              {sessionStartedAt ? (
+                <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#E040D0]/30 bg-[#E040D0]/8 px-4 py-3">
+                  <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#F060E0]"><span className="h-2 w-2 animate-pulse rounded-full bg-[#F060E0]" />Session in progress</span>
+                  <span className="metric-num text-lg font-bold text-text-primary"><ElapsedTime startedAt={sessionStartedAt} /></span>
+                </div>
+              ) : (
+                <button type="button" onClick={() => startSessionTimer(activeSession)} className="w-full rounded-xl bg-[#E040D0] px-5 py-3.5 text-sm font-semibold text-white hover:bg-[#F060E0]">
+                  Start Session
+                </button>
+              )}
+            </div>
+          )}
           {/* Session header */}
           <div className="p-5 border-b border-[rgba(0,0,0,0.06)]">
             <div className="flex items-start justify-between gap-3">
@@ -1350,8 +1532,7 @@ export default function PortalExercisePlanPage() {
                 <button
                   onClick={saveSession}
                   disabled={saving}
-                  className="hidden sm:block w-full py-3 rounded-xl font-semibold text-white text-sm transition-all cursor-pointer disabled:opacity-60"
-                  style={{ background: "linear-gradient(135deg, #E040D0 0%, #b020a0 100%)" }}
+                  className="hidden w-full rounded-xl bg-[#E040D0] py-3 text-sm font-semibold text-white shadow-none ring-0 transition-colors hover:bg-[#F060E0] disabled:opacity-60 sm:block"
                 >
                   <CyclingStatusText active={saving} idle="Save Session" messages={["Saving...", "Logging sets...", "Updating week...", "Nearly there..."]} />
                 </button>
@@ -1428,12 +1609,11 @@ export default function PortalExercisePlanPage() {
 
       {/* Mobile sticky save — stays above bottom nav + respects iPhone home indicator */}
       {viewMode === "log" && activeSession && sessionOpen && (
-        <div className="sm:hidden fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-30 px-4 pt-2 bg-gradient-to-t from-bg-primary via-bg-primary/95 to-transparent">
+        <div className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-30 bg-bg-primary/95 px-4 py-3 backdrop-blur sm:hidden">
           <button
             onClick={saveSession}
             disabled={saving}
-            className="w-full py-3.5 rounded-2xl font-semibold text-white text-sm shadow-xl transition-all cursor-pointer disabled:opacity-60 min-h-[48px]"
-            style={{ background: "linear-gradient(135deg, #E040D0 0%, #b020a0 100%)" }}
+            className="min-h-[48px] w-full rounded-2xl bg-[#E040D0] py-3.5 text-sm font-semibold text-white shadow-none ring-0 transition-colors hover:bg-[#F060E0] disabled:opacity-60"
           >
             <CyclingStatusText active={saving} idle="Save Session" messages={["Saving...", "Logging sets...", "Updating week...", "Nearly there..."]} />
           </button>

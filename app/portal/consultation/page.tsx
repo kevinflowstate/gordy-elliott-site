@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { ConsultationFormConfig } from "@/lib/consultation-form";
 import type { FormQuestion } from "@/lib/types";
+import { dateOfBirthFromIso, dateOfBirthToIso, formatDateOfBirthInput } from "@/lib/date-of-birth";
 
 type ConsultationValue = string | boolean;
 type ConsultationData = Record<string, ConsultationValue>;
@@ -37,6 +38,7 @@ export default function ConsultationPage() {
   const [saved, setSaved] = useState(false);
   const [config, setConfig] = useState<ConsultationFormConfig>(DEFAULT_CONFIG);
   const [privacyConsent, setPrivacyConsent] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [profileSetup, setProfileSetup] = useState<ProfileSetupData>({
     phone: "",
     wearables_preference: "not_connected",
@@ -58,7 +60,7 @@ export default function ConsultationPage() {
           setForm((prev) => ({
             ...prev,
             ...(data.consultation_data || {}),
-            date_of_birth: data.date_of_birth || prev.date_of_birth || "",
+            date_of_birth: data.date_of_birth ? dateOfBirthFromIso(data.date_of_birth) : prev.date_of_birth || "",
             sex: data.sex || prev.sex || "",
             cycle_tracking_enabled: Boolean(data.sex === "female" && data.cycle_tracking_enabled),
           }));
@@ -80,19 +82,28 @@ export default function ConsultationPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setSubmitError("");
+    const isoDateOfBirth = getValue(form, "date_of_birth") ? dateOfBirthToIso(getValue(form, "date_of_birth")) : "";
+    if (getValue(form, "date_of_birth") && !isoDateOfBirth) {
+      setSubmitError("Enter your date of birth in DD/MM/YYYY format.");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/portal/consultation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, privacy_consent: privacyConsent, profile_setup: profileSetup }),
+        body: JSON.stringify({ ...form, date_of_birth: isoDateOfBirth, privacy_consent: privacyConsent, profile_setup: profileSetup }),
       });
       if (res.ok) {
         setSaved(true);
         setTimeout(() => router.push("/portal"), 2000);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setSubmitError(data.error || "Your consultation could not be saved. Please try again.");
       }
     } catch {
-      // Silently fail
+      setSubmitError("Your consultation could not be saved. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -124,14 +135,17 @@ export default function ConsultationPage() {
 
     if (question.type === "textarea") {
       return (
-        <textarea
-          value={value}
-          onChange={(e) => handleChange(question.id, e.target.value)}
-          placeholder={question.placeholder}
-          required={question.required}
-          rows={question.id === "additional_info" ? 4 : 3}
-          className={`${commonClass} resize-none`}
-        />
+        <>
+          {question.placeholder && <p className="mb-3 text-sm leading-relaxed text-text-secondary">{question.placeholder}</p>}
+          <textarea
+            value={value}
+            onChange={(e) => handleChange(question.id, e.target.value)}
+            placeholder="Type your answer..."
+            required={question.required}
+            rows={question.id === "additional_info" || question.id === "primary_goal" ? 4 : 3}
+            className={`${commonClass} min-h-28 resize-y`}
+          />
+        </>
       );
     }
 
@@ -178,6 +192,22 @@ export default function ConsultationPage() {
             </span>
           )}
         </button>
+      );
+    }
+
+    if (question.id === "date_of_birth") {
+      return (
+        <input
+          type="text"
+          inputMode="numeric"
+          autoComplete="bday"
+          maxLength={10}
+          value={value}
+          onChange={(e) => handleChange(question.id, formatDateOfBirthInput(e.target.value))}
+          placeholder="DD/MM/YYYY"
+          required={question.required}
+          className={commonClass}
+        />
       );
     }
 
@@ -256,6 +286,12 @@ export default function ConsultationPage() {
             I understand this form may include health, training, nutrition, injury, and cycle-related information. Gordy will use it to personalise coaching support, not to provide medical diagnosis or emergency care.
           </span>
         </label>
+
+        {submitError && (
+          <div role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            {submitError}
+          </div>
+        )}
 
         <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-5">
           <h2 className="text-sm font-semibold text-text-primary mb-3">Profile setup</h2>

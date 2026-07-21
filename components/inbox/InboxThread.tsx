@@ -40,6 +40,8 @@ export default function InboxThread({
   const [draft, setDraft] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const submittingRef = useRef(false);
 
   const canSend = draft.trim().length > 0 && !sending;
   const latestMessageId = messages.at(-1)?.id;
@@ -53,14 +55,17 @@ export default function InboxThread({
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     const message = draft.trim();
-    if (!message || sending) return;
+    if (!message || sending || submittingRef.current) return;
 
+    submittingRef.current = true;
     setLocalError(null);
     try {
       await onSend(message);
       setDraft("");
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : "Message could not be sent.");
+    } finally {
+      submittingRef.current = false;
     }
   }
 
@@ -118,12 +123,17 @@ export default function InboxThread({
       <form onSubmit={handleSubmit} className="portal-dm-composer border-t border-[rgba(255,255,255,0.06)] p-3 sm:p-4">
         <div className="flex items-end gap-2">
           <textarea
+            ref={textareaRef}
             value={draft}
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              event.currentTarget.style.height = "auto";
+              event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 120)}px`;
+            }}
             placeholder={composerPlaceholder}
-            rows={2}
+            rows={1}
             maxLength={4000}
-            className="min-h-[3rem] flex-1 resize-none rounded-xl border border-[rgba(255,255,255,0.08)] bg-bg-primary px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-bright focus:outline-none"
+            className="min-h-11 max-h-[7.5rem] flex-1 resize-none overflow-y-auto rounded-xl border border-[rgba(255,255,255,0.08)] bg-bg-primary px-4 py-3 text-base leading-5 text-text-primary placeholder:text-text-muted focus:border-accent-bright focus:outline-none"
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
@@ -134,9 +144,17 @@ export default function InboxThread({
           <button
             type="submit"
             disabled={!canSend}
-            className="flex h-12 min-w-12 items-center justify-center rounded-xl bg-accent-bright px-4 text-sm font-semibold text-black transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label={sending ? "Sending message" : "Send message"}
+            title="Send message"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent-bright text-black transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {sending ? "Sending..." : "Send"}
+            {sending ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/30 border-t-black" />
+            ) : (
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 19V5m0 0-6 6m6-6 6 6" />
+              </svg>
+            )}
           </button>
         </div>
       </form>

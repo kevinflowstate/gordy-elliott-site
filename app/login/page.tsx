@@ -26,31 +26,39 @@ function LoginForm() {
     e.preventDefault();
     setError("");
     setLoading(true);
+    let redirectStarted = false;
 
-    const supabase = createClient();
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const supabase = createClient();
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (authError) {
-      setError(authError.message);
-      setLoading(false);
-      return;
-    }
+      if (authError) {
+        setError(authError.message);
+        return;
+      }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("We couldn't finish signing you in. Please try again.");
+
       // Fetch role via API to bypass RLS
       const roleRes = await fetch("/api/portal/me");
-      const roleData = roleRes.ok ? await roleRes.json() : null;
+      if (!roleRes.ok) throw new Error("We couldn't load your portal. Please try again.");
+      const roleData = await roleRes.json();
       const role = roleData?.role;
 
+      redirectStarted = true;
       if (role === "admin") {
         router.push("/admin");
       } else {
         router.push(redirect);
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "We couldn't sign you in. Please try again.");
+    } finally {
+      if (!redirectStarted) setLoading(false);
     }
   }
 
@@ -81,6 +89,16 @@ function LoginForm() {
 
   return (
     <main className="min-h-screen flex items-center justify-center px-6">
+      {loading && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#0A0A0A] px-6 text-center" role="status" aria-live="polite">
+          <div className="relative flex h-24 w-24 items-center justify-center rounded-3xl border border-[#E040D0]/25 bg-[#E040D0]/10">
+            <div className="absolute inset-0 animate-ping rounded-3xl border border-[#E040D0]/20" />
+            <Image src="/images/shift-logo.svg" alt="" width={48} height={48} className="relative h-12 w-auto" priority />
+          </div>
+          <h2 className="mt-6 font-heading text-2xl font-black text-white">Signing you in</h2>
+          <p className="mt-2 text-sm text-white/65">Loading your plan and latest coaching updates.</p>
+        </div>
+      )}
       <div className="max-w-[400px] w-full">
         <div className="text-center mb-8">
           <Link href="/" className="inline-block mb-4">

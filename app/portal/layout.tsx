@@ -3,6 +3,7 @@ import Sidebar from "@/components/portal/Sidebar";
 import MobileNav from "@/components/portal/MobileNav";
 import PushNotificationBanner from "@/components/portal/PushNotificationBanner";
 import { ToastProvider } from "@/components/ui/Toast";
+import PortalKeyboardState from "@/components/portal/PortalKeyboardState";
 
 export const metadata = {
   title: "Client Portal - Gordy Elliott",
@@ -21,6 +22,7 @@ export const viewport: Viewport = {
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   return (
     <ToastProvider>
+      <PortalKeyboardState />
       <div className="portal-shell dark min-h-screen bg-bg-primary text-text-primary">
         <Sidebar />
         <main className="portal-main min-h-screen pb-[calc(8.5rem+env(safe-area-inset-bottom,0px))] sm:pb-32 lg:ml-[260px] lg:!w-[calc(100%_-_260px)] lg:!max-w-[calc(100vw_-_260px)] lg:pb-0">
