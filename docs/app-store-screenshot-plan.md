@@ -3,8 +3,8 @@
 ## Required delivery
 
 - Platform: iPhone only for version 1.
-- Primary set: 6.9-inch portrait screenshots from iPhone 17 Pro Max.
-- Accepted target: `1320 x 2868` pixels for that simulator/device profile.
+- Primary set: portrait screenshots for App Store Connect's current 6.5-inch display slot.
+- Accepted target: `1284 x 2778` pixels, generated from a `428 x 926` viewport at 3x scale.
 - Format: opaque PNG or JPEG with no alpha channel.
 - Quantity: six screenshots, all captured from the approved candidate and fictional Demo Client data.
 - Do not include real client names, messages, health data, body images or notification previews.
@@ -33,3 +33,19 @@ Restricting version 1 to iPhone avoids an untested iPad interface and the separa
 ## Automation output
 
 Store raw candidate captures outside source control under the external Xcode volume. Record the build number, simulator UDID, route and timestamp in the release evidence sheet. Upload only the final opaque exports to App Store Connect.
+
+Generate the six ordered draft captures with:
+
+```bash
+PORTAL_QA_BASE_URL=https://gordy-elliott-site.vercel.app \
+PORTAL_QA_STORAGE_STATE=/path/to/demo-client-state.json \
+npm run capture:app-store
+```
+
+The script refuses to continue unless the authenticated dashboard visibly identifies the fictional Demo Client. It writes opaque JPEGs and a non-secret manifest under the external Xcode volume by default. Draft captures are for visual review; repeat the command against the approved release candidate before uploading the final set.
+
+The current local candidate draft is stored outside source control at:
+
+`/Volumes/XCode/Storage-Quarantine-2026-07-15/SHIFT-AppStore-Screenshots/2026-07-21-local-candidate`
+
+All six files were verified as opaque JPEGs at `1284 x 2778`. Recapture against production after the release-assets change is deployed; only that production set should be uploaded to App Store Connect.

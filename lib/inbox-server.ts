@@ -137,7 +137,10 @@ export async function getInboxThread(
     viewerUserId: viewer.userId,
     messages: ((messagesRes.data ?? []) as InboxMessage[]).map((message) => ({
       ...message,
-      sender_name: senderMap.get(message.sender_user_id)?.full_name || (message.sender_role === "admin" ? "Gordy" : "Client"),
+      sender_name:
+        viewer.role === "client" && message.sender_role === "admin"
+          ? "Gordy"
+          : senderMap.get(message.sender_user_id)?.full_name || (message.sender_role === "admin" ? "Gordy" : "Client"),
     })),
   };
 }
