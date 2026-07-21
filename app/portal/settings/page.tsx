@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { unregisterNativePushDevice } from "@/lib/native-push-client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
@@ -192,6 +193,7 @@ function SettingsContent() {
 
   async function handleSignOut() {
     const supabase = createClient();
+    await unregisterNativePushDevice();
     await supabase.auth.signOut();
     router.push("/login");
   }
@@ -210,6 +212,7 @@ function SettingsContent() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Your account could not be deleted.");
 
+      await unregisterNativePushDevice({ notifyServer: false });
       const supabase = createClient();
       await supabase.auth.signOut();
       router.replace("/login?account=deleted");
@@ -321,8 +324,9 @@ function SettingsContent() {
           <h2 className="text-lg font-heading font-bold text-text-primary">Profile</h2>
 
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">Full Name</label>
+            <label htmlFor="settings-full-name" className="block text-sm font-medium text-text-primary mb-2">Full Name</label>
             <input
+              id="settings-full-name"
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
@@ -335,8 +339,9 @@ function SettingsContent() {
           <h2 className="text-lg font-heading font-bold text-text-primary">Your Details</h2>
 
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">Date of Birth</label>
+            <label htmlFor="settings-date-of-birth" className="block text-sm font-medium text-text-primary mb-2">Date of Birth</label>
             <input
+              id="settings-date-of-birth"
               type="date"
               value={dateOfBirth}
               onChange={(e) => setDateOfBirth(e.target.value)}
@@ -345,8 +350,9 @@ function SettingsContent() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">Sex</label>
+            <label htmlFor="settings-sex" className="block text-sm font-medium text-text-primary mb-2">Sex</label>
             <select
+              id="settings-sex"
               value={sex}
               onChange={(e) => {
                 const value = e.target.value as ClientSexInput;
@@ -406,6 +412,7 @@ function SettingsContent() {
 
             <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_160px_auto]">
               <input
+                aria-label="Key date description"
                 type="text"
                 value={newKeyDate.label}
                 onChange={(e) => setNewKeyDate((prev) => ({ ...prev, label: e.target.value }))}
@@ -413,6 +420,7 @@ function SettingsContent() {
                 className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
               />
               <input
+                aria-label="Key date"
                 type="date"
                 value={newKeyDate.date}
                 onChange={(e) => setNewKeyDate((prev) => ({ ...prev, date: e.target.value }))}
@@ -443,8 +451,9 @@ function SettingsContent() {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">New Password</label>
+            <label htmlFor="settings-new-password" className="block text-sm font-medium text-text-primary mb-2">New Password</label>
             <input
+              id="settings-new-password"
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
@@ -453,8 +462,9 @@ function SettingsContent() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">Confirm Password</label>
+            <label htmlFor="settings-confirm-password" className="block text-sm font-medium text-text-primary mb-2">Confirm Password</label>
             <input
+              id="settings-confirm-password"
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}

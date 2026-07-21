@@ -1,5 +1,14 @@
 # App Store Submission Sheet
 
+This is the operational index for submission. Use the linked worksheets as the canonical values rather than duplicating answers in App Store Connect from memory:
+
+- Listing copy and review notes: `docs/app-store-metadata.md`
+- App Privacy answers: `docs/app-privacy-questionnaire.md`
+- Age rating: `docs/app-store-age-rating.md`
+- Screenshot sequence: `docs/app-store-screenshot-plan.md`
+- TestFlight execution: `docs/testflight-checklist.md`
+- Current technical evidence: `docs/app-store-release-audit.md`
+
 ## Registered product
 
 | Field | Value |
@@ -19,7 +28,7 @@
 - `npm run ios:archive` syncs the hosted portal shell and creates a signed archive on the writable external Xcode volume.
 - The archive command never uploads. Validate in Xcode Organizer, then distribute deliberately.
 
-## URLs after this branch is deployed
+## Public URLs
 
 - Privacy policy: `/privacy`
 - Support: `/support`
@@ -28,17 +37,14 @@
 
 Replace the Vercel-hosted URLs in App Store Connect when Gordy's final domain is live.
 
-## Review notes draft
-
-SHIFT Coaching is a sign-in-only companion app for existing Gordy Elliott coaching clients. Coaching enrolment and payment happen outside the app. Reviewers can use the supplied client account to inspect assigned training and nutrition plans, direct messaging, check-ins, progress tracking and connected-app settings. The app does not offer in-app purchases or public account creation.
-
-Connected-health summaries are informational coaching signals. They do not diagnose conditions and never alter a training programme automatically. Apple Health is not enabled in version 1.
+The canonical review notes and contact details are in `docs/app-store-metadata.md`. Review credentials remain only in App Store Connect.
 
 ## Submission blockers
 
-- Final domain and monitored support contact.
-- Dedicated App Review credentials with representative non-personal data.
-- App Store description, keywords, categories, age rating and screenshots.
-- App Privacy questionnaire completed from `docs/app-privacy-inventory.md`.
+- Gordy's approval of the listing copy, content-rights answer and representative review fixture.
+- Enter the drafted listing, age rating and privacy answers in App Store Connect.
+- Capture final screenshots from the approved candidate.
 - Physical-device TestFlight pass and crash review.
 - Terra production provider testing if Connected Apps is included in version 1.
+- Enable the Apple Push Notifications capability, add APNs server credentials and pass a real-device delivery test.
+- Enable Supabase leaked-password protection in the dashboard.

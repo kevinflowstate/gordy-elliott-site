@@ -1,6 +1,6 @@
 # App Privacy Inventory
 
-Use this as the source worksheet for App Store Connect. Confirm the answers again against production configuration immediately before submission.
+This is the engineering inventory behind the App Store answers. Use `docs/app-privacy-questionnaire.md` as the canonical App Store Connect worksheet, then confirm it against this inventory immediately before submission.
 
 ## Data linked to the client
 

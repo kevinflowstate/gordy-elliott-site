@@ -1,7 +1,13 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Capacitor } from "@capacitor/core";
+import {
+  NATIVE_PUSH_REQUEST_EVENT,
+  NATIVE_PUSH_STATUS_EVENT,
+  type NativePushStatus,
+  normalizeNativePushStatus,
+} from "@/lib/native-push-client-contract";
 import { usePush } from "@/lib/use-push";
 import { useInstall } from "@/lib/use-install";
 
@@ -33,14 +39,14 @@ export default function PushNotificationBanner() {
   const [installDismissed, setInstallDismissed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showManual, setShowManual] = useState(false);
+  const [nativePushStatus, setNativePushStatus] = useState<NativePushStatus>("unknown");
   const hydrated = useHydrated();
   const nativeApp = hydrated && Capacitor.isNativePlatform();
   const standalone = hydrated && isStandalone();
   const pushBannerDismissed =
     !hydrated ||
-    nativeApp ||
     dismissed ||
-    !hasPushSupport() ||
+    (!nativeApp && !hasPushSupport()) ||
     localStorage.getItem(DISMISSED_KEY) === "true";
   const installBannerDismissed =
     !hydrated ||
@@ -49,8 +55,26 @@ export default function PushNotificationBanner() {
     standalone ||
     localStorage.getItem(INSTALL_DISMISSED_KEY) === "true";
 
+  useEffect(() => {
+    if (!nativeApp) return;
+
+    const current = document.documentElement.dataset.nativePushStatus;
+    if (current) queueMicrotask(() => setNativePushStatus(normalizeNativePushStatus(current)));
+    const handleStatus = (event: Event) => {
+      const status = (event as CustomEvent<NativePushStatus>).detail;
+      setNativePushStatus(status);
+      if (status !== "unknown" && status !== "prompt") setLoading(false);
+    };
+    window.addEventListener(NATIVE_PUSH_STATUS_EVENT, handleStatus);
+    return () => window.removeEventListener(NATIVE_PUSH_STATUS_EVENT, handleStatus);
+  }, [nativeApp]);
+
   const handleEnable = async () => {
     setLoading(true);
+    if (nativeApp) {
+      window.dispatchEvent(new Event(NATIVE_PUSH_REQUEST_EVENT));
+      return;
+    }
     await subscribe();
     setLoading(false);
   };
@@ -77,10 +101,10 @@ export default function PushNotificationBanner() {
     setInstallDismissed(true);
   };
 
-  if (!hydrated || nativeApp) return null;
+  if (!hydrated) return null;
 
   // Show install banner if not standalone and not dismissed
-  if (!installBannerDismissed && !installed) {
+  if (!nativeApp && !installBannerDismissed && !installed) {
     return (
       <div className="mb-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#121212]/92 px-3 py-2.5 shadow-lg">
         <div className="flex items-center justify-between gap-3">
@@ -137,6 +161,7 @@ export default function PushNotificationBanner() {
   }
 
   // Push notification banner
+  if (nativeApp && nativePushStatus !== "prompt") return null;
   if (pushBannerDismissed || permission === "granted" || subscribed) {
     return null;
   }
@@ -158,7 +183,7 @@ export default function PushNotificationBanner() {
           />
         </svg>
         <p className="min-w-0 text-xs leading-snug text-white/85">
-          Enable check-in reminders and coach updates.
+          Enable DMs, check-in reminders and coach updates.
         </p>
       </div>
       <div className="flex items-center gap-1.5 flex-shrink-0">

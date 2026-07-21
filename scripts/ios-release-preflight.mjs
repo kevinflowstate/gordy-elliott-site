@@ -1,11 +1,12 @@
 import { access, readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
+import appIdentity from "../config/app-identity.json" with { type: "json" };
 
 const expected = {
-  appId: "com.gordyelliott.shift",
-  teamId: "H4J3XX8R8M",
-  version: "1.0",
-  build: "2",
+  appId: appIdentity.bundleId,
+  teamId: appIdentity.appleTeamId,
+  version: appIdentity.version,
+  build: appIdentity.build,
 };
 
 function run(command, args) {
@@ -23,14 +24,19 @@ if (serverUrl.protocol !== "https:") {
 
 const projectPath = "ios/App/App.xcodeproj/project.pbxproj";
 const infoPath = "ios/App/App/Info.plist";
-await Promise.all([access(projectPath), access(infoPath)]);
+const capacitorConfigPath = "ios/App/App/capacitor.config.json";
+await Promise.all([access(projectPath), access(infoPath), access(capacitorConfigPath)]);
 
 const project = await readFile(projectPath, "utf8");
+const capacitorConfig = JSON.parse(await readFile(capacitorConfigPath, "utf8"));
 const checks = [
   [project.includes(`PRODUCT_BUNDLE_IDENTIFIER = ${expected.appId};`), `bundle ID ${expected.appId}`],
   [project.includes(`DEVELOPMENT_TEAM = ${expected.teamId};`), `team ${expected.teamId}`],
   [project.includes(`MARKETING_VERSION = ${expected.version};`), `version ${expected.version}`],
   [project.includes(`CURRENT_PROJECT_VERSION = ${expected.build};`), `build ${expected.build}`],
+  [project.includes("APS_ENVIRONMENT = production;"), "production APNs entitlement"],
+  [capacitorConfig.appId === expected.appId, `Capacitor app ID ${expected.appId}`],
+  [capacitorConfig.appendUserAgent === "SHIFT-APNS/production", "production APNs build marker"],
 ];
 
 for (const [passed, label] of checks) {

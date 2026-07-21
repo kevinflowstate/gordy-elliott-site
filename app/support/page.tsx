@@ -25,7 +25,7 @@ export default function SupportPage() {
 
           <section className="border-t border-white/10 pt-6">
             <h2 className="font-heading text-xl font-bold">Cannot sign in</h2>
-            <p className="mt-3 text-[15px] leading-7 text-[#c3c4cd]">Use the password-reset option on the login screen. If that does not work, contact Gordy using the details in your coaching welcome email.</p>
+            <p className="mt-3 text-[15px] leading-7 text-[#c3c4cd]">Use the password-reset option on the login screen. For technical or account-access help, email <a href="mailto:kevin@flowstatesystems.ai" className="text-[#f06be3]">kevin@flowstatesystems.ai</a>.</p>
           </section>
 
           <section className="border-t border-white/10 pt-6">
