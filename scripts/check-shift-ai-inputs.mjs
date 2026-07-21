@@ -4,6 +4,7 @@ const files = {
   portal: "app/portal/ai/page.tsx",
   admin: "app/admin/ai/page.tsx",
   component: "components/ui/AIComposerTextarea.tsx",
+  keyboard: "components/portal/PortalKeyboardState.tsx",
   css: "app/globals.css",
 };
 
@@ -76,12 +77,11 @@ for (const selector of [
 }
 for (const marker of [
   "font-size: 16px !important",
-  "--shift-ai-keyboard-inset",
-  "--shift-ai-composer-height",
+  "--portal-visual-height",
   ".shift-ai-composer-bar",
   ".shift-ai-thread",
-  "html.shift-ai-composer-focused",
-  "html.shift-ai-keyboard-open",
+  "html.portal-keyboard-open .portal-mobile-nav",
+  "html.portal-keyboard-open .shift-ai-shell",
 ]) {
   if (!css.includes(marker)) {
     fail(`missing mobile keyboard CSS contract marker ${marker}.`);
@@ -90,16 +90,28 @@ for (const marker of [
 
 const portal = read(files.portal);
 for (const marker of [
-  "window.visualViewport",
-  "shift-ai-composer-focused",
-  "shift-ai-keyboard-open",
-  "resetDocumentScroll",
-  "pinLatestToComposer",
+  "messagesEndRef.current?.scrollIntoView",
   "shift-ai-composer-bar",
   "shift-ai-thread",
 ]) {
   if (!portal.includes(marker)) {
-    fail(`portal SHIFT AI missing keyboard stabilizer marker ${marker}.`);
+    fail(`portal SHIFT AI missing scroll/composer marker ${marker}.`);
+  }
+}
+for (const removedMarker of ["resetDocumentScroll", "pinLatestToComposer"]) {
+  if (portal.includes(removedMarker)) {
+    fail(`portal SHIFT AI has restored competing scroll logic: ${removedMarker}.`);
+  }
+}
+
+const keyboard = read(files.keyboard);
+for (const marker of [
+  "window.visualViewport",
+  "portal-keyboard-open",
+  "--portal-visual-height",
+]) {
+  if (!keyboard.includes(marker)) {
+    fail(`shared portal keyboard state missing marker ${marker}.`);
   }
 }
 

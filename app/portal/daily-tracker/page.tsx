@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import type { WearableDailySummary } from "@/lib/wearable-insights";
@@ -33,46 +33,62 @@ function scoreEntry(entry: {
   nutrition_score?: number | "" | null;
   training_completed?: boolean;
 }) {
+  const energy = entry.energy_level === "" || entry.energy_level === null || entry.energy_level === undefined
+    ? null
+    : Number(entry.energy_level);
+  const stress = entry.stress_level === "" || entry.stress_level === null || entry.stress_level === undefined
+    ? null
+    : 11 - Number(entry.stress_level);
+  const nutrition = entry.nutrition_score === "" || entry.nutrition_score === null || entry.nutrition_score === undefined
+    ? null
+    : Number(entry.nutrition_score);
   const parts = [
     entry.sleep_hours ? Math.min(10, Math.max(1, (Number(entry.sleep_hours) / 8) * 10)) : null,
     entry.water_liters ? Math.min(10, Math.max(1, (Number(entry.water_liters) / 3) * 10)) : null,
-    entry.energy_level ?? null,
-    entry.stress_level ? 11 - Number(entry.stress_level) : null,
-    entry.nutrition_score ?? null,
+    energy,
+    stress,
+    nutrition,
     entry.training_completed ? 10 : null,
-  ].filter((value): value is number => value !== null);
+  ].filter((value): value is number => typeof value === "number" && Number.isFinite(value));
 
   if (parts.length === 0) return null;
   return Math.round(parts.reduce((sum, value) => sum + value, 0) / parts.length);
 }
 
-function ScalePills({ label, value, onChange, lowGood = false }: { label: string; value: number | ""; onChange: (value: number) => void; lowGood?: boolean }) {
+function ScaleSlider({ label, value, onChange, lowLabel, highLabel }: {
+  label: string;
+  value: number | "";
+  onChange: (value: number) => void;
+  lowLabel: string;
+  highLabel: string;
+}) {
+  const sliderValue = value === "" ? 1 : value;
+  const percentage = value === "" ? 0 : ((sliderValue - 1) / 9) * 100;
+
   return (
     <div className="app-inset rounded-2xl p-3 min-[360px]:p-4">
-      <div className="mb-2 flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         <label className="text-sm font-semibold text-text-primary">{label}</label>
-        <span className="text-xs font-semibold text-text-muted">{value || "Tap 1-10"}</span>
+        <output className="metric-num min-w-10 text-right text-xl font-bold text-accent-bright">{value || "—"}</output>
       </div>
-      <div className="grid grid-cols-5 gap-0 min-[360px]:gap-2 sm:grid-cols-[repeat(10,2.75rem)] sm:justify-between sm:gap-0">
-        {Array.from({ length: 10 }, (_, index) => index + 1).map((num) => {
-          const active = value === num;
-          return (
-            <button
-              key={num}
-              type="button"
-              onClick={() => onChange(num)}
-              className={`app-tap h-11 w-full min-w-0 rounded-full border text-sm font-semibold transition-all sm:w-11 ${
-                active
-                  ? lowGood
-                    ? "border-emerald-400 bg-emerald-500 text-white shadow-[0_4px_14px_rgba(16,185,129,0.4)]"
-                    : "border-[#F060E0] bg-[#E040D0] text-white shadow-[0_4px_14px_rgba(224,64,208,0.4)]"
-                  : "border-[rgba(255,255,255,0.10)] bg-[rgba(255,255,255,0.04)] text-text-secondary"
-              }`}
-            >
-              {num}
-            </button>
-          );
-        })}
+      <input
+        type="range"
+        min="1"
+        max="10"
+        step="1"
+        value={sliderValue}
+        aria-label={`${label}, 1 to 10`}
+        aria-valuetext={value ? `${value} out of 10` : "Not set"}
+        onPointerDown={() => {
+          if (value === "") onChange(1);
+        }}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="range-shift"
+        style={{ "--range-pct": `${percentage}%` } as React.CSSProperties}
+      />
+      <div className="flex items-center justify-between text-[11px] font-medium text-text-muted">
+        <span>1 · {lowLabel}</span>
+        <span>10 · {highLabel}</span>
       </div>
     </div>
   );
@@ -96,6 +112,7 @@ export default function DailyTrackerPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [wearableSummary, setWearableSummary] = useState<WearableDailySummary | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState({
     tracked_date: todayKey,
     sleep_hours: "",
@@ -115,24 +132,27 @@ export default function DailyTrackerPage() {
     return Math.round(scores.reduce((sum, value) => sum + value, 0) / scores.length);
   }, [sevenDayEntries]);
 
-  async function load() {
+  const load = useCallback(async (selectedDate = todayKey) => {
     setLoading(true);
     try {
       const res = await fetch("/api/portal/daily-tracker");
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to load tracker");
-      setEntries(data.entries || []);
+      const nextEntries = (data.entries || []) as DailyMetric[];
+      setEntries(nextEntries);
       setWearableSummary(data.wearableSummary || null);
-      if (data.today) {
+      const selectedEntry = nextEntries.find((entry) => entry.tracked_date === selectedDate)
+        || (selectedDate === todayKey ? data.today : null);
+      if (selectedEntry) {
         setForm({
-          tracked_date: data.today.tracked_date,
-          sleep_hours: data.today.sleep_hours?.toString() || "",
-          water_liters: data.today.water_liters?.toString() || "",
-          energy_level: data.today.energy_level || "",
-          stress_level: data.today.stress_level || "",
-          nutrition_score: data.today.nutrition_score || "",
-          training_completed: Boolean(data.today.training_completed),
-          notes: data.today.notes || "",
+          tracked_date: selectedEntry.tracked_date,
+          sleep_hours: selectedEntry.sleep_hours?.toString() || "",
+          water_liters: selectedEntry.water_liters?.toString() || "",
+          energy_level: selectedEntry.energy_level || "",
+          stress_level: selectedEntry.stress_level || "",
+          nutrition_score: selectedEntry.nutrition_score || "",
+          training_completed: Boolean(selectedEntry.training_completed),
+          notes: selectedEntry.notes || "",
         });
       }
     } catch (err) {
@@ -140,11 +160,11 @@ export default function DailyTrackerPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [toast]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   async function save() {
     setSaving(true);
@@ -157,12 +177,44 @@ export default function DailyTrackerPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save tracker");
       toast("Daily tracker saved");
-      await load();
+      await load(form.tracked_date);
     } catch (err) {
       toast(err instanceof Error ? err.message : "Couldn't save daily tracker", "error");
     } finally {
       setSaving(false);
     }
+  }
+
+  function selectEntry(entry: DailyMetric) {
+    setForm({
+      tracked_date: entry.tracked_date,
+      sleep_hours: entry.sleep_hours?.toString() || "",
+      water_liters: entry.water_liters?.toString() || "",
+      energy_level: entry.energy_level || "",
+      stress_level: entry.stress_level || "",
+      nutrition_score: entry.nutrition_score || "",
+      training_completed: Boolean(entry.training_completed),
+      notes: entry.notes || "",
+    });
+    window.requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+
+  function selectToday() {
+    const entry = entries.find((item) => item.tracked_date === todayKey);
+    if (entry) {
+      selectEntry(entry);
+      return;
+    }
+    setForm({
+      tracked_date: todayKey,
+      sleep_hours: "",
+      water_liters: "",
+      energy_level: "",
+      stress_level: "",
+      nutrition_score: "",
+      training_completed: false,
+      notes: "",
+    });
   }
 
   return (
@@ -173,13 +225,17 @@ export default function DailyTrackerPage() {
             ← Back to dashboard
           </Link>
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-accent-bright">Daily Tracker</p>
-          <h1 className="mt-1 text-3xl font-heading font-bold text-text-primary">How today is going</h1>
+          <h1 className="mt-1 text-3xl font-heading font-bold text-text-primary">
+            {form.tracked_date === todayKey ? "How today is going" : `Reviewing ${formatDate(form.tracked_date)}`}
+          </h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-text-secondary">
             Log the simple stuff Gordy cares about: sleep, water, stress, energy, nutrition and whether training got done.
           </p>
         </div>
         <div className="app-rise w-full rounded-2xl border border-[#E040D0]/25 bg-[linear-gradient(150deg,#251426_0%,#1a1320_55%,#140f18_100%)] px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_40px_-22px_rgba(0,0,0,0.85)] sm:w-auto">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-[#F060E0]">Today score</div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-[#F060E0]">
+            {form.tracked_date === todayKey ? "Today score" : "Entry score"}
+          </div>
           <div className="mt-1 text-3xl font-heading font-bold text-white">{score ?? "—"}/10</div>
           <div className="mt-1 text-xs text-white/70">7-day average: {sevenDayScore ?? "—"}/10</div>
         </div>
@@ -213,8 +269,17 @@ export default function DailyTrackerPage() {
         </TrackerCard>
       )}
 
-      <TrackerCard title="Today's basics" hint="The quick numbers first.">
+      <div ref={formRef} className="scroll-mt-4">
+      <TrackerCard
+        title={form.tracked_date === todayKey ? "Today's basics" : formatDate(form.tracked_date)}
+        hint={form.tracked_date === todayKey ? "The quick numbers first." : "Viewing a previous entry. Any changes will update this date."}
+      >
         <div className="space-y-4">
+          {form.tracked_date !== todayKey && (
+            <button type="button" onClick={selectToday} className="text-sm font-semibold text-accent-bright">
+              Back to today
+            </button>
+          )}
           <label className="block">
             <span className="mb-2 block text-sm font-semibold text-text-primary">Date</span>
             <input
@@ -248,12 +313,13 @@ export default function DailyTrackerPage() {
           </div>
         </div>
       </TrackerCard>
+      </div>
 
-      <TrackerCard title="How you're feeling" hint="Tap a number on each scale.">
+      <TrackerCard title="How you're feeling" hint="Slide each rating from 1 to 10.">
         <div className="space-y-4">
-          <ScalePills label="Energy" value={form.energy_level} onChange={(value) => setForm((prev) => ({ ...prev, energy_level: value }))} />
-          <ScalePills label="Stress" value={form.stress_level} lowGood onChange={(value) => setForm((prev) => ({ ...prev, stress_level: value }))} />
-          <ScalePills label="Nutrition" value={form.nutrition_score} onChange={(value) => setForm((prev) => ({ ...prev, nutrition_score: value }))} />
+          <ScaleSlider label="Energy" value={form.energy_level} lowLabel="Flat" highLabel="Excellent" onChange={(value) => setForm((prev) => ({ ...prev, energy_level: value }))} />
+          <ScaleSlider label="Stress" value={form.stress_level} lowLabel="Calm" highLabel="Overloaded" onChange={(value) => setForm((prev) => ({ ...prev, stress_level: value }))} />
+          <ScaleSlider label="Nutrition" value={form.nutrition_score} lowLabel="Off track" highLabel="On point" onChange={(value) => setForm((prev) => ({ ...prev, nutrition_score: value }))} />
         </div>
       </TrackerCard>
 
@@ -307,7 +373,17 @@ export default function DailyTrackerPage() {
         ) : (
           <div className="space-y-3">
             {entries.slice(0, 7).map((entry) => (
-              <div key={entry.id} className="flex items-center justify-between gap-3 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
+              <button
+                key={entry.id}
+                type="button"
+                onClick={() => selectEntry(entry)}
+                aria-current={entry.tracked_date === form.tracked_date ? "date" : undefined}
+                className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition-colors ${
+                  entry.tracked_date === form.tracked_date
+                    ? "border-accent/40 bg-accent/10"
+                    : "border-[rgba(0,0,0,0.06)] bg-bg-primary hover:border-accent/25"
+                }`}
+              >
                 <div>
                   <div className="text-sm font-semibold text-text-primary">{formatDate(entry.tracked_date)}</div>
                   <div className="mt-1 text-xs text-text-secondary">
@@ -317,7 +393,7 @@ export default function DailyTrackerPage() {
                 <div className="rounded-full border border-accent/20 bg-accent/10 px-3 py-1 text-sm font-semibold text-accent-bright">
                   {scoreEntry(entry) ?? "—"}/10
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
