@@ -99,6 +99,17 @@ try {
 
   for (const item of captures) {
     await open(item.route);
+    if (item.name === "daily-tracker") {
+      const feelingsHeading = page.getByRole("heading", { name: "How you're feeling" });
+      if (await feelingsHeading.count() !== 1) {
+        throw new Error("The Demo Client Daily Tracker ratings are not visible for capture.");
+      }
+      await feelingsHeading.evaluate((element) => {
+        document.documentElement.style.scrollBehavior = "auto";
+        window.scrollTo(0, element.getBoundingClientRect().top + window.scrollY - 24);
+      });
+      await page.waitForTimeout(250);
+    }
     manifest.push(await capture(item.order, item.name));
   }
 
@@ -128,11 +139,15 @@ try {
   if (await page.getByRole("button", { name: /save session/i }).count() === 0) {
     throw new Error("The active session did not open after selecting the primary training action.");
   }
-  const openSessionCard = page.locator('button[aria-expanded="true"]').last();
-  if (await openSessionCard.count() === 1) {
-    await openSessionCard.scrollIntoViewIfNeeded();
-    await page.waitForTimeout(250);
+  const sessionInProgress = page.getByText("Session in progress", { exact: true });
+  if (await sessionInProgress.count() === 0) {
+    throw new Error("The active Demo Client session is not visible for capture.");
   }
+  await sessionInProgress.last().evaluate((element) => {
+    document.documentElement.style.scrollBehavior = "auto";
+    window.scrollTo(0, element.getBoundingClientRect().top + window.scrollY - 180);
+  });
+  await page.waitForTimeout(250);
   manifest.push(await capture(3, "active-session"));
 
   manifest.sort((a, b) => a.order - b.order);
