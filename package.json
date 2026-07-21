@@ -14,6 +14,7 @@
     "test:native-push": "tsx --test tests/native-push.test.ts",
     "test:release-contracts": "tsx --test tests/native-push.test.ts tests/safe-redirect.test.ts",
     "verify:app-store-release": "node scripts/verify-app-store-release.mjs",
+    "capture:app-store": "node scripts/capture-app-store-screenshots.mjs",
     "verify:mobile": "node scripts/verify-mobile-portal.mjs",
     "verify:app-store-metadata": "node scripts/check-app-store-metadata.mjs",
     "verify:review-fixture": "node scripts/check-app-review-fixture.mjs",

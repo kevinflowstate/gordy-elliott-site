@@ -95,6 +95,7 @@ try {
   await open(page, "/portal/inbox");
   const dmComposer = page.locator('textarea[placeholder="Message Gordy..."]');
   await dmComposer.waitFor();
+  check(await page.getByText("Gordy", { exact: true }).count() > 0, "client DMs identify coach messages as Gordy");
   const initialDmHeight = await dmComposer.evaluate((element) => element.getBoundingClientRect().height);
   check(initialDmHeight >= 44 && initialDmHeight <= 56, "DM composer starts as a compact single-line control", `${initialDmHeight}px`);
   check(await page.getByRole("button", { name: "Send message" }).count() === 1, "DM send arrow has one accessible action");
@@ -131,6 +132,14 @@ try {
     check(false, "Daily Tracker recent days open the selected historical entry", "no alternate fixture entry found");
   }
   await assertNoHorizontalOverflow(page, "Daily Tracker");
+
+  await open(page, "/portal/nutrition-plan");
+  const assignedNutritionPlan = page.locator("details[open]").filter({ hasText: "Your assigned meals from Gordy" }).first();
+  check(await assignedNutritionPlan.count() === 1, "assigned nutrition plan is expanded and ready to use");
+  check(await page.getByRole("button", { name: "Add daily totals manually" }).count() === 1, "nutrition keeps manual totals as a clearly labelled fallback");
+  const nutritionText = await page.locator("body").innerText();
+  check(!/copy (your|today's|this date's) myfitnesspal totals|mfp totals remain the main/i.test(nutritionText), "nutrition contains no stale manual MyFitnessPal instructions");
+  await assertNoHorizontalOverflow(page, "nutrition plan");
 
   await open(page, "/portal/consultation");
   const dob = page.locator('input[autocomplete="bday"]');

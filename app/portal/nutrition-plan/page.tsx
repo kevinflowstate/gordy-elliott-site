@@ -46,6 +46,120 @@ function isToday(date: Date): boolean {
   return date.toDateString() === today.toDateString();
 }
 
+function isWholeDayTotals(name: string): boolean {
+  const normalized = name.trim().toLowerCase();
+  return normalized === "myfitnesspal totals" || normalized === "daily totals (manual)";
+}
+
+interface AssignedMealsProps {
+  plan: ClientNutritionPlan;
+  tracking: MealTracking[];
+  toggling: string | null;
+  onToggle: (mealId: string) => void;
+}
+
+function AssignedMeals({ plan, tracking, toggling, onToggle }: AssignedMealsProps) {
+  if (plan.meals.length === 0) return null;
+
+  return (
+    <details open className="app-card-quiet mb-6 rounded-[28px]">
+      <summary className="cursor-pointer px-5 py-4">
+        <span className="block text-[14px] font-semibold uppercase tracking-wider text-text-secondary">{plan.name}</span>
+        <span className="mt-1 block text-[11px] text-text-muted">Your assigned meals from Gordy. Tick each one as you complete it.</span>
+      </summary>
+      <div className="space-y-3 border-t border-[rgba(0,0,0,0.06)] px-4 pb-4 pt-3">
+        {plan.meals.map((meal) => {
+          const isCompleted = tracking.find((item) => item.meal_id === meal.id)?.completed || false;
+          const isLoading = toggling === meal.id;
+          const macros = calcMealMacros(meal);
+
+          return (
+            <div
+              key={meal.id}
+              className={`overflow-hidden rounded-2xl border bg-bg-primary transition-all ${
+                isCompleted
+                  ? "border-green-500/30 bg-green-500/5"
+                  : "border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)]"
+              }`}
+            >
+              <div className="flex items-center gap-3 p-4">
+                <div className="min-w-0 flex-1">
+                  <h3 className={`font-semibold ${isCompleted ? "text-green-600 dark:text-green-400" : "text-text-primary"}`}>
+                    {meal.name}
+                  </h3>
+                  <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1">
+                    <span className="text-[13px] font-medium text-text-secondary">{macros.calories} kcal</span>
+                    <span className="text-[13px] text-blue-500">{Math.round(macros.protein)}g P</span>
+                    <span className="text-[13px] text-[#B830A8]">{Math.round(macros.carbs)}g C</span>
+                    <span className="text-[13px] text-red-500">{Math.round(macros.fat)}g F</span>
+                    <span className="text-[13px] text-emerald-500">{Math.round(macros.fibre)}g fibre</span>
+                    <span className="text-[13px] text-amber-500">{Math.round(macros.sugar)}g sugar</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => !isLoading && onToggle(meal.id)}
+                  disabled={isLoading}
+                  aria-label={isCompleted ? `Mark ${meal.name} incomplete` : `Mark ${meal.name} complete`}
+                  className={`flex flex-shrink-0 items-center gap-2 rounded-xl border px-3 py-2 transition-all ${
+                    isCompleted
+                      ? "border-green-500/30 bg-green-500/15 text-green-600 dark:text-green-400"
+                      : "border-[rgba(0,0,0,0.12)] text-text-secondary hover:border-green-500/40 hover:text-green-600"
+                  } ${isLoading ? "opacity-50" : ""}`}
+                >
+                  <span className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all ${
+                    isCompleted ? "border-green-500 bg-green-500" : "border-current"
+                  }`}>
+                    {isCompleted && (
+                      <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </span>
+                  <span className="whitespace-nowrap text-xs font-semibold">{isCompleted ? "Eaten" : "I ate this"}</span>
+                </button>
+              </div>
+
+              {meal.items.length > 0 && (
+                <div className="border-t border-[rgba(0,0,0,0.04)]">
+                  {meal.items.map((item: NutritionMealItem) => {
+                    const food = item.food;
+                    if (!food) return null;
+                    const quantity = Number(item.quantity) || 1;
+                    return (
+                      <div key={item.id} className="flex items-center justify-between border-b border-[rgba(0,0,0,0.02)] px-4 py-2 last:border-0">
+                        <div className="min-w-0 flex-1">
+                          <span className={`text-[13px] ${isCompleted ? "text-text-secondary line-through" : "text-text-primary"}`}>
+                            {food.name}
+                          </span>
+                          <span className="ml-2 text-[13px] text-text-secondary/60">
+                            {Math.round(parseGrams(food.serving_size) * quantity)}g
+                          </span>
+                        </div>
+                        <span className="ml-2 flex-shrink-0 text-[13px] text-text-secondary">
+                          {Math.round(food.calories * quantity)} kcal
+                        </span>
+                        <span className="ml-2 hidden flex-shrink-0 text-[12px] text-text-secondary sm:inline">
+                          {Math.round((food.fibre_g || 0) * quantity)}g fibre / {Math.round((food.sugar_g || 0) * quantity)}g sugar
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {meal.notes && (
+                <div className="border-t border-[#E040D0]/10 bg-[#E040D0]/6 px-4 py-2 text-[13px] italic text-[#E040D0]">
+                  {meal.notes}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </details>
+  );
+}
+
 const FOOD_CATEGORIES = ["protein", "dairy", "grains", "fruit", "vegetables", "fats", "carbs", "snacks", "drinks", "supplements"];
 const ADDED_FEEDBACK_MS = 1800;
 
@@ -313,9 +427,9 @@ export default function PortalNutritionPlanPage() {
     if (!qName.trim()) return;
     setQSubmitting(true);
     try {
-      const isMfpTotals = qName.trim().toLowerCase() === "myfitnesspal totals";
-      const existingMfpTotals = isMfpTotals
-        ? quickMeals.filter((meal) => meal.name.trim().toLowerCase() === "myfitnesspal totals")
+      const isDailyTotals = isWholeDayTotals(qName);
+      const existingDailyTotals = isDailyTotals
+        ? quickMeals.filter((meal) => isWholeDayTotals(meal.name))
         : [];
       const res = await fetch("/api/portal/quick-meals", {
         method: "POST",
@@ -339,7 +453,7 @@ export default function PortalNutritionPlanPage() {
       const data = await res.json();
       if (data.quickMeal) {
         const deletedIds: string[] = [];
-        for (const meal of existingMfpTotals) {
+        for (const meal of existingDailyTotals) {
           const deleteRes = await fetch("/api/portal/quick-meals", {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
@@ -348,7 +462,7 @@ export default function PortalNutritionPlanPage() {
           if (deleteRes.ok) {
             deletedIds.push(meal.id);
           } else {
-            toast("New MyFitnessPal totals saved, but the old total could not be removed. Refresh and remove the duplicate if needed.", "error");
+            toast("New daily totals saved, but the old total could not be removed. Refresh and remove the duplicate if needed.", "error");
           }
         }
         setQuickMeals((prev) => [...prev.filter((meal) => !deletedIds.includes(meal.id)), data.quickMeal]);
@@ -435,8 +549,8 @@ export default function PortalNutritionPlanPage() {
     fetchData();
   };
 
-  const openMfpTotals = () => {
-    setQName("MyFitnessPal totals");
+  const openDailyTotals = () => {
+    setQName("Daily totals (manual)");
     setQCalories("");
     setQProtein("");
     setQCarbs("");
@@ -459,11 +573,11 @@ export default function PortalNutritionPlanPage() {
     );
   }
 
-  // MFP totals are the preferred whole-day signal; assigned meals still count
-  // when the client uses Gordy's meal checklist instead of copying MFP totals.
+  // A whole-day manual total replaces assigned-meal completion macros for that
+  // date so the same intake is not counted twice. Legacy MFP entries remain valid.
   let consumedCalories = 0, consumedProtein = 0, consumedCarbs = 0, consumedFat = 0, consumedFibre = 0, consumedSugar = 0;
-  const hasCompletedMfpTotals = quickMeals.some(
-    (meal) => meal.completed && meal.name.trim().toLowerCase() === "myfitnesspal totals",
+  const hasCompletedDailyTotals = quickMeals.some(
+    (meal) => meal.completed && isWholeDayTotals(meal.name),
   );
   for (const qm of quickMeals) {
     if (qm.completed) {
@@ -475,7 +589,7 @@ export default function PortalNutritionPlanPage() {
       consumedSugar += Number(qm.sugar_g || 0);
     }
   }
-  if (!hasCompletedMfpTotals && plan?.meals.length) {
+  if (!hasCompletedDailyTotals && plan?.meals.length) {
     for (const meal of plan.meals) {
       const completed = tracking.some((t) => t.meal_id === meal.id && t.completed);
       if (!completed) continue;
@@ -499,7 +613,7 @@ export default function PortalNutritionPlanPage() {
   const targetFat = plan?.target_fat_g || 0;
   const targetFibre = plan?.target_fibre_g || 0;
   const targetSugar = plan?.target_sugar_g || 0;
-  const entryHeading = isToday(selectedDate) ? "Today's MFP entries" : `${formatDateDisplay(selectedDate)} MFP entries`;
+  const entryHeading = isToday(selectedDate) ? "Today's manual entries" : `${formatDateDisplay(selectedDate)} manual entries`;
 
   return (
     <div className="px-0 pt-3 pb-20 sm:p-6 max-w-lg mx-auto">
@@ -547,11 +661,15 @@ export default function PortalNutritionPlanPage() {
         </div>
       </div>
 
+      {plan && (
+        <AssignedMeals plan={plan} tracking={tracking} toggling={toggling} onToggle={toggleMeal} />
+      )}
+
       <section className="app-card app-rise app-rise-2 mb-6 overflow-hidden rounded-[28px]">
         <div className="border-b border-[#E040D0]/15 bg-[linear-gradient(135deg,rgba(224,64,208,0.16),rgba(245,158,11,0.06))] px-5 py-4">
           <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#E040D0]">Targets dashboard</div>
           <p className="mt-1 text-sm text-text-secondary">
-            Use MyFitnessPal for food tracking, then copy your daily totals here so Gordy can see the nutrition signal.
+            Your assigned targets and today&apos;s logged intake. Connected app data syncs automatically when available.
           </p>
         </div>
         <div className="p-5">
@@ -609,7 +727,7 @@ export default function PortalNutritionPlanPage() {
           ) : (
             <div className="rounded-2xl border border-dashed border-[#E040D0]/20 bg-[#E040D0]/6 px-4 py-6 text-center">
               <p className="font-semibold text-text-primary">Nutrition targets pending</p>
-              <p className="mt-1 text-sm text-text-secondary">You can still log your MyFitnessPal totals. Gordy can add calorie and protein targets later.</p>
+              <p className="mt-1 text-sm text-text-secondary">You can still follow assigned meals or add an entry manually. Gordy can add targets later.</p>
             </div>
           )}
           <div className="mt-5 grid grid-cols-2 gap-3">
@@ -635,122 +753,25 @@ export default function PortalNutritionPlanPage() {
             </div>
           </div>
           <button
-            onClick={openMfpTotals}
+            onClick={openDailyTotals}
             className="mt-5 w-full rounded-2xl gradient-accent px-4 py-3.5 text-sm font-bold text-white shadow-[0_16px_32px_rgba(224,64,208,0.22)]"
           >
-            Log MyFitnessPal totals
+            Add daily totals manually
           </button>
         </div>
       </section>
 
-      {plan && plan.meals.length > 0 && (
-        <details className="app-card-quiet mb-6 rounded-[28px]">
-          <summary className="cursor-pointer px-5 py-4">
-            <span className="block text-[14px] font-semibold uppercase tracking-wider text-text-secondary">Assigned meals from Gordy</span>
-            <span className="mt-1 block text-[11px] text-text-muted">Only appears when a real plan exists. MFP totals remain the main daily signal.</span>
-          </summary>
-          <div className="space-y-3 border-t border-[rgba(0,0,0,0.06)] px-4 pb-4 pt-3">
-            {plan.meals.map((meal) => {
-              const isCompleted = tracking.find((t) => t.meal_id === meal.id)?.completed || false;
-              const isLoading = toggling === meal.id;
-              const macros = calcMealMacros(meal);
 
-              return (
-                <div
-                  key={meal.id}
-                  className={`overflow-hidden rounded-2xl border bg-bg-primary transition-all ${
-                    isCompleted
-                      ? "border-green-500/30 bg-green-500/5"
-                      : "border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.06)]"
-                  }`}
-                >
-                  <div className="flex items-center gap-3 p-4">
-                    <div className="min-w-0 flex-1">
-                      <h3 className={`font-semibold ${isCompleted ? "text-green-600 dark:text-green-400" : "text-text-primary"}`}>
-                        {meal.name}
-                      </h3>
-                      <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1">
-                        <span className="text-[13px] font-medium text-text-secondary">{macros.calories} kcal</span>
-                        <span className="text-[13px] text-blue-500">{Math.round(macros.protein)}g P</span>
-                        <span className="text-[13px] text-[#B830A8]">{Math.round(macros.carbs)}g C</span>
-                        <span className="text-[13px] text-red-500">{Math.round(macros.fat)}g F</span>
-                        <span className="text-[13px] text-emerald-500">{Math.round(macros.fibre)}g fibre</span>
-                        <span className="text-[13px] text-amber-500">{Math.round(macros.sugar)}g sugar</span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => !isLoading && toggleMeal(meal.id)}
-                      disabled={isLoading}
-                      aria-label={isCompleted ? `Mark ${meal.name} incomplete` : `Mark ${meal.name} complete`}
-                      className={`flex flex-shrink-0 items-center gap-2 rounded-xl border px-3 py-2 transition-all ${
-                        isCompleted
-                          ? "border-green-500/30 bg-green-500/15 text-green-600 dark:text-green-400"
-                          : "border-[rgba(0,0,0,0.12)] text-text-secondary hover:border-green-500/40 hover:text-green-600"
-                      } ${isLoading ? "opacity-50" : ""}`}
-                    >
-                      <span className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all ${
-                        isCompleted ? "border-green-500 bg-green-500" : "border-current"
-                      }`}>
-                        {isCompleted && (
-                          <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </span>
-                      <span className="whitespace-nowrap text-xs font-semibold">{isCompleted ? "Eaten" : "I ate this"}</span>
-                    </button>
-                  </div>
-
-                  {meal.items.length > 0 && (
-                    <div className="border-t border-[rgba(0,0,0,0.04)]">
-                      {meal.items.map((item: NutritionMealItem) => {
-                        const food = item.food;
-                        if (!food) return null;
-                        const qty = Number(item.quantity) || 1;
-                        return (
-                          <div key={item.id} className="flex items-center justify-between border-b border-[rgba(0,0,0,0.02)] px-4 py-2 last:border-0">
-                            <div className="min-w-0 flex-1">
-                              <span className={`text-[13px] ${isCompleted ? "text-text-secondary line-through" : "text-text-primary"}`}>
-                                {food.name}
-                              </span>
-                              <span className="ml-2 text-[13px] text-text-secondary/60">
-                                {Math.round(parseGrams(food.serving_size) * qty)}g
-                              </span>
-                            </div>
-                            <span className="ml-2 flex-shrink-0 text-[13px] text-text-secondary">
-                              {Math.round(food.calories * qty)} kcal
-                            </span>
-                            <span className="ml-2 hidden flex-shrink-0 text-[12px] text-text-secondary sm:inline">
-                              {Math.round((food.fibre_g || 0) * qty)}g fibre / {Math.round((food.sugar_g || 0) * qty)}g sugar
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {meal.notes && (
-                    <div className="border-t border-[#E040D0]/10 bg-[#E040D0]/6 px-4 py-2 text-[13px] italic text-[#E040D0]">
-                      {meal.notes}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </details>
-      )}
-
-      {/* MyFitnessPal companion entries */}
+      {/* Manual entries remain available as a fallback or correction. */}
       <div className="mb-6">
         <div className="app-card-quiet mb-3 rounded-2xl px-4 py-3.5">
           <div>
             <h2 className="text-[14px] font-semibold text-text-secondary uppercase tracking-wider">{entryHeading}</h2>
-            <p className="text-[11px] text-text-muted mt-0.5">Add a meal by copying your MyFitnessPal totals, or add individual foods for a quick correction.</p>
+            <p className="text-[11px] text-text-muted mt-0.5">Connected app totals sync automatically when available. Use this section for a manual entry or correction.</p>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
-              onClick={openMfpTotals}
+              onClick={openDailyTotals}
               className="app-tap flex items-center justify-center gap-1.5 text-[13px] px-3 py-2.5 rounded-xl gradient-accent text-white font-semibold cursor-pointer shadow-[0_12px_26px_rgba(224,64,208,0.22)]"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
@@ -833,8 +854,8 @@ export default function PortalNutritionPlanPage() {
             <svg className="w-12 h-12 mx-auto mb-3 text-text-secondary/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8.25v-1.5m0 1.5c-1.355 0-2.697.056-4.024.166C6.845 8.51 6 9.473 6 10.608v2.513m6-4.871c1.355 0 2.697.056 4.024.166C17.155 8.51 18 9.473 18 10.608v2.513M15 9.75l-3-3m0 0l-3 3m3-3v12" />
             </svg>
-            <p className="text-text-primary font-semibold">{isToday(selectedDate) ? "Copy today's MyFitnessPal totals." : "Copy this date's MyFitnessPal totals."}</p>
-            <p className="text-text-secondary/70 text-[13px] mt-1">Calories and protein are the main signal. Carbs and fats help when you have them.</p>
+            <p className="text-text-primary font-semibold">Nothing logged manually yet.</p>
+            <p className="text-text-secondary/70 text-[13px] mt-1">Follow your assigned meals above, or add an entry when you need to correct or supplement synced data.</p>
           </div>
         )}
       </div>
@@ -1014,8 +1035,8 @@ export default function PortalNutritionPlanPage() {
       {showManualAdd && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] backdrop-blur-sm" onClick={() => setShowManualAdd(false)}>
           <div className="app-card max-h-[calc(100dvh-2rem-env(safe-area-inset-bottom,0px))] w-full max-w-sm overflow-y-auto rounded-[24px] p-5 sm:rounded-[28px]" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-text-primary mb-1">Log MyFitnessPal totals</h3>
-            <p className="text-[12px] text-text-muted mb-4">Copy the totals from MFP at the end of the day, including fibre and sugar when available.</p>
+            <h3 className="text-lg font-bold text-text-primary mb-1">Add daily totals manually</h3>
+            <p className="text-[12px] text-text-muted mb-4">Use this fallback when synced data is unavailable or needs correcting. Include fibre and sugar when available.</p>
             <div className="space-y-3">
               <input
                 type="text"
