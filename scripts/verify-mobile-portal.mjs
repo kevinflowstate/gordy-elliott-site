@@ -95,13 +95,22 @@ try {
     for (const route of run.routes) {
       const consoleErrors = [];
       const serverErrors = [];
+      let sawExpectedDocumentDenial = false;
       const onConsole = (message) => {
         if (message.type() !== "error") return;
         const text = message.text();
         if (/webpack-hmr|favicon|403 \(Forbidden\)/i.test(text)) return;
+        if (route === "/portal/documents" && /failed to load resource.*status of 403/i.test(text)) return;
         consoleErrors.push(text);
       };
       const onResponse = (response) => {
+        if (
+          route === "/portal/documents" &&
+          response.status() === 403 &&
+          new URL(response.url()).pathname === "/api/portal/documents"
+        ) {
+          sawExpectedDocumentDenial = true;
+        }
         if (response.status() >= 500) {
           serverErrors.push(`${response.status()} ${response.url()}`);
         }
@@ -167,6 +176,12 @@ try {
       const routeFailures = [];
       if (!response || response.status() >= 500) routeFailures.push(`page status ${response?.status() || "none"}`);
       if (new URL(page.url()).pathname.startsWith("/login")) routeFailures.push("redirected to login");
+      if (
+        sawExpectedDocumentDenial &&
+        await page.getByText("Document vault is only available for VIP clients.", { exact: true }).count() === 0
+      ) {
+        routeFailures.push("the expected VIP access state is not visible");
+      }
       if (layout.documentWidth > layout.viewportWidth + 1) {
         routeFailures.push(`document width ${layout.documentWidth}px exceeds ${layout.viewportWidth}px`);
       }
