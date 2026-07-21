@@ -44,8 +44,8 @@ npm run capture:app-store
 
 The script refuses to continue unless the authenticated dashboard visibly identifies the fictional Demo Client. It writes opaque JPEGs and a non-secret manifest under the external Xcode volume by default. Draft captures are for visual review; repeat the command against the approved release candidate before uploading the final set.
 
-The current local candidate draft is stored outside source control at:
+The final production-backed set is stored outside source control at:
 
-`/Volumes/XCode/Storage-Quarantine-2026-07-15/SHIFT-AppStore-Screenshots/2026-07-21-local-candidate`
+`/Volumes/XCode/Storage-Quarantine-2026-07-15/SHIFT-AppStore-Screenshots/2026-07-21-production-final-v2`
 
-All six files were verified as opaque JPEGs at `1284 x 2778`. Recapture against production after the release-assets change is deployed; only that production set should be uploaded to App Store Connect.
+All six files were verified as opaque JPEGs at `1284 x 2778`, visually inspected and uploaded to App Store Connect in the capture-sequence order above.
