@@ -1,4 +1,4 @@
-import { access, mkdir } from "node:fs/promises";
+import { access, mkdir, readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { constants } from "node:fs";
 import path from "node:path";
@@ -21,9 +21,11 @@ async function resolveStorageRoot() {
 }
 
 const storageRoot = await resolveStorageRoot();
-const releaseRoot = process.env.IOS_RELEASE_ROOT || path.join(storageRoot, "SHIFT-Releases");
-const derivedDataPath = process.env.IOS_DERIVED_DATA_PATH || path.join(storageRoot, "SHIFT-DerivedData", "build-2");
-const archivePath = process.env.IOS_ARCHIVE_PATH || path.join(releaseRoot, "SHIFT-1.0-2.xcarchive");
+const identity = JSON.parse(await readFile("config/app-identity.json", "utf8"));
+const releaseSlug = identity.appName.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
+const releaseRoot = process.env.IOS_RELEASE_ROOT || path.join(storageRoot, `${releaseSlug}-Releases`);
+const derivedDataPath = process.env.IOS_DERIVED_DATA_PATH || path.join(storageRoot, `${releaseSlug}-DerivedData`, `build-${identity.build}`);
+const archivePath = process.env.IOS_ARCHIVE_PATH || path.join(releaseRoot, `${releaseSlug}-${identity.version}-${identity.build}.xcarchive`);
 
 await Promise.all([mkdir(releaseRoot, { recursive: true }), mkdir(derivedDataPath, { recursive: true })]);
 
