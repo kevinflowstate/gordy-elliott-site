@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { dateKeyInTimeZone } from "@/lib/founder-dashboard";
 import { NextResponse } from "next/server";
 
 const VALID_RECURRENCES = new Set(["none", "weekly", "biweekly", "monthly"]);
@@ -60,6 +61,25 @@ function mapPersonalEvent(event: Record<string, unknown>) {
   };
 }
 
+function mapConnectedEvent(event: Record<string, unknown>) {
+  return {
+    id: event.id,
+    title: event.title,
+    category: "connected_calendar",
+    event_date: event.event_date_key,
+    event_time: event.event_time,
+    recurrence: "none",
+    recurrence_day: null,
+    link: event.meeting_url,
+    link_label: event.meeting_url ? "Open" : null,
+    is_active: !event.is_cancelled,
+    created_at: event.created_at,
+    source: "connected",
+    provider: event.provider,
+    all_day: event.all_day,
+  };
+}
+
 export async function GET() {
   const ctx = await getClientContext();
   if (ctx.error) return ctx.error;
@@ -86,10 +106,24 @@ export async function GET() {
     return NextResponse.json({ error: personalError.message }, { status: 500 });
   }
 
+  const today = dateKeyInTimeZone(new Date(), "Europe/London");
+  const { data: connectedEvents, error: connectedError } = await admin
+    .from("client_calendar_events")
+    .select("id, title, event_date_key, event_time, meeting_url, is_cancelled, provider, all_day, created_at")
+    .eq("client_id", profile.id)
+    .eq("is_cancelled", false)
+    .gte("event_date_key", today)
+    .order("starts_at", { ascending: true });
+
+  if (connectedError) {
+    return NextResponse.json({ error: connectedError.message }, { status: 500 });
+  }
+
   return NextResponse.json({
     events: [
       ...(coachEvents || []).map((event) => ({ ...event, source: "coach" })),
       ...(personalEvents || []).map(mapPersonalEvent),
+      ...(connectedEvents || []).map(mapConnectedEvent),
     ],
   });
 }

@@ -43,6 +43,7 @@ export async function GET() {
     activityRes,
     dailyMetricsRes,
     calendarRes,
+    connectedCalendarRes,
     coachCalendarRes,
     monitoringRes,
     snoozesRes,
@@ -77,6 +78,13 @@ export async function GET() {
       .eq("is_active", true)
       .lte("event_date_key", localDateKey(weekEnd)),
     admin
+      .from("client_calendar_events")
+      .select("id, client_id, title, event_date_key, event_time, provider, all_day, is_cancelled, created_at")
+      .in("client_id", clientIds)
+      .eq("is_cancelled", false)
+      .gte("event_date_key", todayKey)
+      .lte("event_date_key", localDateKey(weekEnd)),
+    admin
       .from("calendar_events")
       .select("id, title, event_date, event_time, recurrence, recurrence_day, is_active, created_at")
       .eq("is_active", true)
@@ -97,6 +105,7 @@ export async function GET() {
     activityRes.error,
     dailyMetricsRes.error,
     calendarRes.error,
+    connectedCalendarRes.error,
     coachCalendarRes.error,
     monitoringRes.error,
     snoozesRes.error,
@@ -130,6 +139,23 @@ export async function GET() {
       is_active: event.is_active,
       created_at: event.created_at,
       source: "client",
+    });
+    personalCalendarByClient.set(event.client_id, events);
+  }
+  for (const event of connectedCalendarRes.data || []) {
+    const events = personalCalendarByClient.get(event.client_id) || [];
+    events.push({
+      id: event.id,
+      title: event.title,
+      event_date: event.event_date_key,
+      event_time: event.event_time,
+      recurrence: "none",
+      recurrence_day: undefined,
+      is_active: !event.is_cancelled,
+      created_at: event.created_at,
+      source: "connected",
+      provider: event.provider,
+      all_day: event.all_day,
     });
     personalCalendarByClient.set(event.client_id, events);
   }

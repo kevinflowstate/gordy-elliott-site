@@ -1046,6 +1046,8 @@ export default function ClientDetailPage() {
   const hasConsultationData = !!client.consultation_data && Object.keys(client.consultation_data).length > 0;
   const latestWearableSummary = client.wearable_summaries?.[0] || null;
   const activeWearableConnections = (client.wearable_connections || []).filter((connection) => connection.status === "connected");
+  const activeCalendarConnections = (client.calendar_connections || []).filter((connection) => connection.status === "connected");
+  const upcomingCalendarEvents = client.calendar_events || [];
 
   function consultationUrl() {
     if (typeof window === "undefined") return "/portal/consultation?setup=true";
@@ -1771,6 +1773,66 @@ export default function ClientDetailPage() {
                 {titleCaseProvider(connection.provider)} · {formatWearableDate(connection.last_sync_at)}
               </span>
             ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mb-6 border-y border-[rgba(0,0,0,0.06)] py-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Connected Calendars</div>
+            <h2 className="mt-1 text-lg font-heading font-bold text-text-primary">Weekly load</h2>
+            <p className="mt-1 text-sm text-text-secondary">
+              {activeCalendarConnections.length > 0
+                ? `${activeCalendarConnections.map((connection) => connection.provider === "google_calendar" ? "Google Calendar" : "Outlook Calendar").join(", ")} connected.`
+                : "No calendar connected yet."}
+            </p>
+          </div>
+          <span className={`inline-flex w-fit rounded-full border px-3 py-1.5 text-xs font-semibold ${
+            activeCalendarConnections.length > 0
+              ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+              : "border-[rgba(0,0,0,0.08)] bg-bg-primary text-text-muted"
+          }`}>
+            {upcomingCalendarEvents.length} event{upcomingCalendarEvents.length === 1 ? "" : "s"} in the synced window
+          </span>
+        </div>
+
+        {activeCalendarConnections.length > 0 ? (
+          <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+            <div className="space-y-2">
+              {activeCalendarConnections.map((connection) => (
+                <div key={connection.id} className="flex items-center justify-between gap-3 rounded-lg border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-3">
+                  <span className="text-sm font-semibold text-text-primary">
+                    {connection.provider === "google_calendar" ? "Google Calendar" : "Outlook Calendar"}
+                  </span>
+                  <span className="text-xs text-text-muted">{formatWearableDate(connection.last_sync_at)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="rounded-lg border border-[rgba(0,0,0,0.06)] bg-bg-card px-4 py-3">
+              <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Next up</div>
+              {upcomingCalendarEvents.length > 0 ? (
+                <div className="space-y-2">
+                  {upcomingCalendarEvents.slice(0, 5).map((event) => (
+                    <div key={event.id} className="flex min-w-0 items-center gap-3 text-sm">
+                      <span className="w-14 flex-none text-xs font-semibold text-accent-bright">
+                        {event.all_day ? "All day" : event.event_time}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-text-primary">{event.title}</span>
+                      <span className="flex-none text-xs text-text-muted">
+                        {new Date(`${event.event_date_key}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-text-muted">No events in the current seven-day window.</p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4 rounded-lg border border-dashed border-[rgba(0,0,0,0.10)] bg-bg-card px-4 py-3 text-sm text-text-secondary">
+            Ask the client to open Calendar in their portal and connect Outlook or Google Calendar.
           </div>
         )}
       </div>

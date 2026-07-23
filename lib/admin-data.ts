@@ -13,6 +13,8 @@ import type {
   ClientKeyDate,
 } from "./types";
 import type { WearableConnection, WearableDailySummary } from "./wearable-insights";
+import type { CalendarConnection, SyncedCalendarEvent } from "./composio/types";
+import { dateKeyInTimeZone } from "./founder-dashboard";
 import {
   computeClientAttention,
   DEFAULT_MONITORING_PREFERENCES,
@@ -66,6 +68,8 @@ export interface AdminClient {
   key_dates?: ClientKeyDate[];
   wearable_connections?: WearableConnection[];
   wearable_summaries?: WearableDailySummary[];
+  calendar_connections?: CalendarConnection[];
+  calendar_events?: SyncedCalendarEvent[];
   lifecycle_status: ClientLifecycleStatus;
   lifecycle_paused_at?: string | null;
   lifecycle_resumes_at?: string | null;
@@ -406,6 +410,8 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
   const [
     { data: wearableConnections },
     { data: wearableSummaries },
+    { data: calendarConnections },
+    { data: calendarEvents },
     { data: monitoringRow },
     { data: lifecycleNote },
     { data: attentionSnoozes },
@@ -427,6 +433,19 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
       .lte("summary_date", new Date().toISOString().slice(0, 10))
       .order("summary_date", { ascending: false })
       .limit(7),
+    admin
+      .from("client_calendar_connections")
+      .select("id, client_id, provider, composio_user_id, composio_connected_account_id, status, last_sync_at, connected_at, disconnected_at, created_at, updated_at")
+      .eq("client_id", id)
+      .order("updated_at", { ascending: false }),
+    admin
+      .from("client_calendar_events")
+      .select("id, client_id, connection_id, provider, external_event_id, title, starts_at, ends_at, event_date_key, event_time, all_day, busy_status, meeting_url, is_cancelled, synced_at")
+      .eq("client_id", id)
+      .eq("is_cancelled", false)
+      .gte("event_date_key", dateKeyInTimeZone(new Date(), "Europe/London"))
+      .order("starts_at", { ascending: true })
+      .limit(50),
     admin
       .from("client_monitoring_preferences")
       .select("*")
@@ -540,6 +559,8 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
     key_dates: keyDates || [],
     wearable_connections: (wearableConnections || []) as WearableConnection[],
     wearable_summaries: (wearableSummaries || []) as WearableDailySummary[],
+    calendar_connections: (calendarConnections || []) as CalendarConnection[],
+    calendar_events: (calendarEvents || []) as SyncedCalendarEvent[],
     lifecycle_status: lifecycleStatus,
     lifecycle_paused_at: p.lifecycle_paused_at || null,
     lifecycle_resumes_at: p.lifecycle_resumes_at || null,

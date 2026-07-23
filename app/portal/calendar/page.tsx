@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { CalendarEvent, RecurrenceType } from "@/lib/types";
+import CalendarConnections from "@/components/portal/CalendarConnections";
 
 const recurrenceLabels: Record<RecurrenceType, { label: string; color: string }> = {
   none: { label: "One-off", color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
@@ -48,9 +49,15 @@ function getEventDates(event: CalendarEvent, year: number, month: number): Date[
 
 function getNextOccurrence(event: CalendarEvent): Date | null {
   const now = new Date();
-  const baseDate = new Date(event.event_date);
+  const dateKey = event.event_date.slice(0, 10);
+  const baseDate = new Date(`${dateKey}T${event.all_day ? "12:00" : event.event_time || "00:00"}:00`);
 
   if (event.recurrence === "none") {
+    if (event.all_day && dateKey === [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, "0"),
+      String(now.getDate()).padStart(2, "0"),
+    ].join("-")) return now;
     return baseDate >= now ? baseDate : null;
   }
 
@@ -248,6 +255,8 @@ export default function PortalCalendarPage() {
         <p className="text-text-secondary mt-1 text-sm">Upcoming events and coaching sessions.</p>
       </div>
 
+      <CalendarConnections onEventsChanged={loadEvents} />
+
       <div className="mb-6 flex justify-end">
         <button
           type="button"
@@ -367,7 +376,10 @@ export default function PortalCalendarPage() {
                 <span>
                   {upNext.next!.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
                 </span>
-                <span>{formatTime(upNext.event.event_time)}</span>
+                <span>{upNext.event.all_day ? "All day" : formatTime(upNext.event.event_time)}</span>
+                {upNext.event.source === "connected" && (
+                  <span>{upNext.event.provider === "google_calendar" ? "Google Calendar" : "Outlook Calendar"}</span>
+                )}
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${recurrenceLabels[upNext.event.recurrence].color}`}>
                   {recurrenceLabels[upNext.event.recurrence].label}
                 </span>
@@ -523,7 +535,7 @@ export default function PortalCalendarPage() {
                                 <div key={ev.id} className="flex items-center gap-2">
                                   <span className="w-1.5 h-1.5 rounded-full bg-accent-bright flex-shrink-0" />
                                   <span className="text-sm font-medium text-text-primary truncate">{ev.title}</span>
-                                  <span className="text-[11px] text-text-muted flex-shrink-0 ml-auto">{formatTime(ev.event_time)}</span>
+                                  <span className="text-[11px] text-text-muted flex-shrink-0 ml-auto">{ev.all_day ? "All day" : formatTime(ev.event_time)}</span>
                                 </div>
                               ))}
                             </div>
@@ -559,7 +571,10 @@ export default function PortalCalendarPage() {
                     </div>
                     <div className="min-w-0">
                       <div className="text-sm font-semibold text-text-primary">{ev.title}</div>
-                      <div className="text-xs text-text-muted">{formatTime(ev.event_time)}</div>
+                      <div className="text-xs text-text-muted">
+                        {ev.all_day ? "All day" : formatTime(ev.event_time)}
+                        {ev.source === "connected" && ` · ${ev.provider === "google_calendar" ? "Google Calendar" : "Outlook Calendar"}`}
+                      </div>
                       {ev.description && (
                         <p className="text-xs text-text-secondary mt-1">{ev.description}</p>
                       )}
