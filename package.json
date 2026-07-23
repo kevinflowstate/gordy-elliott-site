@@ -24,7 +24,8 @@
     "ios:open": "cap open ios",
     "ios:build": "npm run ios:sync && xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath ${IOS_DERIVED_DATA_PATH:-.ios-derived-data} CODE_SIGNING_ALLOWED=NO build",
     "ios:preflight": "node scripts/ios-release-preflight.mjs",
-    "ios:archive": "npm run ios:sync && npm run ios:preflight && node scripts/archive-ios.mjs"
+    "ios:archive": "npm run ios:sync && npm run ios:preflight && node scripts/archive-ios.mjs",
+    "ios:upload": "npm run ios:preflight && node scripts/upload-ios.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.0.1",
