@@ -210,17 +210,19 @@ export type RecurrenceType = 'none' | 'weekly' | 'biweekly' | 'monthly';
 export interface CalendarEvent {
   id: string;
   title: string;
-  description?: string;
+  description?: string | null;
   category?: string;
   event_date: string;
   event_time: string;
   recurrence: RecurrenceType;
-  recurrence_day?: number;
-  link?: string;
-  link_label?: string;
+  recurrence_day?: number | null;
+  link?: string | null;
+  link_label?: string | null;
   is_active: boolean;
   created_at: string;
-  source?: 'coach' | 'client';
+  source?: 'coach' | 'client' | 'connected';
+  provider?: import("./composio/types").CalendarProvider;
+  all_day?: boolean;
 }
 
 // Form config types

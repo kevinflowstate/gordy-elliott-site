@@ -99,25 +99,29 @@ Acceptance:
 
 Estimated effort: 1 to 2 days
 
-- [ ] Add Composio environment configuration and server client. (blocked:
-      Composio project credentials and auth configuration)
-- [ ] Add a client-to-Composio connected-account mapping.
-- [ ] Add Connect Google Calendar.
-- [ ] Add Connect Outlook Calendar.
-- [ ] Restrict integrations to read-only calendar actions.
-- [ ] Normalize Google and Outlook events into one internal shape.
-- [ ] Pull the current day and next seven days.
-- [ ] Store only the minimum calendar information needed by the dashboard.
-- [ ] Add connection status, last sync, reconnect, and disconnect controls.
-- [ ] Add refresh or trigger handling for changed events.
-- [ ] Mirror calendar connection and density on Gordy's client view.
+- [x] Add Composio environment configuration and server client.
+- [x] Add a client-to-Composio connected-account mapping.
+- [x] Add Connect Google Calendar. (activation blocked: attach a Google OAuth
+      client to the Composio auth configuration)
+- [x] Add Connect Outlook Calendar.
+- [x] Restrict integrations to read-only calendar actions.
+- [x] Normalize Google and Outlook events into one internal shape.
+- [x] Pull the current day and next seven days.
+- [x] Store only the minimum calendar information needed by the dashboard.
+- [x] Add connection status, last sync, reconnect, and disconnect controls.
+- [x] Add daily refresh and manual sync handling for changed events.
+- [x] Mirror calendar connection and density on Gordy's client view.
 
 Acceptance:
 
-- [ ] Client A cannot access Client B's calendar data.
-- [ ] Disconnecting removes future calendar access.
-- [ ] Google and Outlook produce the same dashboard model.
-- [ ] Calendar errors do not block the rest of the portal.
+- [x] Client A cannot access Client B's calendar data.
+- [x] Disconnecting removes future calendar access.
+- [x] Google and Outlook produce the same dashboard model.
+- [x] Calendar errors do not block the rest of the portal.
+
+Status: Outlook is ready for a production connection test. Google remains
+visibly marked as coming soon until its external OAuth credentials are attached
+in Composio; no further portal implementation is required to expose it.
 
 ## Phase 4: Terra Production
 

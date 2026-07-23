@@ -1,5 +1,6 @@
 import { requireAdmin } from "@/lib/admin-auth";
 import { getTerraConfig } from "@/lib/terra/client";
+import { getComposioConfig } from "@/lib/composio/client";
 import { NextResponse } from "next/server";
 
 type StatusLevel = "ok" | "warning" | "blocked";
@@ -16,6 +17,7 @@ export async function GET() {
   const pushReady = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY ? "ok" : "blocked";
   const brainReady = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY ? "ok" : "blocked";
   const terra = getTerraConfig();
+  const composio = getComposioConfig();
   const terraStatus: StatusLevel = terra.partialCredentials
     ? "blocked"
     : terra.mockMode
@@ -81,6 +83,20 @@ export async function GET() {
               : terra.configured
                 ? "Terra API credentials are set, but TERRA_WEBHOOK_SIGNING_SECRET is missing."
                 : "Terra production credentials are not configured. Mock data is disabled in production.",
+      },
+      {
+        key: "composio",
+        label: "Connected calendars",
+        status: composio.providers.outlook.configured
+          ? composio.providers.google_calendar.configured ? "ok" : "warning"
+          : "blocked",
+        detail: !composio.available
+          ? "COMPOSIO_API_KEY is missing."
+          : !composio.providers.outlook.configured
+            ? "The Outlook auth configuration is missing."
+            : composio.providers.google_calendar.configured
+              ? "Outlook and Google Calendar are configured with read-only calendar access."
+              : "Outlook is ready. Google Calendar still needs a Google OAuth client attached in Composio.",
       },
       {
         key: "auth-signups",
