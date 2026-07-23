@@ -160,7 +160,7 @@ export default function ShiftAIPage() {
   return (
     <div className="shift-ai-shell mx-auto flex w-full max-w-3xl flex-col h-[calc(100dvh-10rem)] sm:h-[calc(100dvh-8rem)] lg:h-[calc(100vh-4rem)]">
       <div className="mb-4 sm:mb-6">
-        <h1 className="text-xl font-heading font-extrabold text-text-primary sm:text-2xl">SHIFT AI</h1>
+        <h1 className="text-xl font-heading font-extrabold text-text-primary sm:text-2xl">AT CAPACITY AI</h1>
         <p className="text-sm text-text-secondary mt-1">
           Your personal coaching assistant - ask about training, your plan, or next steps.
         </p>
@@ -247,8 +247,8 @@ export default function ShiftAIPage() {
             event.currentTarget.style.height = "auto";
             event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 120)}px`;
           }}
-          aria-label="Ask SHIFT AI"
-          placeholder="Ask SHIFT AI..."
+          aria-label="Ask AT CAPACITY AI"
+          placeholder="Ask AT CAPACITY AI..."
           rows={1}
           disabled={loading}
         />
@@ -256,7 +256,7 @@ export default function ShiftAIPage() {
           type="button"
           onClick={() => handleSend()}
           disabled={!input.trim() || loading}
-          aria-label={loading ? "SHIFT AI is replying" : "Send message to SHIFT AI"}
+          aria-label={loading ? "AT CAPACITY AI is replying" : "Send message to AT CAPACITY AI"}
           title="Send message"
           className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl bg-accent-bright/20 hover:bg-accent-bright/30 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors cursor-pointer"
         >

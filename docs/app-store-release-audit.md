@@ -2,7 +2,7 @@
 
 Date: 21 July 2026
 
-Candidate: SHIFT Coaching 1.0 (Build 2)
+Candidate: AT CAPACITY 1.0 (Build 2)
 
 Status: ready for controlled web deployment and candidate archive; not ready for final App Store submission
 

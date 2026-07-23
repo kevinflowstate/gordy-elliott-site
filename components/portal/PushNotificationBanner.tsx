@@ -124,7 +124,7 @@ export default function PushNotificationBanner() {
             </svg>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold leading-tight text-white">
-                Install SHIFT
+                Install AT CAPACITY
               </p>
               <p className="hidden text-xs leading-snug text-white/70 min-[420px]:block">Home-screen shortcut and reminders.</p>
               {showManual && (

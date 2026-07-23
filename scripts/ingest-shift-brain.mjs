@@ -238,7 +238,7 @@ function openRouterHeaders() {
   if (embeddingProvider !== "openrouter") return {};
   return {
     "HTTP-Referer": process.env.SHIFT_BRAIN_OPENROUTER_REFERER || "https://gordy-elliott-site.vercel.app",
-    "X-OpenRouter-Title": process.env.SHIFT_BRAIN_OPENROUTER_TITLE || "Gordy Elliott SHIFT Portal",
+    "X-OpenRouter-Title": process.env.SHIFT_BRAIN_OPENROUTER_TITLE || "Gordy Elliott AT CAPACITY Portal",
   };
 }
 

@@ -2,6 +2,7 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { buildAccountRecoveryUrl } from "@/lib/account-links";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendWelcomeEmail } from "@/lib/email-templates";
+import { DEFAULT_CLIENT_EXPERIENCE, isClientExperienceMode } from "@/lib/client-experience";
 import { NextResponse } from "next/server";
 
 const VALID_TIERS = ["coached", "premium", "vip", "ai_only"];
@@ -15,7 +16,7 @@ export async function POST(request: Request) {
   const auth = await requireAdmin();
   if (!auth.authorized) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { name, email, password, tier } = await request.json();
+  const { name, email, password, tier, experience_mode } = await request.json();
   const normalizedName = name?.trim();
   const normalizedEmail = email?.trim()?.toLowerCase();
   const providedPassword = typeof password === "string" ? password.trim() : "";
@@ -27,6 +28,17 @@ export async function POST(request: Request) {
 
   if (providedPassword && providedPassword.length < 8) {
     return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
+  }
+
+  if (experience_mode !== undefined && !isClientExperienceMode(experience_mode)) {
+    return NextResponse.json({ error: "Invalid client experience" }, { status: 400 });
+  }
+  const resolvedExperience = experience_mode || DEFAULT_CLIENT_EXPERIENCE;
+  if (resolvedExperience === "founder_dashboard" && tier === "ai_only") {
+    return NextResponse.json(
+      { error: "Founder Dashboard cannot be combined with the AI-only tier" },
+      { status: 400 },
+    );
   }
 
   const admin = createAdminClient();
@@ -70,12 +82,24 @@ export async function POST(request: Request) {
     .single();
 
   if (!profile) {
+    await admin.auth.admin.deleteUser(newUser.user.id);
     return NextResponse.json({ error: "Client profile was not created" }, { status: 500 });
   }
 
-  // Set tier if specified
+  const profileUpdates: Record<string, string> = {
+    experience_mode: resolvedExperience,
+  };
   if (tier && VALID_TIERS.includes(tier)) {
-    await admin.from("client_profiles").update({ tier }).eq("id", profile.id);
+    profileUpdates.tier = tier;
+  }
+  const { error: profileUpdateError } = await admin
+    .from("client_profiles")
+    .update(profileUpdates)
+    .eq("id", profile.id);
+
+  if (profileUpdateError) {
+    await admin.auth.admin.deleteUser(newUser.user.id);
+    return NextResponse.json({ error: "Client profile could not be configured" }, { status: 500 });
   }
 
   // Auto-assign published training modules
@@ -97,7 +121,7 @@ export async function POST(request: Request) {
   // Create welcome notification
   await admin.from("notifications").insert({
     user_id: newUser.user.id,
-    title: "Welcome to SHIFT Coaching",
+    title: "Welcome to AT CAPACITY",
     message: `Welcome ${normalizedName.split(" ")[0]}! Your portal is set up and ready. Start by exploring your training modules and completing your first check-in.`,
     link: "/portal",
   });

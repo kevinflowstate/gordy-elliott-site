@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { InboxConversation, InboxMessage, UserRole } from "@/lib/types";
+import { isFounderExperience } from "@/lib/client-experience";
 
 export interface InboxViewer {
   userId: string;
@@ -14,6 +15,7 @@ interface ClientRecord {
   id: string;
   user_id: string;
   business_name: string | null;
+  experience_mode?: string | null;
 }
 
 interface UserRecord {
@@ -65,7 +67,7 @@ export async function listInboxConversations(viewer: InboxViewer): Promise<Inbox
 
   const clientsQuery = admin
     .from("client_profiles")
-    .select("id, user_id, business_name")
+    .select("id, user_id, business_name, experience_mode")
     .order("created_at", { ascending: true });
 
   const [clientsRes, usersRes, messagesRes] = await Promise.all([
@@ -107,11 +109,12 @@ export async function getInboxThread(
 
   const { data: clientProfile } = await admin
     .from("client_profiles")
-    .select("id, user_id, business_name")
+    .select("id, user_id, business_name, experience_mode")
     .eq("id", clientId)
     .maybeSingle<ClientRecord>();
 
   if (!clientProfile) return null;
+  if (isFounderExperience(clientProfile.experience_mode)) return null;
   if (viewer.role === "client" && clientProfile.id !== viewer.clientProfileId) return null;
 
   const [userRes, messagesRes, sendersRes] = await Promise.all([
@@ -160,9 +163,19 @@ export async function getInboxUnreadCount(viewer: InboxViewer): Promise<number> 
     return count ?? 0;
   }
 
+  const { data: messageEnabledClients, error: clientsError } = await admin
+    .from("client_profiles")
+    .select("id")
+    .neq("experience_mode", "founder_dashboard");
+  if (clientsError) throw clientsError;
+
+  const clientIds = (messageEnabledClients || []).map((client) => client.id);
+  if (clientIds.length === 0) return 0;
+
   const { count } = await admin
     .from("inbox_messages")
     .select("*", { count: "exact", head: true })
+    .in("client_id", clientIds)
     .eq("sender_role", "client")
     .eq("read_by_admin", false);
 
@@ -185,6 +198,7 @@ function buildConversations(
   }
 
   return clients
+    .filter((client) => !isFounderExperience(client.experience_mode))
     .map((client) => {
       const thread = messageMap.get(client.id) ?? [];
       const latest = thread[0] ?? null;

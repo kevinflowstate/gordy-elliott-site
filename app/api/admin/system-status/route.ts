@@ -64,7 +64,7 @@ export async function GET() {
       },
       {
         key: "brain",
-        label: "SHIFT Brain retrieval",
+        label: "Coaching knowledge retrieval",
         status: brainReady,
         detail: brainReady === "ok" ? "Embedding provider key is configured." : "OPENROUTER_API_KEY or OPENAI_API_KEY is missing.",
       },

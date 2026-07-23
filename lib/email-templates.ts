@@ -12,14 +12,14 @@ async function getResend() {
   const { Resend } = await import("resend");
   return new Resend(process.env.RESEND_API_KEY!);
 }
-const FROM = "SHIFT Coaching <team@flowstatesystems.ai>";
+const FROM = "AT CAPACITY <team@flowstatesystems.ai>";
 
 function wrap(content: string): string {
   return `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px;">
       ${content}
       <p style="color: #999; font-size: 12px; margin: 32px 0 0;">
-        SHIFT Coaching - Client Portal
+        AT CAPACITY - Client Portal
       </p>
     </div>
   `;
@@ -34,7 +34,7 @@ export async function sendWelcomeEmail(to: string, name: string, setupUrl: strin
   const resend = await getResend(); return resend.emails.send({
     from: FROM,
     to,
-    subject: "Your SHIFT Coaching portal is ready",
+    subject: "Your AT CAPACITY portal is ready",
     html: wrap(`
       <h2 style="margin: 0 0 8px; font-size: 20px; color: #111;">Welcome ${escapeHtml(firstName)},</h2>
       <p style="color: #555; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
@@ -50,7 +50,7 @@ export async function sendPasswordResetEmail(to: string, name: string, resetUrl:
   const resend = await getResend(); return resend.emails.send({
     from: FROM,
     to,
-    subject: "Reset your SHIFT Coaching password",
+    subject: "Reset your AT CAPACITY password",
     html: wrap(`
       <h2 style="margin: 0 0 8px; font-size: 20px; color: #111;">Hey ${escapeHtml(firstName)},</h2>
       <p style="color: #555; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
@@ -101,7 +101,7 @@ export async function sendConsultationLinkEmail(to: string, clientName: string, 
   const resend = await getResend(); return resend.emails.send({
     from: FROM,
     to,
-    subject: "Complete your SHIFT consultation",
+    subject: "Complete your AT CAPACITY consultation",
     html: wrap(`
       <h2 style="margin: 0 0 8px; font-size: 20px; color: #111;">Hey ${escapeHtml(firstName)},</h2>
       <p style="color: #555; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">

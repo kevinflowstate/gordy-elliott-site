@@ -23,7 +23,7 @@ export default function Nav() {
       <div className="max-w-[1200px] mx-auto flex justify-between items-center h-[72px]">
         <Link href="/" className="flex items-center gap-3 no-underline">
           <span className="font-heading font-extrabold text-[1.1rem] text-text-primary tracking-[-0.5px]">
-            SHIFT <span className="text-accent-light">COACHING</span>
+            <span className="text-accent-light">AT</span> CAPACITY
           </span>
         </Link>
 

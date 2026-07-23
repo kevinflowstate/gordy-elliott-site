@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   TrafficLight,
   ClientTier,
+  ClientExperienceMode,
   ClientSex,
   TrainingPlan,
   TrainingPlanPhase,
@@ -52,6 +53,7 @@ export interface AdminClient {
   coach_notes?: string;
   start_weight?: number;
   tier: ClientTier;
+  experience_mode: ClientExperienceMode;
   consultation_data?: Record<string, unknown> | null;
   consultation_summary?: Record<string, unknown> | null;
   profile_setup_data?: Record<string, unknown> | null;
@@ -157,7 +159,7 @@ export async function getClients(): Promise<AdminClient[]> {
       id, user_id, phone, business_name, business_type, goals,
       primary_goal, target_date, goal_notes,
       start_date, last_login, last_checkin, created_at, checkin_day,
-      checkin_form_id, coach_notes, start_weight, tier,
+      checkin_form_id, coach_notes, start_weight, tier, experience_mode,
       consultation_data, consultation_summary, profile_setup_data, profile_setup_completed_at,
       wearables_preference, wearables_notes, date_of_birth, sex, cycle_tracking_enabled,
       lifecycle_status, lifecycle_paused_at, lifecycle_resumes_at,
@@ -295,6 +297,7 @@ export async function getClients(): Promise<AdminClient[]> {
       coach_notes: p.coach_notes || undefined,
       start_weight: p.start_weight ?? undefined,
       tier: (p.tier as ClientTier) || 'coached',
+      experience_mode: (p.experience_mode as ClientExperienceMode) || 'ai_coaching',
       consultation_data: (p.consultation_data as Record<string, unknown> | null) || null,
       consultation_summary: (p.consultation_summary as Record<string, unknown> | null) || null,
       profile_setup_data: (p.profile_setup_data as Record<string, unknown> | null) || null,
@@ -335,7 +338,7 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
       id, user_id, phone, business_name, business_type, goals,
       primary_goal, target_date, goal_notes,
       start_date, last_login, last_checkin, created_at, checkin_day,
-      checkin_form_id, coach_notes, start_weight, tier,
+      checkin_form_id, coach_notes, start_weight, tier, experience_mode,
       consultation_data, consultation_summary, profile_setup_data, profile_setup_completed_at,
       wearables_preference, wearables_notes, date_of_birth, sex, cycle_tracking_enabled,
       lifecycle_status, lifecycle_paused_at, lifecycle_resumes_at,
@@ -421,6 +424,7 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
       .from("client_wearable_daily_summaries")
       .select("*")
       .eq("client_id", id)
+      .lte("summary_date", new Date().toISOString().slice(0, 10))
       .order("summary_date", { ascending: false })
       .limit(7),
     admin
@@ -442,12 +446,14 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
       .select("log_date")
       .eq("client_id", id)
       .eq("completed", true)
+      .lte("log_date", new Date().toISOString().slice(0, 10))
       .order("log_date", { ascending: false })
       .limit(1),
     admin
       .from("client_daily_metrics")
       .select("tracked_date")
       .eq("client_id", id)
+      .lte("tracked_date", new Date().toISOString().slice(0, 10))
       .order("tracked_date", { ascending: false })
       .limit(1),
     admin
@@ -455,6 +461,7 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
       .select("tracked_date")
       .eq("client_id", id)
       .eq("completed", true)
+      .lte("tracked_date", new Date().toISOString().slice(0, 10))
       .order("tracked_date", { ascending: false })
       .limit(1),
     admin
@@ -520,6 +527,7 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
     coach_notes: p.coach_notes || undefined,
     start_weight: p.start_weight ?? undefined,
     tier: (p.tier as ClientTier) || 'coached',
+    experience_mode: (p.experience_mode as ClientExperienceMode) || 'ai_coaching',
     consultation_data: (p.consultation_data as Record<string, unknown> | null) || null,
     consultation_summary: (p.consultation_summary as Record<string, unknown> | null) || null,
     profile_setup_data: (p.profile_setup_data as Record<string, unknown> | null) || null,

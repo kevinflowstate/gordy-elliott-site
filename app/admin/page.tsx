@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
 import type { AdminClient } from "@/lib/admin-data";
-import type { TrafficLight, CheckInMood, CheckIn } from "@/lib/types";
+import type { ClientExperienceMode, TrafficLight, CheckInMood, CheckIn } from "@/lib/types";
 
 const statusLabel: Record<TrafficLight, { text: string; dotClass: string; bgClass: string; textClass: string }> = {
   red: { text: "Needs Attention", dotClass: "bg-red-500", bgClass: "bg-red-500/10", textClass: "text-red-400" },
@@ -46,10 +46,15 @@ export default function AdminDashboard() {
   const [expandedClient, setExpandedClient] = useState<string | null>(null);
   const [adminName, setAdminName] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ firstName: "", lastName: "", email: "" });
+  const [inviteForm, setInviteForm] = useState<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    experienceMode: ClientExperienceMode;
+  }>({ firstName: "", lastName: "", email: "", experienceMode: "ai_coaching" });
   const [inviteSending, setInviteSending] = useState(false);
   const [inviteError, setInviteError] = useState("");
-  const [inviteSuccess, setInviteSuccess] = useState(false);
+  const [inviteResult, setInviteResult] = useState<{ emailSent: boolean; setupUrl: string | null } | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -387,28 +392,41 @@ export default function AdminDashboard() {
 
       {inviteOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setInviteOpen(false); setInviteError(""); setInviteSuccess(false); }} />
-          <div className="relative bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 w-full max-w-md shadow-2xl">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setInviteOpen(false); setInviteError(""); setInviteResult(null); }} />
+          <div className="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-card p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-heading font-bold text-text-primary">Invite New Client</h3>
-              <button onClick={() => { setInviteOpen(false); setInviteError(""); setInviteSuccess(false); }} className="text-text-muted hover:text-text-secondary transition-colors cursor-pointer">
+              <button onClick={() => { setInviteOpen(false); setInviteError(""); setInviteResult(null); }} className="text-text-muted hover:text-text-secondary transition-colors cursor-pointer">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            {inviteSuccess ? (
+            {inviteResult ? (
               <div className="text-center py-6">
                 <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-3">
                   <svg className="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <p className="text-text-primary font-semibold mb-1">Invite Sent</p>
-                <p className="text-text-secondary text-sm">They will receive an email to set up their account.</p>
+                <p className="text-text-primary font-semibold mb-1">Client Added</p>
+                <p className="text-text-secondary text-sm">
+                  {inviteResult.emailSent
+                    ? "Their account setup email has been sent."
+                    : "Email delivery is not configured yet. Share the secure setup link below."}
+                </p>
+                {inviteResult.setupUrl && (
+                  <button
+                    type="button"
+                    onClick={() => void navigator.clipboard.writeText(inviteResult.setupUrl || "")}
+                    className="mt-4 w-full rounded-xl border border-accent/25 bg-accent/8 px-4 py-2.5 text-sm font-semibold text-accent"
+                  >
+                    Copy setup link
+                  </button>
+                )}
                 <button
-                  onClick={() => { setInviteOpen(false); setInviteSuccess(false); setInviteForm({ firstName: "", lastName: "", email: "" }); }}
+                  onClick={() => { setInviteOpen(false); setInviteResult(null); setInviteForm({ firstName: "", lastName: "", email: "", experienceMode: "ai_coaching" }); }}
                   className="mt-4 px-6 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold cursor-pointer"
                 >
                   Done
@@ -420,19 +438,23 @@ export default function AdminDashboard() {
                 setInviteSending(true);
                 setInviteError("");
                 try {
-                  const res = await fetch("/api/admin/create-client", {
+                  const res = await fetch("/api/admin/invite-client", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                       email: inviteForm.email,
-                      full_name: `${inviteForm.firstName} ${inviteForm.lastName}`.trim(),
+                      name: `${inviteForm.firstName} ${inviteForm.lastName}`.trim(),
+                      experience_mode: inviteForm.experienceMode,
                     }),
                   });
+                  const data = await res.json().catch(() => ({}));
                   if (!res.ok) {
-                    const data = await res.json();
                     throw new Error(data.error || "Failed to send invite");
                   }
-                  setInviteSuccess(true);
+                  setInviteResult({
+                    emailSent: data.emailSent === true,
+                    setupUrl: typeof data.setupUrl === "string" ? data.setupUrl : null,
+                  });
                   // Refresh client list
                   const clientsRes = await fetch("/api/admin/clients");
                   if (clientsRes.ok) {
@@ -477,6 +499,18 @@ export default function AdminDashboard() {
                     placeholder="client@example.com"
                     className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3.5 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-1.5">Client Experience</label>
+                  <select
+                    value={inviteForm.experienceMode}
+                    onChange={(e) => setInviteForm(prev => ({ ...prev, experienceMode: e.target.value as ClientExperienceMode }))}
+                    className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3.5 py-2.5 text-sm text-text-primary focus:outline-none focus:border-accent/40 transition-colors"
+                  >
+                    <option value="ai_coaching">AI Coaching</option>
+                    <option value="founder_dashboard">Founder Dashboard</option>
+                  </select>
+                  <p className="mt-1.5 text-xs text-text-muted">Founder clients use WhatsApp instead of portal DM and AI.</p>
                 </div>
                 {inviteError && (
                   <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs">{inviteError}</div>
@@ -629,7 +663,7 @@ function ShiftOverview({ clients, recentCheckins }: { clients: AdminClient[]; re
             </svg>
           </div>
           <div>
-            <h2 className="text-sm font-heading font-bold text-text-primary">SHIFT AI</h2>
+            <h2 className="text-sm font-heading font-bold text-text-primary">AT CAPACITY AI</h2>
             <p className="text-[10px] text-text-muted">Your daily briefing</p>
           </div>
         </div>

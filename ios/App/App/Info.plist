@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>SHIFT Coaching</string>
+        <string>AT CAPACITY</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -40,9 +40,9 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>SHIFT Coaching uses your camera so you can add progress, check-in, and profile photos.</string>
+	<string>AT CAPACITY uses your camera so you can add progress, check-in, and profile photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>SHIFT Coaching uses your photo library so you can upload progress, check-in, and profile photos.</string>
+	<string>AT CAPACITY uses your photo library so you can upload progress, check-in, and profile photos.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

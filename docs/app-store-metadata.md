@@ -1,4 +1,4 @@
-# SHIFT Coaching App Store Metadata
+# AT CAPACITY App Store Metadata
 
 Prepared 21 July 2026 for the first iOS release. Recheck character limits in App Store Connect before submission.
 
@@ -6,7 +6,7 @@ Prepared 21 July 2026 for the first iOS release. Recheck character limits in App
 
 | Field | Submission value |
 | --- | --- |
-| Name | SHIFT Coaching by Gordy |
+| Name | AT CAPACITY by Gordy |
 | Subtitle | Training, nutrition, coaching |
 | Primary category | Health & Fitness |
 | Secondary category | Lifestyle |
@@ -26,7 +26,7 @@ Your training plan, nutrition targets, daily tracking and direct coaching suppor
 
 ## Description
 
-SHIFT Coaching is the private coaching companion for existing Gordy Elliott clients.
+AT CAPACITY is the private coaching companion for existing Gordy Elliott clients.
 
 Your programme, progress and coach conversations stay together, so you always know what to focus on next.
 
@@ -53,9 +53,9 @@ COACHING CONTEXT THAT MOVES WITH YOU
 
 Eligible clients can use optional cycle tracking. Supported connected apps can also contribute sleep, recovery, activity and nutrition summaries when enabled. These signals support coaching suggestions only and never change a programme automatically.
 
-SHIFT AI can help clients find assigned content and understand their existing coaching plan. It does not replace Gordy, diagnose conditions or provide emergency or medical care.
+AT CAPACITY AI can help eligible AI Coaching clients find assigned content and understand their existing coaching plan. Founder Dashboard clients receive direct coaching from Gordy and do not use in-app AI. AI does not replace Gordy, diagnose conditions or provide emergency or medical care.
 
-SHIFT Coaching is sign-in only. Coaching enrolment and payment happen outside the app, and an existing client account is required.
+AT CAPACITY is sign-in only. Coaching enrolment and payment happen outside the app, and an existing client account is required.
 
 ## Keywords
 
@@ -74,7 +74,7 @@ Review credentials are stored only in App Store Connect. Do not put the password
 
 ## Review notes
 
-SHIFT Coaching is a sign-in-only companion app for existing Gordy Elliott coaching clients. Coaching enrolment and payment happen outside the app. There is no public account creation, subscription purchase or in-app purchase flow.
+AT CAPACITY is a sign-in-only companion app for existing Gordy Elliott coaching clients. Coaching enrolment and payment happen outside the app. There is no public account creation, subscription purchase or in-app purchase flow.
 
 Use the supplied Demo Client account to inspect an assigned training programme and log a session; view the assigned nutrition plan; use Daily Tracker; review check-ins and coach replies; open DM; view consultation and Settings; and inspect Connected Apps. The account contains representative fictional data only.
 

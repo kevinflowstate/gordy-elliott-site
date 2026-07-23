@@ -59,7 +59,7 @@ self.addEventListener("fetch", (event) => {
 // Push notification handler
 self.addEventListener("push", (event) => {
   const data = event.data ? event.data.json() : {};
-  const title = data.title || "SHIFT Coaching";
+  const title = data.title || "AT CAPACITY";
   const options = {
     body: data.body || "",
     icon: "/shift-icon-192x192.png",

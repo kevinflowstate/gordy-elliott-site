@@ -81,7 +81,7 @@ export default function ClientInboxClient() {
       <div className="mb-5">
         <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-bright">Direct Messages</div>
         <h1 className="mt-2 text-2xl font-heading font-extrabold text-text-primary">DM</h1>
-        <p className="mt-1 text-sm text-text-secondary">Message Gordy directly from your SHIFT portal.</p>
+        <p className="mt-1 text-sm text-text-secondary">Message Gordy directly from your AT CAPACITY portal.</p>
       </div>
 
       {loading ? (
@@ -110,7 +110,7 @@ export default function ClientInboxClient() {
           emptyDescription="Ask a question, check something in your plan, or send Gordy a quick update here."
           composerPlaceholder="Message Gordy..."
           threadLabel="Gordy Elliott"
-          threadMeta="SHIFT Coaching"
+          threadMeta="AT CAPACITY"
         />
       )}
     </div>

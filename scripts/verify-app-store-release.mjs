@@ -151,8 +151,8 @@ try {
 
   await open(page, "/portal/ai");
   const aiComposer = page.locator('[data-shift-ai-input="composer"]');
-  check(await aiComposer.getAttribute("aria-label") === "Ask SHIFT AI", "SHIFT AI composer has a spoken label");
-  check(await page.getByRole("button", { name: "Send message to SHIFT AI" }).count() === 1, "SHIFT AI send arrow has a spoken label");
+  check(await aiComposer.getAttribute("aria-label") === "Ask AT CAPACITY AI", "AT CAPACITY AI composer has a spoken label");
+  check(await page.getByRole("button", { name: "Send message to AT CAPACITY AI" }).count() === 1, "AT CAPACITY AI send arrow has a spoken label");
   await page.evaluate(() => document.documentElement.classList.add("native-app"));
   await aiComposer.focus();
   await page.waitForTimeout(150);
@@ -205,7 +205,7 @@ try {
   const serviceWorker = await readFile(path.resolve("public/sw.js"), "utf8");
   check(offlineHtml.includes("You're offline") && offlineHtml.includes("Try again"), "native shell includes a clear offline recovery screen");
   check(runtimeConfig.includes("https://gordy-elliott-site.vercel.app"), "native shell retry targets the production portal");
-  check(serviceWorker.includes('data.title || "SHIFT Coaching"'), "web push fallback uses SHIFT Coaching branding");
+  check(serviceWorker.includes('data.title || "AT CAPACITY"'), "web push fallback uses AT CAPACITY branding");
 } finally {
   await browser.close();
 }

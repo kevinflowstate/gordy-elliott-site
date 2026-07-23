@@ -7,7 +7,7 @@ export default function Footer() {
 
       <div className="max-w-[1200px] mx-auto flex flex-col sm:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-3">
-          <span className="font-heading font-extrabold text-[0.95rem] text-text-primary">SHIFT Coaching</span>
+          <span className="font-heading font-extrabold text-[0.95rem] text-text-primary"><span className="text-accent-light">AT</span> CAPACITY</span>
           <span className="text-text-muted text-[0.85rem]">by Gordy Elliott</span>
         </div>
         <Link href="/login" className="text-text-muted no-underline text-[0.85rem] hover:text-accent-light transition-colors">

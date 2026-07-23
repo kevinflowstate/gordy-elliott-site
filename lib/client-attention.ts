@@ -68,6 +68,14 @@ export function resolveClientLifecycleStatus(
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const SIGNAL_MONITORING_FIELDS: Record<AttentionSignal, MonitoringField> = {
+  login: "monitor_login",
+  checkin: "monitor_checkins",
+  training: "monitor_training",
+  daily_metrics: "monitor_daily_metrics",
+  nutrition: "monitor_nutrition",
+  wearables: "monitor_wearables",
+};
 
 function daysSince(value: string | null | undefined, fallback: string, now: number) {
   const timestamp = new Date(value || fallback).getTime();
@@ -83,6 +91,16 @@ export function isAttentionSnoozeActive(snooze: ClientAttentionSnooze, now = Dat
 function isSuppressed(signal: AttentionSignal, snoozes: ClientAttentionSnooze[], now: number) {
   const snooze = snoozes.find((item) => item.signal === signal);
   return snooze ? isAttentionSnoozeActive(snooze, now) : false;
+}
+
+export function isAttentionSignalEnabled(
+  signal: AttentionSignal,
+  preferences?: Partial<ClientMonitoringPreferences> | null,
+  snoozes: ClientAttentionSnooze[] = [],
+  now = Date.now(),
+) {
+  const resolvedPreferences = { ...DEFAULT_MONITORING_PREFERENCES, ...(preferences || {}) };
+  return resolvedPreferences[SIGNAL_MONITORING_FIELDS[signal]] && !isSuppressed(signal, snoozes, now);
 }
 
 function addReason(
@@ -129,22 +147,22 @@ export function computeClientAttention(input: {
   const snoozes = input.snoozes || [];
   const reasons: ClientAttentionReason[] = [];
 
-  if (preferences.monitor_login && !isSuppressed("login", snoozes, now)) {
+  if (isAttentionSignalEnabled("login", preferences, snoozes, now)) {
     addReason(reasons, "login", "portal activity", daysSince(input.lastLogin, input.createdAt, now), 7, 10);
   }
-  if (preferences.monitor_checkins && !isSuppressed("checkin", snoozes, now)) {
+  if (isAttentionSignalEnabled("checkin", preferences, snoozes, now)) {
     addReason(reasons, "checkin", "last check-in", daysSince(input.lastCheckin, input.createdAt, now), 7, 14);
   }
-  if (preferences.monitor_training && input.hasActiveTrainingPlan && !isSuppressed("training", snoozes, now)) {
+  if (isAttentionSignalEnabled("training", preferences, snoozes, now) && input.hasActiveTrainingPlan) {
     addReason(reasons, "training", "last completed training session", daysSince(input.lastTraining, input.createdAt, now), 7, 14);
   }
-  if (preferences.monitor_daily_metrics && !isSuppressed("daily_metrics", snoozes, now)) {
+  if (isAttentionSignalEnabled("daily_metrics", preferences, snoozes, now)) {
     addReason(reasons, "daily_metrics", "last Daily Tracker entry", daysSince(input.lastDailyMetric, input.createdAt, now), 3, 7);
   }
-  if (preferences.monitor_nutrition && input.hasActiveNutritionPlan && !isSuppressed("nutrition", snoozes, now)) {
+  if (isAttentionSignalEnabled("nutrition", preferences, snoozes, now) && input.hasActiveNutritionPlan) {
     addReason(reasons, "nutrition", "last nutrition log", daysSince(input.lastNutrition, input.createdAt, now), 3, 7);
   }
-  if (preferences.monitor_wearables && input.hasWearableConnection && !isSuppressed("wearables", snoozes, now)) {
+  if (isAttentionSignalEnabled("wearables", preferences, snoozes, now) && input.hasWearableConnection) {
     addReason(reasons, "wearables", "last wearable sync", daysSince(input.lastWearableSync, input.createdAt, now), 3, 7);
   }
 

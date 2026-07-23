@@ -25,7 +25,7 @@ Restricting version 1 to iPhone avoids an untested iPad interface and the separa
 ## Visual rules
 
 - Prefer the real app UI at native resolution. Any headline overlay must leave the workflow legible and remain within the screenshot canvas.
-- Keep the SHIFT black, white and magenta visual language; do not add device frames, fake controls or unsupported feature claims.
+- Keep the AT CAPACITY black, white and magenta visual language; do not add device frames, fake controls or unsupported feature claims.
 - Use the same status-bar time and a clean battery/network state across the set.
 - Hide keyboards, debug banners, mock labels, browser chrome and personal notifications.
 - Inspect every final PNG for dimensions, alpha channel and accidental private data before upload.

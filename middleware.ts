@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { resolveClientLifecycleStatus } from '@/lib/client-attention';
+import { isFounderExperience, isFounderRestrictedPath } from '@/lib/client-experience';
 
 
 export async function middleware(request: NextRequest) {
@@ -91,7 +92,7 @@ export async function middleware(request: NextRequest) {
     if (role !== 'admin') {
       const { data: clientProfile, error: lifecycleError } = await adminSupabase
         .from('client_profiles')
-        .select('id, lifecycle_status, lifecycle_resumes_at')
+        .select('id, lifecycle_status, lifecycle_resumes_at, experience_mode')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -140,6 +141,19 @@ export async function middleware(request: NextRequest) {
           return NextResponse.redirect(url);
         }
       } else if (path.startsWith('/account-paused')) {
+        const url = request.nextUrl.clone();
+        url.pathname = '/portal';
+        url.search = '';
+        return NextResponse.redirect(url);
+      }
+
+      if (isFounderExperience(clientProfile.experience_mode) && isFounderRestrictedPath(path)) {
+        if (path.startsWith('/api/')) {
+          return NextResponse.json(
+            { error: 'This feature is not included in the Founder Dashboard experience' },
+            { status: 403 },
+          );
+        }
         const url = request.nextUrl.clone();
         url.pathname = '/portal';
         url.search = '';

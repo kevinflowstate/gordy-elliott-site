@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { AdminClient } from "@/lib/admin-data";
-import type { TrafficLight, CheckInMood, TrainingPlan, TrainingPlanPhase, CheckinFormConfig, CheckinFormTemplate, FormQuestion, ClientExercisePlan, ClientNutritionPlan, ProgressMetric, ClientTask, ClientTier, ClientKeyDate, NutritionTemplate, WeeklyTrainingAssignment } from "@/lib/types";
+import type { TrafficLight, CheckInMood, TrainingPlan, TrainingPlanPhase, CheckinFormConfig, CheckinFormTemplate, FormQuestion, ClientExercisePlan, ClientNutritionPlan, ProgressMetric, ClientTask, ClientTier, ClientExperienceMode, ClientKeyDate, NutritionTemplate, WeeklyTrainingAssignment } from "@/lib/types";
 import TrainingPlanBuilder from "@/components/admin/TrainingPlanBuilder";
 import AssignActionChooser from "@/components/admin/AssignActionChooser";
 import ExerciseTemplateBuilder from "@/components/admin/ExerciseTemplateBuilder";
@@ -17,6 +17,7 @@ import { normalizeCheckinConfig } from "@/lib/checkin-form";
 import { formatExercisePrescription } from "@/lib/exercise-prescriptions";
 import { useToast } from "@/components/ui/Toast";
 import { titleCaseProvider } from "@/lib/wearable-insights";
+import CapacityBaselinePanel from "@/components/admin/CapacityBaselinePanel";
 import {
   ATTENTION_SIGNAL_LABELS,
   DEFAULT_MONITORING_PREFERENCES,
@@ -91,6 +92,11 @@ const tierOptions: Array<{ value: ClientTier; label: string }> = [
   { value: "premium", label: "Premium" },
   { value: "vip", label: "VIP" },
   { value: "ai_only", label: "AI Only" },
+];
+
+const experienceOptions: Array<{ value: ClientExperienceMode; label: string }> = [
+  { value: "founder_dashboard", label: "Founder Dashboard" },
+  { value: "ai_coaching", label: "AI Coaching" },
 ];
 
 const coachingNoteSourceOptions: Array<{ value: CoachingNoteSourceType; label: string }> = [
@@ -273,6 +279,8 @@ export default function ClientDetailPage() {
   const [checkinTemplateSaving, setCheckinTemplateSaving] = useState(false);
   const [clientTier, setClientTier] = useState<string>("coached");
   const [tierSaving, setTierSaving] = useState(false);
+  const [experienceMode, setExperienceMode] = useState<ClientExperienceMode>("ai_coaching");
+  const [experienceSaving, setExperienceSaving] = useState(false);
   const [goalsModalOpen, setGoalsModalOpen] = useState(false);
   const [goalPrimary, setGoalPrimary] = useState("");
   const [goalTargetDate, setGoalTargetDate] = useState("");
@@ -329,6 +337,7 @@ export default function ClientDetailPage() {
         setCheckinDay(data.client?.checkin_day || "");
         setCheckinTemplateId(data.client?.checkin_form_id || "");
         setClientTier(data.client?.tier || "coached");
+        setExperienceMode(data.client?.experience_mode || "ai_coaching");
         setGoalPrimary(data.client?.primary_goal || "");
         setGoalTargetDate(data.client?.target_date || "");
         setGoalNotes(data.client?.goal_notes || "");
@@ -900,6 +909,33 @@ export default function ClientDetailPage() {
     }
   }
 
+  async function saveExperienceMode(nextMode: ClientExperienceMode) {
+    if (!client) return;
+    const previousMode = experienceMode;
+    setExperienceMode(nextMode);
+    setExperienceSaving(true);
+    try {
+      const res = await fetch(`/api/admin/clients/${client.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ experience_mode: nextMode }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setExperienceMode(previousMode);
+        toast(data.error || "Couldn't save the client experience. Try again.", "error");
+        return;
+      }
+      setClient((current) => current ? { ...current, experience_mode: nextMode } : current);
+      toast("Client experience saved");
+    } catch {
+      setExperienceMode(previousMode);
+      toast("Couldn't reach the client settings API. Try again.", "error");
+    } finally {
+      setExperienceSaving(false);
+    }
+  }
+
   async function handleArchiveNutritionPlan(planId: string) {
     try {
       const res = await fetch("/api/admin/client-nutrition-plans", {
@@ -1373,6 +1409,9 @@ export default function ClientDetailPage() {
               }`}>
                 {client.tier === "ai_only" ? "AI Only" : client.tier.charAt(0).toUpperCase() + client.tier.slice(1)}
               </span>
+              <span className="inline-flex items-center rounded-full border border-[rgba(0,0,0,0.08)] bg-[rgba(0,0,0,0.04)] px-3 py-1.5 text-xs font-semibold text-text-secondary">
+                {client.experience_mode === "founder_dashboard" ? "Founder Dashboard" : "AI Coaching"}
+              </span>
               <span className="text-xs text-text-muted bg-[rgba(0,0,0,0.04)] px-2.5 py-1.5 rounded-full">
                 Last active: {timeAgoDetailed(client.last_login)}
               </span>
@@ -1505,7 +1544,7 @@ export default function ClientDetailPage() {
       </div>
 
       {/* Stat Cards Row */}
-      <div className="grid grid-cols-2 gap-3 mb-6 sm:grid-cols-3 lg:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 mb-6 sm:grid-cols-3 lg:grid-cols-8">
         {/* Check-in Day */}
         <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-4">
           <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1.5">Check-in Day</div>
@@ -1584,6 +1623,28 @@ export default function ClientDetailPage() {
             </select>
           </div>
           {tierSaving && <div className="text-[10px] text-text-muted mt-1">Saving...</div>}
+        </div>
+
+        {/* Experience */}
+        <div className="bg-bg-card border border-[#E040D0]/20 rounded-xl p-4">
+          <div className="text-[10px] text-[#E040D0] font-semibold uppercase tracking-wider mb-1.5">Experience</div>
+          <select
+            value={experienceMode}
+            onChange={(event) => void saveExperienceMode(event.target.value as ClientExperienceMode)}
+            disabled={experienceSaving}
+            className="w-full cursor-pointer border-none bg-transparent text-sm font-bold text-text-primary outline-none disabled:opacity-50"
+          >
+            {experienceOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+          <div className="mt-1 text-[10px] text-text-muted">
+            {experienceSaving
+              ? "Saving..."
+              : experienceMode === "founder_dashboard"
+                ? "WhatsApp, no portal AI or DM"
+                : "Portal AI and DM enabled"}
+          </div>
         </div>
 
         {/* Total Weeks */}
@@ -1713,6 +1774,10 @@ export default function ClientDetailPage() {
           </div>
         )}
       </div>
+
+      {client.experience_mode === "founder_dashboard" && (
+        <CapacityBaselinePanel clientId={client.id} />
+      )}
 
       <div className="grid gap-4 mb-6 lg:grid-cols-2">
         <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">

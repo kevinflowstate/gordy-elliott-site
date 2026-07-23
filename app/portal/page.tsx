@@ -5,8 +5,21 @@ import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
 import { getCoachNoteOfDay } from "@/lib/coach-quotes";
 import type { CalendarEvent, CheckIn, ClientProfile, ClientTask, TrainingPlanPhase } from "@/lib/types";
+import type { WearableDailySummary } from "@/lib/wearable-insights";
+import FounderDashboard from "@/components/portal/FounderDashboard";
+import type { CapacityBaseline, CapacityMetrics } from "@/lib/capacity-baseline";
 
 type Tier = "coached" | "premium" | "vip" | "ai_only";
+type BaselineComparison = {
+  baseline: CapacityBaseline | null;
+  current: { period_start: string; period_end: string; metrics: CapacityMetrics };
+  comparison: Record<keyof CapacityMetrics, {
+    baseline: number | null;
+    current: number | null;
+    delta: number | null;
+    direction: "improved" | "declined" | "unchanged" | "missing";
+  }> | null;
+};
 
 const tierDisplay = {
   coached: {
@@ -37,9 +50,9 @@ const tierDisplay = {
     badgeClass: "border-[#E040D0]/20 bg-[#E040D0]/10 text-[#E040D0]",
     accentClass: "border-[#E040D0]/20",
     supportTitle: "AI Coaching",
-    supportCopy: "SHIFT AI is your main support layer here. Keep your actions simple, track what matters, and use the portal as your daily self-coaching hub.",
+    supportCopy: "AT CAPACITY AI is your main support layer here. Keep your actions simple, track what matters, and use the portal as your daily self-coaching hub.",
     heroCopy: "Start here for your personal priorities, your checklist, and the actions that will keep your momentum moving.",
-    ctaLabel: "Ask SHIFT AI",
+    ctaLabel: "Ask AT CAPACITY AI",
   },
 } as const satisfies Record<Tier, unknown>;
 
@@ -147,6 +160,14 @@ function isToday(date: Date) {
   return date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
 }
 
+function localDateKey(date: Date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
 // Count consecutive weeks with a check-in, starting from most recent backwards
 function computeCheckinStreak(checkins: CheckIn[]): number {
   if (!checkins.length) return 0;
@@ -250,6 +271,12 @@ export default function PortalDashboard() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [nextEvent, setNextEvent] = useState<{ title: string; date: Date } | null>(null);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [wearableSummary, setWearableSummary] = useState<WearableDailySummary | null>(null);
+  const [wearableMockMode, setWearableMockMode] = useState(false);
+  const [todayTraining, setTodayTraining] = useState<string | null>(null);
+  const [activeTrainingPlan, setActiveTrainingPlan] = useState<string | null>(null);
+  const [baselineComparison, setBaselineComparison] = useState<BaselineComparison | null>(null);
 
   const loadDashboard = useCallback(async () => {
     setLoadError(null);
@@ -294,10 +321,15 @@ export default function PortalDashboard() {
     let active = true;
     (async () => {
       try {
-        const res = await fetch("/api/calendar");
-        if (!res.ok) return;
-        const data = await res.json();
+        const [calendarRes, integrationsRes, exercisePlanRes, baselineRes] = await Promise.all([
+          fetch("/api/calendar"),
+          fetch("/api/portal/integrations"),
+          fetch("/api/portal/exercise-plan"),
+          fetch("/api/portal/capacity-baseline"),
+        ]);
+        const data = calendarRes.ok ? await calendarRes.json() : { events: [] };
         const events: CalendarEvent[] = data.events || [];
+        if (active) setCalendarEvents(events);
         let earliest: { title: string; date: Date } | null = null;
         for (const candidate of events) {
           const occurrence = getNextOccurrence(candidate);
@@ -306,6 +338,45 @@ export default function PortalDashboard() {
           }
         }
         if (active) setNextEvent(earliest);
+        if (integrationsRes.ok) {
+          const integrations = await integrationsRes.json();
+          if (active) {
+            setWearableSummary(integrations.latestSummary || null);
+            setWearableMockMode(Boolean(integrations.mockMode));
+          }
+        }
+        if (exercisePlanRes.ok) {
+          const exerciseData = await exercisePlanRes.json();
+          const exercisePlan = exerciseData.plan as {
+            id: string;
+            name: string;
+            sessions: Array<{ id: string; name: string }>;
+          } | null;
+          if (active) setActiveTrainingPlan(exercisePlan?.name || null);
+          if (exercisePlan) {
+            const today = new Date();
+            const day = today.getDay();
+            const monday = new Date(today);
+            monday.setDate(today.getDate() + (day === 0 ? -6 : 1 - day));
+            const plannerRes = await fetch(
+              `/api/portal/training-planner?plan_id=${exercisePlan.id}&week_start=${localDateKey(monday)}`,
+            );
+            if (plannerRes.ok) {
+              const plannerData = await plannerRes.json();
+              const assignment = (plannerData.assignments || []).find(
+                (item: { planned_date: string | null }) => item.planned_date === localDateKey(today),
+              );
+              const session = assignment
+                ? exercisePlan.sessions.find((item) => item.id === assignment.session_id)
+                : null;
+              if (active) setTodayTraining(session?.name || null);
+            }
+          }
+        }
+        if (baselineRes.ok) {
+          const baselineData = await baselineRes.json();
+          if (active) setBaselineComparison(baselineData);
+        }
       } catch {
         /* Upcoming tile falls back to the calendar link. */
       }
@@ -434,6 +505,23 @@ export default function PortalDashboard() {
     return <DashboardSkeleton />;
   }
 
+  if (profile?.experience_mode === "founder_dashboard") {
+    return (
+      <FounderDashboard
+        profile={profile}
+        userName={userName}
+        tasks={tasks}
+        calendarEvents={calendarEvents}
+        wearableSummary={wearableSummary}
+        wearableMockMode={wearableMockMode}
+        todayTraining={todayTraining}
+        activeTrainingPlan={activeTrainingPlan}
+        baselineComparison={baselineComparison}
+        onToggleTask={(taskId, completed) => void toggleTask(taskId, completed)}
+      />
+    );
+  }
+
   return (
     <div className="mx-auto w-full max-w-xl space-y-5 pb-8 pt-1 sm:max-w-2xl">
       {loadError && (
@@ -450,7 +538,7 @@ export default function PortalDashboard() {
       )}
       <section className="app-hero app-rise app-rise-1 flex flex-col overflow-hidden rounded-[24px] px-4 py-4 text-white sm:rounded-[30px] sm:px-6 sm:py-5">
         <div className="min-w-0">
-          <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#F7A8EE]">SHIFT Today</div>
+          <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#F7A8EE]">AT CAPACITY Today</div>
           <h1 className="mt-1 text-2xl font-heading font-bold leading-none text-white sm:text-3xl">
             {`${getGreeting()}${userName ? `, ${userName.split(" ")[0]}` : ""}`}
           </h1>
@@ -534,10 +622,10 @@ export default function PortalDashboard() {
             href={isAiOnly ? "/portal/ai" : "/portal/checkin"}
             className="app-hero-tile flex min-h-[78px] flex-col justify-between rounded-2xl px-3.5 py-3 no-underline"
           >
-            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">{isAiOnly ? "SHIFT AI" : "Gordy's Messages"}</div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">{isAiOnly ? "AT CAPACITY AI" : "Gordy's Messages"}</div>
             <div>
               <div className="text-[15px] font-semibold text-white">{isAiOnly ? "Ask anything" : latestReply?.admin_reply ? "Reply waiting" : "No new reply"}</div>
-              <div className="mt-0.5 text-[11px] text-white/50">{isAiOnly ? "Open SHIFT AI" : "View replies"}</div>
+              <div className="mt-0.5 text-[11px] text-white/50">{isAiOnly ? "Open AT CAPACITY AI" : "View replies"}</div>
             </div>
           </Link>
         </div>
@@ -549,14 +637,14 @@ export default function PortalDashboard() {
           subtitle={isAiOnly ? "Keep the next action simple." : "The first thing to clear from Gordy's list."}
           right={isAiOnly ? (
             <Link href="/portal/ai" className="text-xs font-semibold text-accent-bright no-underline transition-colors hover:text-accent-light">
-              SHIFT AI
+              AT CAPACITY AI
             </Link>
           ) : null}
         >
           {isAiOnly ? (
             <div className="space-y-3">
               <p className="rounded-2xl border border-[#E040D0]/20 bg-[#E040D0]/8 px-4 py-4 text-sm font-medium leading-relaxed text-text-primary">
-                Use SHIFT AI to choose one priority for today, then keep the rest of the portal out of the way.
+                Use AT CAPACITY AI to choose one priority for today, then keep the rest of the portal out of the way.
               </p>
               {incompletePersonalTasks.length > 0 && (
                 <details className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
@@ -826,7 +914,7 @@ function TierSupportLane({
               Open Calendar
             </Link>
             <Link href="/portal/ai" className="rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-card px-3 py-2 text-xs font-semibold text-text-primary no-underline">
-              Ask SHIFT AI
+              Ask AT CAPACITY AI
             </Link>
           </div>
         </div>

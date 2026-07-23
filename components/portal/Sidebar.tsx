@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { unregisterNativePushDevice } from "@/lib/native-push-client";
 import { useInboxUnreadCount } from "@/components/inbox/useInboxUnreadCount";
+import type { ClientExperienceMode } from "@/lib/types";
 
 type PortalNavItem = {
   href: string;
@@ -14,6 +15,7 @@ type PortalNavItem = {
   icon: string;
   tiers: string[];
   requiresCycle?: boolean;
+  hiddenForFounder?: boolean;
 };
 
 const allNavItems: PortalNavItem[] = [
@@ -24,12 +26,12 @@ const allNavItems: PortalNavItem[] = [
   { href: "/portal/cycle", label: "Cycle Tracker", icon: "M12 6v6l4 2m5-2a9 9 0 11-2.64-6.36M21 3v6h-6", tiers: ["coached", "premium", "vip", "ai_only"], requiresCycle: true },
   { href: "/portal/training", label: "Education Hub", icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253", tiers: ["coached", "premium", "vip", "ai_only"] },
   { href: "/portal/calendar", label: "Calendar", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", tiers: ["coached", "premium", "vip"] },
-  { href: "/portal/inbox", label: "DM", icon: "M8 10h8m-8 4h5m-7 6h12a2 2 0 002-2V8a2 2 0 00-.586-1.414l-4-4A2 2 0 0014 2H6a2 2 0 00-2 2v14a2 2 0 002 2z", tiers: ["coached", "premium", "vip", "ai_only"] },
+  { href: "/portal/inbox", label: "DM", icon: "M8 10h8m-8 4h5m-7 6h12a2 2 0 002-2V8a2 2 0 00-.586-1.414l-4-4A2 2 0 0014 2H6a2 2 0 00-2 2v14a2 2 0 002 2z", tiers: ["coached", "premium", "vip", "ai_only"], hiddenForFounder: true },
   { href: "/portal/checkin", label: "Check-In", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4", tiers: ["coached", "premium", "vip"] },
   { href: "/portal/gallery", label: "Gallery", icon: "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z", tiers: ["coached", "premium", "vip", "ai_only"] },
   { href: "/portal/progress", label: "Progress", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6", tiers: ["coached", "premium", "vip", "ai_only"] },
   { href: "/portal/documents", label: "Documents", icon: "M7 21h10a2 2 0 002-2V7.414a2 2 0 00-.586-1.414l-3.414-3.414A2 2 0 0013.586 2H7a2 2 0 00-2 2v15a2 2 0 002 2z", tiers: ["vip"] },
-  { href: "/portal/ai", label: "SHIFT AI", icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z", tiers: ["coached", "premium", "vip", "ai_only"] },
+  { href: "/portal/ai", label: "AT CAPACITY AI", icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z", tiers: ["coached", "premium", "vip", "ai_only"], hiddenForFounder: true },
   { href: "/portal/consultation", label: "Consultation", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2", tiers: ["coached", "premium", "vip", "ai_only"] },
   { href: "/portal/connected-apps", label: "Connected Apps", icon: "M13.5 6.75h3.75A2.25 2.25 0 0119.5 9v6A2.25 2.25 0 0117.25 17.25H13.5m-3-10.5H6.75A2.25 2.25 0 004.5 9v6a2.25 2.25 0 002.25 2.25H10.5m-3-5.25h9", tiers: ["coached", "premium", "vip", "ai_only"] },
   { href: "/portal/settings", label: "Settings", icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z", tiers: ["coached", "premium", "vip", "ai_only"] },
@@ -55,6 +57,7 @@ export default function Sidebar() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [tier, setTier] = useState<string>("coached");
+  const [experienceMode, setExperienceMode] = useState<ClientExperienceMode>("ai_coaching");
   const [cycleEnabled, setCycleEnabled] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
   const inboxUnreadCount = useInboxUnreadCount();
@@ -75,6 +78,9 @@ export default function Sidebar() {
           if (data.tier) {
             setTier(data.tier);
           }
+          if (data.experienceMode) {
+            setExperienceMode(data.experienceMode);
+          }
           setCycleEnabled(Boolean(data.profile?.sex === "female" && data.profile?.cycle_tracking_enabled));
         }
       } catch {
@@ -84,7 +90,11 @@ export default function Sidebar() {
     loadUser();
   }, []);
 
-  const navItems = allNavItems.filter((item) => item.tiers.includes(tier) && (!item.requiresCycle || cycleEnabled));
+  const navItems = allNavItems.filter((item) =>
+    item.tiers.includes(tier)
+    && (!item.requiresCycle || cycleEnabled)
+    && !(experienceMode === "founder_dashboard" && item.hiddenForFounder)
+  );
 
   useEffect(() => {
     async function loadNotifications() {
@@ -151,8 +161,10 @@ export default function Sidebar() {
       <aside className="portal-sidebar hidden lg:flex fixed top-0 left-0 h-full w-[260px] bg-[#fafaf8] dark:bg-[#0A0A0A] border-r border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.06)] backdrop-blur-[20px] z-50 flex-col">
         <div className="px-6 py-7 border-b border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.06)]">
           <Link href="/" className="flex items-center gap-3 no-underline">
-            <Image src="/images/shift-logo.svg" alt="SHIFT" width={32} height={32} className="h-8 w-auto" />
-            <span className="font-heading font-extrabold text-base text-text-primary dark:text-white tracking-wide">Client Portal</span>
+            <Image src="/images/shift-logo.svg" alt="" width={32} height={32} className="h-8 w-auto" />
+            <span className="font-heading text-base font-extrabold tracking-wide text-text-primary dark:text-white">
+              <span className="text-accent-bright">AT</span> CAPACITY
+            </span>
           </Link>
         </div>
 
