@@ -48,12 +48,12 @@ if (xcode.status !== 0) throw new Error(xcode.stderr.trim() || "Xcode is not ava
 
 const identities = run("security", ["find-identity", "-v", "-p", "codesigning"]);
 if (identities.status !== 0 || !identities.stdout.includes(`Apple Distribution: Kevin Harkin (${expected.teamId})`)) {
-  throw new Error("The SHIFT Apple Distribution signing identity is not available in the keychain.");
+  throw new Error("The AT CAPACITY Apple Distribution signing identity is not available in the keychain.");
 }
 
 console.log([
   "iOS release preflight passed.",
-  `- App: SHIFT Coaching ${expected.version} (${expected.build})`,
+  `- App: AT CAPACITY ${expected.version} (${expected.build})`,
   `- Bundle: ${expected.appId}`,
   `- Team: ${expected.teamId}`,
   `- Server: ${serverUrl.origin}`,

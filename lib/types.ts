@@ -4,6 +4,7 @@ export type ModuleStatus = 'locked' | 'in_progress' | 'completed';
 export type ContentType = 'video' | 'pdf' | 'text' | 'checklist' | 'interactive';
 export type CheckInMood = 'great' | 'good' | 'okay' | 'struggling' | string;
 export type ClientTier = 'coached' | 'premium' | 'vip' | 'ai_only';
+export type ClientExperienceMode = 'founder_dashboard' | 'ai_coaching';
 export type ClientSex = 'female' | 'male' | 'prefer_not_to_say';
 
 export interface User {
@@ -33,6 +34,7 @@ export interface ClientProfile {
   created_at: string;
   user?: User;
   tier?: ClientTier;
+  experience_mode?: ClientExperienceMode;
   consultation_data?: Record<string, unknown>;
   consultation_summary?: Record<string, unknown>;
   profile_setup_data?: Record<string, unknown>;

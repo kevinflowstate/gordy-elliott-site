@@ -3,17 +3,17 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Support",
-  description: "Help with the SHIFT Coaching client app.",
+  description: "Help with the AT CAPACITY client app.",
 };
 
 export default function SupportPage() {
   return (
     <main className="min-h-screen bg-[#0a0a0a] px-5 py-10 text-white sm:px-8 sm:py-16">
       <article className="mx-auto max-w-2xl">
-        <Link href="/" className="text-sm font-semibold text-[#f06be3] no-underline">SHIFT Coaching</Link>
+        <Link href="/" className="text-sm font-semibold text-[#f06be3] no-underline">AT CAPACITY</Link>
         <h1 className="mt-6 font-heading text-4xl font-bold">Support</h1>
         <p className="mt-5 text-base leading-7 text-[#c3c4cd]">
-          SHIFT is for existing Gordy Elliott coaching clients. Use the options below if you need help with the app or your account.
+          AT CAPACITY is for existing Gordy Elliott coaching clients. Use the options below if you need help with the app or your account.
         </p>
 
         <div className="mt-10 space-y-6">

@@ -12,7 +12,7 @@
     "check:shift-ai-inputs": "node scripts/check-shift-ai-inputs.mjs",
     "test:terra": "tsx --test tests/terra-contracts.test.ts",
     "test:native-push": "tsx --test tests/native-push.test.ts",
-    "test:release-contracts": "tsx --test tests/native-push.test.ts tests/safe-redirect.test.ts",
+    "test:release-contracts": "tsx --test tests/native-push.test.ts tests/safe-redirect.test.ts tests/client-experience.test.ts tests/client-attention.test.ts tests/capacity-baseline.test.ts tests/founder-dashboard.test.ts tests/at-capacity-migration.test.ts",
     "verify:app-store-release": "node scripts/verify-app-store-release.mjs",
     "capture:app-store": "node scripts/capture-app-store-screenshots.mjs",
     "verify:mobile": "node scripts/verify-mobile-portal.mjs",
@@ -41,7 +41,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.98.0",
-    "next": "16.2.10",
+    "next": "16.2.11",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "recharts": "^3.8.1",
@@ -56,7 +56,7 @@
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
     "eslint": "^9",
-    "eslint-config-next": "16.2.10",
+    "eslint-config-next": "16.2.11",
     "playwright-core": "^1.61.1",
     "tailwindcss": "^4",
     "tsx": "^4.20.6",
@@ -64,6 +64,7 @@
   },
   "overrides": {
     "ws": "8.21.0",
-    "postcss": "8.5.16"
+    "postcss": "8.5.16",
+    "sharp": "0.35.3"
   }
 }

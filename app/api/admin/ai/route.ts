@@ -104,18 +104,21 @@ export async function POST(req: NextRequest) {
     .eq("status", "active");
 
   // Training adherence: count completed logs in last 14 days per client
+  const todayIso = new Date().toISOString().split("T")[0];
   const twoWeeksAgoIso = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
   const { data: recentLogs } = await admin
     .from("client_exercise_logs")
     .select("client_id, log_date, completed")
-    .gte("log_date", twoWeeksAgoIso);
+    .gte("log_date", twoWeeksAgoIso)
+    .lte("log_date", todayIso);
 
   // Daily metrics completions (last 7 days) for admin awareness
   const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
   const { data: recentMetrics } = await admin
     .from("client_daily_metrics")
     .select("client_id, tracked_date")
-    .gte("tracked_date", sevenDaysAgoIso);
+    .gte("tracked_date", sevenDaysAgoIso)
+    .lte("tracked_date", todayIso);
 
   const { data: wearableConnectionsData } = await admin
     .from("client_wearable_connections")
@@ -126,6 +129,7 @@ export async function POST(req: NextRequest) {
     .from("client_wearable_daily_summaries")
     .select("*")
     .gte("summary_date", sevenDaysAgoIso)
+    .lte("summary_date", todayIso)
     .order("summary_date", { ascending: false });
 
   const { data: recentCoachingNotesData } = await admin
@@ -403,7 +407,7 @@ export async function POST(req: NextRequest) {
     ? prioritised.map((p, i) => `${i + 1}. ${p.client.name} (${p.client.tier}) — ${p.reasons.join(", ")}`).join("\n")
     : "No clients scored above the attention threshold — roster is quiet.";
 
-  const systemPrompt = `You are SHIFT AI, Gordy Elliott's coaching operations assistant. You are a coaching COO for Gordy — you summarise state, flag risk, draft replies, and suggest coach actions grounded in the data below. You never hallucinate clients, plans, or adherence numbers.
+  const systemPrompt = `You are AT CAPACITY AI, Gordy Elliott's coaching operations assistant. You are a coaching COO for Gordy — you summarise state, flag risk, draft replies, and suggest coach actions grounded in the data below. You never hallucinate clients, plans, or adherence numbers.
 
 TODAY: ${new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short", year: "numeric" })}
 

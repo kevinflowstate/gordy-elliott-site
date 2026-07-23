@@ -11,11 +11,11 @@ Prepared 21 July 2026 from the production code and Apple's current App Privacy t
 - Privacy Policy URL: `https://gordy-elliott-site.vercel.app/privacy`
 - User Privacy Choices URL: `https://gordy-elliott-site.vercel.app/privacy`
 
-All declared types below are **linked to the user's identity** because SHIFT stores them against an authenticated coaching account. None are used for third-party advertising or cross-company tracking.
+All declared types below are **linked to the user's identity** because AT CAPACITY stores them against an authenticated coaching account. None are used for third-party advertising or cross-company tracking.
 
 ## Data types to select
 
-| Apple data type | SHIFT examples | Purpose selections |
+| Apple data type | AT CAPACITY examples | Purpose selections |
 | --- | --- | --- |
 | Contact Info - Name | Client name | App Functionality; Product Personalization |
 | Contact Info - Email Address | Login and support email | App Functionality |
@@ -33,7 +33,7 @@ All declared types below are **linked to the user's identity** because SHIFT sto
 
 ## Do not select on current evidence
 
-- Financial information or purchase history: payment does not occur in the app and SHIFT does not receive payment details.
+- Financial information or purchase history: payment does not occur in the app and AT CAPACITY does not receive payment details.
 - Precise or coarse location: the app does not request location or use IP addresses to determine location.
 - Contacts, browsing history, search history, audio, advertising data, crash data or performance data: no current app feature or embedded native SDK collects these for Gordy.
 - Tracking: Meta Pixel is confined to the public marketing layout. The native shell opens non-portal marketing links externally and must pass the release network audit before this answer is published.

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useInboxUnreadCount } from "@/components/inbox/useInboxUnreadCount";
+import type { ClientExperienceMode } from "@/lib/types";
 
 type PortalNavItem = {
   href: string;
@@ -24,7 +25,7 @@ const allMoreItems: PortalNavItem[] = [
   { href: "/portal/daily-tracker", label: "Daily Tracker", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z", tiers: ["coached", "premium", "vip", "ai_only"] },
   { href: "/portal/cycle", label: "Cycle Tracker", icon: "M12 6v6l4 2m5-2a9 9 0 11-2.64-6.36M21 3v6h-6", tiers: ["coached", "premium", "vip", "ai_only"], requiresCycle: true },
   { href: "/portal/checkin", label: "Check-in", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4", tiers: ["coached", "premium", "vip"] },
-  { href: "/portal/ai", label: "SHIFT AI", icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z", tiers: ["coached", "premium", "vip", "ai_only"] },
+  { href: "/portal/ai", label: "AT CAPACITY AI", icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z", tiers: ["coached", "premium", "vip", "ai_only"] },
   { href: "/portal/training", label: "Education", icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253", tiers: ["coached", "premium", "vip", "ai_only"] },
   { href: "/portal/calendar", label: "Calendar", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", tiers: ["coached", "premium", "vip"] },
   { href: "/portal/gallery", label: "Gallery", icon: "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z", tiers: ["coached", "premium", "vip", "ai_only"] },
@@ -39,6 +40,7 @@ export default function MobileNav() {
   const pathname = usePathname();
   const [showMore, setShowMore] = useState(false);
   const [tier, setTier] = useState<string>("coached");
+  const [experienceMode, setExperienceMode] = useState<ClientExperienceMode>("ai_coaching");
   const [cycleEnabled, setCycleEnabled] = useState(false);
   const inboxUnreadCount = useInboxUnreadCount();
 
@@ -49,6 +51,7 @@ export default function MobileNav() {
         if (res.ok) {
           const data = await res.json();
           if (data.tier) setTier(data.tier);
+          if (data.experienceMode) setExperienceMode(data.experienceMode);
           setCycleEnabled(Boolean(data.profile?.sex === "female" && data.profile?.cycle_tracking_enabled));
         }
       } catch {
@@ -58,8 +61,20 @@ export default function MobileNav() {
     loadTier();
   }, []);
 
-  const visibleItems = allVisibleItems.filter((item) => item.tiers.includes(tier) && (!item.requiresCycle || cycleEnabled));
-  const moreItems = allMoreItems.filter((item) => item.tiers.includes(tier) && (!item.requiresCycle || cycleEnabled));
+  const founderMode = experienceMode === "founder_dashboard";
+  const founderTrackerItem = allMoreItems.find((item) => item.href === "/portal/daily-tracker");
+  const visibleSource = founderMode
+    ? [
+        ...allVisibleItems.filter((item) => item.href !== "/portal/inbox"),
+        ...(founderTrackerItem ? [{ ...founderTrackerItem, label: "Track" }] : []),
+      ]
+    : allVisibleItems;
+  const visibleItems = visibleSource.filter((item) => item.tiers.includes(tier) && (!item.requiresCycle || cycleEnabled));
+  const moreItems = allMoreItems.filter((item) =>
+    item.tiers.includes(tier)
+    && (!item.requiresCycle || cycleEnabled)
+    && !(founderMode && (item.href === "/portal/ai" || item.href === "/portal/daily-tracker"))
+  );
 
   // Check if any "more" item is active
   const moreIsActive = moreItems.some(

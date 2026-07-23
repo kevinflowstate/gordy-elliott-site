@@ -13,7 +13,7 @@ This is the operational index for submission. Use the linked worksheets as the c
 
 | Field | Value |
 | --- | --- |
-| App Store name | SHIFT Coaching by Gordy |
+| App Store name | AT CAPACITY by Gordy |
 | App Store Connect Apple ID | `6792719833` |
 | Bundle ID | `com.gordyelliott.shift` |
 | Apple team | `H4J3XX8R8M` |

@@ -34,6 +34,7 @@ export async function GET() {
       .from("client_wearable_daily_summaries")
       .select("*")
       .eq("client_id", profile.id)
+      .lte("summary_date", new Date().toISOString().slice(0, 10))
       .order("summary_date", { ascending: false })
       .limit(14),
   ]);

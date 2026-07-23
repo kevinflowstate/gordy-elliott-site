@@ -4,7 +4,7 @@ This is the engineering inventory behind the App Store answers. Use `docs/app-pr
 
 ## Data linked to the client
 
-| App Store category | SHIFT examples | Purpose |
+| App Store category | AT CAPACITY examples | Purpose |
 | --- | --- | --- |
 | Contact info | Name, email, phone where supplied | Account, coaching support, authentication |
 | Health and fitness | Training, nutrition, sleep, recovery, injuries, body measurements, cycle information, connected-app summaries | Coaching and app functionality |

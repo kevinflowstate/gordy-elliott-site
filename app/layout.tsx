@@ -22,15 +22,15 @@ const siteUrl = getSiteUrl();
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "SHIFT Coaching | Gordy Elliott",
-    template: "%s | SHIFT Coaching",
+    default: "AT CAPACITY | Gordy Elliott",
+    template: "%s | AT CAPACITY",
   },
-  description: "Online fitness coaching by Gordy Elliott. Transform your training, nutrition, and mindset with SHIFT Coaching.",
+  description: "High-performance fitness coaching by Gordy Elliott through AT CAPACITY.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "SHIFT Portal",
+    title: "AT CAPACITY",
   },
   other: {
     "mobile-web-app-capable": "yes",
@@ -39,22 +39,22 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_GB",
     url: siteUrl,
-    siteName: "SHIFT Coaching",
-    title: "SHIFT Coaching | Gordy Elliott",
-    description: "Online fitness coaching by Gordy Elliott. Transform your training, nutrition, and mindset with SHIFT Coaching.",
+    siteName: "AT CAPACITY",
+    title: "AT CAPACITY | Gordy Elliott",
+    description: "High-performance fitness coaching by Gordy Elliott through AT CAPACITY.",
     images: [
       {
         url: "/images/shift-logo.svg",
         width: 800,
         height: 900,
-        alt: "SHIFT Coaching by Gordy Elliott",
+        alt: "AT CAPACITY by Gordy Elliott",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "SHIFT Coaching | Gordy Elliott",
-    description: "Online fitness coaching by Gordy Elliott. Transform your training, nutrition, and mindset with SHIFT Coaching.",
+    title: "AT CAPACITY | Gordy Elliott",
+    description: "High-performance fitness coaching by Gordy Elliott through AT CAPACITY.",
     images: ["/images/shift-logo.svg"],
   },
   robots: {
@@ -84,7 +84,7 @@ export default function RootLayout({
   return (
     <html lang="en-GB" data-scroll-behavior="smooth">
       <head>
-        <link rel="apple-touch-icon" href="/shift-apple-touch-icon.png" />
+        <link rel="apple-touch-icon" href="/at-capacity-apple-touch-icon.png" />
       </head>
       <body className={`${inter.variable} ${barlowCondensed.variable} antialiased`}>
         <NativeAppBridge />

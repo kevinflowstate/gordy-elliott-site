@@ -29,7 +29,7 @@ Record device model, iOS version, build number, tester and result for every run.
 - Light/dark system setting, larger text and VoiceOver labels on main navigation.
 - Airplane mode at launch and while already signed in; retry after reconnecting.
 - Incoming call/app backgrounding during DM, tracker entry and photo selection.
-- External privacy/support links open correctly and return to SHIFT cleanly.
+- External privacy/support links open correctly and return to AT CAPACITY cleanly.
 - No clipped text, landscape-only layout, horizontal page movement, blank screen or persistent spinner.
 
 ## Release evidence

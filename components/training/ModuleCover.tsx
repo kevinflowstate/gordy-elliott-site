@@ -77,7 +77,7 @@ export default function ModuleCover({
 
       {/* SHIFT text logo */}
       <div className="absolute top-4 left-0 right-0 flex items-center justify-center">
-        <span className="text-[11px] font-extrabold tracking-[0.15em] text-[#E040D0] font-heading">SHIFT</span>
+        <span className="text-[11px] font-extrabold tracking-[0.15em] text-[#E040D0] font-heading">AT CAPACITY</span>
       </div>
 
       {/* Module title */}

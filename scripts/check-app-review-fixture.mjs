@@ -78,7 +78,7 @@ try {
   );
   const fixtureAge = ageInYears(profile.date_of_birth);
   requireCondition(profile.lifecycle_status === "active", "The review account is paused or frozen.");
-  requireCondition((profile.ai_credits || 0) > 0, "The review account cannot use SHIFT AI because it has no credit.");
+  requireCondition((profile.ai_credits || 0) > 0, "The review account cannot use AT CAPACITY AI because it has no credit.");
   requireCondition(fixtureAge !== null && fixtureAge >= 16, "The review account date of birth is missing, invalid, or under 16.");
   requireCondition(Boolean(profile.primary_goal?.trim()), "The review account has no primary coaching goal.");
   requireCleanCopy(profile, "The review client profile");

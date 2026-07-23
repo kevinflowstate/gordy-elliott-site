@@ -102,8 +102,11 @@ function LoginForm() {
       <div className="max-w-[400px] w-full">
         <div className="text-center mb-8">
           <Link href="/" className="inline-block mb-4">
-            <Image src="/images/shift-logo.svg" alt="SHIFT" width={48} height={48} className="h-12 w-auto mx-auto" />
+            <Image src="/images/shift-logo.svg" alt="AT CAPACITY" width={48} height={48} className="h-12 w-auto mx-auto" />
           </Link>
+          <div className="mb-2 font-heading text-sm font-black tracking-[0.16em] text-text-primary">
+            <span className="text-accent-bright">AT</span> CAPACITY
+          </div>
           <h1 className="font-heading text-2xl font-black mb-2">Client Portal</h1>
           <p className="text-text-secondary text-sm">{resetMode ? "Reset your password" : "Sign in to access your dashboard"}</p>
         </div>

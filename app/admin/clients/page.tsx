@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { AdminClient } from "@/lib/admin-data";
-import type { ClientTier, TrafficLight } from "@/lib/types";
+import type { ClientExperienceMode, ClientTier, TrafficLight } from "@/lib/types";
 
 const glowClass: Record<TrafficLight, string> = {
   green: "glow-green",
@@ -27,6 +27,23 @@ const tierOptions: Array<{
   { value: "premium", label: "Premium", description: "Extra support and oversight", activeClass: "bg-sky-500/10 border-sky-500/30 text-sky-500" },
   { value: "vip", label: "VIP", description: "Highest-touch experience", activeClass: "bg-amber-500/10 border-amber-500/30 text-amber-500" },
   { value: "ai_only", label: "AI Only", description: "Self-serve AI support", activeClass: "bg-[#E040D0]/10 border-[#E040D0]/30 text-[#E040D0]" },
+];
+
+const experienceOptions: Array<{
+  value: ClientExperienceMode;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "founder_dashboard",
+    label: "Founder Dashboard",
+    description: "High-touch 1:1 coaching. WhatsApp replaces portal DM and AI.",
+  },
+  {
+    value: "ai_coaching",
+    label: "AI Coaching",
+    description: "Current portal experience with DM and AT CAPACITY AI.",
+  },
 ];
 
 function renderTierBadge(tier: ClientTier) {
@@ -90,6 +107,7 @@ export default function ClientsPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [invitePassword, setInvitePassword] = useState("");
   const [inviteTier, setInviteTier] = useState<ClientTier>("coached");
+  const [inviteExperience, setInviteExperience] = useState<ClientExperienceMode>("ai_coaching");
   const [inviteSending, setInviteSending] = useState(false);
   const [inviteResult, setInviteResult] = useState<{ success: boolean; emailSent?: boolean; passwordSet?: boolean; setupUrl?: string; error?: string } | null>(null);
 
@@ -166,7 +184,7 @@ export default function ClientsPage() {
           <p className="text-text-secondary mt-1">{allClients.length} total clients</p>
         </div>
         <button
-          onClick={() => { setInviteOpen(true); setInviteResult(null); setInviteName(""); setInviteEmail(""); setInvitePassword(""); }}
+          onClick={() => { setInviteOpen(true); setInviteResult(null); setInviteName(""); setInviteEmail(""); setInvitePassword(""); setInviteExperience("ai_coaching"); }}
           className="px-4 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -282,6 +300,26 @@ export default function ClientsPage() {
                       className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
                     />
                   </div>
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1.5">Client Experience</label>
+                    <div className="space-y-2">
+                      {experienceOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setInviteExperience(option.value)}
+                          className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
+                            inviteExperience === option.value
+                              ? "border-[#E040D0]/40 bg-[#E040D0]/10 text-text-primary"
+                              : "border-[rgba(0,0,0,0.08)] bg-bg-primary text-text-muted"
+                          }`}
+                        >
+                          <div className="text-sm font-semibold">{option.label}</div>
+                          <div className="mt-1 text-[11px] leading-relaxed opacity-80">{option.description}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
                 <div className="flex gap-3">
                   <button
@@ -299,7 +337,13 @@ export default function ClientsPage() {
                         const res = await fetch("/api/admin/invite-client", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ name: inviteName, email: inviteEmail, tier: inviteTier, ...(invitePassword.trim() ? { password: invitePassword.trim() } : {}) }),
+                          body: JSON.stringify({
+                            name: inviteName,
+                            email: inviteEmail,
+                            tier: inviteTier,
+                            experience_mode: inviteExperience,
+                            ...(invitePassword.trim() ? { password: invitePassword.trim() } : {}),
+                          }),
                         });
                         const data = await res.json();
                         if (res.ok) {
@@ -455,6 +499,9 @@ export default function ClientsPage() {
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-text-primary">{client.name}</span>
                         {renderTierBadge(client.tier)}
+                        <span className="rounded-full bg-[rgba(0,0,0,0.05)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+                          {client.experience_mode === "founder_dashboard" ? "Founder" : "AI Coaching"}
+                        </span>
                       </div>
                       {(client.business_name || client.business_type) && <div className="text-xs text-text-muted">{[client.business_name, client.business_type].filter(Boolean).join(" - ")}</div>}
                       {!isPaused && client.attention_reasons[0] && (

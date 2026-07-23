@@ -1,8 +1,8 @@
-# SHIFT Coaching iOS Roadmap
+# AT CAPACITY iOS Roadmap
 
 ## Current position - 21 July 2026
 
-- App Store Connect record created as **SHIFT Coaching by Gordy** (`6792719833`).
+- App Store Connect record exists as **SHIFT Coaching by Gordy** (`6792719833`) and must be renamed to **AT CAPACITY by Gordy** before the next submission.
 - Registered bundle ID: `com.gordyelliott.shift` on Apple team `H4J3XX8R8M`.
 - Build 1 uploaded successfully and available to the `SHIFT Internal` TestFlight group.
 - Build 2 is the current hardening candidate. It includes portrait-only iPhone presentation, native navigation haptics, public privacy/support pages, self-service account deletion, hardened Terra contracts, and reviewed APNs registration/delivery groundwork.
@@ -12,7 +12,7 @@
 
 ## Product shape
 
-SHIFT remains one coaching product across web, PWA and iOS. Clients join and pay on the web, then sign into the iOS app with the same account. The iOS app does not sell coaching subscriptions or present a public registration checkout.
+AT CAPACITY remains one coaching product across web, PWA and iOS. Clients join and pay on the web, then sign into the iOS app with the same account. The iOS app does not sell coaching subscriptions or present a public registration checkout.
 
 The initial native shell uses the existing hosted portal so training, nutrition, messaging, cycle tracking and connected-health work stay in one codebase. This is foundation work, not the submission architecture on its own: App Store review requires the native app to provide meaningful app-specific value beyond presenting the website.
 
@@ -28,7 +28,7 @@ The initial native shell uses the existing hosted portal so training, nutrition,
 
 ### 2. Account and navigation hardening
 
-- [x] Sign-in-only first-run experience for existing SHIFT clients.
+- [x] Sign-in-only first-run experience for existing clients.
 - [x] Supabase fixture login and session persistence verified in the hosted portal flow.
 - [x] Custom-scheme deep-link handling and external browser hand-off.
 - [x] In-app permanent account deletion and public privacy/support routes.

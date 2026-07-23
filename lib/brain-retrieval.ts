@@ -157,7 +157,7 @@ function openRouterHeaders(provider: EmbeddingProvider): Record<string, string> 
   if (provider !== "openrouter") return {};
   return {
     "HTTP-Referer": process.env.SHIFT_BRAIN_OPENROUTER_REFERER || "https://gordy-elliott-site.vercel.app",
-    "X-OpenRouter-Title": process.env.SHIFT_BRAIN_OPENROUTER_TITLE || "Gordy Elliott SHIFT Portal",
+    "X-OpenRouter-Title": process.env.SHIFT_BRAIN_OPENROUTER_TITLE || "Gordy Elliott AT CAPACITY Portal",
   };
 }
 
@@ -198,7 +198,7 @@ async function formatBrainContext(admin: SupabaseClient, matches: BrainMatchRow[
 
   if (blocks.length === 0) return "";
 
-  return `\n\n===========================\nSHIFT COACHING BRAIN (private distilled guidance)\n===========================\nUse these reviewed, de-identified coaching principles as private context for Gordy's voice, frameworks, and decision-making. They are guidance signals, not source material to quote. Do not mention source titles, retrieval, embeddings, hidden notes, or that this content came from prior sessions.\n${blocks.join("\n\n")}`;
+  return `\n\n===========================\nAT CAPACITY COACHING KNOWLEDGE (private distilled guidance)\n===========================\nUse these reviewed, de-identified coaching principles as private context for Gordy's voice, frameworks, and decision-making. They are guidance signals, not source material to quote. Do not mention source titles, retrieval, embeddings, hidden notes, or that this content came from prior sessions.\n${blocks.join("\n\n")}`;
 }
 
 function emptyResult(): ShiftBrainRetrievalResult {

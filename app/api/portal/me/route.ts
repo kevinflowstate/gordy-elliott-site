@@ -22,7 +22,7 @@ export async function GET() {
 
   const { data: profile } = await admin
     .from("client_profiles")
-    .select("id, tier, start_date, date_of_birth, sex, cycle_tracking_enabled")
+    .select("id, tier, experience_mode, start_date, date_of_birth, sex, cycle_tracking_enabled")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -42,5 +42,6 @@ export async function GET() {
     profile: profile ? { ...profile, key_dates: keyDates || [] } : null,
     keyDates: keyDates || [],
     tier: (profile?.tier as string) || "coached",
+    experienceMode: profile?.experience_mode || "ai_coaching",
   });
 }

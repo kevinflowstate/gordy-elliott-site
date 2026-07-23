@@ -58,6 +58,7 @@ export async function GET() {
     .from("client_daily_metrics")
     .select("*")
     .eq("client_id", profile.id)
+    .lte("tracked_date", todayKey())
     .order("tracked_date", { ascending: false })
     .limit(14);
 
@@ -67,6 +68,7 @@ export async function GET() {
     .from("client_wearable_daily_summaries")
     .select("*")
     .eq("client_id", profile.id)
+    .lte("summary_date", todayKey())
     .order("summary_date", { ascending: false })
     .limit(14);
 

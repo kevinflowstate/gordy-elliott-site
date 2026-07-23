@@ -118,7 +118,7 @@ export default function AdminShiftAIPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-2rem)] max-w-3xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-heading font-extrabold text-text-primary">SHIFT AI</h1>
+        <h1 className="text-2xl font-heading font-extrabold text-text-primary">AT CAPACITY AI</h1>
         <p className="text-sm text-text-secondary mt-1">
           Your coaching business assistant - ask about clients, training, check-ins, or plans.
         </p>
@@ -200,7 +200,7 @@ export default function AdminShiftAIPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask SHIFT AI..."
+          placeholder="Ask AT CAPACITY AI..."
           rows={1}
           disabled={loading}
         />

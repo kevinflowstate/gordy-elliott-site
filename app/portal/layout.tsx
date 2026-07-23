@@ -6,7 +6,7 @@ import { ToastProvider } from "@/components/ui/Toast";
 import PortalKeyboardState from "@/components/portal/PortalKeyboardState";
 
 export const metadata = {
-  title: "Client Portal - Gordy Elliott",
+  title: "AT CAPACITY - Client Portal",
 };
 
 // Portal is always dark, regardless of system preference — match status-bar colour

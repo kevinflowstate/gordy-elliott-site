@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
 import { dbError } from "@/lib/api-errors";
 import { getClientById } from "@/lib/admin-data";
+import { isClientExperienceMode } from "@/lib/client-experience";
 import { NextResponse } from "next/server";
 
 const VALID_TIERS = ["coached", "premium", "vip", "ai_only"];
@@ -35,7 +36,7 @@ export async function PATCH(
   const body = await request.json();
 
   // Only allow safe profile fields to be patched
-  const allowed = ["checkin_day", "checkin_form_id", "coach_notes", "start_weight", "tier", "date_of_birth", "sex", "cycle_tracking_enabled"];
+  const allowed = ["checkin_day", "checkin_form_id", "coach_notes", "start_weight", "tier", "experience_mode", "date_of_birth", "sex", "cycle_tracking_enabled"];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in body) updates[key] = body[key];
@@ -44,6 +45,30 @@ export async function PATCH(
   // Validate tier value if present
   if ("tier" in updates && !VALID_TIERS.includes(String(updates.tier))) {
     return NextResponse.json({ error: "Invalid tier value" }, { status: 400 });
+  }
+
+  if ("experience_mode" in updates && !isClientExperienceMode(updates.experience_mode)) {
+    return NextResponse.json({ error: "Invalid client experience" }, { status: 400 });
+  }
+
+  if ("tier" in updates || "experience_mode" in updates) {
+    const admin = createAdminClient();
+    const { data: currentProfile, error: currentProfileError } = await admin
+      .from("client_profiles")
+      .select("tier, experience_mode")
+      .eq("id", id)
+      .maybeSingle();
+    if (currentProfileError) return dbError(currentProfileError, "Couldn't verify that client.");
+    if (!currentProfile) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+
+    const nextTier = String(updates.tier ?? currentProfile.tier);
+    const nextExperience = String(updates.experience_mode ?? currentProfile.experience_mode);
+    if (nextExperience === "founder_dashboard" && nextTier === "ai_only") {
+      return NextResponse.json(
+        { error: "Founder Dashboard cannot be combined with the AI-only tier" },
+        { status: 400 },
+      );
+    }
   }
 
   if ("sex" in updates) {

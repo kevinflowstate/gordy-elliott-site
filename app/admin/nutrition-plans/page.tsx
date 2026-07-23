@@ -98,7 +98,7 @@ export default function NutritionPlansPage() {
 
   const handleAiGenerate = async () => {
     if (!aiPrompt.trim()) {
-      alert("Tell SHIFT what kind of nutrition template to generate first.");
+      alert("Tell AT CAPACITY what kind of nutrition template to generate first.");
       return;
     }
 
