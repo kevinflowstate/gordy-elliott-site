@@ -57,6 +57,8 @@ export default function CapacityBaselinePanel({ clientId }: { clientId: string }
   const [weight, setWeight] = useState("");
   const [bodyFat, setBodyFat] = useState("");
   const [waist, setWaist] = useState("");
+  const [overrideMode, setOverrideMode] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -105,6 +107,42 @@ export default function CapacityBaselinePanel({ clientId }: { clientId: string }
     } finally {
       setSaving(false);
     }
+  }
+
+  async function confirmOverride() {
+    if (!window.confirm("Override the locked baseline? The previous values, your reason, and the timestamp go on the audit record, and the baseline relocks with the new values.")) return;
+    setSaving(true);
+    try {
+      const response = await fetch("/api/admin/client-baseline/override", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: clientId,
+          reason: overrideReason,
+          period_start: periodStart,
+          period_end: periodEnd,
+          weight_kg: weight,
+          body_fat_percentage: bodyFat,
+          waist_cm: waist,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Baseline could not be overridden");
+      toast("Baseline overridden and relocked");
+      setOverrideMode(false);
+      setOverrideReason("");
+      await load();
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Baseline could not be overridden", "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function cancelOverride() {
+    setOverrideMode(false);
+    setOverrideReason("");
+    await load();
   }
 
   async function lockBaseline() {
@@ -164,7 +202,7 @@ export default function CapacityBaselinePanel({ clientId }: { clientId: string }
         </span>
       </div>
 
-      {locked && baseline && data.comparison ? (
+      {locked && baseline && data.comparison && !overrideMode ? (
         <>
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {fields.slice(0, 4).map((field) => {
@@ -192,6 +230,16 @@ export default function CapacityBaselinePanel({ clientId }: { clientId: string }
           </div>
           <div className="mt-3 text-xs text-text-muted">
             Baseline {baseline.period_start} to {baseline.period_end} · Current view {data.current.period_start} to {data.current.period_end}. Direction is shown without applying guarantee thresholds.
+          </div>
+          {baseline.override_reason && (
+            <p className="mt-2 text-[11px] text-amber-500">
+              Overridden: {baseline.override_reason}
+            </p>
+          )}
+          <div className="mt-3">
+            <button type="button" onClick={() => setOverrideMode(true)} disabled={saving} className="rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-2.5 text-xs font-semibold text-amber-500 disabled:opacity-50">
+              Override locked baseline
+            </button>
           </div>
         </>
       ) : (
@@ -241,16 +289,36 @@ export default function CapacityBaselinePanel({ clientId }: { clientId: string }
             ))}
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button type="button" onClick={() => void saveDraft()} disabled={saving} className="rounded-xl bg-[#E040D0] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-50">
-              {saving ? "Saving..." : "Save draft"}
-            </button>
-            {baseline?.status === "draft" && (
-              <button type="button" onClick={() => void lockBaseline()} disabled={saving || draftHasUnsavedChanges} className="rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-2.5 text-xs font-semibold text-amber-500 disabled:opacity-50">
-                Lock baseline
+          {overrideMode ? (
+            <>
+              <label className="mt-4 block text-xs font-medium text-text-secondary">
+                Override reason (required, kept on the audit record)
+                <textarea value={overrideReason} onChange={(event) => setOverrideReason(event.target.value)} rows={2} maxLength={500} className="mt-1.5 w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-2.5 text-sm text-text-primary" />
+              </label>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button type="button" onClick={() => void confirmOverride()} disabled={saving || !overrideReason.trim()} className="rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-2.5 text-xs font-semibold text-amber-500 disabled:opacity-50">
+                  {saving ? "Saving..." : "Confirm override and relock"}
+                </button>
+                <button type="button" onClick={() => void cancelOverride()} disabled={saving} className="rounded-xl border border-[rgba(0,0,0,0.10)] bg-bg-card px-4 py-2.5 text-xs font-semibold text-text-secondary disabled:opacity-50">
+                  Cancel
+                </button>
+              </div>
+              <p className="mt-2 text-[11px] text-text-muted">
+                Wearable averages are recalculated from the chosen window. The previous values stay on the audit trail.
+              </p>
+            </>
+          ) : (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button type="button" onClick={() => void saveDraft()} disabled={saving} className="rounded-xl bg-[#E040D0] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-50">
+                {saving ? "Saving..." : "Save draft"}
               </button>
-            )}
-          </div>
+              {baseline?.status === "draft" && (
+                <button type="button" onClick={() => void lockBaseline()} disabled={saving || draftHasUnsavedChanges} className="rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-2.5 text-xs font-semibold text-amber-500 disabled:opacity-50">
+                  Lock baseline
+                </button>
+              )}
+            </div>
+          )}
           {draftHasUnsavedChanges && (
             <p className="mt-2 text-[11px] text-amber-500">
               Save the draft to refresh its stored values before locking it.

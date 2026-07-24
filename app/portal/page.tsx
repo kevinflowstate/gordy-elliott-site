@@ -21,6 +21,13 @@ type BaselineComparison = {
     delta: number | null;
     direction: "improved" | "declined" | "unchanged" | "missing";
   }> | null;
+  month4Review?: {
+    review_date: string;
+    outcome_note: string;
+    completed_at: string | null;
+    source_period: { start: string; end: string } | null;
+    comparison_period: { start: string; end: string } | null;
+  } | null;
 };
 
 const tierDisplay = {

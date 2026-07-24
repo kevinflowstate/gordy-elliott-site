@@ -18,7 +18,9 @@ import { formatExercisePrescription } from "@/lib/exercise-prescriptions";
 import { useToast } from "@/components/ui/Toast";
 import { titleCaseProvider } from "@/lib/wearable-insights";
 import CapacityBaselinePanel from "@/components/admin/CapacityBaselinePanel";
+import CompliancePanel from "@/components/admin/CompliancePanel";
 import EarlyWinPanel from "@/components/admin/EarlyWinPanel";
+import Month4ReviewPanel from "@/components/admin/Month4ReviewPanel";
 import {
   ATTENTION_SIGNAL_LABELS,
   DEFAULT_MONITORING_PREFERENCES,
@@ -1844,6 +1846,14 @@ export default function ClientDetailPage() {
 
       {client.experience_mode === "founder_dashboard" && (
         <EarlyWinPanel clientId={client.id} />
+      )}
+
+      {client.experience_mode === "founder_dashboard" && (
+        <CompliancePanel clientId={client.id} />
+      )}
+
+      {client.experience_mode === "founder_dashboard" && (
+        <Month4ReviewPanel clientId={client.id} />
       )}
 
       <div className="grid gap-4 mb-6 lg:grid-cols-2">
