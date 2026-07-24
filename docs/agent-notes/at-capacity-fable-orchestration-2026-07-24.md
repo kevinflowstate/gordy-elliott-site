@@ -40,7 +40,7 @@ Wave 3 (started at `774f644`):
 
 | Workspace | Branch | Agent | Scope | Status |
 |---|---|---|---|---|
-| `../gordy-wt-storm` (reused) | `agent/release-qa-2026-07-24` | Fable 5 QA | Hostile release QA, scan-volume test, SHIFT sweep, a11y | running |
+| `../gordy-wt-storm` (reused) | `agent/release-qa-2026-07-24` | Fable 5 QA | Hostile release QA, scan-volume test, SHIFT sweep, a11y | INTEGRATED (`8f69548` + follow-ups `caf8911`) |
 | `../gordy-wt-docs` (reused) | `agent/docs-delta-2026-07-24` | Fable 5 docs | DPIA/inventory delta for new tables | INTEGRATED (`8504cc2`) |
 
 Wave 3 Fable-run checks: App Store metadata check PASSED (name 20/30,
@@ -195,6 +195,28 @@ idempotency keys, London/ISO-week boundary execution checks,
 data-minimisation promises vs code, portal response field audits, merge
 seams, no secrets. Not verifiable from repo: live DB grant state;
 Supabase leaked-password-protection toggle (dashboard).
+
+## Wave 3 outcome (24 Jul)
+
+QA branch integrated at `8f69548`; Fable follow-ups at `caf8911`:
+honest scan dismissal semantics (silenced vs re-raised), founder
+unread-polling gate, preview-tag contrast, volume test wired in
+(128 release-contract tests total). Biggest QA catch: push/PWA/native
+icons still carried SHIFT/template artwork - all replaced with
+hash-verified AT CAPACITY art; SW cache v10->v11 with legacy paths
+serving correct art through rollover.
+
+QA items accepted as notes (not fixed): sub-44px admin desktop targets;
+`text-white/45` label idiom (borderline AA at 10px, consistent house
+style); internal shift-* identifiers (zero client-visible SHIFT text);
+`/support` routes technical help to kevin@flowstatesystems.ai - Kevin to
+confirm intended.
+
+NOT covered anywhere (external gates): authenticated browser QA for both
+modes (needs a real test session/storage state), real-device iOS/APNs
+delivery, browser-level scan with 20+ production rows, real Google and
+Outlook production contract tests, Terra production, App Store
+screenshots (need release build), ASC record re-entry/rename.
 
 ## Known latent issues (accepted for v1, do not lose)
 

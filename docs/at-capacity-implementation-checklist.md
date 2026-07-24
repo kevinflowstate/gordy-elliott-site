@@ -262,7 +262,13 @@ Estimated effort: 1 to 1.5 days
 Acceptance:
 
 - [ ] Gordy can scan 20 or more clients without opening each profile. The
-      single-list UI is built; production-volume acceptance testing remains.
+      single-list UI is built, and the scan's evaluation logic is now
+      verified at volume by a 26-synthetic-client contract test
+      (`tests/capacity-scan-volume.test.ts`: dense/sparse/empty calendars,
+      stale and missing wearables, paused/frozen lifecycle, dismissed and
+      escalated storms - no evaluation throws, every flag explained,
+      deterministic). Browser-level scan rendering with 20+ real
+      production rows remains part of authenticated release verification.
 - [x] Every alert states why it exists.
 - [x] Paused and frozen clients follow existing notification rules.
 
@@ -314,6 +320,9 @@ Estimated effort: 1 to 2 days
 
 - [x] Run lint, TypeScript, production build, contract, and migration checks.
 - [ ] Run authenticated mobile release verification for both modes.
+      (blocked: requires a real authenticated test session/storage state
+      for `verify:mobile`; unauthenticated smoke passed - public pages 200
+      with AT CAPACITY branding, portal/admin redirect to login)
 - [x] Verify Founder routes cannot be reached by Mode B and vice versa where
       applicable.
 - [ ] Test calendar and wearable disconnect/reconnect flows.
@@ -431,3 +440,25 @@ Add dated entries here as work is completed:
   in), tsc clean, lint zero errors, production build compiled in the
   workstream. No Gordy decisions were invented; no placeholders are
   rendered anywhere.
+- 24 July 2026: Privacy delta pass integrated: inventory and DPIA now
+  cover early wins, storm-warning logs/dismissals, call attendance,
+  WhatsApp-help records, Month 4 snapshots and the baseline-override
+  audit (DPIA revision 2, risks R11-R13 at low residual). The privacy
+  policy now discloses coaching-administration records (Article 13).
+  Unnecessary authenticated grants dropped from admin-only tables.
+- 24 July 2026: Release-hardening QA pass integrated. Biggest catch:
+  every web-push notification still rendered the old SHIFT-branded icon,
+  and three conventional icon paths served unrelated template artwork -
+  all now serve genuine AT CAPACITY art (service worker cache bumped;
+  legacy paths kept serving correct art through rollover; native shell
+  launch/offline screens rebranded). Also fixed: blank admin panels on
+  failed loads (now inline error + retry), long-note overflow, NaN date
+  rendering, 44px storm dismiss target, progressbar roles, AA contrast
+  on the preview tag, founder clients no longer poll the inbox unread
+  endpoint into 403s, and the Capacity Scan now distinguishes a
+  dismissed-and-silenced storm from one that re-raised at higher
+  severity (no more misleading "dismissed by client" on escalations).
+  Zero client-visible SHIFT text remains (grep sweep + rendered-page
+  checks). App Store metadata check passed; App Review fixture verified
+  complete against production (read-only). Final state: 128/128 release
+  contracts, tsc clean, lint zero errors, production build compiling.
