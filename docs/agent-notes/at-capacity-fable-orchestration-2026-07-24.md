@@ -25,7 +25,7 @@ secret values belong in this file.
 
 | Worktree | Branch | Agent | Scope | Status |
 |---|---|---|---|---|
-| `../gordy-wt-early-win` | `agent/early-win-2026-07-24` | Fable 5 impl | Phase 6 Fourteen-Day Early Win | running |
+| `../gordy-wt-early-win` | `agent/early-win-2026-07-24` | Fable 5 impl | Phase 6 Fourteen-Day Early Win | INTEGRATED (`0321edb`) |
 | `../gordy-wt-storm` | `agent/storm-warning-2026-07-24` | Fable 5 impl | Phase 8 Storm Warning rules engine | INTEGRATED (`4c35131`) |
 | `../gordy-wt-docs` | `agent/release-docs-2026-07-24` | Fable 5 docs | Privacy inventory, DPIA, release docs | INTEGRATED (`d8b09a9`) |
 
@@ -74,6 +74,15 @@ Fable 5 is the Claude 5 family model above Opus 4.8.
   DEPLOY NOTE: apply `20260724110000_add_storm_warnings.sql` before or
   with the code deploy - without it, portal storm GET 500s whenever a
   warning needs logging.
+- `c26ea50` early-win workstream via merge `0321edb` (reviewed: lib,
+  migration incl. immutability trigger and one-active index, portal
+  gating, metric-to-column mapping verified against live schema usage;
+  20/20 + contracts re-run by Fable; agent went idle without a handoff
+  report - work was complete and verified directly from the worktree).
+  FounderDashboard/page.tsx overlap with storm resolved by Fable; both
+  features re-verified post-resolution. Early-win tests wired into
+  `test:release-contracts` by Fable.
+  DEPLOY NOTE: apply `20260724100000_add_early_win.sql` with the deploy.
 
 ## Docs-workstream findings (verified by Fable where noted)
 

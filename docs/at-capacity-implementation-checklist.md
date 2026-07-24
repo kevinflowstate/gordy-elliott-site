@@ -196,16 +196,35 @@ Acceptance:
 
 Estimated effort: 0.5 day
 
-- [ ] Let Gordy select one priority metric after the Capacity X-Ray.
-- [ ] Store the starting value, target, start date, and optional note.
-- [ ] Show the metric prominently for the first 14 days.
-- [ ] Show progress to Gordy on the client profile.
-- [ ] Keep the card useful when the metric is manually tracked.
+- [x] Let Gordy select one priority metric after the Capacity X-Ray.
+      Admin panel on the client profile (Founder clients): sourced metrics
+      (HRV, resting HR, sleep from wearables; weight, waist from body
+      measurements) or a fully manual metric with Gordy-defined label,
+      unit and logged values.
+- [x] Store the starting value, target, start date, and optional note.
+      `client_early_wins` with metric/source consistency CHECKs, one
+      active win per client (partial unique index), and completed rows
+      made immutable by trigger.
+- [x] Show the metric prominently for the first 14 days. Card sits
+      directly under Today's capacity on the Founder Dashboard; honest
+      states for missing and stale readings (a missing value is never
+      shown as zero; readings 3+ days old are marked stale).
+- [x] Show progress to Gordy on the client profile. Day counter, latest
+      reading with date, progress toward target with
+      direction-of-improvement handling, review-due prompt from day 14.
+- [x] Keep the card useful when the metric is manually tracked. Manual
+      value log (`client_early_win_entries`) written by Gordy; latest
+      entry drives the card.
 
 Acceptance:
 
-- [ ] The app never guesses the client's early-win metric.
-- [ ] The card retires cleanly after the 14-day review.
+- [x] The app never guesses the client's early-win metric. The card and
+      portal endpoint return nothing until Gordy explicitly creates a win.
+- [x] The card retires cleanly after the 14-day review. Completing the
+      review (with outcome note) sets status `completed`; the client card
+      disappears, history stays queryable and visible to Gordy, and RLS
+      only ever exposes the active win to the client. NOTE: migration
+      `20260724100000_add_early_win.sql` must be applied at deploy.
 
 ## Phase 7: Gordy's Capacity Scan
 
@@ -365,3 +384,13 @@ Add dated entries here as work is completed:
   `test:release-contracts`. A pre-existing fixture type error in
   `tests/founder-dashboard.test.ts` (invalid `updated_at` property) was
   fixed in passing.
+- 24 July 2026: Phase 6 Fourteen-Day Early Win completed and integrated:
+  admin metric selection (wearable-sourced, body-measurement-sourced or
+  fully manual), one active win per client enforced in the schema,
+  prominent Founder Dashboard card with honest missing/stale states,
+  day-14 review flow that retires the card while preserving immutable
+  history, founder-gated portal endpoint, RLS exposing only the active
+  win to clients. Verification at integration: 20/20 early-win tests,
+  60/60 release contracts, tsc clean. Early-win tests wired into
+  `test:release-contracts`. The planned FounderDashboard overlap with the
+  storm workstream was merged by hand and re-verified.
