@@ -41,8 +41,10 @@ The canonical review notes and contact details are in `docs/app-store-metadata.m
 
 ## Submission blockers
 
+- Rename the App Store Connect record from the historical "SHIFT Coaching by Gordy" to "AT CAPACITY by Gordy".
 - Gordy's approval of the listing copy, content-rights answer and representative review fixture.
-- Enter the drafted listing, age rating and privacy answers in App Store Connect.
+- Enter the drafted listing, age rating and privacy answers in App Store Connect. The listing and review notes saved there predate the 24 July 2026 calendar additions and must be re-entered from `docs/app-store-metadata.md`.
+- Decide whether calendar connections ship in version 1: Google Calendar is externally gated by Google's branding and data-access verification (submitted 24 July 2026, under review), and both Google and Outlook still need a real authenticated production contract test.
 - Capture final screenshots from the approved candidate.
 - Physical-device TestFlight pass and crash review.
 - Terra production provider testing if Connected Apps is included in version 1.

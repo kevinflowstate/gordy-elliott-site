@@ -2,9 +2,9 @@
 
 ## Current position - 21 July 2026
 
-- App Store Connect record exists as **SHIFT Coaching by Gordy** (`6792719833`) and must be renamed to **AT CAPACITY by Gordy** before the next submission.
-- Registered bundle ID: `com.gordyelliott.shift` on Apple team `H4J3XX8R8M`.
-- Build 1 uploaded successfully and available to the `SHIFT Internal` TestFlight group.
+- App Store Connect record exists under the historical product name **SHIFT Coaching by Gordy** (`6792719833`) and must be renamed to **AT CAPACITY by Gordy** before the next submission.
+- Registered bundle ID: `com.gordyelliott.shift` on Apple team `H4J3XX8R8M`. Bundle IDs cannot be changed after registration; the `shift` segment is a permanent historical artefact and does not appear to clients.
+- Build 1 uploaded successfully and available to the `SHIFT Internal` TestFlight group (historical group name; rename alongside the record if desired).
 - Build 2 is the current hardening candidate. It includes portrait-only iPhone presentation, native navigation haptics, public privacy/support pages, self-service account deletion, hardened Terra contracts, and reviewed APNs registration/delivery groundwork.
 - The production database now has a locked-down native device-token store. A live authenticated register/read/remove round trip passes without exposing tokens to browser roles.
 - The App Store metadata, privacy answers, age-rating worksheet, review notes and screenshot plan are drafted and machine-checked. They still need to be entered in App Store Connect and confirmed by Gordy.
