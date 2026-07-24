@@ -24,7 +24,8 @@ export const EARLY_WIN_SOURCED_METRICS: Record<
 };
 
 export function isEarlyWinMetricKey(value: unknown): value is EarlyWinMetricKey {
-  return value === "manual" || (typeof value === "string" && value in EARLY_WIN_SOURCED_METRICS);
+  return value === "manual"
+    || (typeof value === "string" && Object.hasOwn(EARLY_WIN_SOURCED_METRICS, value));
 }
 
 export type EarlyWin = {
