@@ -3,10 +3,12 @@
 | | |
 | --- | --- |
 | Product | AT CAPACITY by Gordy Elliott (web, PWA and iOS shell) |
-| Version assessed | v1 release candidate, branch state of 24 July 2026 |
+| Version assessed | v1 release candidate, branch state of 24 July 2026 (revision 2, same day: delta for the merged Early Win, Storm Warning and Founder compliance workstreams) |
 | Status | DRAFT - awaiting controller sign-off |
 | Author | Prepared by the Flowstate build team from the production code |
 | Review trigger | Any new processor, new data category, AI scope change, or the Terra/Google gates completing |
+
+Revision 2 note: the "new data category" review trigger fired on 24 July 2026 when three implementation workstreams merged. This revision adds those processing activities to section 1, risks R11-R13 to the register, and one action-plan item. No new processor was introduced, none of the new data reaches AI prompts, and an independent hostile security review of the full merged diff found no P1/P2 issues; five P3 hardening items were remediated the same day (an allowlist hole, removal of direct client dismissal writes, an audit-log cap, generic client-facing error messages, and date validation).
 
 This DPIA is proportionate to a single-coach platform with a small, invitation-only client base. It covers the two processing activities that most warrant assessment under UK GDPR: health data (special category) and connected calendar data. Facts are grounded in the code paths cited; where a control is planned but not yet verified, it is labelled as pending.
 
@@ -21,6 +23,9 @@ Personal data processed:
 - Calendar data (optional, Founder-focused): read-only synced copies of events for today plus seven days - event identifiers, title (private/confidential titles stored as "Busy"), start/end times, all-day and busy status, and a meeting link. No descriptions, attendees or locations are stored (`lib/composio/normalise.ts`).
 - Communications: in-app DMs, check-ins, and coaching notes ingested by Gordy from call/Zoom/Loom/Fathom/WhatsApp/email/voice-note transcripts.
 - Operational data: push identifiers, AI usage metering, logins and server logs.
+- Early-win goals (added revision 2): an admin-set priority metric per Founder client (wearable HRV/resting heart rate/sleep, body-measurement weight/waist, or manual), dated value entries and a 14-day review, with completed wins made immutable (`supabase/migrations/20260724100000_add_early_win.sql`).
+- Storm-warning records (added revision 2): a deterministic, append-only audit log of calendar-pressure warnings storing rule IDs, per-day meeting counts and earliest start times, thresholds and an input hash - never event titles, descriptions, attendees or links - plus client dismissals per warning window (`supabase/migrations/20260724110000_add_storm_warnings.sql`, `lib/storm-warning.ts`).
+- Founder compliance records (added revision 2): call-attendance rows, weekly WhatsApp-help records (a helped flag and short note about off-platform coaching contact - communications metadata, never message content), frozen Month 4 review snapshots containing health-metric baselines and compliance summaries, and an immutable audit of admin overrides of locked health baselines (`supabase/migrations/20260724120000_add_founder_compliance.sql`, `20260724121000_add_month4_reviews_and_baseline_overrides.sql`). All are admin-recorded; clients see only their own active early win, own storm warnings and own completed Month 4 review. Every new table cascades on account deletion.
 
 Data flows and recipients:
 
@@ -74,10 +79,15 @@ Scoring: likelihood x severity, each low/medium/high, judged for this product's 
 | R8 | Ineffective wearable disconnect: local disconnect does not call Terra's deauthentication endpoint; a later data webhook from the still-authorised provider will upsert the connection back to "connected" and resume storing summaries (`app/api/portal/integrations/[connectionId]/disconnect/route.ts` vs `app/api/integrations/terra/webhook/route.ts`) | Medium x Medium (currently theoretical - no production Terra credentials) | Terra checklist already requires calling the deauthentication endpoint once production credentials exist; policy honestly states already-received data may remain | Medium until Terra deauth is implemented and verified; this is a launch condition for advertising wearables |
 | R9 | Notification content exposure on lock screens | Low x Low | Notifications follow account-level pause/freeze suppression; payload fields are bounded server-side | Low |
 | R10 | International transfers: US-based processors (Anthropic, OpenAI/OpenRouter, Vercel, Composio; Supabase region per project) | Medium x Low | Standard provider terms generally incorporate the UK IDTA/Addendum. Pending: confirm and record each processor's transfer mechanism in the due-diligence file | Medium-Low until recorded |
+| R11 | Behavioural profiling by the storm-warning audit log: an accumulating record of a client's schedule pressure over time (added revision 2) | Low x Medium | Records hold counts, times and rule explanations only - no event content; deduplicated on input hash and capped at 30 rows per client per window; rules are deterministic with the triggering inputs logged, so every warning is explainable; visible only to the client (Founder mode) and admin; warnings are dismissible per window with dismissals validated server-side; no automated consequences - nothing alters training or nutrition | Low |
+| R12 | Off-platform communications metadata: weekly WhatsApp-help records document that coaching contact happened outside the platform, which clients may not expect to be recorded (added revision 2) | Low x Medium | Weekly boolean granularity plus a short note (500-character limit); message content is never stored; admin-only with no client read surface; purpose is limited to guarantee compliance evidence. Not mitigated: the privacy policy does not yet mention coaching-administration records - transparency action 9 | Low once the transparency wording ships |
+| R13 | Immutable audit records retain superseded health values: the baseline-override audit deliberately keeps the old health-metric values after an override, and completed Month 4 reviews freeze health snapshots (added revision 2) | Low x Medium | This is an intentional integrity control - a locked health baseline can never change silently; the override function is executable by the service role only, requires a written reason, and records actor and timestamp; audit rows are immutable by trigger; all rows cascade on account deletion, so erasure still works. Rectification requests are satisfied by the override itself (the corrected value becomes current); retaining the superseded value in the audit is justified as evidence of the change | Low |
 
 ## 6. Residual risk assessment
 
 With the implemented controls, no risk is assessed as high residual. The residual mediums (R4 retention, R6 consent wording, R8 Terra disconnect, and the due-diligence record behind R2/R5/R10) are all addressable through the action plan below and none requires prior consultation with the ICO. The externally gated items do not change this picture, because the gated features (Google Calendar for the general client base; Terra wearables) do not process real client data until their gates open.
+
+The revision 2 additions (R11-R13) all land at low residual: they are in-platform only, introduce no new processor, feed no AI prompt, cascade on account deletion, and were covered by the independent security review of the merged diff (no P1/P2 findings; all five P3 hardening items remediated). The one carried obligation is transparency wording for coaching-administration records (action 9).
 
 ## 7. Action plan
 
@@ -91,6 +101,7 @@ With the implemented controls, no risk is assessed as high residual. The residua
 | 6 | Enable Supabase leaked-password protection; consider admin MFA | Kevin | Before launch |
 | 7 | Run the real production calendar contract tests (Google and Outlook) and the Terra provider acceptance tests when gates open | Build team | Gate-dependent |
 | 8 | Add controller identity and ICO complaint-right wording to the privacy policy | Build team (code change - see findings) | Before launch |
+| 9 | Extend the privacy policy's "Information AT CAPACITY handles" wording to cover coaching-administration records: call attendance, weekly off-platform help logs, programme review snapshots and baseline-override audit records | Build team (code change - see findings) | Before Founder pilot onboarding |
 
 ## 8. Sign-off
 
