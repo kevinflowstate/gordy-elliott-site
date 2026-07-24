@@ -101,7 +101,8 @@ CREATE POLICY "Admins manage baseline overrides"
   USING ((SELECT private.is_admin()))
   WITH CHECK ((SELECT private.is_admin()));
 
-GRANT SELECT ON public.client_baseline_overrides TO authenticated;
+-- No grants to authenticated: override audit rows are admin-only and reached
+-- solely through service-role API routes.
 
 CREATE OR REPLACE FUNCTION private.prevent_baseline_override_audit_change()
 RETURNS TRIGGER

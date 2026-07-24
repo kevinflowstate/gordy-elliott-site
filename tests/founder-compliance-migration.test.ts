@@ -27,6 +27,9 @@ test("compliance records are admin-only with no client read policy", async () =>
   assert.equal((migration.match(/FOR ALL TO authenticated/g) || []).length, 3);
   assert.doesNotMatch(migration, /client_profiles\.user_id = \(SELECT auth\.uid\(\)\)/);
   assert.doesNotMatch(migration, /FOR SELECT/);
+  // Admin-only tables carry no grants for the authenticated role at all -
+  // they are reached solely through service-role API routes.
+  assert.doesNotMatch(migration, /GRANT [^;]* TO authenticated/);
 });
 
 test("call records carry an allowlisted type and a bounded note", async () => {

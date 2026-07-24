@@ -74,6 +74,6 @@ CREATE POLICY "Admins manage guarantee settings"
   USING ((SELECT private.is_admin()))
   WITH CHECK ((SELECT private.is_admin()));
 
-GRANT SELECT ON public.client_call_attendance TO authenticated;
-GRANT SELECT ON public.client_whatsapp_help TO authenticated;
-GRANT SELECT ON public.guarantee_settings TO authenticated;
+-- No grants to authenticated: these tables are admin-only and reached solely
+-- through service-role API routes. RLS default-deny plus absent grants makes
+-- the intent explicit.

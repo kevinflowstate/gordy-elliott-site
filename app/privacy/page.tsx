@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 const sections = [
   {
     title: "Information AT CAPACITY handles",
-    body: "AT CAPACITY stores account and contact details, coaching plans, messages, check-ins, progress photos, training and nutrition logs, consultation answers, and any health, injury or cycle information you choose to provide. If you connect a supported app through Terra, AT CAPACITY may also receive sleep, recovery, activity and nutrition summaries from that provider. If you connect Google Calendar or Outlook Calendar, AT CAPACITY reads the calendar and event information described below.",
+    body: "AT CAPACITY stores account and contact details, coaching plans, messages, check-ins, progress photos, training and nutrition logs, consultation answers, and any health, injury or cycle information you choose to provide. If you connect a supported app through Terra, AT CAPACITY may also receive sleep, recovery, activity and nutrition summaries from that provider. If you connect Google Calendar or Outlook Calendar, AT CAPACITY reads the calendar and event information described below. For coached clients, AT CAPACITY also keeps coaching-administration records, such as call attendance, weekly notes of coaching support provided over WhatsApp, periodic review summaries, and an audited record of any correction to locked baseline figures.",
   },
   {
     title: "Google Calendar and Outlook Calendar data",

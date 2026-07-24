@@ -36,6 +36,27 @@ Wave 2 (started after Wave 1 fully integrated at `a5df4cc`):
 | `../gordy-wt-early-win` (reused) | `agent/founder-compliance-2026-07-24` | Fable 5 impl | Phase 5: compliance, Month 4 review, baseline override, configurable guarantee | INTEGRATED (`ac90ca4`) |
 | canonical repo (read-only) | n/a | Fable 5 reviewer | Hostile security/data-isolation review of Wave 1 diff `fbcc549..a5df4cc` | COMPLETE (no P1/P2; 5 P3s fixed) |
 
+Wave 3 (started at `774f644`):
+
+| Workspace | Branch | Agent | Scope | Status |
+|---|---|---|---|---|
+| `../gordy-wt-storm` (reused) | `agent/release-qa-2026-07-24` | Fable 5 QA | Hostile release QA, scan-volume test, SHIFT sweep, a11y | running |
+| `../gordy-wt-docs` (reused) | `agent/docs-delta-2026-07-24` | Fable 5 docs | DPIA/inventory delta for new tables | INTEGRATED (`8504cc2`) |
+
+Wave 3 Fable-run checks: App Store metadata check PASSED (name 20/30,
+subtitle 29/30, promo 129/170, keywords 82/100, iPhone-only). App Review
+fixture check PASSED read-only against production (demo account complete:
+2 sessions, 10 items, 4 meals, 3 tracker entries, 3 check-ins, 2 DMs);
+Vercel env pulled temporarily and deleted after the check.
+
+Docs-delta findings fixed by Fable at integration: privacy policy now
+discloses coaching-administration records (call attendance, WhatsApp
+support notes, review summaries, baseline-correction audit) - closes the
+Article 13 transparency gap before Founder onboarding; unnecessary
+authenticated grants dropped from the four admin-only tables (month4
+reviews keep theirs - clients read own completed review); compliance
+migration test now asserts no authenticated grants on admin-only tables.
+
 Compliance integration notes (Fable): merge was conflict-free; Fable
 genericized the portal capacity-baseline route's error responses for
 P3-4 consistency and wired the 34 compliance tests into
