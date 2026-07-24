@@ -231,20 +231,43 @@ Acceptance:
 
 Estimated effort: 0.5 to 1 day for deterministic v1
 
-- [ ] Define initial density rules for meeting count, consecutive busy days,
-      early starts, travel, and insufficient gaps.
-- [ ] Compare current density with the client's recent calendar pattern where
-      enough history exists.
+- [x] Define initial density rules for meeting count, consecutive busy days,
+      early starts, travel, and insufficient gaps. Deterministic engine in
+      `lib/storm-warning.ts`; all thresholds in one `STORM_THRESHOLDS`
+      block. Travel uses only the client-set `travel` category (structured
+      data); synced events carry no travel inference and titles are never
+      keyword-sniffed. Gap checks run only where the connected calendar
+      provides start and end times; manual events lack end times, and the
+      rule skips honestly (with an explanation) rather than guessing.
+- [x] Compare current density with the client's recent calendar pattern where
+      enough history exists. Requires 14 distinct stored-event days in the
+      trailing 28; below that the rule is skipped and the copy says the
+      warning is based on the week's calendar alone.
 - [x] Show a client-side warning with restrained language.
-- [x] Show the same warning in Gordy's Capacity Scan.
+- [x] Show the same warning in Gordy's Capacity Scan. Same engine, same
+      explanations; dismissed warnings stay visible to Gordy with a
+      "Dismissed by client" marker. Paused clients are still evaluated and
+      logged (their scan status remains paused) - deliberate, so pressure
+      building during a pause is not lost.
 - [x] Do not alter training or nutrition automatically.
-- [ ] Log the rule and inputs that generated each warning.
+- [x] Log the rule and inputs that generated each warning. Idempotent audit
+      log (`client_storm_warnings`, unique on client/window/input-hash);
+      snapshots hold counts and times only - no titles, descriptions or
+      attendees. NOTE: migration `20260724110000_add_storm_warnings.sql`
+      must be applied at deploy; until then a portal evaluation that finds
+      a warning cannot record its audit row.
 
 Acceptance:
 
-- [ ] Warnings are explainable and dismissible.
-- [ ] Sparse calendar data does not generate false certainty.
-- [ ] No meeting descriptions or attendees are exposed to AI unnecessarily.
+- [x] Warnings are explainable and dismissible. Per-rule client-readable
+      explanations with actual numbers; dismissal is per ISO-week window
+      and severity, re-raised on a new week or amber-to-red escalation.
+- [x] Sparse calendar data does not generate false certainty. Skipped rules
+      say why; 33 engine/migration tests cover boundaries, DST, recurrence
+      and dismissal windowing.
+- [x] No meeting descriptions or attendees are exposed to AI unnecessarily.
+      None are stored, none are sent to AI; the engine and logs never touch
+      titles.
 
 ## Phase 9: Release Verification
 
@@ -331,3 +354,14 @@ Add dated entries here as work is completed:
   is no per-calendar selection). Follow-ups recorded: Terra deauth on
   disconnect, connection-point consent language, controller identity/ICO
   wording, bounded retention windows, ASC record re-entry and rename.
+- 24 July 2026: Phase 8 Storm Warning completed and integrated: pure
+  deterministic rules engine (density, consecutive busy days, early
+  starts, insufficient gaps, client-marked travel, recent-pattern
+  comparison gated on 14-of-28-days history), founder-gated portal route
+  with server-validated dismissals, idempotent audit logging, and the same
+  engine and explanations in Gordy's Capacity Scan. Verification re-run at
+  integration: 33/33 storm tests, 27/27 release contracts, lint zero
+  errors, tsc clean, production build compiled. Storm tests wired into
+  `test:release-contracts`. A pre-existing fixture type error in
+  `tests/founder-dashboard.test.ts` (invalid `updated_at` property) was
+  fixed in passing.

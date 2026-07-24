@@ -26,7 +26,7 @@ secret values belong in this file.
 | Worktree | Branch | Agent | Scope | Status |
 |---|---|---|---|---|
 | `../gordy-wt-early-win` | `agent/early-win-2026-07-24` | Fable 5 impl | Phase 6 Fourteen-Day Early Win | running |
-| `../gordy-wt-storm` | `agent/storm-warning-2026-07-24` | Fable 5 impl | Phase 8 Storm Warning rules engine | running |
+| `../gordy-wt-storm` | `agent/storm-warning-2026-07-24` | Fable 5 impl | Phase 8 Storm Warning rules engine | INTEGRATED (`4c35131`) |
 | `../gordy-wt-docs` | `agent/release-docs-2026-07-24` | Fable 5 docs | Privacy inventory, DPIA, release docs | INTEGRATED (`d8b09a9`) |
 
 Note: Kevin requested the strongest available model for subagents mid-run
@@ -66,6 +66,14 @@ Fable 5 is the Claude 5 family model above Opus 4.8.
 - `25dd152` preservation commit (Fable, reviewed: coherent, no secrets).
 - `7034fb7` docs workstream via merge `d8b09a9` (reviewed: docs-only,
   8 files, gates honestly labelled, spot-checked claims against code).
+- `f11a8b2`+`825241a` storm workstream via merge `4c35131` (reviewed:
+  engine, migration RLS, route gating, admin scan reuse; coach
+  `calendar_events` are globally shared by design - matches existing
+  `/api/calendar`; 33/33 + 27/27 re-run by Fable). Storm tests wired into
+  `test:release-contracts` by Fable post-merge.
+  DEPLOY NOTE: apply `20260724110000_add_storm_warnings.sql` before or
+  with the code deploy - without it, portal storm GET 500s whenever a
+  warning needs logging.
 
 ## Docs-workstream findings (verified by Fable where noted)
 
