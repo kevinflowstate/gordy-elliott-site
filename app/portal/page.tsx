@@ -8,6 +8,7 @@ import type { CalendarEvent, CheckIn, ClientProfile, ClientTask, TrainingPlanPha
 import type { WearableDailySummary } from "@/lib/wearable-insights";
 import FounderDashboard from "@/components/portal/FounderDashboard";
 import type { CapacityBaseline, CapacityMetrics } from "@/lib/capacity-baseline";
+import type { EarlyWinView } from "@/lib/early-win";
 
 type Tier = "coached" | "premium" | "vip" | "ai_only";
 type BaselineComparison = {
@@ -277,6 +278,7 @@ export default function PortalDashboard() {
   const [todayTraining, setTodayTraining] = useState<string | null>(null);
   const [activeTrainingPlan, setActiveTrainingPlan] = useState<string | null>(null);
   const [baselineComparison, setBaselineComparison] = useState<BaselineComparison | null>(null);
+  const [earlyWinView, setEarlyWinView] = useState<EarlyWinView | null>(null);
 
   const loadDashboard = useCallback(async () => {
     setLoadError(null);
@@ -379,6 +381,22 @@ export default function PortalDashboard() {
         }
       } catch {
         /* Upcoming tile falls back to the calendar link. */
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  // The early win card exists only after Gordy explicitly creates one.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/portal/early-win");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (active) setEarlyWinView(data?.earlyWin ? data : null);
+      } catch {
+        /* The card simply stays hidden. */
       }
     })();
     return () => { active = false; };
@@ -517,6 +535,7 @@ export default function PortalDashboard() {
         todayTraining={todayTraining}
         activeTrainingPlan={activeTrainingPlan}
         baselineComparison={baselineComparison}
+        earlyWin={earlyWinView}
         onToggleTask={(taskId, completed) => void toggleTask(taskId, completed)}
       />
     );

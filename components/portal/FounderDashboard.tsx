@@ -4,6 +4,8 @@ import Link from "next/link";
 import type { CalendarEvent, ClientProfile, ClientTask } from "@/lib/types";
 import type { WearableDailySummary } from "@/lib/wearable-insights";
 import type { CapacityBaseline, CapacityMetrics } from "@/lib/capacity-baseline";
+import type { EarlyWinView } from "@/lib/early-win";
+import EarlyWinCard from "@/components/portal/EarlyWinCard";
 import {
   calendarEventOccursOn,
   calendarWindowLoad,
@@ -119,6 +121,7 @@ export default function FounderDashboard({
   todayTraining,
   activeTrainingPlan,
   baselineComparison,
+  earlyWin,
   onToggleTask,
 }: {
   profile: ClientProfile;
@@ -130,6 +133,7 @@ export default function FounderDashboard({
   todayTraining: string | null;
   activeTrainingPlan: string | null;
   baselineComparison: BaselineComparison | null;
+  earlyWin: EarlyWinView | null;
   onToggleTask: (taskId: string, completed: boolean) => void;
 }) {
   const capacity = capacityLanguage(wearableSummary);
@@ -211,6 +215,8 @@ export default function FounderDashboard({
           </div>
         </div>
       </section>
+
+      {earlyWin && <EarlyWinCard view={earlyWin} />}
 
       {stormWarning && (
         <section className="rounded-2xl border border-amber-400/25 bg-amber-400/8 px-5 py-4">
