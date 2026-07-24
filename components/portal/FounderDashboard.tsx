@@ -240,7 +240,7 @@ export default function FounderDashboard({
           </div>
           <div className="mt-2 flex items-start justify-between gap-4">
             <p className="max-w-xl text-xs leading-5 text-white/55">{capacity.detail}</p>
-            {wearableMockMode && wearableSummary && <span className="text-[9px] font-bold uppercase tracking-wider text-white/35">Preview data</span>}
+            {wearableMockMode && wearableSummary && <span className="text-[9px] font-bold uppercase tracking-wider text-white/55">Preview data</span>}
           </div>
         </div>
       </section>

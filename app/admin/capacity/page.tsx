@@ -30,6 +30,8 @@ type CapacityClient = {
     explanations: string[];
     used_history: boolean;
     dismissed: boolean;
+    silenced: boolean;
+    dismissed_severity: "amber" | "red" | null;
     dismissed_at: string | null;
   } | null;
   connection: { provider: string; last_sync_at: string | null } | null;
@@ -179,7 +181,9 @@ export default function CapacityScanPage() {
                       </span>
                       {client.storm.dismissed && (
                         <span className="rounded-full border border-[rgba(0,0,0,0.10)] px-2 py-0.5 text-[9px] font-semibold text-text-muted">
-                          Dismissed by client
+                          {client.storm.silenced
+                            ? "Dismissed by client"
+                            : `Dismissed at ${client.storm.dismissed_severity || "amber"} - re-raised at ${client.storm.severity}`}
                         </span>
                       )}
                       {!client.storm.used_history && (

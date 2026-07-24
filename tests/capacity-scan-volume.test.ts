@@ -326,9 +326,16 @@ function composeScanClient(client: ScanFixture) {
       }
     }
     if (stormEvaluation.warning && stormEvaluation.severity !== "none") {
+      const silenced = dismissalSilencesWarning(stormEvaluation, client.dismissal || null);
       flags.push({
         severity: stormEvaluation.severity === "red" ? "red" : "amber",
-        label: `Storm warning${client.dismissal ? " (dismissed by client)" : ""}: ${stormEvaluation.overallExplanation}`,
+        label: `Storm warning${
+          silenced
+            ? " (dismissed by client)"
+            : client.dismissal
+              ? ` (dismissed at ${client.dismissal.severity} - re-raised at ${stormEvaluation.severity})`
+              : ""
+        }: ${stormEvaluation.overallExplanation}`,
       });
     }
   }
@@ -359,6 +366,8 @@ function composeScanClient(client: ScanFixture) {
       explanations: stormEvaluation.rules.filter((rule) => rule.triggered).map((rule) => rule.explanation),
       used_history: stormEvaluation.usedHistory,
       dismissed: Boolean(client.dismissal),
+      silenced: dismissalSilencesWarning(stormEvaluation, client.dismissal || null),
+      dismissed_severity: client.dismissal?.severity || null,
       dismissed_at: client.dismissal?.dismissed_at || null,
     },
     evaluation: stormEvaluation,
@@ -494,6 +503,7 @@ test("paused and frozen clients scan as paused with no flags even under storm-le
 test("dismissed state maps through to the scan and to client-side silencing correctly", () => {
   const dismissed = scan("Dismissed amber storm");
   assert.equal(dismissed.storm.dismissed, true);
+  assert.equal(dismissed.storm.silenced, true);
   assert.equal(dismissed.storm.dismissed_at, "2026-07-23T08:00:00Z");
   assert.match(dismissed.flags.find((flag) => flag.label.startsWith("Storm warning"))?.label || "", /\(dismissed by client\)/);
   // Same window, same severity: the client card stays quiet.
@@ -506,7 +516,14 @@ test("dismissed state maps through to the scan and to client-side silencing corr
   assert.equal(escalated.storm.severity, "red");
   // The scan still shows the dismissal record...
   assert.equal(escalated.storm.dismissed, true);
-  // ...but the client card re-raises because red outranks the dismissed amber.
+  // ...but marks it re-raised rather than claiming the client cannot see it.
+  assert.equal(escalated.storm.silenced, false);
+  assert.equal(escalated.storm.dismissed_severity, "amber");
+  assert.match(
+    escalated.flags.find((flag) => flag.label.startsWith("Storm warning"))?.label || "",
+    /\(dismissed at amber - re-raised at red\)/,
+  );
+  // The client card re-raises because red outranks the dismissed amber.
   assert.equal(
     dismissalSilencesWarning(escalated.evaluation, { window_key: WINDOW_KEY, severity: "amber" }),
     false,

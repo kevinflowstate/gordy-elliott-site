@@ -9,6 +9,7 @@ import {
 import { calendarWindowLoad, dateKeyInTimeZone, localDateKey } from "@/lib/founder-dashboard";
 import {
   addDaysToKey,
+  dismissalSilencesWarning,
   evaluateStormWarning,
   isoWeekKey,
   STORM_THRESHOLDS,
@@ -278,6 +279,9 @@ export async function GET() {
       now,
     });
     const stormDismissal = stormDismissalByClient.get(profile.id) || null;
+    // A dismissal only quiets the client card while severity has not
+    // escalated past it - the scan must reflect what the client actually sees.
+    const stormSilenced = dismissalSilencesWarning(stormEvaluation, stormDismissal);
     if (stormEvaluation.warning && stormEvaluation.severity !== "none") {
       stormLogRows.push({
         client_id: profile.id,
@@ -318,7 +322,13 @@ export async function GET() {
       if (stormEvaluation.warning && stormEvaluation.severity !== "none") {
         flags.push({
           severity: stormEvaluation.severity === "red" ? "red" : "amber",
-          label: `Storm warning${stormDismissal ? " (dismissed by client)" : ""}: ${stormEvaluation.overallExplanation}`,
+          label: `Storm warning${
+            stormSilenced
+              ? " (dismissed by client)"
+              : stormDismissal
+                ? ` (dismissed at ${stormDismissal.severity} - re-raised at ${stormEvaluation.severity})`
+                : ""
+          }: ${stormEvaluation.overallExplanation}`,
         });
       }
     }
@@ -365,6 +375,8 @@ export async function GET() {
         explanations: stormEvaluation.rules.filter((rule) => rule.triggered).map((rule) => rule.explanation),
         used_history: stormEvaluation.usedHistory,
         dismissed: Boolean(stormDismissal),
+        silenced: stormSilenced,
+        dismissed_severity: stormDismissal?.severity || null,
         dismissed_at: stormDismissal?.dismissed_at || null,
       },
       connection: connection ? {
