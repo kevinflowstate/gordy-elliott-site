@@ -135,7 +135,21 @@ export default function CompliancePanel({ clientId }: { clientId: string }) {
   if (loading) {
     return <div className="mb-6 h-44 animate-pulse rounded-2xl bg-bg-card" />;
   }
-  if (!data) return null;
+  if (!data) {
+    return (
+      <section className="mb-6 rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-card p-5">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#E040D0]">Founder compliance</div>
+        <p className="mt-1 text-sm text-text-secondary">Compliance records could not be loaded.</p>
+        <button
+          type="button"
+          onClick={() => { setLoading(true); void load(); }}
+          className="mt-3 rounded-xl border border-[rgba(0,0,0,0.10)] bg-bg-primary px-4 py-2.5 text-xs font-semibold text-text-secondary"
+        >
+          Try again
+        </button>
+      </section>
+    );
+  }
 
   const { summary } = data;
   const inputClass = "mt-1.5 w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-2.5 text-sm text-text-primary";
@@ -228,7 +242,7 @@ export default function CompliancePanel({ clientId }: { clientId: string }) {
           <div className="mt-3 space-y-1.5">
             {data.attendance.slice(0, 8).map((record) => (
               <div key={record.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
-                <div className="text-xs text-text-primary">
+                <div className="min-w-0 break-words text-xs text-text-primary">
                   <span className="font-semibold">{longDate(record.call_date)}</span>
                   <span className="mx-1.5 text-text-muted">·</span>
                   {CALL_TYPE_LABELS[record.call_type as CallType] || record.call_type}
@@ -279,7 +293,7 @@ export default function CompliancePanel({ clientId }: { clientId: string }) {
           <div className="mt-3 space-y-1.5">
             {data.whatsapp.slice(0, 8).map((record) => (
               <div key={record.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
-                <div className="text-xs text-text-primary">
+                <div className="min-w-0 break-words text-xs text-text-primary">
                   <span className="font-semibold">{weekLabel(record.week_key)}</span>
                   <span className={`ml-1.5 font-semibold ${record.helped ? "text-emerald-500" : "text-text-muted"}`}>
                     {record.helped ? "Helped" : "No help needed"}
