@@ -8,6 +8,7 @@ import type { CalendarEvent, CheckIn, ClientProfile, ClientTask, TrainingPlanPha
 import type { WearableDailySummary } from "@/lib/wearable-insights";
 import FounderDashboard from "@/components/portal/FounderDashboard";
 import type { CapacityBaseline, CapacityMetrics } from "@/lib/capacity-baseline";
+import type { StormWarningClientState } from "@/lib/storm-warning";
 
 type Tier = "coached" | "premium" | "vip" | "ai_only";
 type BaselineComparison = {
@@ -277,6 +278,29 @@ export default function PortalDashboard() {
   const [todayTraining, setTodayTraining] = useState<string | null>(null);
   const [activeTrainingPlan, setActiveTrainingPlan] = useState<string | null>(null);
   const [baselineComparison, setBaselineComparison] = useState<BaselineComparison | null>(null);
+  const [stormWarning, setStormWarning] = useState<StormWarningClientState | null>(null);
+
+  const loadStormWarning = useCallback(async () => {
+    try {
+      const res = await fetch("/api/portal/storm-warning");
+      if (res.ok) setStormWarning(await res.json());
+    } catch {
+      /* The dashboard simply stays quiet without an evaluation. */
+    }
+  }, []);
+
+  const dismissStormWarning = useCallback(async () => {
+    try {
+      const res = await fetch("/api/portal/storm-warning", { method: "POST" });
+      if (res.ok) setStormWarning(await res.json());
+    } catch {
+      /* Leave the warning visible if the dismissal could not be saved. */
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadStormWarning();
+  }, [loadStormWarning]);
 
   const loadDashboard = useCallback(async () => {
     setLoadError(null);
@@ -517,7 +541,9 @@ export default function PortalDashboard() {
         todayTraining={todayTraining}
         activeTrainingPlan={activeTrainingPlan}
         baselineComparison={baselineComparison}
+        stormWarning={stormWarning}
         onToggleTask={(taskId, completed) => void toggleTask(taskId, completed)}
+        onDismissStormWarning={() => void dismissStormWarning()}
       />
     );
   }

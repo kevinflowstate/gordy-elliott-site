@@ -7,6 +7,13 @@ import {
   type ClientMonitoringPreferences,
 } from "@/lib/client-attention";
 import { calendarWindowLoad, dateKeyInTimeZone, localDateKey } from "@/lib/founder-dashboard";
+import {
+  addDaysToKey,
+  evaluateStormWarning,
+  isoWeekKey,
+  STORM_THRESHOLDS,
+  type StormEventInput,
+} from "@/lib/storm-warning";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { CalendarEvent } from "@/lib/types";
 import { NextResponse } from "next/server";
@@ -29,7 +36,11 @@ export async function GET() {
   const clientIds = (profiles || []).map((profile) => profile.id);
   if (clientIds.length === 0) return NextResponse.json({ clients: [], generatedAt: new Date().toISOString() });
 
-  const todayKey = dateKeyInTimeZone(new Date(), "Europe/London");
+  const now = new Date();
+  const todayKey = dateKeyInTimeZone(now, "Europe/London");
+  const stormWindowKey = isoWeekKey(todayKey);
+  const stormHistoryStartKey = addDaysToKey(todayKey, -STORM_THRESHOLDS.HISTORY_TRAILING_DAYS);
+  const stormWindowEndKey = addDaysToKey(todayKey, STORM_THRESHOLDS.WINDOW_DAYS - 1);
   const today = new Date(`${todayKey}T12:00:00.000Z`);
   const weekEnd = new Date(today);
   weekEnd.setDate(today.getDate() + 6);
@@ -47,6 +58,8 @@ export async function GET() {
     coachCalendarRes,
     monitoringRes,
     snoozesRes,
+    stormCalendarRes,
+    stormDismissalsRes,
   ] = await Promise.all([
     admin
       .from("client_wearable_daily_summaries")
@@ -73,7 +86,7 @@ export async function GET() {
       .order("tracked_date", { ascending: false }),
     admin
       .from("client_personal_events")
-      .select("id, client_id, title, event_date, event_date_key, event_time, recurrence, recurrence_day, is_active, created_at")
+      .select("id, client_id, title, event_date, event_date_key, event_time, recurrence, recurrence_day, category, is_active, created_at")
       .in("client_id", clientIds)
       .eq("is_active", true)
       .lte("event_date_key", localDateKey(weekEnd)),
@@ -97,6 +110,17 @@ export async function GET() {
       .from("client_attention_snoozes")
       .select("client_id, signal, ignored, snoozed_until, reason")
       .in("client_id", clientIds),
+    admin
+      .from("client_calendar_events")
+      .select("id, client_id, event_date_key, event_time, all_day, busy_status, is_cancelled, starts_at, ends_at")
+      .in("client_id", clientIds)
+      .gte("event_date_key", stormHistoryStartKey)
+      .lte("event_date_key", stormWindowEndKey),
+    admin
+      .from("client_storm_warning_dismissals")
+      .select("client_id, window_key, severity, dismissed_at")
+      .in("client_id", clientIds)
+      .eq("window_key", stormWindowKey),
   ]);
 
   const scanError = [
@@ -109,6 +133,8 @@ export async function GET() {
     coachCalendarRes.error,
     monitoringRes.error,
     snoozesRes.error,
+    stormCalendarRes.error,
+    stormDismissalsRes.error,
   ].find(Boolean);
   if (scanError) {
     return NextResponse.json(
@@ -174,6 +200,49 @@ export async function GET() {
     snoozesByClient.set(row.client_id, snoozes);
   }
 
+  const stormCoachEvents: StormEventInput[] = (coachCalendarRes.data || []).map((event) => ({
+    id: event.id,
+    source: "coach" as const,
+    event_date: event.event_date,
+    event_time: event.event_time || null,
+    recurrence: event.recurrence,
+    recurrence_day: event.recurrence_day,
+  }));
+  const stormEventsByClient = new Map<string, StormEventInput[]>();
+  for (const event of calendarRes.data || []) {
+    const events = stormEventsByClient.get(event.client_id) || [];
+    events.push({
+      id: event.id,
+      source: "client",
+      event_date: event.event_date_key || event.event_date,
+      event_time: event.event_time || null,
+      recurrence: event.recurrence,
+      recurrence_day: event.recurrence_day,
+      category: event.category || null,
+    });
+    stormEventsByClient.set(event.client_id, events);
+  }
+  for (const event of stormCalendarRes.data || []) {
+    const events = stormEventsByClient.get(event.client_id) || [];
+    events.push({
+      id: event.id,
+      source: "connected",
+      event_date: event.event_date_key,
+      event_time: event.event_time || null,
+      recurrence: "none",
+      all_day: Boolean(event.all_day),
+      busy_status: event.busy_status || null,
+      is_cancelled: Boolean(event.is_cancelled),
+      starts_at: event.starts_at || null,
+      ends_at: event.ends_at || null,
+    });
+    stormEventsByClient.set(event.client_id, events);
+  }
+  const stormDismissalByClient = new Map(
+    (stormDismissalsRes.data || []).map((row) => [row.client_id, row]),
+  );
+
+  const stormLogRows: Array<Record<string, unknown>> = [];
   const clients = (profiles || []).map((profile) => {
     const user = Array.isArray(profile.user) ? profile.user[0] : profile.user;
     const latestWearableSummary = latestSummary.get(profile.id) || null;
@@ -202,6 +271,27 @@ export async function GET() {
     const monitoring = monitoringByClient.get(profile.id) || DEFAULT_MONITORING_PREFERENCES;
     const snoozes = snoozesByClient.get(profile.id) || [];
 
+    // Same rules engine as the client dashboard, so the scan shows the same
+    // warning with the same explanation.
+    const stormEvaluation = evaluateStormWarning({
+      events: [...stormCoachEvents, ...(stormEventsByClient.get(profile.id) || [])],
+      now,
+    });
+    const stormDismissal = stormDismissalByClient.get(profile.id) || null;
+    if (stormEvaluation.warning && stormEvaluation.severity !== "none") {
+      stormLogRows.push({
+        client_id: profile.id,
+        window_key: stormEvaluation.windowKey,
+        window_start: stormEvaluation.windowStart,
+        window_end: stormEvaluation.windowEnd,
+        severity: stormEvaluation.severity,
+        triggered_rules: stormEvaluation.rules.filter((rule) => rule.triggered).map((rule) => rule.id),
+        evaluation: stormEvaluation,
+        input_hash: stormEvaluation.inputHash,
+        evaluated_at: stormEvaluation.evaluatedAt,
+      });
+    }
+
     if (effectiveLifecycle === "active") {
       if (isAttentionSignalEnabled("wearables", monitoring, snoozes)) {
         if (summary?.recovery_status === "reduce_intensity") {
@@ -225,8 +315,11 @@ export async function GET() {
           flags.push({ severity: "amber", label: "Latest daily check shows capacity pressure." });
         }
       }
-      if (denseDays >= 2 || calendarTotal >= 18) {
-        flags.push({ severity: "amber", label: "A dense calendar stretch is building this week." });
+      if (stormEvaluation.warning && stormEvaluation.severity !== "none") {
+        flags.push({
+          severity: stormEvaluation.severity === "red" ? "red" : "amber",
+          label: `Storm warning${stormDismissal ? " (dismissed by client)" : ""}: ${stormEvaluation.overallExplanation}`,
+        });
       }
     }
 
@@ -264,6 +357,16 @@ export async function GET() {
         total: calendarTotal,
         dense_days: denseDays,
       },
+      storm: {
+        warning: stormEvaluation.warning,
+        severity: stormEvaluation.severity,
+        window_key: stormEvaluation.windowKey,
+        overall: stormEvaluation.overallExplanation,
+        explanations: stormEvaluation.rules.filter((rule) => rule.triggered).map((rule) => rule.explanation),
+        used_history: stormEvaluation.usedHistory,
+        dismissed: Boolean(stormDismissal),
+        dismissed_at: stormDismissal?.dismissed_at || null,
+      },
       connection: connection ? {
         provider: connection.provider,
         last_sync_at: connection.last_sync_at,
@@ -273,6 +376,17 @@ export async function GET() {
     const order: Record<string, number> = { red: 0, amber: 1, green: 2, paused: 3 };
     return order[a.status] - order[b.status];
   });
+
+  if (stormLogRows.length > 0) {
+    // Audit log; deduplicated on (client_id, window_key, input_hash) so
+    // repeated scans of unchanged calendars add nothing.
+    const { error: stormLogError } = await admin
+      .from("client_storm_warnings")
+      .upsert(stormLogRows, { onConflict: "client_id,window_key,input_hash", ignoreDuplicates: true });
+    if (stormLogError) {
+      return NextResponse.json({ error: stormLogError.message }, { status: 500 });
+    }
+  }
 
   return NextResponse.json({ clients, generatedAt: new Date().toISOString() });
 }

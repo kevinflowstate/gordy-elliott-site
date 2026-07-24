@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { CalendarEvent, ClientProfile, ClientTask } from "@/lib/types";
 import type { WearableDailySummary } from "@/lib/wearable-insights";
 import type { CapacityBaseline, CapacityMetrics } from "@/lib/capacity-baseline";
+import type { StormWarningClientState } from "@/lib/storm-warning";
 import {
   calendarEventOccursOn,
   calendarWindowLoad,
@@ -119,7 +120,9 @@ export default function FounderDashboard({
   todayTraining,
   activeTrainingPlan,
   baselineComparison,
+  stormWarning,
   onToggleTask,
+  onDismissStormWarning,
 }: {
   profile: ClientProfile;
   userName: string;
@@ -130,16 +133,22 @@ export default function FounderDashboard({
   todayTraining: string | null;
   activeTrainingPlan: string | null;
   baselineComparison: BaselineComparison | null;
+  stormWarning: StormWarningClientState | null;
   onToggleTask: (taskId: string, completed: boolean) => void;
+  onDismissStormWarning: () => void;
 }) {
   const capacity = capacityLanguage(wearableSummary);
   const weekLoad = getWeekLoad(calendarEvents);
   const upcoming = getUpcomingEvents(calendarEvents);
   const nextEvent = upcoming[0] || null;
   const todayCount = weekLoad[0]?.count || 0;
-  const denseDays = weekLoad.filter((day) => day.count >= 4);
   const weekTotal = weekLoad.reduce((total, day) => total + day.count, 0);
-  const stormWarning = denseDays.length >= 2 || weekTotal >= 18;
+  const stormEvaluation = stormWarning && stormWarning.evaluation.warning && !stormWarning.silenced
+    ? stormWarning.evaluation
+    : null;
+  const stormLines = stormEvaluation
+    ? stormEvaluation.rules.filter((rule) => rule.triggered).map((rule) => rule.explanation)
+    : [];
   const openCoachTasks = tasks.filter((task) => task.source !== "client" && !task.completed);
   const todayLabel = new Date().toLocaleDateString("en-GB", {
     weekday: "long",
@@ -212,11 +221,44 @@ export default function FounderDashboard({
         </div>
       </section>
 
-      {stormWarning && (
-        <section className="rounded-2xl border border-amber-400/25 bg-amber-400/8 px-5 py-4">
-          <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-400">Storm warning</div>
-          <p className="mt-1 text-sm font-semibold text-text-primary">A dense stretch is building across the next seven days.</p>
-          <p className="mt-1 text-xs leading-5 text-text-secondary">Gordy can see this pressure too, so training and recovery can be adjusted before it lands.</p>
+      {stormEvaluation && (
+        <section
+          className={`rounded-2xl border px-5 py-4 ${
+            stormEvaluation.severity === "red"
+              ? "border-red-400/25 bg-red-400/8"
+              : "border-amber-400/25 bg-amber-400/8"
+          }`}
+        >
+          <div className={`text-[10px] font-bold uppercase tracking-[0.18em] ${
+            stormEvaluation.severity === "red" ? "text-red-400" : "text-amber-400"
+          }`}>
+            Storm warning
+          </div>
+          <p className="mt-1 text-sm font-semibold text-text-primary">
+            {stormEvaluation.severity === "red"
+              ? "A heavy stretch is building across the next seven days."
+              : "A dense stretch is building across the next seven days."}
+          </p>
+          <ul className="mt-2 space-y-1">
+            {stormLines.map((line) => (
+              <li key={line} className="text-xs leading-5 text-text-secondary">- {line}</li>
+            ))}
+          </ul>
+          {!stormEvaluation.usedHistory && (
+            <p className="mt-2 text-[11px] leading-4 text-text-muted">
+              Based on this week&apos;s calendar alone - there is not enough history yet to compare against your usual pattern.
+            </p>
+          )}
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <p className="text-xs leading-5 text-text-secondary">Gordy can see this pressure too, so training and recovery can be adjusted before it lands.</p>
+            <button
+              type="button"
+              onClick={onDismissStormWarning}
+              className="flex-none text-[11px] font-semibold text-text-muted underline-offset-2 hover:underline"
+            >
+              Noted - hide for this week
+            </button>
+          </div>
         </section>
       )}
 
