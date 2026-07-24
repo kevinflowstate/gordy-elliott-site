@@ -21,15 +21,35 @@ export async function GET() {
   }
 
   try {
-    const result = await loadBaselineComparison(admin, profile.id);
+    const [result, reviewRes] = await Promise.all([
+      loadBaselineComparison(admin, profile.id),
+      admin
+        .from("client_month4_reviews")
+        .select("review_date, outcome_note, completed_at, baseline_comparison")
+        .eq("client_id", profile.id)
+        .eq("status", "completed")
+        .maybeSingle(),
+    ]);
+    if (reviewRes.error) return NextResponse.json({ error: reviewRes.error.message }, { status: 500 });
+    const review = reviewRes.data;
+    const month4Review = review && review.outcome_note
+      ? {
+          review_date: String(review.review_date).slice(0, 10),
+          outcome_note: review.outcome_note,
+          completed_at: review.completed_at,
+          source_period: review.baseline_comparison?.source_period ?? null,
+          comparison_period: review.baseline_comparison?.comparison_period ?? null,
+        }
+      : null;
     if (result.baseline?.status !== "locked") {
       return NextResponse.json({
         baseline: null,
         current: result.current,
         comparison: null,
+        month4Review,
       });
     }
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, month4Review });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Baseline could not be loaded" }, { status: 500 });
   }

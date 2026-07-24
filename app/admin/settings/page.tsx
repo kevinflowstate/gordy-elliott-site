@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import GuaranteeSettingsPanel from "@/components/admin/GuaranteeSettingsPanel";
 
 type SystemCheck = {
   key: string;
@@ -59,6 +60,8 @@ export default function AdminSettingsPage() {
           </Link>
         </div>
       </div>
+
+      <GuaranteeSettingsPanel />
 
       <div className="mb-6 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-6">
         <h2 className="text-lg font-heading font-bold text-text-primary">Production Readiness</h2>

@@ -29,7 +29,20 @@ type BaselineComparison = {
     delta: number | null;
     direction: "improved" | "declined" | "unchanged" | "missing";
   }> | null;
+  month4Review?: {
+    review_date: string;
+    outcome_note: string;
+    completed_at: string | null;
+    source_period: { start: string; end: string } | null;
+    comparison_period: { start: string; end: string } | null;
+  } | null;
 };
+
+function periodLabel(dateKey: string) {
+  const parsed = new Date(`${dateKey.slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) return dateKey;
+  return parsed.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
 
 function getWeekLoad(events: CalendarEvent[]): DayLoad[] {
   const today = new Date();
@@ -398,6 +411,17 @@ export default function FounderDashboard({
             })}
           </div>
           <p className="mt-2 px-1 text-[10px] leading-4 text-text-muted">This view shows movement only. Guarantee conditions are not applied until Gordy confirms the exact thresholds.</p>
+          {baselineComparison.month4Review && (
+            <div className="mt-3 rounded-xl border border-[rgba(255,255,255,0.08)] bg-bg-card px-4 py-3">
+              <div className="text-[9px] font-bold uppercase tracking-wider text-[#E667D6]">Month 4 review</div>
+              <p className="mt-1 text-xs leading-5 text-text-secondary">{baselineComparison.month4Review.outcome_note}</p>
+              {baselineComparison.month4Review.source_period && baselineComparison.month4Review.comparison_period && (
+                <p className="mt-1 text-[10px] text-text-muted">
+                  Compared your Month 1 baseline ({periodLabel(baselineComparison.month4Review.source_period.start)} to {periodLabel(baselineComparison.month4Review.source_period.end)}) with {periodLabel(baselineComparison.month4Review.comparison_period.start)} to {periodLabel(baselineComparison.month4Review.comparison_period.end)}.
+                </p>
+              )}
+            </div>
+          )}
         </section>
       )}
 
