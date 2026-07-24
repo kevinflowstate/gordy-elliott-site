@@ -44,8 +44,10 @@ npm run capture:app-store
 
 The script refuses to continue unless the authenticated dashboard visibly identifies the fictional Demo Client. It writes opaque JPEGs and a non-secret manifest under the external Xcode volume by default. Draft captures are for visual review; repeat the command against the approved release candidate before uploading the final set.
 
-The final production-backed set is stored outside source control at:
+The final production-backed set is stored outside source control at the path below (the directory name predates the AT CAPACITY rename and is kept as-is because App Store Connect already references these uploads):
 
 `/Volumes/XCode/Storage-Quarantine-2026-07-15/SHIFT-AppStore-Screenshots/2026-07-21-production-final-v2`
+
+These screenshots were captured on 21 July 2026, before the Founder Dashboard and calendar work. If Founder Dashboard or calendar features ship in version 1, regenerate the set from the release candidate as required by the implementation checklist.
 
 All six files were verified as opaque JPEGs at `1284 x 2778`, visually inspected and uploaded to App Store Connect in the capture-sequence order above.

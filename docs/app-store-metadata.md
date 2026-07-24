@@ -1,6 +1,6 @@
 # AT CAPACITY App Store Metadata
 
-Prepared 21 July 2026 for the first iOS release. Recheck character limits in App Store Connect before submission.
+Prepared 21 July 2026 for the first iOS release; calendar-connection copy and review notes added 24 July 2026. Recheck character limits in App Store Connect before submission. The listing currently saved in App Store Connect predates the calendar additions and must be re-entered from this document.
 
 ## Product fields
 
@@ -51,7 +51,9 @@ STAY CONNECTED TO YOUR COACH
 
 COACHING CONTEXT THAT MOVES WITH YOU
 
-Eligible clients can use optional cycle tracking. Supported connected apps can also contribute sleep, recovery, activity and nutrition summaries when enabled. These signals support coaching suggestions only and never change a programme automatically.
+Eligible clients can use optional cycle tracking. Supported connected apps can also contribute sleep, recovery, activity and nutrition summaries when enabled. Founder Dashboard clients can optionally connect Google Calendar or Outlook Calendar with read-only access so the dashboard reflects the shape of their day. These signals support coaching suggestions only and never change a programme automatically.
+
+Note before submission: keep the calendar sentence only if calendar connections are enabled for the launch build. Google Calendar remains externally gated by Google's verification review (submitted 24 July 2026, under review); Outlook does not depend on that review but still needs its production contract test.
 
 AT CAPACITY AI can help eligible AI Coaching clients find assigned content and understand their existing coaching plan. Founder Dashboard clients receive direct coaching from Gordy and do not use in-app AI. AI does not replace Gordy, diagnose conditions or provide emergency or medical care.
 
@@ -79,6 +81,8 @@ AT CAPACITY is a sign-in-only companion app for existing Gordy Elliott coaching 
 Use the supplied Demo Client account to inspect an assigned training programme and log a session; view the assigned nutrition plan; use Daily Tracker; review check-ins and coach replies; open DM; view consultation and Settings; and inspect Connected Apps. The account contains representative fictional data only.
 
 Connected-health summaries are informational coaching signals. They do not diagnose conditions and never alter a training programme automatically. Apple Health is not enabled in version 1. When Terra production credentials are unavailable, Connected Apps presents an unavailable state rather than fabricated data.
+
+Calendar connections (Founder Dashboard clients) are optional and read-only. The app does not use EventKit or request the iOS calendar permission; clients authorise Google Calendar or Outlook Calendar through the provider's own OAuth consent screen, processed by Composio as service provider. AT CAPACITY stores only event identifiers, titles (private events shown as "Busy"), start/end times, busy status and a meeting link - never descriptions or attendee lists. Disconnecting removes the synced copies. If calendar providers are not configured in the review build, the connect screen presents a not-available state.
 
 Notification permission is requested only after the client selects Enable. DMs, coach nudges, tasks and reminders use the same account-level pause/freeze suppression rules as in-app notifications.
 
