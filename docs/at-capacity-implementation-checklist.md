@@ -173,18 +173,38 @@ Estimated effort: 2 to 3 days
 - [x] Calculate HRV, resting heart rate, and sleep from a defined baseline
       window.
 - [x] Add manually entered body-composition baseline values.
-- [ ] Lock the baseline with an audit timestamp and Gordy override reason.
-      Locking and the audit timestamp are complete; an explicit override flow
-      remains outstanding.
+- [x] Lock the baseline with an audit timestamp and Gordy override reason.
+      Explicit override flow complete: a service-role-only audited database
+      function unlocks, edits and relocks in one transaction, requires a
+      written reason (1-500 chars), and records old and new values in the
+      immutable `client_baseline_overrides` audit table before the row
+      changes. Ordinary writes to locked baselines remain blocked.
 - [x] Add client-side Baseline vs Now.
 - [x] Add coach-side Baseline vs Now.
-- [ ] Show the same comparison in the Month 4 review.
+- [x] Show the same comparison in the Month 4 review. Review snapshots are
+      frozen at completion using the same comparison logic, with source
+      period (locked Month 1 window) and comparison period (latest 14
+      days) stated inside the snapshot. Completed reviews are immutable;
+      clients see only their own completed review's outcome note and
+      stated periods.
 - [ ] Add configurable guarantee thresholds after Gordy's definition is
-      confirmed. (blocked: exact guarantee definition)
-- [ ] Add call-attendance records.
-- [ ] Use existing check-in records for check-in compliance.
-- [ ] Add a simple weekly WhatsApp-help record for Gordy.
-- [ ] Add a compliance summary without turning it into a gamified score.
+      confirmed. (blocked: exact guarantee definition) The mechanism is
+      built: a single-row `guarantee_settings` admin surface with
+      allowlisted metric/comparison/threshold fields, all null by default;
+      nothing is evaluated or shown to clients until fully configured.
+- [x] Add call-attendance records. Admin-only table and panel
+      (coaching/strategy calls, attended flag, note).
+- [x] Use existing check-in records for check-in compliance. Adherence is
+      derived from the existing `checkins` table over ISO Monday weeks on
+      Europe/London dates; only complete weeks count and the in-progress
+      week is reported separately, never as missed.
+- [x] Add a simple weekly WhatsApp-help record for Gordy. One admin
+      record per client per ISO week.
+- [x] Add a compliance summary without turning it into a gamified score.
+      Plain facts with honest empty states; no scores, grades, streaks or
+      leaderboards. NOTE: migrations `20260724120000` and `20260724121000`
+      must be applied at deploy; until then the compliance panels and
+      override flow fail on missing tables.
 
 Acceptance:
 
@@ -394,3 +414,20 @@ Add dated entries here as work is completed:
   60/60 release contracts, tsc clean. Early-win tests wired into
   `test:release-contracts`. The planned FounderDashboard overlap with the
   storm workstream was merged by hand and re-verified.
+- 24 July 2026: Independent hostile security review of the integrated
+  Wave 1 diff found no P1 and no P2 issues. Five P3 hardening findings
+  were remediated the same day: metric-allowlist prototype-chain hole,
+  storm-dismissal direct-write grants removed (API-only writes), storm
+  audit log capped per window, generic client-facing error messages on
+  portal routes, and rolled-over date keys rejected as 400s.
+- 24 July 2026: Remaining Phase 5 work completed and integrated: call
+  attendance, check-in adherence from existing records, weekly WhatsApp
+  help record, calm non-gamified compliance summary, Month 4 review with
+  frozen baseline-comparison and compliance snapshots, audited baseline
+  override flow (service-role-only database function with immutable audit
+  trail), and a fully configurable guarantee mechanism that evaluates
+  nothing until Gordy's definition is entered. Verification at
+  integration: 114/114 release contracts (34 new compliance tests wired
+  in), tsc clean, lint zero errors, production build compiled in the
+  workstream. No Gordy decisions were invented; no placeholders are
+  rendered anywhere.

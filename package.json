@@ -13,7 +13,7 @@
     "test:terra": "tsx --test tests/terra-contracts.test.ts",
     "test:composio": "tsx --test tests/composio-calendar.test.ts tests/composio-calendar-migration.test.ts",
     "test:native-push": "tsx --test tests/native-push.test.ts",
-    "test:release-contracts": "tsx --test tests/native-push.test.ts tests/safe-redirect.test.ts tests/client-experience.test.ts tests/client-attention.test.ts tests/capacity-baseline.test.ts tests/founder-dashboard.test.ts tests/at-capacity-migration.test.ts tests/storm-warning.test.ts tests/storm-warning-migration.test.ts tests/early-win.test.ts tests/early-win-migration.test.ts",
+    "test:release-contracts": "tsx --test tests/native-push.test.ts tests/safe-redirect.test.ts tests/client-experience.test.ts tests/client-attention.test.ts tests/capacity-baseline.test.ts tests/founder-dashboard.test.ts tests/at-capacity-migration.test.ts tests/storm-warning.test.ts tests/storm-warning-migration.test.ts tests/early-win.test.ts tests/early-win-migration.test.ts tests/founder-compliance.test.ts tests/founder-compliance-migration.test.ts",
     "verify:app-store-release": "node scripts/verify-app-store-release.mjs",
     "capture:app-store": "node scripts/capture-app-store-screenshots.mjs",
     "verify:mobile": "node scripts/verify-mobile-portal.mjs",

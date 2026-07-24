@@ -14,7 +14,10 @@ export async function GET() {
     .select("id, experience_mode")
     .eq("user_id", user.id)
     .maybeSingle();
-  if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
+  if (profileError) {
+    console.error("capacity-baseline profile load failed:", profileError.message);
+    return NextResponse.json({ error: "Baseline could not be loaded" }, { status: 500 });
+  }
   if (!profile) return NextResponse.json({ error: "Client profile not found" }, { status: 404 });
   if (profile.experience_mode !== "founder_dashboard") {
     return NextResponse.json({ error: "Baseline comparison is not available in this experience" }, { status: 403 });
@@ -30,7 +33,10 @@ export async function GET() {
         .eq("status", "completed")
         .maybeSingle(),
     ]);
-    if (reviewRes.error) return NextResponse.json({ error: reviewRes.error.message }, { status: 500 });
+    if (reviewRes.error) {
+      console.error("capacity-baseline month4 review load failed:", reviewRes.error.message);
+      return NextResponse.json({ error: "Baseline could not be loaded" }, { status: 500 });
+    }
     const review = reviewRes.data;
     const month4Review = review && review.outcome_note
       ? {
@@ -51,6 +57,7 @@ export async function GET() {
     }
     return NextResponse.json({ ...result, month4Review });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Baseline could not be loaded" }, { status: 500 });
+    console.error("capacity-baseline load failed:", error instanceof Error ? error.message : error);
+    return NextResponse.json({ error: "Baseline could not be loaded" }, { status: 500 });
   }
 }

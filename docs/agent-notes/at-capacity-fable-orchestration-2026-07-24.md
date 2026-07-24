@@ -33,8 +33,15 @@ Wave 2 (started after Wave 1 fully integrated at `a5df4cc`):
 
 | Workspace | Branch | Agent | Scope | Status |
 |---|---|---|---|---|
-| `../gordy-wt-early-win` (reused) | `agent/founder-compliance-2026-07-24` | Fable 5 impl | Phase 5: compliance, Month 4 review, baseline override, configurable guarantee | running |
-| canonical repo (read-only) | n/a | Fable 5 reviewer | Hostile security/data-isolation review of Wave 1 diff `fbcc549..a5df4cc` | running |
+| `../gordy-wt-early-win` (reused) | `agent/founder-compliance-2026-07-24` | Fable 5 impl | Phase 5: compliance, Month 4 review, baseline override, configurable guarantee | INTEGRATED (`ac90ca4`) |
+| canonical repo (read-only) | n/a | Fable 5 reviewer | Hostile security/data-isolation review of Wave 1 diff `fbcc549..a5df4cc` | COMPLETE (no P1/P2; 5 P3s fixed) |
+
+Compliance integration notes (Fable): merge was conflict-free; Fable
+genericized the portal capacity-baseline route's error responses for
+P3-4 consistency and wired the 34 compliance tests into
+`test:release-contracts` (now 114 tests). Deploy notes: migrations
+`20260724120000` + `20260724121000` required at deploy, alongside the
+earlier `20260724100000` (early win) and `20260724110000` (storm).
 
 Wave 2 file boundaries: compliance agent owns new compliance/month4/
 override/guarantee files + mounts in `app/admin/clients/[id]/page.tsx`;
