@@ -29,6 +29,19 @@ secret values belong in this file.
 | `../gordy-wt-storm` | `agent/storm-warning-2026-07-24` | Fable 5 impl | Phase 8 Storm Warning rules engine | INTEGRATED (`4c35131`) |
 | `../gordy-wt-docs` | `agent/release-docs-2026-07-24` | Fable 5 docs | Privacy inventory, DPIA, release docs | INTEGRATED (`d8b09a9`) |
 
+Wave 2 (started after Wave 1 fully integrated at `a5df4cc`):
+
+| Workspace | Branch | Agent | Scope | Status |
+|---|---|---|---|---|
+| `../gordy-wt-early-win` (reused) | `agent/founder-compliance-2026-07-24` | Fable 5 impl | Phase 5: compliance, Month 4 review, baseline override, configurable guarantee | running |
+| canonical repo (read-only) | n/a | Fable 5 reviewer | Hostile security/data-isolation review of Wave 1 diff `fbcc549..a5df4cc` | running |
+
+Wave 2 file boundaries: compliance agent owns new compliance/month4/
+override/guarantee files + mounts in `app/admin/clients/[id]/page.tsx`;
+may make only minimal localized touches to FounderDashboard/page.tsx.
+Reviewer is strictly read-only. No other writers on the repo besides
+Fable (checklist/orchestration only) until compliance lands.
+
 Note: Kevin requested the strongest available model for subagents mid-run
 (24 Jul). Original Opus 4.8 agents were stopped minutes in (no work lost,
 worktrees clean) and respawned on Claude Fable 5. There is no "Opus 5";
