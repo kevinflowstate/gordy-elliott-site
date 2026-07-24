@@ -30,6 +30,11 @@ Target:
 - [ ] Supply the booking link used for private strategy calls.
 - [ ] Confirm whether call tokens are a visible balance or simply an internal
       attendance allowance.
+- [ ] Sign off the DPIA (`docs/at-capacity-dpia.md`) - Gordy/Kevin.
+- [ ] Compile the processor due-diligence record (DPAs, AI training-disabled
+      terms, transfer mechanisms) - Kevin.
+- [ ] Supply the controller legal identity and complaint-contact details for
+      the privacy policy (UK GDPR: controller name and ICO complaint right).
 
 ## Existing Foundations
 
@@ -57,7 +62,10 @@ Estimated effort: 0.5 to 1.5 days
       app icon.
 - [ ] Update App Store name, description, review notes, and screenshots.
       Metadata and review documents are updated; new screenshots require the
-      release build.
+      release build. The App Store Connect record is still named "SHIFT
+      Coaching by Gordy" and its saved listing, review notes and App
+      Privacy answers predate the calendar work - re-enter from the updated
+      docs and rename before submission.
 - [x] Inventory AI prompts, emails, notifications, and seeded copy for stale
       SHIFT references.
 - [x] Add `experience_mode` with `founder_dashboard` and `ai_coaching`.
@@ -145,6 +153,10 @@ Estimated effort after credentials: 0.5 to 1 day
 - [ ] Confirm daily summaries update capacity and coach-side flags.
 - [ ] Confirm cycle data continues to use the existing tracker unless a
       supported Terra source is explicitly verified.
+- [ ] Deauthenticate the provider with Terra on wearable disconnect so a
+      later provider webhook cannot silently restore the connection and
+      resume storing summaries. Implementation can precede credentials;
+      real verification blocked: Terra credentials.
 
 Acceptance:
 
@@ -247,8 +259,17 @@ Estimated effort: 1 to 2 days
 - [x] Test baseline locking and comparison calculations. Guarantee thresholds
       remain blocked by the commercial definition.
 - [x] Test dashboard layout at 390x844 and 1440x1000.
-- [ ] Update privacy inventory and client consent language.
-- [ ] Complete a health and calendar data DPIA.
+- [ ] Update privacy inventory and client consent language. The privacy
+      inventory rewrite is complete (`docs/app-privacy-inventory.md`,
+      24 July 2026). Consent language at the calendar and wearable
+      connection points, plus a consent-version bump, remains outstanding.
+- [ ] Complete a health and calendar data DPIA. Drafted 24 July 2026
+      (`docs/at-capacity-dpia.md`); awaiting Gordy/Kevin sign-off.
+- [ ] Add controller legal identity and ICO complaint-right wording to the
+      privacy policy. (blocked: controller legal identity from Gordy/Kevin)
+- [ ] Agree and implement bounded retention for synced calendar-event
+      history and raw Terra webhook payloads (currently unbounded; storm
+      pattern comparison needs only the trailing 28 days).
 - [ ] Regenerate App Store screenshots.
 - [ ] Upload a new TestFlight build if native identity or capabilities change.
 - [ ] Complete Gordy and Founding Five acceptance testing.
@@ -301,3 +322,12 @@ Add dated entries here as work is completed:
   live in production. Baseline verification on the branch: 27/27
   release-contract tests passing. Google branding and Calendar data-access
   verification submitted 24 July 2026 and now under Google review.
+- 24 July 2026: Privacy and release documentation workstream integrated:
+  privacy inventory rewritten and grounded in code, UK GDPR DPIA drafted
+  (`docs/at-capacity-dpia.md`, awaiting sign-off), v1 release documentation
+  added, App Store worksheets made calendar-aware, historical SHIFT
+  references labelled. Privacy policy calendar wording corrected to state
+  that events are read from the calendars in the connected account (there
+  is no per-calendar selection). Follow-ups recorded: Terra deauth on
+  disconnect, connection-point consent language, controller identity/ICO
+  wording, bounded retention windows, ASC record re-entry and rename.

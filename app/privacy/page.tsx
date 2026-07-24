@@ -13,7 +13,7 @@ const sections = [
   },
   {
     title: "Google Calendar and Outlook Calendar data",
-    body: "Calendar connection is optional and read-only. AT CAPACITY uses calendar-list access to identify the calendars you choose to connect and reads events for today and the following seven days so it can show your next meeting, daily schedule and calendar-density signals. It stores only the calendar and event identifiers needed for syncing, event title, start and end times, all-day and busy status, and an available meeting link. Private or confidential event titles are stored as “Busy”. AT CAPACITY does not store event descriptions or attendee lists, does not create, edit or delete calendar events, and does not use calendar data for advertising or to train general-purpose AI models. Disconnecting a calendar stops future access and deletes its synced event copies from AT CAPACITY.",
+    body: "Calendar connection is optional and read-only. AT CAPACITY uses calendar-list access to identify the calendars in the account you connect and reads events from those calendars for today and the following seven days so it can show your next meeting, daily schedule and calendar-density signals. It stores only the calendar and event identifiers needed for syncing, event title, start and end times, all-day and busy status, and an available meeting link. Private or confidential event titles are stored as “Busy”. AT CAPACITY does not store event descriptions or attendee lists, does not create, edit or delete calendar events, and does not use calendar data for advertising or to train general-purpose AI models. Disconnecting a calendar stops future access and deletes its synced event copies from AT CAPACITY.",
   },
   {
     title: "Google API data use",

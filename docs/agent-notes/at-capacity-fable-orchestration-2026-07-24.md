@@ -27,7 +27,7 @@ secret values belong in this file.
 |---|---|---|---|---|
 | `../gordy-wt-early-win` | `agent/early-win-2026-07-24` | Fable 5 impl | Phase 6 Fourteen-Day Early Win | running |
 | `../gordy-wt-storm` | `agent/storm-warning-2026-07-24` | Fable 5 impl | Phase 8 Storm Warning rules engine | running |
-| `../gordy-wt-docs` | `agent/release-docs-2026-07-24` | Fable 5 docs | Privacy inventory, DPIA, release docs | running |
+| `../gordy-wt-docs` | `agent/release-docs-2026-07-24` | Fable 5 docs | Privacy inventory, DPIA, release docs | INTEGRATED (`d8b09a9`) |
 
 Note: Kevin requested the strongest available model for subagents mid-run
 (24 Jul). Original Opus 4.8 agents were stopped minutes in (no work lost,
@@ -64,6 +64,32 @@ Fable 5 is the Claude 5 family model above Opus 4.8.
 ## Commits integrated
 
 - `25dd152` preservation commit (Fable, reviewed: coherent, no secrets).
+- `7034fb7` docs workstream via merge `d8b09a9` (reviewed: docs-only,
+  8 files, gates honestly labelled, spot-checked claims against code).
+
+## Docs-workstream findings (verified by Fable where noted)
+
+- P2 Terra disconnect is local-only; a later provider webhook silently
+  restores the connection (no "terra"/deauth call in the disconnect route
+  - verified). Checklist item added under Phase 4.
+- P2 privacy policy per-calendar wording vs `GOOGLECALENDAR_EVENTS_LIST_
+  ALL_CALENDARS` (verified in lib/composio/client.ts). FIXED by Fable in
+  app/privacy/page.tsx at integration.
+- P2 no controller legal identity / ICO complaint wording in policy -
+  NEEDS INPUT (legal identity). Checklist item added.
+- P2 ASC record still named "SHIFT Coaching by Gordy"; listing predates
+  calendar work. Checklist note added under Phase 1.
+- P3 unbounded retention: synced calendar events + raw Terra payloads.
+  Checklist item added.
+- P3 consent wording predates connect screens; version bump needed.
+  Folded into the Phase 9 consent item.
+- NOTE client-facing portal AI runs claude-haiku-4-5 (verified in
+  app/api/portal/ai/route.ts) - conflicts with Kevin's standing rule
+  against Haiku for client-facing agents. Product decision for Kevin;
+  surfaced in the final report.
+- NOTE review-fixture tier decides whether Apple's reviewer can see the
+  calendar connect screen (connect blocked for ai_only tier) - align
+  review notes deliberately in Wave 3 App Store work.
 
 ## Verification results
 
