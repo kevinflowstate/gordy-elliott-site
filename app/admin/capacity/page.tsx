@@ -39,7 +39,9 @@ type Filter = "all" | "red" | "amber" | "disconnected" | "missing" | "paused";
 
 function age(value: string | null | undefined) {
   if (!value) return "No data";
-  const days = Math.floor((Date.now() - new Date(value).getTime()) / (24 * 60 * 60 * 1000));
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return "No data";
+  const days = Math.floor((Date.now() - timestamp) / (24 * 60 * 60 * 1000));
   return days <= 0 ? "Today" : days === 1 ? "1 day ago" : `${days} days ago`;
 }
 

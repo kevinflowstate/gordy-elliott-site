@@ -164,7 +164,21 @@ export default function EarlyWinPanel({ clientId }: { clientId: string }) {
   if (loading) {
     return <div className="mb-6 h-44 animate-pulse rounded-2xl bg-bg-card" />;
   }
-  if (!data) return null;
+  if (!data) {
+    return (
+      <section className="mb-6 rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-card p-5">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#E040D0]">Fourteen-day early win</div>
+        <p className="mt-1 text-sm text-text-secondary">The early win could not be loaded.</p>
+        <button
+          type="button"
+          onClick={() => { setLoading(true); void load(); }}
+          className="mt-3 rounded-xl border border-[rgba(0,0,0,0.10)] bg-bg-primary px-4 py-2.5 text-xs font-semibold text-text-secondary"
+        >
+          Try again
+        </button>
+      </section>
+    );
+  }
 
   const active = data.active;
   const inputClass = "mt-1.5 w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-2.5 text-sm text-text-primary";
@@ -240,7 +254,7 @@ export default function EarlyWinPanel({ clientId }: { clientId: string }) {
           </div>
 
           {active.earlyWin.coaching_note && (
-            <p className="mt-3 text-xs text-text-secondary">Client-facing note: {active.earlyWin.coaching_note}</p>
+            <p className="mt-3 break-words text-xs text-text-secondary">Client-facing note: {active.earlyWin.coaching_note}</p>
           )}
 
           {active.earlyWin.source === "manual" && (
@@ -352,7 +366,7 @@ export default function EarlyWinPanel({ clientId }: { clientId: string }) {
                 <div className="mt-1 text-xs text-text-secondary">
                   {formatValue(win.starting_value, win.unit)} to a target of {formatValue(win.target_value, win.unit)}
                 </div>
-                {win.review_outcome && <p className="mt-1 text-xs text-text-secondary">Outcome: {win.review_outcome}</p>}
+                {win.review_outcome && <p className="mt-1 break-words text-xs text-text-secondary">Outcome: {win.review_outcome}</p>}
               </div>
             ))}
           </div>

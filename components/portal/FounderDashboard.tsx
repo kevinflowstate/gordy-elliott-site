@@ -223,7 +223,14 @@ export default function FounderDashboard({
             </div>
             <div className={`text-right text-sm font-bold ${capacity.tone}`}>{capacity.label}</div>
           </div>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10" aria-label={`System load ${capacity.load} percent`}>
+          <div
+            className="mt-4 h-2 overflow-hidden rounded-full bg-white/10"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={capacity.score === null ? undefined : capacity.load}
+            aria-label={`System load ${capacity.load} percent`}
+          >
             <div
               className={`h-full rounded-full transition-[width] duration-700 ${
                 capacity.load >= 62 ? "bg-red-400" : capacity.load >= 38 ? "bg-amber-300" : "bg-[#E667D6]"
@@ -273,7 +280,7 @@ export default function FounderDashboard({
             <button
               type="button"
               onClick={onDismissStormWarning}
-              className="flex-none text-[11px] font-semibold text-text-muted underline-offset-2 hover:underline"
+              className="-my-2 flex min-h-[44px] flex-none items-center rounded-lg px-2 text-[11px] font-semibold text-text-muted underline-offset-2 hover:underline"
             >
               Noted - hide for this week
             </button>
@@ -414,7 +421,7 @@ export default function FounderDashboard({
           {baselineComparison.month4Review && (
             <div className="mt-3 rounded-xl border border-[rgba(255,255,255,0.08)] bg-bg-card px-4 py-3">
               <div className="text-[9px] font-bold uppercase tracking-wider text-[#E667D6]">Month 4 review</div>
-              <p className="mt-1 text-xs leading-5 text-text-secondary">{baselineComparison.month4Review.outcome_note}</p>
+              <p className="mt-1 break-words text-xs leading-5 text-text-secondary">{baselineComparison.month4Review.outcome_note}</p>
               {baselineComparison.month4Review.source_period && baselineComparison.month4Review.comparison_period && (
                 <p className="mt-1 text-[10px] text-text-muted">
                   Compared your Month 1 baseline ({periodLabel(baselineComparison.month4Review.source_period.start)} to {periodLabel(baselineComparison.month4Review.source_period.end)}) with {periodLabel(baselineComparison.month4Review.comparison_period.start)} to {periodLabel(baselineComparison.month4Review.comparison_period.end)}.

@@ -78,7 +78,14 @@ export default function EarlyWinCard({ view }: { view: EarlyWinView }) {
 
             {progress && progress.progressPercent !== null && (
               <div className="mt-4">
-                <div className="h-2 overflow-hidden rounded-full bg-white/10" aria-label={`Progress toward target ${progress.progressPercent} percent`}>
+                <div
+                  className="h-2 overflow-hidden rounded-full bg-white/10"
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={progress.progressPercent}
+                  aria-label={`Progress toward target ${progress.progressPercent} percent`}
+                >
                   <div
                     className="h-full rounded-full bg-[#E667D6] transition-[width] duration-700"
                     style={{ width: `${Math.max(3, progress.progressPercent)}%` }}
@@ -101,7 +108,7 @@ export default function EarlyWinCard({ view }: { view: EarlyWinView }) {
         )}
 
         {earlyWin.coaching_note && (
-          <p className="mt-4 border-t border-white/8 pt-3 text-xs leading-5 text-white/65">
+          <p className="mt-4 break-words border-t border-white/8 pt-3 text-xs leading-5 text-white/65">
             <span className="font-bold uppercase tracking-[0.14em] text-white/40">From Gordy - </span>
             {earlyWin.coaching_note}
           </p>
