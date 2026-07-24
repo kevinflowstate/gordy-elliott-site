@@ -82,42 +82,12 @@ CREATE POLICY "Clients view own storm warning dismissals"
     )
   );
 
+-- Dismissal writes are API-only (service role): the portal route validates
+-- every dismissal against a fresh server-side evaluation before writing.
+-- Direct client INSERT/UPDATE would allow pre-silencing arbitrary future
+-- window keys, so clients hold SELECT only.
 DROP POLICY IF EXISTS "Clients dismiss own storm warnings" ON public.client_storm_warning_dismissals;
-CREATE POLICY "Clients dismiss own storm warnings"
-  ON public.client_storm_warning_dismissals
-  FOR INSERT TO authenticated
-  WITH CHECK (
-    EXISTS (
-      SELECT 1
-      FROM public.client_profiles
-      WHERE client_profiles.id = client_storm_warning_dismissals.client_id
-        AND client_profiles.user_id = (SELECT auth.uid())
-        AND client_profiles.experience_mode = 'founder_dashboard'
-    )
-  );
-
 DROP POLICY IF EXISTS "Clients update own storm warning dismissals" ON public.client_storm_warning_dismissals;
-CREATE POLICY "Clients update own storm warning dismissals"
-  ON public.client_storm_warning_dismissals
-  FOR UPDATE TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM public.client_profiles
-      WHERE client_profiles.id = client_storm_warning_dismissals.client_id
-        AND client_profiles.user_id = (SELECT auth.uid())
-        AND client_profiles.experience_mode = 'founder_dashboard'
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1
-      FROM public.client_profiles
-      WHERE client_profiles.id = client_storm_warning_dismissals.client_id
-        AND client_profiles.user_id = (SELECT auth.uid())
-        AND client_profiles.experience_mode = 'founder_dashboard'
-    )
-  );
 
 DROP POLICY IF EXISTS "Admins manage storm warning dismissals" ON public.client_storm_warning_dismissals;
 CREATE POLICY "Admins manage storm warning dismissals"
@@ -127,4 +97,4 @@ CREATE POLICY "Admins manage storm warning dismissals"
   WITH CHECK ((SELECT private.is_admin()));
 
 GRANT SELECT ON public.client_storm_warnings TO authenticated;
-GRANT SELECT, INSERT, UPDATE ON public.client_storm_warning_dismissals TO authenticated;
+GRANT SELECT ON public.client_storm_warning_dismissals TO authenticated;

@@ -14,7 +14,10 @@ export async function GET() {
     .select("id, experience_mode")
     .eq("user_id", user.id)
     .maybeSingle();
-  if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
+  if (profileError) {
+    console.error("early-win profile load failed:", profileError.message);
+    return NextResponse.json({ error: "Early win could not be loaded" }, { status: 500 });
+  }
   if (!profile) return NextResponse.json({ error: "Client profile not found" }, { status: 404 });
   if (profile.experience_mode !== "founder_dashboard") {
     return NextResponse.json({ error: "The early win view is not available in this experience" }, { status: 403 });
@@ -24,9 +27,7 @@ export async function GET() {
     const view = await loadActiveEarlyWinView(admin, profile.id);
     return NextResponse.json(view || { earlyWin: null });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Early win could not be loaded" },
-      { status: 500 },
-    );
+    console.error("early-win view load failed:", error instanceof Error ? error.message : error);
+    return NextResponse.json({ error: "Early win could not be loaded" }, { status: 500 });
   }
 }

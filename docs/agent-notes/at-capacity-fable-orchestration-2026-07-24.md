@@ -138,6 +138,36 @@ Fable 5 is the Claude 5 family model above Opus 4.8.
   contract tests and review only; applying them is a Fable/Kevin decision
   at deploy time.
 
+## Wave 2 security review outcome (24 Jul)
+
+Independent hostile review of `fbcc549..a5df4cc`: NO P1, NO P2. Five P3
+hardening findings, all remediated by Fable and re-verified (80/80,
+tsc clean, lint 0 errors):
+
+- P3-1 prototype-chain hole in early-win metric allowlist - fixed
+  `20a976c` (Object.hasOwn).
+- P3-2 dismissals table had direct client INSERT/UPDATE grants allowing
+  pre-silencing of arbitrary future windows - migration tightened to
+  SELECT-only for clients (API-only writes via service role); migration
+  contract test updated to assert the tightened posture.
+- P3-3 client-influenceable audit-log growth - capped at 30 logged rows
+  per client per window in the portal route.
+- P3-4 raw Postgres error messages returned to portal clients - both
+  client-facing routes now return generic messages and log detail
+  server-side.
+- P3-5 rolled-over calendar dates (e.g. 2026-02-30) accepted then 500ing
+  - parseDateKey now round-trips and rejects with 400.
+- Bonus: stale `lib/admin-auth.ts` docblock (claimed no-session requests
+  allowed in preview; code correctly 401s) corrected.
+
+Reviewer CLEAN list covered: RLS on both migrations (incl. mode-switch
+bypass ruled out - clients hold no UPDATE policy on client_profiles),
+authz on all new routes, cross-client isolation in the scan batch path,
+idempotency keys, London/ISO-week boundary execution checks,
+data-minimisation promises vs code, portal response field audits, merge
+seams, no secrets. Not verifiable from repo: live DB grant state;
+Supabase leaked-password-protection toggle (dashboard).
+
 ## Known latent issues (accepted for v1, do not lose)
 
 - Immutability triggers vs ON DELETE SET NULL: deleting a `users` row

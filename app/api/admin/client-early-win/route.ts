@@ -16,7 +16,12 @@ const MANUAL_VALUE_BOUND = 100000;
 
 function parseDateKey(value: unknown) {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  return dateKeyOrdinal(value) === null ? null : value;
+  const ordinal = dateKeyOrdinal(value);
+  if (ordinal === null) return null;
+  // Round-trip so rolled-over dates like 2026-02-30 are rejected as 400s
+  // instead of surviving until Postgres rejects the literal with a 500.
+  const roundTrip = new Date(ordinal * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return roundTrip === value ? value : null;
 }
 
 function parseMetricValue(metricKey: EarlyWinMetricKey, value: unknown) {

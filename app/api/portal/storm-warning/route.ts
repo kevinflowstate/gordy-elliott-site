@@ -24,7 +24,10 @@ async function getFounderContext() {
     .select("id, experience_mode")
     .eq("user_id", user.id)
     .maybeSingle();
-  if (profileError) return { error: NextResponse.json({ error: profileError.message }, { status: 500 }) };
+  if (profileError) {
+    console.error("storm-warning profile load failed:", profileError.message);
+    return { error: NextResponse.json({ error: "Storm warnings could not be loaded" }, { status: 500 }) };
+  }
   if (!profile) return { error: NextResponse.json({ error: "Client profile not found" }, { status: 404 }) };
   if (profile.experience_mode !== "founder_dashboard") {
     return { error: NextResponse.json({ error: "Storm warnings are not available in this experience" }, { status: 403 }) };
@@ -94,8 +97,21 @@ async function loadStormEvents(admin: SupabaseClient, clientId: string, now: Dat
   return { events };
 }
 
+/**
+ * Calendar edits change the input hash, so a client could otherwise mint
+ * unbounded audit rows for one window by toggling an event between states.
+ */
+const MAX_LOGGED_WARNINGS_PER_WINDOW = 30;
+
 async function logWarning(admin: SupabaseClient, clientId: string, evaluation: StormWarningEvaluation) {
   if (!evaluation.warning || evaluation.severity === "none") return null;
+  const { count, error: countError } = await admin
+    .from("client_storm_warnings")
+    .select("id", { count: "exact", head: true })
+    .eq("client_id", clientId)
+    .eq("window_key", evaluation.windowKey);
+  if (countError) return countError;
+  if ((count ?? 0) >= MAX_LOGGED_WARNINGS_PER_WINDOW) return null;
   // ignoreDuplicates makes repeated evaluations of the same window and inputs
   // a no-op instead of a fresh audit row.
   const { error } = await admin
@@ -132,12 +148,16 @@ export async function GET() {
   const now = new Date();
   const { events, loadError } = await loadStormEvents(admin, profile.id, now);
   if (loadError || !events) {
-    return NextResponse.json({ error: loadError?.message || "Calendar data could not be loaded" }, { status: 500 });
+    console.error("storm-warning event load failed:", loadError?.message);
+    return NextResponse.json({ error: "Calendar data could not be loaded" }, { status: 500 });
   }
 
   const evaluation = evaluateStormWarning({ events, now });
   const logError = await logWarning(admin, profile.id, evaluation);
-  if (logError) return NextResponse.json({ error: logError.message }, { status: 500 });
+  if (logError) {
+    console.error("storm-warning log write failed:", logError.message);
+    return NextResponse.json({ error: "The storm warning could not be recorded" }, { status: 500 });
+  }
 
   const dismissed = await loadDismissal(admin, profile.id, evaluation.windowKey);
   return NextResponse.json({
@@ -155,7 +175,8 @@ export async function POST() {
   const now = new Date();
   const { events, loadError } = await loadStormEvents(admin, profile.id, now);
   if (loadError || !events) {
-    return NextResponse.json({ error: loadError?.message || "Calendar data could not be loaded" }, { status: 500 });
+    console.error("storm-warning event load failed:", loadError?.message);
+    return NextResponse.json({ error: "Calendar data could not be loaded" }, { status: 500 });
   }
 
   // Dismissals are validated against a fresh server-side evaluation, never
@@ -165,7 +186,10 @@ export async function POST() {
     return NextResponse.json({ error: "There is no active storm warning to dismiss" }, { status: 400 });
   }
   const logError = await logWarning(admin, profile.id, evaluation);
-  if (logError) return NextResponse.json({ error: logError.message }, { status: 500 });
+  if (logError) {
+    console.error("storm-warning log write failed:", logError.message);
+    return NextResponse.json({ error: "The storm warning could not be recorded" }, { status: 500 });
+  }
 
   const dismissedAt = now.toISOString();
   const { error } = await admin
@@ -176,7 +200,10 @@ export async function POST() {
       severity: evaluation.severity,
       dismissed_at: dismissedAt,
     }, { onConflict: "client_id,window_key" });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("storm-warning dismissal write failed:", error.message);
+    return NextResponse.json({ error: "The dismissal could not be saved" }, { status: 500 });
+  }
 
   const dismissed: StormDismissal = {
     window_key: evaluation.windowKey,
