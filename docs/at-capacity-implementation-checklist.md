@@ -1,6 +1,6 @@
 # AT CAPACITY Implementation Checklist
 
-Last updated: 23 July 2026
+Last updated: 24 July 2026
 
 ## Objective
 
@@ -101,8 +101,9 @@ Estimated effort: 1 to 2 days
 
 - [x] Add Composio environment configuration and server client.
 - [x] Add a client-to-Composio connected-account mapping.
-- [x] Add Connect Google Calendar. (activation blocked: attach a Google OAuth
-      client to the Composio auth configuration)
+- [x] Add Connect Google Calendar. Custom Google OAuth credentials
+      (project `at-capacity-503314`) are attached to the Composio auth
+      configuration. Portal implementation is complete.
 - [x] Add Connect Outlook Calendar.
 - [x] Restrict integrations to read-only calendar actions.
 - [x] Normalize Google and Outlook events into one internal shape.
@@ -119,9 +120,16 @@ Acceptance:
 - [x] Google and Outlook produce the same dashboard model.
 - [x] Calendar errors do not block the rest of the portal.
 
-Status: Outlook is ready for a production connection test. Google remains
-visibly marked as coming soon until its external OAuth credentials are attached
-in Composio; no further portal implementation is required to expose it.
+Status: Outlook is implemented and ready for a real production connection
+test. Google Calendar credentials are attached to the Composio auth
+configuration and the portal implementation is complete. Google branding and
+Calendar data-access verification were submitted on 24 July 2026 and are
+under review (initial Trust & Safety contact expected in roughly 3-5 business
+days; full verification may take 4-6 weeks). Calendar scopes are sensitive,
+not restricted. Test users can connect during review; normal client
+onboarding remains externally gated by Google approval. A real authenticated
+production contract test for both Google and Outlook remains outstanding.
+Do not treat Google approval as complete.
 
 ## Phase 4: Terra Production
 
@@ -285,3 +293,11 @@ Add dated entries here as work is completed:
   vulnerabilities.
 - 23 July 2026: App Store metadata and iOS release preflight passed for
   AT CAPACITY 1.0 (2), bundle `com.gordyelliott.shift`, using Xcode 26.3.
+- 24 July 2026: Preserved the Google OAuth verification work (AT CAPACITY
+  public homepage repositioning, Google site-verification metadata, calendar
+  privacy disclosures with Limited Use wording, Composio processor
+  disclosure) as commit `25dd152` on integration branch
+  `fable/at-capacity-founder-outcomes-2026-07-24`. These changes were already
+  live in production. Baseline verification on the branch: 27/27
+  release-contract tests passing. Google branding and Calendar data-access
+  verification submitted 24 July 2026 and now under Google review.
