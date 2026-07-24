@@ -5,6 +5,8 @@ import type { CalendarEvent, ClientProfile, ClientTask } from "@/lib/types";
 import type { WearableDailySummary } from "@/lib/wearable-insights";
 import type { CapacityBaseline, CapacityMetrics } from "@/lib/capacity-baseline";
 import type { StormWarningClientState } from "@/lib/storm-warning";
+import type { EarlyWinView } from "@/lib/early-win";
+import EarlyWinCard from "@/components/portal/EarlyWinCard";
 import {
   calendarEventOccursOn,
   calendarWindowLoad,
@@ -121,6 +123,7 @@ export default function FounderDashboard({
   activeTrainingPlan,
   baselineComparison,
   stormWarning,
+  earlyWin,
   onToggleTask,
   onDismissStormWarning,
 }: {
@@ -134,6 +137,7 @@ export default function FounderDashboard({
   activeTrainingPlan: string | null;
   baselineComparison: BaselineComparison | null;
   stormWarning: StormWarningClientState | null;
+  earlyWin: EarlyWinView | null;
   onToggleTask: (taskId: string, completed: boolean) => void;
   onDismissStormWarning: () => void;
 }) {
@@ -220,6 +224,8 @@ export default function FounderDashboard({
           </div>
         </div>
       </section>
+
+      {earlyWin && <EarlyWinCard view={earlyWin} />}
 
       {stormEvaluation && (
         <section
