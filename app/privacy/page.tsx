@@ -9,7 +9,15 @@ export const metadata: Metadata = {
 const sections = [
   {
     title: "Information AT CAPACITY handles",
-    body: "AT CAPACITY stores account and contact details, coaching plans, messages, check-ins, progress photos, training and nutrition logs, consultation answers, and any health, injury or cycle information you choose to provide. If you connect a supported app through Terra, AT CAPACITY may also receive sleep, recovery, activity and nutrition summaries from that provider.",
+    body: "AT CAPACITY stores account and contact details, coaching plans, messages, check-ins, progress photos, training and nutrition logs, consultation answers, and any health, injury or cycle information you choose to provide. If you connect a supported app through Terra, AT CAPACITY may also receive sleep, recovery, activity and nutrition summaries from that provider. If you connect Google Calendar or Outlook Calendar, AT CAPACITY reads the calendar and event information described below.",
+  },
+  {
+    title: "Google Calendar and Outlook Calendar data",
+    body: "Calendar connection is optional and read-only. AT CAPACITY uses calendar-list access to identify the calendars you choose to connect and reads events for today and the following seven days so it can show your next meeting, daily schedule and calendar-density signals. It stores only the calendar and event identifiers needed for syncing, event title, start and end times, all-day and busy status, and an available meeting link. Private or confidential event titles are stored as “Busy”. AT CAPACITY does not store event descriptions or attendee lists, does not create, edit or delete calendar events, and does not use calendar data for advertising or to train general-purpose AI models. Disconnecting a calendar stops future access and deletes its synced event copies from AT CAPACITY.",
+  },
+  {
+    title: "Google API data use",
+    body: "AT CAPACITY’s use and transfer to any other app of information received from Google APIs will adhere to the Google API Services User Data Policy, including the Limited Use requirements.",
   },
   {
     title: "How information is used",
@@ -21,7 +29,7 @@ const sections = [
   },
   {
     title: "Who receives information",
-    body: "Information is available to Gordy and authorised service providers needed to operate AT CAPACITY, such as hosting, authentication, database, email, notification, AI and connected-app providers. Information is not sold. Providers are given only the access needed to deliver their service.",
+    body: "Information is available to Gordy and authorised service providers needed to operate AT CAPACITY, such as hosting, authentication, database, email, notification and AI providers. Google Calendar and Outlook Calendar authentication and syncing are processed by Composio as AT CAPACITY’s connected-app service provider. Information is not sold. Providers are given only the access needed to deliver their service.",
   },
   {
     title: "Retention and deletion",
@@ -29,7 +37,7 @@ const sections = [
   },
   {
     title: "Your choices",
-    body: "You can update profile information, disconnect supported apps, turn optional cycle tracking off, and request access to or correction of your information. You can also delete your account in Settings. Disconnecting a provider stops new syncs but does not by itself delete information already received.",
+    body: "You can update profile information, disconnect supported apps, turn optional cycle tracking off, and request access to or correction of your information. You can also delete your account in Settings. Disconnecting Google Calendar or Outlook Calendar stops new syncs and removes the synced calendar-event copies associated with that connection. Other information already received may remain until you delete your account or request deletion.",
   },
   {
     title: "Security and age",
