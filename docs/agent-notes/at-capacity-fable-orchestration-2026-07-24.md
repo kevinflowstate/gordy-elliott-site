@@ -138,6 +138,22 @@ Fable 5 is the Claude 5 family model above Opus 4.8.
   contract tests and review only; applying them is a Fable/Kevin decision
   at deploy time.
 
+## Known latent issues (accepted for v1, do not lose)
+
+- Immutability triggers vs ON DELETE SET NULL: deleting a `users` row
+  referenced by `client_early_wins.reviewed_by` (or
+  `client_capacity_baselines.locked_by`) fires a referential UPDATE that
+  the completed/locked immutability trigger would reject. Not reachable
+  today (no admin-deletion flow). If admin deletion ever becomes real,
+  permit the SET NULL update in both triggers. Flagged by early-win
+  agent, verified pattern applies to both tables.
+- Early-win review completion is allowed before day 14 (outcome note
+  required; admin panel copy warns it retires the card early). Deliberate
+  flexibility for Gordy; add a server-side gate if he wants it strict.
+- `sleep_score` deliberately excluded from sourced early-win metrics
+  (empty house display unit vs unit NOT NULL check); one CHECK +
+  catalogue entry to add if wanted later.
+
 ## Risks / blockers
 
 - Gordy decisions outstanding: guarantee definition, Mode B name, WhatsApp
