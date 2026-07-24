@@ -25,9 +25,14 @@ secret values belong in this file.
 
 | Worktree | Branch | Agent | Scope | Status |
 |---|---|---|---|---|
-| `../gordy-wt-early-win` | `agent/early-win-2026-07-24` | Opus 4.8 impl | Phase 6 Fourteen-Day Early Win | assigned |
-| `../gordy-wt-storm` | `agent/storm-warning-2026-07-24` | Opus 4.8 impl | Phase 8 Storm Warning rules engine | assigned |
-| `../gordy-wt-docs` | `agent/release-docs-2026-07-24` | Opus 4.8 docs | Privacy inventory, DPIA, release docs | assigned |
+| `../gordy-wt-early-win` | `agent/early-win-2026-07-24` | Fable 5 impl | Phase 6 Fourteen-Day Early Win | running |
+| `../gordy-wt-storm` | `agent/storm-warning-2026-07-24` | Fable 5 impl | Phase 8 Storm Warning rules engine | running |
+| `../gordy-wt-docs` | `agent/release-docs-2026-07-24` | Fable 5 docs | Privacy inventory, DPIA, release docs | running |
+
+Note: Kevin requested the strongest available model for subagents mid-run
+(24 Jul). Original Opus 4.8 agents were stopped minutes in (no work lost,
+worktrees clean) and respawned on Claude Fable 5. There is no "Opus 5";
+Fable 5 is the Claude 5 family model above Opus 4.8.
 
 ## File ownership boundaries (Wave 1)
 
