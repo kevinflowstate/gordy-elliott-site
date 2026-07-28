@@ -42,7 +42,7 @@ export default function MobileNav() {
   const [tier, setTier] = useState<string>("coached");
   const [experienceMode, setExperienceMode] = useState<ClientExperienceMode>("ai_coaching");
   const [cycleEnabled, setCycleEnabled] = useState(false);
-  const inboxUnreadCount = useInboxUnreadCount();
+  const inboxUnreadCount = useInboxUnreadCount(experienceMode !== "founder_dashboard");
 
   useEffect(() => {
     async function loadTier() {

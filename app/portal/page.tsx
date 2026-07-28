@@ -8,6 +8,8 @@ import type { CalendarEvent, CheckIn, ClientProfile, ClientTask, TrainingPlanPha
 import type { WearableDailySummary } from "@/lib/wearable-insights";
 import FounderDashboard from "@/components/portal/FounderDashboard";
 import type { CapacityBaseline, CapacityMetrics } from "@/lib/capacity-baseline";
+import type { StormWarningClientState } from "@/lib/storm-warning";
+import type { EarlyWinView } from "@/lib/early-win";
 
 type Tier = "coached" | "premium" | "vip" | "ai_only";
 type BaselineComparison = {
@@ -19,6 +21,13 @@ type BaselineComparison = {
     delta: number | null;
     direction: "improved" | "declined" | "unchanged" | "missing";
   }> | null;
+  month4Review?: {
+    review_date: string;
+    outcome_note: string;
+    completed_at: string | null;
+    source_period: { start: string; end: string } | null;
+    comparison_period: { start: string; end: string } | null;
+  } | null;
 };
 
 const tierDisplay = {
@@ -277,6 +286,30 @@ export default function PortalDashboard() {
   const [todayTraining, setTodayTraining] = useState<string | null>(null);
   const [activeTrainingPlan, setActiveTrainingPlan] = useState<string | null>(null);
   const [baselineComparison, setBaselineComparison] = useState<BaselineComparison | null>(null);
+  const [stormWarning, setStormWarning] = useState<StormWarningClientState | null>(null);
+  const [earlyWinView, setEarlyWinView] = useState<EarlyWinView | null>(null);
+
+  const loadStormWarning = useCallback(async () => {
+    try {
+      const res = await fetch("/api/portal/storm-warning");
+      if (res.ok) setStormWarning(await res.json());
+    } catch {
+      /* The dashboard simply stays quiet without an evaluation. */
+    }
+  }, []);
+
+  const dismissStormWarning = useCallback(async () => {
+    try {
+      const res = await fetch("/api/portal/storm-warning", { method: "POST" });
+      if (res.ok) setStormWarning(await res.json());
+    } catch {
+      /* Leave the warning visible if the dismissal could not be saved. */
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadStormWarning();
+  }, [loadStormWarning]);
 
   const loadDashboard = useCallback(async () => {
     setLoadError(null);
@@ -379,6 +412,22 @@ export default function PortalDashboard() {
         }
       } catch {
         /* Upcoming tile falls back to the calendar link. */
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  // The early win card exists only after Gordy explicitly creates one.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/portal/early-win");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (active) setEarlyWinView(data?.earlyWin ? data : null);
+      } catch {
+        /* The card simply stays hidden. */
       }
     })();
     return () => { active = false; };
@@ -517,7 +566,10 @@ export default function PortalDashboard() {
         todayTraining={todayTraining}
         activeTrainingPlan={activeTrainingPlan}
         baselineComparison={baselineComparison}
+        stormWarning={stormWarning}
+        earlyWin={earlyWinView}
         onToggleTask={(taskId, completed) => void toggleTask(taskId, completed)}
+        onDismissStormWarning={() => void dismissStormWarning()}
       />
     );
   }

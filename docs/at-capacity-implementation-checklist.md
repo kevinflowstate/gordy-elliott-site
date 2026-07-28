@@ -1,6 +1,6 @@
 # AT CAPACITY Implementation Checklist
 
-Last updated: 23 July 2026
+Last updated: 24 July 2026
 
 ## Objective
 
@@ -30,6 +30,11 @@ Target:
 - [ ] Supply the booking link used for private strategy calls.
 - [ ] Confirm whether call tokens are a visible balance or simply an internal
       attendance allowance.
+- [ ] Sign off the DPIA (`docs/at-capacity-dpia.md`) - Gordy/Kevin.
+- [ ] Compile the processor due-diligence record (DPAs, AI training-disabled
+      terms, transfer mechanisms) - Kevin.
+- [ ] Supply the controller legal identity and complaint-contact details for
+      the privacy policy (UK GDPR: controller name and ICO complaint right).
 
 ## Existing Foundations
 
@@ -57,7 +62,10 @@ Estimated effort: 0.5 to 1.5 days
       app icon.
 - [ ] Update App Store name, description, review notes, and screenshots.
       Metadata and review documents are updated; new screenshots require the
-      release build.
+      release build. The App Store Connect record is still named "SHIFT
+      Coaching by Gordy" and its saved listing, review notes and App
+      Privacy answers predate the calendar work - re-enter from the updated
+      docs and rename before submission.
 - [x] Inventory AI prompts, emails, notifications, and seeded copy for stale
       SHIFT references.
 - [x] Add `experience_mode` with `founder_dashboard` and `ai_coaching`.
@@ -101,8 +109,9 @@ Estimated effort: 1 to 2 days
 
 - [x] Add Composio environment configuration and server client.
 - [x] Add a client-to-Composio connected-account mapping.
-- [x] Add Connect Google Calendar. (activation blocked: attach a Google OAuth
-      client to the Composio auth configuration)
+- [x] Add Connect Google Calendar. Custom Google OAuth credentials
+      (project `at-capacity-503314`) are attached to the Composio auth
+      configuration. Portal implementation is complete.
 - [x] Add Connect Outlook Calendar.
 - [x] Restrict integrations to read-only calendar actions.
 - [x] Normalize Google and Outlook events into one internal shape.
@@ -119,9 +128,16 @@ Acceptance:
 - [x] Google and Outlook produce the same dashboard model.
 - [x] Calendar errors do not block the rest of the portal.
 
-Status: Outlook is ready for a production connection test. Google remains
-visibly marked as coming soon until its external OAuth credentials are attached
-in Composio; no further portal implementation is required to expose it.
+Status: Outlook is implemented and ready for a real production connection
+test. Google Calendar credentials are attached to the Composio auth
+configuration and the portal implementation is complete. Google branding and
+Calendar data-access verification were submitted on 24 July 2026 and are
+under review (initial Trust & Safety contact expected in roughly 3-5 business
+days; full verification may take 4-6 weeks). Calendar scopes are sensitive,
+not restricted. Test users can connect during review; normal client
+onboarding remains externally gated by Google approval. A real authenticated
+production contract test for both Google and Outlook remains outstanding.
+Do not treat Google approval as complete.
 
 ## Phase 4: Terra Production
 
@@ -137,6 +153,10 @@ Estimated effort after credentials: 0.5 to 1 day
 - [ ] Confirm daily summaries update capacity and coach-side flags.
 - [ ] Confirm cycle data continues to use the existing tracker unless a
       supported Terra source is explicitly verified.
+- [ ] Deauthenticate the provider with Terra on wearable disconnect so a
+      later provider webhook cannot silently restore the connection and
+      resume storing summaries. Implementation can precede credentials;
+      real verification blocked: Terra credentials.
 
 Acceptance:
 
@@ -153,18 +173,38 @@ Estimated effort: 2 to 3 days
 - [x] Calculate HRV, resting heart rate, and sleep from a defined baseline
       window.
 - [x] Add manually entered body-composition baseline values.
-- [ ] Lock the baseline with an audit timestamp and Gordy override reason.
-      Locking and the audit timestamp are complete; an explicit override flow
-      remains outstanding.
+- [x] Lock the baseline with an audit timestamp and Gordy override reason.
+      Explicit override flow complete: a service-role-only audited database
+      function unlocks, edits and relocks in one transaction, requires a
+      written reason (1-500 chars), and records old and new values in the
+      immutable `client_baseline_overrides` audit table before the row
+      changes. Ordinary writes to locked baselines remain blocked.
 - [x] Add client-side Baseline vs Now.
 - [x] Add coach-side Baseline vs Now.
-- [ ] Show the same comparison in the Month 4 review.
+- [x] Show the same comparison in the Month 4 review. Review snapshots are
+      frozen at completion using the same comparison logic, with source
+      period (locked Month 1 window) and comparison period (latest 14
+      days) stated inside the snapshot. Completed reviews are immutable;
+      clients see only their own completed review's outcome note and
+      stated periods.
 - [ ] Add configurable guarantee thresholds after Gordy's definition is
-      confirmed. (blocked: exact guarantee definition)
-- [ ] Add call-attendance records.
-- [ ] Use existing check-in records for check-in compliance.
-- [ ] Add a simple weekly WhatsApp-help record for Gordy.
-- [ ] Add a compliance summary without turning it into a gamified score.
+      confirmed. (blocked: exact guarantee definition) The mechanism is
+      built: a single-row `guarantee_settings` admin surface with
+      allowlisted metric/comparison/threshold fields, all null by default;
+      nothing is evaluated or shown to clients until fully configured.
+- [x] Add call-attendance records. Admin-only table and panel
+      (coaching/strategy calls, attended flag, note).
+- [x] Use existing check-in records for check-in compliance. Adherence is
+      derived from the existing `checkins` table over ISO Monday weeks on
+      Europe/London dates; only complete weeks count and the in-progress
+      week is reported separately, never as missed.
+- [x] Add a simple weekly WhatsApp-help record for Gordy. One admin
+      record per client per ISO week.
+- [x] Add a compliance summary without turning it into a gamified score.
+      Plain facts with honest empty states; no scores, grades, streaks or
+      leaderboards. NOTE: migrations `20260724120000` and `20260724121000`
+      must be applied at deploy; until then the compliance panels and
+      override flow fail on missing tables.
 
 Acceptance:
 
@@ -176,16 +216,35 @@ Acceptance:
 
 Estimated effort: 0.5 day
 
-- [ ] Let Gordy select one priority metric after the Capacity X-Ray.
-- [ ] Store the starting value, target, start date, and optional note.
-- [ ] Show the metric prominently for the first 14 days.
-- [ ] Show progress to Gordy on the client profile.
-- [ ] Keep the card useful when the metric is manually tracked.
+- [x] Let Gordy select one priority metric after the Capacity X-Ray.
+      Admin panel on the client profile (Founder clients): sourced metrics
+      (HRV, resting HR, sleep from wearables; weight, waist from body
+      measurements) or a fully manual metric with Gordy-defined label,
+      unit and logged values.
+- [x] Store the starting value, target, start date, and optional note.
+      `client_early_wins` with metric/source consistency CHECKs, one
+      active win per client (partial unique index), and completed rows
+      made immutable by trigger.
+- [x] Show the metric prominently for the first 14 days. Card sits
+      directly under Today's capacity on the Founder Dashboard; honest
+      states for missing and stale readings (a missing value is never
+      shown as zero; readings 3+ days old are marked stale).
+- [x] Show progress to Gordy on the client profile. Day counter, latest
+      reading with date, progress toward target with
+      direction-of-improvement handling, review-due prompt from day 14.
+- [x] Keep the card useful when the metric is manually tracked. Manual
+      value log (`client_early_win_entries`) written by Gordy; latest
+      entry drives the card.
 
 Acceptance:
 
-- [ ] The app never guesses the client's early-win metric.
-- [ ] The card retires cleanly after the 14-day review.
+- [x] The app never guesses the client's early-win metric. The card and
+      portal endpoint return nothing until Gordy explicitly creates a win.
+- [x] The card retires cleanly after the 14-day review. Completing the
+      review (with outcome note) sets status `completed`; the client card
+      disappears, history stays queryable and visible to Gordy, and RLS
+      only ever exposes the active win to the client. NOTE: migration
+      `20260724100000_add_early_win.sql` must be applied at deploy.
 
 ## Phase 7: Gordy's Capacity Scan
 
@@ -203,7 +262,13 @@ Estimated effort: 1 to 1.5 days
 Acceptance:
 
 - [ ] Gordy can scan 20 or more clients without opening each profile. The
-      single-list UI is built; production-volume acceptance testing remains.
+      single-list UI is built, and the scan's evaluation logic is now
+      verified at volume by a 26-synthetic-client contract test
+      (`tests/capacity-scan-volume.test.ts`: dense/sparse/empty calendars,
+      stale and missing wearables, paused/frozen lifecycle, dismissed and
+      escalated storms - no evaluation throws, every flag explained,
+      deterministic). Browser-level scan rendering with 20+ real
+      production rows remains part of authenticated release verification.
 - [x] Every alert states why it exists.
 - [x] Paused and frozen clients follow existing notification rules.
 
@@ -211,20 +276,43 @@ Acceptance:
 
 Estimated effort: 0.5 to 1 day for deterministic v1
 
-- [ ] Define initial density rules for meeting count, consecutive busy days,
-      early starts, travel, and insufficient gaps.
-- [ ] Compare current density with the client's recent calendar pattern where
-      enough history exists.
+- [x] Define initial density rules for meeting count, consecutive busy days,
+      early starts, travel, and insufficient gaps. Deterministic engine in
+      `lib/storm-warning.ts`; all thresholds in one `STORM_THRESHOLDS`
+      block. Travel uses only the client-set `travel` category (structured
+      data); synced events carry no travel inference and titles are never
+      keyword-sniffed. Gap checks run only where the connected calendar
+      provides start and end times; manual events lack end times, and the
+      rule skips honestly (with an explanation) rather than guessing.
+- [x] Compare current density with the client's recent calendar pattern where
+      enough history exists. Requires 14 distinct stored-event days in the
+      trailing 28; below that the rule is skipped and the copy says the
+      warning is based on the week's calendar alone.
 - [x] Show a client-side warning with restrained language.
-- [x] Show the same warning in Gordy's Capacity Scan.
+- [x] Show the same warning in Gordy's Capacity Scan. Same engine, same
+      explanations; dismissed warnings stay visible to Gordy with a
+      "Dismissed by client" marker. Paused clients are still evaluated and
+      logged (their scan status remains paused) - deliberate, so pressure
+      building during a pause is not lost.
 - [x] Do not alter training or nutrition automatically.
-- [ ] Log the rule and inputs that generated each warning.
+- [x] Log the rule and inputs that generated each warning. Idempotent audit
+      log (`client_storm_warnings`, unique on client/window/input-hash);
+      snapshots hold counts and times only - no titles, descriptions or
+      attendees. NOTE: migration `20260724110000_add_storm_warnings.sql`
+      must be applied at deploy; until then a portal evaluation that finds
+      a warning cannot record its audit row.
 
 Acceptance:
 
-- [ ] Warnings are explainable and dismissible.
-- [ ] Sparse calendar data does not generate false certainty.
-- [ ] No meeting descriptions or attendees are exposed to AI unnecessarily.
+- [x] Warnings are explainable and dismissible. Per-rule client-readable
+      explanations with actual numbers; dismissal is per ISO-week window
+      and severity, re-raised on a new week or amber-to-red escalation.
+- [x] Sparse calendar data does not generate false certainty. Skipped rules
+      say why; 33 engine/migration tests cover boundaries, DST, recurrence
+      and dismissal windowing.
+- [x] No meeting descriptions or attendees are exposed to AI unnecessarily.
+      None are stored, none are sent to AI; the engine and logs never touch
+      titles.
 
 ## Phase 9: Release Verification
 
@@ -232,6 +320,9 @@ Estimated effort: 1 to 2 days
 
 - [x] Run lint, TypeScript, production build, contract, and migration checks.
 - [ ] Run authenticated mobile release verification for both modes.
+      (blocked: requires a real authenticated test session/storage state
+      for `verify:mobile`; unauthenticated smoke passed - public pages 200
+      with AT CAPACITY branding, portal/admin redirect to login)
 - [x] Verify Founder routes cannot be reached by Mode B and vice versa where
       applicable.
 - [ ] Test calendar and wearable disconnect/reconnect flows.
@@ -239,8 +330,17 @@ Estimated effort: 1 to 2 days
 - [x] Test baseline locking and comparison calculations. Guarantee thresholds
       remain blocked by the commercial definition.
 - [x] Test dashboard layout at 390x844 and 1440x1000.
-- [ ] Update privacy inventory and client consent language.
-- [ ] Complete a health and calendar data DPIA.
+- [ ] Update privacy inventory and client consent language. The privacy
+      inventory rewrite is complete (`docs/app-privacy-inventory.md`,
+      24 July 2026). Consent language at the calendar and wearable
+      connection points, plus a consent-version bump, remains outstanding.
+- [ ] Complete a health and calendar data DPIA. Drafted 24 July 2026
+      (`docs/at-capacity-dpia.md`); awaiting Gordy/Kevin sign-off.
+- [ ] Add controller legal identity and ICO complaint-right wording to the
+      privacy policy. (blocked: controller legal identity from Gordy/Kevin)
+- [ ] Agree and implement bounded retention for synced calendar-event
+      history and raw Terra webhook payloads (currently unbounded; storm
+      pattern comparison needs only the trailing 28 days).
 - [ ] Regenerate App Store screenshots.
 - [ ] Upload a new TestFlight build if native identity or capabilities change.
 - [ ] Complete Gordy and Founding Five acceptance testing.
@@ -285,3 +385,82 @@ Add dated entries here as work is completed:
   vulnerabilities.
 - 23 July 2026: App Store metadata and iOS release preflight passed for
   AT CAPACITY 1.0 (2), bundle `com.gordyelliott.shift`, using Xcode 26.3.
+- 24 July 2026: Preserved the Google OAuth verification work (AT CAPACITY
+  public homepage repositioning, Google site-verification metadata, calendar
+  privacy disclosures with Limited Use wording, Composio processor
+  disclosure) as commit `25dd152` on integration branch
+  `fable/at-capacity-founder-outcomes-2026-07-24`. These changes were already
+  live in production. Baseline verification on the branch: 27/27
+  release-contract tests passing. Google branding and Calendar data-access
+  verification submitted 24 July 2026 and now under Google review.
+- 24 July 2026: Privacy and release documentation workstream integrated:
+  privacy inventory rewritten and grounded in code, UK GDPR DPIA drafted
+  (`docs/at-capacity-dpia.md`, awaiting sign-off), v1 release documentation
+  added, App Store worksheets made calendar-aware, historical SHIFT
+  references labelled. Privacy policy calendar wording corrected to state
+  that events are read from the calendars in the connected account (there
+  is no per-calendar selection). Follow-ups recorded: Terra deauth on
+  disconnect, connection-point consent language, controller identity/ICO
+  wording, bounded retention windows, ASC record re-entry and rename.
+- 24 July 2026: Phase 8 Storm Warning completed and integrated: pure
+  deterministic rules engine (density, consecutive busy days, early
+  starts, insufficient gaps, client-marked travel, recent-pattern
+  comparison gated on 14-of-28-days history), founder-gated portal route
+  with server-validated dismissals, idempotent audit logging, and the same
+  engine and explanations in Gordy's Capacity Scan. Verification re-run at
+  integration: 33/33 storm tests, 27/27 release contracts, lint zero
+  errors, tsc clean, production build compiled. Storm tests wired into
+  `test:release-contracts`. A pre-existing fixture type error in
+  `tests/founder-dashboard.test.ts` (invalid `updated_at` property) was
+  fixed in passing.
+- 24 July 2026: Phase 6 Fourteen-Day Early Win completed and integrated:
+  admin metric selection (wearable-sourced, body-measurement-sourced or
+  fully manual), one active win per client enforced in the schema,
+  prominent Founder Dashboard card with honest missing/stale states,
+  day-14 review flow that retires the card while preserving immutable
+  history, founder-gated portal endpoint, RLS exposing only the active
+  win to clients. Verification at integration: 20/20 early-win tests,
+  60/60 release contracts, tsc clean. Early-win tests wired into
+  `test:release-contracts`. The planned FounderDashboard overlap with the
+  storm workstream was merged by hand and re-verified.
+- 24 July 2026: Independent hostile security review of the integrated
+  Wave 1 diff found no P1 and no P2 issues. Five P3 hardening findings
+  were remediated the same day: metric-allowlist prototype-chain hole,
+  storm-dismissal direct-write grants removed (API-only writes), storm
+  audit log capped per window, generic client-facing error messages on
+  portal routes, and rolled-over date keys rejected as 400s.
+- 24 July 2026: Remaining Phase 5 work completed and integrated: call
+  attendance, check-in adherence from existing records, weekly WhatsApp
+  help record, calm non-gamified compliance summary, Month 4 review with
+  frozen baseline-comparison and compliance snapshots, audited baseline
+  override flow (service-role-only database function with immutable audit
+  trail), and a fully configurable guarantee mechanism that evaluates
+  nothing until Gordy's definition is entered. Verification at
+  integration: 114/114 release contracts (34 new compliance tests wired
+  in), tsc clean, lint zero errors, production build compiled in the
+  workstream. No Gordy decisions were invented; no placeholders are
+  rendered anywhere.
+- 24 July 2026: Privacy delta pass integrated: inventory and DPIA now
+  cover early wins, storm-warning logs/dismissals, call attendance,
+  WhatsApp-help records, Month 4 snapshots and the baseline-override
+  audit (DPIA revision 2, risks R11-R13 at low residual). The privacy
+  policy now discloses coaching-administration records (Article 13).
+  On 27 July, explicit `REVOKE ALL` statements were added for `anon` and
+  `authenticated` before restoring only the intended client SELECT grants;
+  this also neutralises permissive production default ACLs.
+- 24 July 2026: Release-hardening QA pass integrated. Biggest catch:
+  every web-push notification still rendered the old SHIFT-branded icon,
+  and three conventional icon paths served unrelated template artwork -
+  all now serve genuine AT CAPACITY art (service worker cache bumped;
+  legacy paths kept serving correct art through rollover; native shell
+  launch/offline screens rebranded). Also fixed: blank admin panels on
+  failed loads (now inline error + retry), long-note overflow, NaN date
+  rendering, 44px storm dismiss target, progressbar roles, AA contrast
+  on the preview tag, founder clients no longer poll the inbox unread
+  endpoint into 403s, and the Capacity Scan now distinguishes a
+  dismissed-and-silenced storm from one that re-raised at higher
+  severity (no more misleading "dismissed by client" on escalations).
+  Zero client-visible SHIFT text remains (grep sweep + rendered-page
+  checks). App Store metadata check passed; App Review fixture verified
+  complete against production (read-only). Final state: 128/128 release
+  contracts, tsc clean, lint zero errors, production build compiling.

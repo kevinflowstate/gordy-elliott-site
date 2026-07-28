@@ -4,10 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 /**
  * Check if the current request is from an admin user.
  * Returns { authorized: true } if admin, or { authorized: false, status, error }.
- *
- * When no session exists (common in preview/demo mode where middleware
- * doesn't enforce login), we allow access since the middleware layer
- * handles route protection in production.
+ * Requests without a session are rejected with 401 in every environment.
  */
 export async function requireAdmin(): Promise<
   { authorized: true } | { authorized: false; status: number; error: string }

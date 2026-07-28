@@ -2,10 +2,14 @@
 
 import { useEffect, useState } from "react";
 
-export function useInboxUnreadCount() {
+export function useInboxUnreadCount(enabled = true) {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
+    // Founder clients have no inbox surface - polling would only collect
+    // middleware 403s every 30 seconds.
+    if (!enabled) return;
+
     let cancelled = false;
 
     async function loadUnreadCount() {
@@ -26,7 +30,7 @@ export function useInboxUnreadCount() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, []);
+  }, [enabled]);
 
-  return unreadCount;
+  return enabled ? unreadCount : 0;
 }

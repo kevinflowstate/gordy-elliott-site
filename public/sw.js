@@ -1,8 +1,8 @@
-const CACHE_NAME = "shift-gordy-portal-v10";
+const CACHE_NAME = "shift-gordy-portal-v11";
 const STATIC_CACHE_ALLOWLIST = [
-  "/shift-icon-192x192.png",
-  "/shift-icon-512x512.png",
-  "/shift-apple-touch-icon.png",
+  "/at-capacity-icon-192x192.png",
+  "/at-capacity-icon-512x512.png",
+  "/at-capacity-apple-touch-icon.png",
   "/manifest.json",
 ];
 
@@ -62,8 +62,8 @@ self.addEventListener("push", (event) => {
   const title = data.title || "AT CAPACITY";
   const options = {
     body: data.body || "",
-    icon: "/shift-icon-192x192.png",
-    badge: "/shift-icon-192x192.png",
+    icon: "/at-capacity-icon-192x192.png",
+    badge: "/at-capacity-icon-192x192.png",
     tag: data.tag || "default",
     data: { url: data.url || "/portal" },
   };

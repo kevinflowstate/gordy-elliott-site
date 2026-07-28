@@ -19,7 +19,6 @@ const coachEvent: CalendarEvent = {
   category: "custom",
   is_active: true,
   created_at: "2026-07-01T09:00:00+00:00",
-  updated_at: "2026-07-01T09:00:00+00:00",
 };
 
 test("coach calendar timestamps count on their calendar date", () => {

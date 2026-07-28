@@ -26,7 +26,7 @@ type IntegrationsResponse = {
 
 function statusLabel(status: CalendarConnection["status"]) {
   if (status === "connected") return "Connected";
-  if (status === "connecting") return "Finishing connection";
+  if (status === "connecting") return "Available";
   if (status === "needs_reauth") return "Reconnect needed";
   if (status === "error") return "Needs attention";
   return "Not connected";
@@ -167,6 +167,7 @@ export default function CalendarConnections({
           </h2>
           <p className="mt-1 max-w-2xl text-xs leading-5 text-text-secondary">
             Read-only access syncs event times and titles for the next seven days. Private events appear as Busy.
+            AT CAPACITY uses your schedule to show meeting load and help you and Gordy plan training and nutrition around busier weeks.
           </p>
         </div>
       </div>

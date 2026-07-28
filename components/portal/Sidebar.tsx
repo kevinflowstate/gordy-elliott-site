@@ -60,7 +60,7 @@ export default function Sidebar() {
   const [experienceMode, setExperienceMode] = useState<ClientExperienceMode>("ai_coaching");
   const [cycleEnabled, setCycleEnabled] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
-  const inboxUnreadCount = useInboxUnreadCount();
+  const inboxUnreadCount = useInboxUnreadCount(experienceMode !== "founder_dashboard");
 
   useEffect(() => {
     async function loadUser() {

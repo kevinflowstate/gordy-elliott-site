@@ -22,6 +22,18 @@ type CapacityClient = {
   daily: { date: string; energy: number | null; stress: number | null } | null;
   activity: { last_training: string | null; last_nutrition: string | null; last_wearable_sync: string | null } | null;
   calendar: { total: number; dense_days: number };
+  storm: {
+    warning: boolean;
+    severity: "none" | "amber" | "red";
+    window_key: string;
+    overall: string;
+    explanations: string[];
+    used_history: boolean;
+    dismissed: boolean;
+    silenced: boolean;
+    dismissed_severity: "amber" | "red" | null;
+    dismissed_at: string | null;
+  } | null;
   connection: { provider: string; last_sync_at: string | null } | null;
 };
 
@@ -29,7 +41,9 @@ type Filter = "all" | "red" | "amber" | "disconnected" | "missing" | "paused";
 
 function age(value: string | null | undefined) {
   if (!value) return "No data";
-  const days = Math.floor((Date.now() - new Date(value).getTime()) / (24 * 60 * 60 * 1000));
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return "No data";
+  const days = Math.floor((Date.now() - timestamp) / (24 * 60 * 60 * 1000));
   return days <= 0 ? "Today" : days === 1 ? "1 day ago" : `${days} days ago`;
 }
 
@@ -155,6 +169,34 @@ export default function CapacityScanPage() {
                     ))}
                   </div>
                 </div>
+                {client.storm?.warning && (
+                  <div className={`mt-4 rounded-xl border px-3 py-2.5 ${
+                    client.storm.severity === "red" ? "border-red-500/25 bg-red-500/5" : "border-amber-500/25 bg-amber-500/5"
+                  }`}>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`text-[9px] font-bold uppercase tracking-wider ${
+                        client.storm.severity === "red" ? "text-red-500" : "text-amber-500"
+                      }`}>
+                        Storm warning · {client.storm.severity}
+                      </span>
+                      {client.storm.dismissed && (
+                        <span className="rounded-full border border-[rgba(0,0,0,0.10)] px-2 py-0.5 text-[9px] font-semibold text-text-muted">
+                          {client.storm.silenced
+                            ? "Dismissed by client"
+                            : `Dismissed at ${client.storm.dismissed_severity || "amber"} - re-raised at ${client.storm.severity}`}
+                        </span>
+                      )}
+                      {!client.storm.used_history && (
+                        <span className="text-[9px] text-text-muted">Absolute rules only - limited calendar history</span>
+                      )}
+                    </div>
+                    <div className="mt-1.5 space-y-0.5">
+                      {client.storm.explanations.map((line) => (
+                        <div key={line} className="text-xs leading-4 text-text-secondary">- {line}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </Link>
             );
           })}

@@ -4,6 +4,9 @@ import Link from "next/link";
 import type { CalendarEvent, ClientProfile, ClientTask } from "@/lib/types";
 import type { WearableDailySummary } from "@/lib/wearable-insights";
 import type { CapacityBaseline, CapacityMetrics } from "@/lib/capacity-baseline";
+import type { StormWarningClientState } from "@/lib/storm-warning";
+import type { EarlyWinView } from "@/lib/early-win";
+import EarlyWinCard from "@/components/portal/EarlyWinCard";
 import {
   calendarEventOccursOn,
   calendarWindowLoad,
@@ -26,7 +29,20 @@ type BaselineComparison = {
     delta: number | null;
     direction: "improved" | "declined" | "unchanged" | "missing";
   }> | null;
+  month4Review?: {
+    review_date: string;
+    outcome_note: string;
+    completed_at: string | null;
+    source_period: { start: string; end: string } | null;
+    comparison_period: { start: string; end: string } | null;
+  } | null;
 };
+
+function periodLabel(dateKey: string) {
+  const parsed = new Date(`${dateKey.slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) return dateKey;
+  return parsed.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
 
 function getWeekLoad(events: CalendarEvent[]): DayLoad[] {
   const today = new Date();
@@ -119,7 +135,10 @@ export default function FounderDashboard({
   todayTraining,
   activeTrainingPlan,
   baselineComparison,
+  stormWarning,
+  earlyWin,
   onToggleTask,
+  onDismissStormWarning,
 }: {
   profile: ClientProfile;
   userName: string;
@@ -130,16 +149,23 @@ export default function FounderDashboard({
   todayTraining: string | null;
   activeTrainingPlan: string | null;
   baselineComparison: BaselineComparison | null;
+  stormWarning: StormWarningClientState | null;
+  earlyWin: EarlyWinView | null;
   onToggleTask: (taskId: string, completed: boolean) => void;
+  onDismissStormWarning: () => void;
 }) {
   const capacity = capacityLanguage(wearableSummary);
   const weekLoad = getWeekLoad(calendarEvents);
   const upcoming = getUpcomingEvents(calendarEvents);
   const nextEvent = upcoming[0] || null;
   const todayCount = weekLoad[0]?.count || 0;
-  const denseDays = weekLoad.filter((day) => day.count >= 4);
   const weekTotal = weekLoad.reduce((total, day) => total + day.count, 0);
-  const stormWarning = denseDays.length >= 2 || weekTotal >= 18;
+  const stormEvaluation = stormWarning && stormWarning.evaluation.warning && !stormWarning.silenced
+    ? stormWarning.evaluation
+    : null;
+  const stormLines = stormEvaluation
+    ? stormEvaluation.rules.filter((rule) => rule.triggered).map((rule) => rule.explanation)
+    : [];
   const openCoachTasks = tasks.filter((task) => task.source !== "client" && !task.completed);
   const todayLabel = new Date().toLocaleDateString("en-GB", {
     weekday: "long",
@@ -197,7 +223,14 @@ export default function FounderDashboard({
             </div>
             <div className={`text-right text-sm font-bold ${capacity.tone}`}>{capacity.label}</div>
           </div>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10" aria-label={`System load ${capacity.load} percent`}>
+          <div
+            className="mt-4 h-2 overflow-hidden rounded-full bg-white/10"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={capacity.score === null ? undefined : capacity.load}
+            aria-label={`System load ${capacity.load} percent`}
+          >
             <div
               className={`h-full rounded-full transition-[width] duration-700 ${
                 capacity.load >= 62 ? "bg-red-400" : capacity.load >= 38 ? "bg-amber-300" : "bg-[#E667D6]"
@@ -207,16 +240,51 @@ export default function FounderDashboard({
           </div>
           <div className="mt-2 flex items-start justify-between gap-4">
             <p className="max-w-xl text-xs leading-5 text-white/55">{capacity.detail}</p>
-            {wearableMockMode && wearableSummary && <span className="text-[9px] font-bold uppercase tracking-wider text-white/35">Preview data</span>}
+            {wearableMockMode && wearableSummary && <span className="text-[9px] font-bold uppercase tracking-wider text-white/55">Preview data</span>}
           </div>
         </div>
       </section>
 
-      {stormWarning && (
-        <section className="rounded-2xl border border-amber-400/25 bg-amber-400/8 px-5 py-4">
-          <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-400">Storm warning</div>
-          <p className="mt-1 text-sm font-semibold text-text-primary">A dense stretch is building across the next seven days.</p>
-          <p className="mt-1 text-xs leading-5 text-text-secondary">Gordy can see this pressure too, so training and recovery can be adjusted before it lands.</p>
+      {earlyWin && <EarlyWinCard view={earlyWin} />}
+
+      {stormEvaluation && (
+        <section
+          className={`rounded-2xl border px-5 py-4 ${
+            stormEvaluation.severity === "red"
+              ? "border-red-400/25 bg-red-400/8"
+              : "border-amber-400/25 bg-amber-400/8"
+          }`}
+        >
+          <div className={`text-[10px] font-bold uppercase tracking-[0.18em] ${
+            stormEvaluation.severity === "red" ? "text-red-400" : "text-amber-400"
+          }`}>
+            Storm warning
+          </div>
+          <p className="mt-1 text-sm font-semibold text-text-primary">
+            {stormEvaluation.severity === "red"
+              ? "A heavy stretch is building across the next seven days."
+              : "A dense stretch is building across the next seven days."}
+          </p>
+          <ul className="mt-2 space-y-1">
+            {stormLines.map((line) => (
+              <li key={line} className="text-xs leading-5 text-text-secondary">- {line}</li>
+            ))}
+          </ul>
+          {!stormEvaluation.usedHistory && (
+            <p className="mt-2 text-[11px] leading-4 text-text-muted">
+              Based on this week&apos;s calendar alone - there is not enough history yet to compare against your usual pattern.
+            </p>
+          )}
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <p className="text-xs leading-5 text-text-secondary">Gordy can see this pressure too, so training and recovery can be adjusted before it lands.</p>
+            <button
+              type="button"
+              onClick={onDismissStormWarning}
+              className="-my-2 flex min-h-[44px] flex-none items-center rounded-lg px-2 text-[11px] font-semibold text-text-muted underline-offset-2 hover:underline"
+            >
+              Noted - hide for this week
+            </button>
+          </div>
         </section>
       )}
 
@@ -349,7 +417,18 @@ export default function FounderDashboard({
               );
             })}
           </div>
-          <p className="mt-2 px-1 text-[10px] leading-4 text-text-muted">This view shows movement only. Guarantee conditions are not applied until Gordy confirms the exact thresholds.</p>
+          <p className="mt-2 px-1 text-[10px] leading-4 text-text-muted">This view shows movement only. Gordy applies any confirmed guarantee conditions during the Month 4 review.</p>
+          {baselineComparison.month4Review && (
+            <div className="mt-3 rounded-xl border border-[rgba(255,255,255,0.08)] bg-bg-card px-4 py-3">
+              <div className="text-[9px] font-bold uppercase tracking-wider text-[#E667D6]">Month 4 review</div>
+              <p className="mt-1 break-words text-xs leading-5 text-text-secondary">{baselineComparison.month4Review.outcome_note}</p>
+              {baselineComparison.month4Review.source_period && baselineComparison.month4Review.comparison_period && (
+                <p className="mt-1 text-[10px] text-text-muted">
+                  Compared your Month 1 baseline ({periodLabel(baselineComparison.month4Review.source_period.start)} to {periodLabel(baselineComparison.month4Review.source_period.end)}) with {periodLabel(baselineComparison.month4Review.comparison_period.start)} to {periodLabel(baselineComparison.month4Review.comparison_period.end)}.
+                </p>
+              )}
+            </div>
+          )}
         </section>
       )}
 

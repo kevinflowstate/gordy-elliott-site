@@ -1,16 +1,34 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import HeroCanvas from "@/components/HeroCanvas";
+
+export const metadata: Metadata = {
+  title: {
+    absolute: "AT CAPACITY",
+  },
+  description:
+    "AT CAPACITY is Gordy Elliott's private coaching portal for plans, progress, daily tracking and optional read-only calendar insights.",
+};
 
 export default function HomePage() {
   return (
     <main className="relative min-h-screen flex items-center justify-center bg-[#1a1a1a]">
       <HeroCanvas />
       <div className="relative z-10 text-center px-6 max-w-2xl mx-auto">
-        <h1 className="font-heading text-4xl md:text-6xl font-black text-white tracking-tight leading-[1.1] mb-6">
+        <h1
+          aria-label="AT CAPACITY"
+          className="font-heading text-4xl md:text-6xl font-black text-white tracking-tight leading-[1.1] mb-6"
+        >
           <span className="text-accent-bright">AT</span> CAPACITY
         </h1>
-        <p className="text-[#b0b4c8] text-lg md:text-xl leading-relaxed mb-10 max-w-xl mx-auto">
-          Online fitness coaching by Gordy Elliott. Transform your training, nutrition, and mindset.
+        <p className="text-[#b0b4c8] text-lg md:text-xl leading-relaxed mb-5 max-w-xl mx-auto">
+          AT CAPACITY is Gordy Elliott&apos;s private coaching portal for existing clients.
+          It brings coaching plans, progress, daily tracking and messaging into one place.
+        </p>
+        <p className="text-[#8f93a8] text-sm md:text-base leading-relaxed mb-10 max-w-xl mx-auto">
+          Clients can optionally connect Google Calendar with read-only access so AT CAPACITY
+          can show the next meeting and schedule-density insights. It never creates, edits or
+          deletes calendar events.
         </p>
         <Link
           href="/login"
