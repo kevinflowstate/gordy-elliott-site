@@ -93,8 +93,12 @@ CREATE POLICY "Admins manage early win entries"
   USING ((SELECT private.is_admin()))
   WITH CHECK ((SELECT private.is_admin()));
 
-GRANT SELECT ON public.client_early_wins TO authenticated;
-GRANT SELECT ON public.client_early_win_entries TO authenticated;
+-- Production may carry permissive default ACLs for newly-created public
+-- tables. Reset them before granting the one intended client capability.
+REVOKE ALL ON TABLE public.client_early_wins, public.client_early_win_entries
+  FROM anon, authenticated;
+GRANT SELECT ON TABLE public.client_early_wins, public.client_early_win_entries
+  TO authenticated;
 
 CREATE OR REPLACE FUNCTION private.prevent_completed_early_win_change()
 RETURNS TRIGGER

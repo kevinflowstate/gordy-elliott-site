@@ -14,7 +14,9 @@ import {
   isoWeekKey,
   STORM_THRESHOLDS,
   type StormEventInput,
+  type StormWarningEvaluation,
 } from "@/lib/storm-warning";
+import { persistStormWarning } from "@/lib/storm-warning-server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { CalendarEvent } from "@/lib/types";
 import { NextResponse } from "next/server";
@@ -243,7 +245,7 @@ export async function GET() {
     (stormDismissalsRes.data || []).map((row) => [row.client_id, row]),
   );
 
-  const stormLogRows: Array<Record<string, unknown>> = [];
+  const stormLogs: Array<{ clientId: string; evaluation: StormWarningEvaluation }> = [];
   const clients = (profiles || []).map((profile) => {
     const user = Array.isArray(profile.user) ? profile.user[0] : profile.user;
     const latestWearableSummary = latestSummary.get(profile.id) || null;
@@ -283,17 +285,7 @@ export async function GET() {
     // escalated past it - the scan must reflect what the client actually sees.
     const stormSilenced = dismissalSilencesWarning(stormEvaluation, stormDismissal);
     if (stormEvaluation.warning && stormEvaluation.severity !== "none") {
-      stormLogRows.push({
-        client_id: profile.id,
-        window_key: stormEvaluation.windowKey,
-        window_start: stormEvaluation.windowStart,
-        window_end: stormEvaluation.windowEnd,
-        severity: stormEvaluation.severity,
-        triggered_rules: stormEvaluation.rules.filter((rule) => rule.triggered).map((rule) => rule.id),
-        evaluation: stormEvaluation,
-        input_hash: stormEvaluation.inputHash,
-        evaluated_at: stormEvaluation.evaluatedAt,
-      });
+      stormLogs.push({ clientId: profile.id, evaluation: stormEvaluation });
     }
 
     if (effectiveLifecycle === "active") {
@@ -389,12 +381,11 @@ export async function GET() {
     return order[a.status] - order[b.status];
   });
 
-  if (stormLogRows.length > 0) {
-    // Audit log; deduplicated on (client_id, window_key, input_hash) so
-    // repeated scans of unchanged calendars add nothing.
-    const { error: stormLogError } = await admin
-      .from("client_storm_warnings")
-      .upsert(stormLogRows, { onConflict: "client_id,window_key,input_hash", ignoreDuplicates: true });
+  if (stormLogs.length > 0) {
+    const stormLogErrors = await Promise.all(
+      stormLogs.map(({ clientId, evaluation }) => persistStormWarning(admin, clientId, evaluation)),
+    );
+    const stormLogError = stormLogErrors.find(Boolean);
     if (stormLogError) {
       return NextResponse.json({ error: stormLogError.message }, { status: 500 });
     }

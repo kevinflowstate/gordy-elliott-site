@@ -96,5 +96,84 @@ CREATE POLICY "Admins manage storm warning dismissals"
   USING ((SELECT private.is_admin()))
   WITH CHECK ((SELECT private.is_admin()));
 
-GRANT SELECT ON public.client_storm_warnings TO authenticated;
-GRANT SELECT ON public.client_storm_warning_dismissals TO authenticated;
+-- Production may carry permissive default ACLs for newly-created public
+-- tables. Reset them before granting the one intended client capability.
+REVOKE ALL ON TABLE public.client_storm_warnings, public.client_storm_warning_dismissals
+  FROM anon, authenticated;
+GRANT SELECT ON TABLE public.client_storm_warnings, public.client_storm_warning_dismissals
+  TO authenticated;
+
+-- Calendar edits change the input hash, so retention must be enforced at the
+-- write boundary rather than in a caller. A transaction-scoped advisory lock
+-- serialises writers for one client/window, making the 30-row cap atomic
+-- across portal evaluations and Gordy's batch Capacity Scan.
+CREATE OR REPLACE FUNCTION public.log_client_storm_warning(
+  p_client_id UUID,
+  p_window_key TEXT,
+  p_window_start DATE,
+  p_window_end DATE,
+  p_severity TEXT,
+  p_triggered_rules TEXT[],
+  p_evaluation JSONB,
+  p_input_hash TEXT,
+  p_evaluated_at TIMESTAMPTZ
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_inserted INTEGER;
+BEGIN
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(p_client_id::text || ':' || p_window_key, 0)
+  );
+
+  IF (
+    SELECT count(*)
+    FROM public.client_storm_warnings
+    WHERE client_id = p_client_id
+      AND window_key = p_window_key
+  ) >= 30 THEN
+    RETURN FALSE;
+  END IF;
+
+  INSERT INTO public.client_storm_warnings (
+    client_id,
+    window_key,
+    window_start,
+    window_end,
+    severity,
+    triggered_rules,
+    evaluation,
+    input_hash,
+    evaluated_at
+  )
+  VALUES (
+    p_client_id,
+    p_window_key,
+    p_window_start,
+    p_window_end,
+    p_severity,
+    p_triggered_rules,
+    p_evaluation,
+    p_input_hash,
+    p_evaluated_at
+  )
+  ON CONFLICT (client_id, window_key, input_hash) DO NOTHING;
+
+  GET DIAGNOSTICS v_inserted = ROW_COUNT;
+  RETURN v_inserted > 0;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.log_client_storm_warning(
+  UUID, TEXT, DATE, DATE, TEXT, TEXT[], JSONB, TEXT, TIMESTAMPTZ
+) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.log_client_storm_warning(
+  UUID, TEXT, DATE, DATE, TEXT, TEXT[], JSONB, TEXT, TIMESTAMPTZ
+) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.log_client_storm_warning(
+  UUID, TEXT, DATE, DATE, TEXT, TEXT[], JSONB, TEXT, TIMESTAMPTZ
+) TO service_role;

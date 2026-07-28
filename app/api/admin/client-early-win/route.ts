@@ -1,5 +1,6 @@
 import { requireAdmin } from "@/lib/admin-auth";
 import { parseBoundedCapacityMetric } from "@/lib/capacity-baseline";
+import { isFounderExperience } from "@/lib/client-experience";
 import {
   EARLY_WIN_SOURCED_METRICS,
   dateKeyOrdinal,
@@ -48,6 +49,15 @@ async function getProfile(admin: ReturnType<typeof createAdminClient>, clientId:
     .maybeSingle();
 }
 
+function founderOnlyError(experienceMode: unknown) {
+  return isFounderExperience(experienceMode)
+    ? null
+    : NextResponse.json(
+        { error: "Early Wins are only available for Founder Dashboard clients" },
+        { status: 409 },
+      );
+}
+
 export async function GET(request: Request) {
   const auth = await requireAdmin();
   if (!auth.authorized) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -59,6 +69,8 @@ export async function GET(request: Request) {
   const { data: profile, error: profileError } = await getProfile(admin, clientId);
   if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
   if (!profile) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+  const modeError = founderOnlyError(profile.experience_mode);
+  if (modeError) return modeError;
 
   try {
     const [active, completed] = await Promise.all([
@@ -91,6 +103,8 @@ export async function POST(request: Request) {
   const { data: profile, error: profileError } = await getProfile(admin, clientId);
   if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
   if (!profile) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+  const modeError = founderOnlyError(profile.experience_mode);
+  if (modeError) return modeError;
 
   const existing = await admin
     .from("client_early_wins")
@@ -182,6 +196,11 @@ export async function PATCH(request: Request) {
     .maybeSingle();
   if (winError) return NextResponse.json({ error: winError.message }, { status: 500 });
   if (!earlyWin) return NextResponse.json({ error: "Early win not found" }, { status: 404 });
+  const { data: profile, error: profileError } = await getProfile(admin, earlyWin.client_id);
+  if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
+  if (!profile) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+  const modeError = founderOnlyError(profile.experience_mode);
+  if (modeError) return modeError;
   if (earlyWin.status !== "active") {
     return NextResponse.json({ error: "This early win is already completed and cannot be changed" }, { status: 409 });
   }
@@ -243,11 +262,16 @@ export async function DELETE(request: Request) {
   const admin = createAdminClient();
   const { data: earlyWin, error: winError } = await admin
     .from("client_early_wins")
-    .select("id, status")
+    .select("id, client_id, status")
     .eq("id", earlyWinId)
     .maybeSingle();
   if (winError) return NextResponse.json({ error: winError.message }, { status: 500 });
   if (!earlyWin) return NextResponse.json({ error: "Early win not found" }, { status: 404 });
+  const { data: profile, error: profileError } = await getProfile(admin, earlyWin.client_id);
+  if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
+  if (!profile) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+  const modeError = founderOnlyError(profile.experience_mode);
+  if (modeError) return modeError;
   if (earlyWin.status !== "active") {
     return NextResponse.json({ error: "Completed early wins are kept as history and cannot be removed" }, { status: 409 });
   }

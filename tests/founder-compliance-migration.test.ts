@@ -30,6 +30,10 @@ test("compliance records are admin-only with no client read policy", async () =>
   // Admin-only tables carry no grants for the authenticated role at all -
   // they are reached solely through service-role API routes.
   assert.doesNotMatch(migration, /GRANT [^;]* TO authenticated/);
+  assert.match(
+    migration,
+    /REVOKE ALL ON TABLE\s+public\.client_call_attendance,\s+public\.client_whatsapp_help,\s+public\.guarantee_settings\s+FROM anon, authenticated;/,
+  );
 });
 
 test("call records carry an allowlisted type and a bounded note", async () => {
@@ -93,6 +97,18 @@ test("clients read only their own completed Founder review; writes are admin-onl
   assert.match(migration, /client_month4_reviews\.status = 'completed'/);
   assert.equal((migration.match(/\(SELECT private\.is_admin\(\)\)/g) || []).length, 4);
   assert.equal((migration.match(/FOR ALL TO authenticated/g) || []).length, 2);
+  assert.match(
+    migration,
+    /REVOKE ALL ON TABLE public\.client_month4_reviews FROM anon, authenticated;/,
+  );
+  assert.match(
+    migration,
+    /GRANT SELECT ON TABLE public\.client_month4_reviews TO authenticated;/,
+  );
+  assert.match(
+    migration,
+    /REVOKE ALL ON TABLE public\.client_baseline_overrides FROM anon, authenticated;/,
+  );
 });
 
 test("a completed review must carry both snapshots, an outcome note and a timestamp", async () => {

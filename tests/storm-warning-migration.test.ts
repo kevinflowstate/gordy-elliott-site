@@ -57,9 +57,38 @@ test("the audit log is deduplicated and constrained", async () => {
 
 test("clients can never write storm rows directly", async () => {
   const migration = await readFile(migrationUrl, "utf8");
-  assert.match(migration, /GRANT SELECT ON public\.client_storm_warnings TO authenticated;/);
-  assert.match(migration, /GRANT SELECT ON public\.client_storm_warning_dismissals TO authenticated;/);
+  assert.match(
+    migration,
+    /REVOKE ALL ON TABLE public\.client_storm_warnings, public\.client_storm_warning_dismissals\s+FROM anon, authenticated;/,
+  );
+  assert.match(
+    migration,
+    /GRANT SELECT ON TABLE public\.client_storm_warnings, public\.client_storm_warning_dismissals\s+TO authenticated;/,
+  );
   // Dismissals are written only by the service-role API after a fresh
   // server-side evaluation - no direct client INSERT/UPDATE/DELETE grants.
   assert.doesNotMatch(migration, /GRANT [^;]*(INSERT|UPDATE|DELETE)[^;]* ON public\.client_storm_warning/);
+});
+
+test("all warning writers share an atomic database-owned retention cap", async () => {
+  const migration = await readFile(migrationUrl, "utf8");
+  assert.match(migration, /CREATE OR REPLACE FUNCTION public\.log_client_storm_warning/);
+  assert.match(migration, /SECURITY DEFINER/);
+  assert.match(migration, /pg_catalog\.pg_advisory_xact_lock/);
+  assert.match(
+    migration,
+    /SELECT count\(\*\)\s+FROM public\.client_storm_warnings\s+WHERE client_id = p_client_id\s+AND window_key = p_window_key\s+\) >= 30/,
+  );
+  assert.match(
+    migration,
+    /ON CONFLICT \(client_id, window_key, input_hash\) DO NOTHING/,
+  );
+  assert.match(
+    migration,
+    /REVOKE ALL ON FUNCTION public\.log_client_storm_warning\([\s\S]*\) FROM anon, authenticated;/,
+  );
+  assert.match(
+    migration,
+    /GRANT EXECUTE ON FUNCTION public\.log_client_storm_warning\([\s\S]*\) TO service_role;/,
+  );
 });

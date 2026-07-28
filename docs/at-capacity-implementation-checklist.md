@@ -445,7 +445,9 @@ Add dated entries here as work is completed:
   WhatsApp-help records, Month 4 snapshots and the baseline-override
   audit (DPIA revision 2, risks R11-R13 at low residual). The privacy
   policy now discloses coaching-administration records (Article 13).
-  Unnecessary authenticated grants dropped from admin-only tables.
+  On 27 July, explicit `REVOKE ALL` statements were added for `anon` and
+  `authenticated` before restoring only the intended client SELECT grants;
+  this also neutralises permissive production default ACLs.
 - 24 July 2026: Release-hardening QA pass integrated. Biggest catch:
   every web-push notification still rendered the old SHIFT-branded icon,
   and three conventional icon paths served unrelated template artwork -

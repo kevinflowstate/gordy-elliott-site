@@ -51,7 +51,7 @@ export default function PrivacyPage() {
       <article className="mx-auto max-w-3xl">
         <Link href="/" className="text-sm font-semibold text-[#f06be3] no-underline">AT CAPACITY</Link>
         <h1 className="mt-6 font-heading text-4xl font-bold">Privacy Policy</h1>
-        <p className="mt-3 text-sm text-[#aeb0bb]">Effective 20 July 2026</p>
+        <p className="mt-3 text-sm text-[#aeb0bb]">Effective 27 July 2026</p>
         <p className="mt-8 text-base leading-7 text-[#d3d4dc]">
           This policy explains how AT CAPACITY by Gordy Elliott handles information when you use the website, PWA or iOS app.
         </p>

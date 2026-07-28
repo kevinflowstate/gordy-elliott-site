@@ -18,7 +18,7 @@ This is the operational index for submission. Use the linked worksheets as the c
 | Bundle ID | `com.gordyelliott.shift` |
 | Apple team | `H4J3XX8R8M` |
 | Marketing version | `1.0` |
-| Current candidate | Build `2` |
+| Current candidate | Build `3` |
 | Business model | Existing clients sign up/pay on the web, then sign in to the app |
 
 ## Build commands

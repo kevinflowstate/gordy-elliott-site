@@ -1,8 +1,8 @@
 # App Store Release Audit
 
-Date: 21 July 2026
+Date: 21 July 2026 (candidate build reference updated 27 July 2026)
 
-Candidate: AT CAPACITY 1.0 (Build 2)
+Candidate: AT CAPACITY 1.0 (Build 3)
 
 Status: ready for controlled web deployment and candidate archive; not ready for final App Store submission
 

@@ -49,7 +49,10 @@ CREATE POLICY "Admins manage month 4 reviews"
   USING ((SELECT private.is_admin()))
   WITH CHECK ((SELECT private.is_admin()));
 
-GRANT SELECT ON public.client_month4_reviews TO authenticated;
+-- Production may carry permissive default ACLs for newly-created public
+-- tables. Reset them before granting the one intended client capability.
+REVOKE ALL ON TABLE public.client_month4_reviews FROM anon, authenticated;
+GRANT SELECT ON TABLE public.client_month4_reviews TO authenticated;
 
 CREATE OR REPLACE FUNCTION private.prevent_completed_month4_review_change()
 RETURNS TRIGGER
@@ -101,8 +104,9 @@ CREATE POLICY "Admins manage baseline overrides"
   USING ((SELECT private.is_admin()))
   WITH CHECK ((SELECT private.is_admin()));
 
--- No grants to authenticated: override audit rows are admin-only and reached
--- solely through service-role API routes.
+-- Override audit rows are API-only. Explicit revocation is required because
+-- production may grant broad privileges to new public tables by default.
+REVOKE ALL ON TABLE public.client_baseline_overrides FROM anon, authenticated;
 
 CREATE OR REPLACE FUNCTION private.prevent_baseline_override_audit_change()
 RETURNS TRIGGER

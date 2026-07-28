@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/admin-auth";
+import { isFounderExperience } from "@/lib/client-experience";
 import { londonDateKey } from "@/lib/early-win";
 import {
   WEEK_KEY_PATTERN,
@@ -26,6 +27,15 @@ async function currentUserId() {
   return user?.id || null;
 }
 
+function founderOnlyError(experienceMode: unknown) {
+  return isFounderExperience(experienceMode)
+    ? null
+    : NextResponse.json(
+        { error: "Compliance records are only available for Founder Dashboard clients" },
+        { status: 409 },
+      );
+}
+
 export async function GET(request: Request) {
   const auth = await requireAdmin();
   if (!auth.authorized) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -37,6 +47,8 @@ export async function GET(request: Request) {
   const { data: profile, error: profileError } = await getProfile(admin, clientId);
   if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
   if (!profile) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+  const modeError = founderOnlyError(profile.experience_mode);
+  if (modeError) return modeError;
 
   try {
     const [summary, records] = await Promise.all([
@@ -68,6 +80,8 @@ export async function POST(request: Request) {
   const { data: profile, error: profileError } = await getProfile(admin, clientId);
   if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
   if (!profile) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+  const modeError = founderOnlyError(profile.experience_mode);
+  if (modeError) return modeError;
 
   const note = trimmedOrNull(body.note, 500);
   if (note === undefined) {
@@ -179,6 +193,19 @@ export async function PATCH(request: Request) {
   }
 
   const admin = createAdminClient();
+  const { data: record, error: recordError } = await admin
+    .from("client_call_attendance")
+    .select("id, client_id")
+    .eq("id", recordId)
+    .maybeSingle();
+  if (recordError) return NextResponse.json({ error: recordError.message }, { status: 500 });
+  if (!record) return NextResponse.json({ error: "Call record not found" }, { status: 404 });
+  const { data: profile, error: profileError } = await getProfile(admin, record.client_id);
+  if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
+  if (!profile) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+  const modeError = founderOnlyError(profile.experience_mode);
+  if (modeError) return modeError;
+
   const { data, error } = await admin
     .from("client_call_attendance")
     .update(updates)
@@ -204,6 +231,19 @@ export async function DELETE(request: Request) {
 
   const table = record === "call" ? "client_call_attendance" : "client_whatsapp_help";
   const admin = createAdminClient();
+  const { data: existing, error: existingError } = await admin
+    .from(table)
+    .select("id, client_id")
+    .eq("id", recordId)
+    .maybeSingle();
+  if (existingError) return NextResponse.json({ error: existingError.message }, { status: 500 });
+  if (!existing) return NextResponse.json({ error: "Compliance record not found" }, { status: 404 });
+  const { data: profile, error: profileError } = await getProfile(admin, existing.client_id);
+  if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
+  if (!profile) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+  const modeError = founderOnlyError(profile.experience_mode);
+  if (modeError) return modeError;
+
   const { error } = await admin.from(table).delete().eq("id", recordId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ removed: true });

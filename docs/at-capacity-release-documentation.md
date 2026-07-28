@@ -1,6 +1,6 @@
 # AT CAPACITY - Release Documentation (v1)
 
-Prepared 24 July 2026 from the code on this branch, the implementation checklist and the App Store worksheets. This is the release-readiness summary; the canonical detail lives in the linked documents.
+Prepared 24 July 2026 and updated 27 July 2026 from the code on this branch, the implementation checklist and the App Store worksheets. This is the release-readiness summary; the canonical detail lives in the linked documents.
 
 ## 1. What v1 ships
 
@@ -35,10 +35,10 @@ Explicitly out of scope for v1: Apple Health/HealthKit, Android Health Connect, 
 
 ## 3. Privacy and consent position
 
-- Live policy: `/privacy` (code: `app/privacy/page.tsx`, effective 20 July 2026). It discloses calendar connections with Google Limited Use wording, names Composio as the calendar processor, describes the "Busy" masking and no-descriptions/no-attendees position, and states that disconnecting a calendar deletes the synced copies. The code matches these claims (`lib/composio/normalise.ts`, disconnect route).
+- Live policy: `/privacy` (code: `app/privacy/page.tsx`, effective 27 July 2026). It discloses calendar connections with Google Limited Use wording, names Composio as the calendar processor, describes the "Busy" masking and no-descriptions/no-attendees position, states that Google reads all calendars on the connected account, discloses coaching-administration records, and states that disconnecting a calendar deletes the synced copies. The code matches these claims (`lib/composio/normalise.ts`, disconnect route).
 - Explicit consent for health and cycle data is captured at consultation as an unticked checkbox, versioned `health_cycle_v1` and timestamped server-side. Calendar and wearable connections are separately client-initiated OAuth flows.
 - Full data mapping: `docs/app-privacy-inventory.md`. Risk assessment and action plan: `docs/at-capacity-dpia.md` (draft, awaiting Gordy/Kevin sign-off). App Store answers: `docs/app-privacy-questionnaire.md`.
-- Known gaps carried in the DPIA action plan rather than hidden: connection-point consent wording, bounded retention for calendar history and raw Terra events, Terra-side deauthentication on disconnect, processor due-diligence record, and three policy wording fixes (all-calendars read scope for Google; controller identity and ICO complaint right; disclosure of coaching-administration records such as call attendance, off-platform help logs and review snapshots).
+- Known gaps carried in the DPIA action plan rather than hidden: connection-point consent wording, bounded retention for calendar history and raw Terra events, Terra-side deauthentication on disconnect, processor due-diligence record, and controller legal identity/ICO complaint-right wording. The all-calendars and coaching-administration disclosures are already present in the policy.
 
 ## 4. Support and legal links
 
@@ -73,8 +73,9 @@ Also awaiting Gordy: final production domain, Terra subscription, approval of li
 
 ## 7. Release sequence (summary)
 
-1. Ship the DPIA action-plan items that are code changes (consent wording at connection points, policy wording fixes including coaching-administration record disclosure).
+1. Ship the remaining DPIA action-plan code changes: consent wording at connection points and controller legal identity/ICO complaint-right wording (the latter needs the controller's legal details).
 2. Run the real calendar contract tests (Outlook now; Google with a test user during review).
 3. On Terra credentials: configure, run provider acceptance tests, implement and verify deauthentication on disconnect.
 4. Complete the Apple gates (rename record, re-enter listing and privacy answers, screenshots from the release candidate, APNs, physical-device TestFlight).
-5. Gordy and Founding Five acceptance, then deploy and submit.
+5. Apply migrations `20260724100000`, `20260724110000`, `20260724120000` and `20260724121000` in timestamp order, verify their tables/functions/ACLs, then deploy the matching code. Do not deploy the code first: warning writes depend on the service-role-only `log_client_storm_warning` RPC.
+6. Run authenticated Founder/AI-only isolation and outcome-flow smoke tests, then complete Gordy and Founding Five acceptance before submission.

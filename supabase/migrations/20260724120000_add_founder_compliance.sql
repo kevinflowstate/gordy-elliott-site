@@ -74,6 +74,10 @@ CREATE POLICY "Admins manage guarantee settings"
   USING ((SELECT private.is_admin()))
   WITH CHECK ((SELECT private.is_admin()));
 
--- No grants to authenticated: these tables are admin-only and reached solely
--- through service-role API routes. RLS default-deny plus absent grants makes
--- the intent explicit.
+-- Production may carry permissive default ACLs for newly-created public
+-- tables. These are API-only, so remove every client-role capability.
+REVOKE ALL ON TABLE
+  public.client_call_attendance,
+  public.client_whatsapp_help,
+  public.guarantee_settings
+FROM anon, authenticated;

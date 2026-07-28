@@ -52,10 +52,11 @@ Vercel env pulled temporarily and deleted after the check.
 Docs-delta findings fixed by Fable at integration: privacy policy now
 discloses coaching-administration records (call attendance, WhatsApp
 support notes, review summaries, baseline-correction audit) - closes the
-Article 13 transparency gap before Founder onboarding; unnecessary
-authenticated grants dropped from the four admin-only tables (month4
-reviews keep theirs - clients read own completed review); compliance
-migration test now asserts no authenticated grants on admin-only tables.
+Article 13 transparency gap before Founder onboarding. The 27 July
+release-readiness repair explicitly revokes all `anon`/`authenticated`
+privileges from the four admin-only tables (Month 4 reviews are reset to
+authenticated SELECT only, so clients can read their own completed review);
+migration tests assert both the revocations and the intended SELECT grants.
 
 Compliance integration notes (Fable): merge was conflict-free; Fable
 genericized the portal capacity-baseline route's error responses for

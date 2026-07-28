@@ -6,8 +6,8 @@ import {
   STORM_THRESHOLDS,
   type StormDismissal,
   type StormEventInput,
-  type StormWarningEvaluation,
 } from "@/lib/storm-warning";
+import { persistStormWarning } from "@/lib/storm-warning-server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -97,39 +97,6 @@ async function loadStormEvents(admin: SupabaseClient, clientId: string, now: Dat
   return { events };
 }
 
-/**
- * Calendar edits change the input hash, so a client could otherwise mint
- * unbounded audit rows for one window by toggling an event between states.
- */
-const MAX_LOGGED_WARNINGS_PER_WINDOW = 30;
-
-async function logWarning(admin: SupabaseClient, clientId: string, evaluation: StormWarningEvaluation) {
-  if (!evaluation.warning || evaluation.severity === "none") return null;
-  const { count, error: countError } = await admin
-    .from("client_storm_warnings")
-    .select("id", { count: "exact", head: true })
-    .eq("client_id", clientId)
-    .eq("window_key", evaluation.windowKey);
-  if (countError) return countError;
-  if ((count ?? 0) >= MAX_LOGGED_WARNINGS_PER_WINDOW) return null;
-  // ignoreDuplicates makes repeated evaluations of the same window and inputs
-  // a no-op instead of a fresh audit row.
-  const { error } = await admin
-    .from("client_storm_warnings")
-    .upsert({
-      client_id: clientId,
-      window_key: evaluation.windowKey,
-      window_start: evaluation.windowStart,
-      window_end: evaluation.windowEnd,
-      severity: evaluation.severity,
-      triggered_rules: evaluation.rules.filter((rule) => rule.triggered).map((rule) => rule.id),
-      evaluation,
-      input_hash: evaluation.inputHash,
-      evaluated_at: evaluation.evaluatedAt,
-    }, { onConflict: "client_id,window_key,input_hash", ignoreDuplicates: true });
-  return error;
-}
-
 async function loadDismissal(admin: SupabaseClient, clientId: string, windowKey: string) {
   const { data } = await admin
     .from("client_storm_warning_dismissals")
@@ -153,7 +120,7 @@ export async function GET() {
   }
 
   const evaluation = evaluateStormWarning({ events, now });
-  const logError = await logWarning(admin, profile.id, evaluation);
+  const logError = await persistStormWarning(admin, profile.id, evaluation);
   if (logError) {
     console.error("storm-warning log write failed:", logError.message);
     return NextResponse.json({ error: "The storm warning could not be recorded" }, { status: 500 });
@@ -185,7 +152,7 @@ export async function POST() {
   if (!evaluation.warning || evaluation.severity === "none") {
     return NextResponse.json({ error: "There is no active storm warning to dismiss" }, { status: 400 });
   }
-  const logError = await logWarning(admin, profile.id, evaluation);
+  const logError = await persistStormWarning(admin, profile.id, evaluation);
   if (logError) {
     console.error("storm-warning log write failed:", logError.message);
     return NextResponse.json({ error: "The storm warning could not be recorded" }, { status: 500 });

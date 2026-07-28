@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/admin-auth";
+import { isFounderExperience } from "@/lib/client-experience";
 import { londonDateKey } from "@/lib/early-win";
 import { parseDateKey, trimmedOrNull } from "@/lib/founder-compliance";
 import { buildMonth4Snapshot } from "@/lib/founder-compliance-server";
@@ -14,6 +15,15 @@ async function getProfile(admin: ReturnType<typeof createAdminClient>, clientId:
     .maybeSingle();
 }
 
+function founderOnlyError(experienceMode: unknown) {
+  return isFounderExperience(experienceMode)
+    ? null
+    : NextResponse.json(
+        { error: "Month 4 reviews are only available for Founder Dashboard clients" },
+        { status: 409 },
+      );
+}
+
 export async function GET(request: Request) {
   const auth = await requireAdmin();
   if (!auth.authorized) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -25,6 +35,8 @@ export async function GET(request: Request) {
   const { data: profile, error: profileError } = await getProfile(admin, clientId);
   if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
   if (!profile) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+  const modeError = founderOnlyError(profile.experience_mode);
+  if (modeError) return modeError;
 
   try {
     const [{ data: review, error: reviewError }, liveResult] = await Promise.all([
@@ -57,6 +69,8 @@ export async function POST(request: Request) {
   const { data: profile, error: profileError } = await getProfile(admin, clientId);
   if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
   if (!profile) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+  const modeError = founderOnlyError(profile.experience_mode);
+  if (modeError) return modeError;
 
   const existing = await admin
     .from("client_month4_reviews")
@@ -112,6 +126,8 @@ export async function PATCH(request: Request) {
   const { data: profile, error: profileError } = await getProfile(admin, review.client_id);
   if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
   if (!profile) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+  const modeError = founderOnlyError(profile.experience_mode);
+  if (modeError) return modeError;
 
   try {
     const snapshotResult = await buildMonth4Snapshot(admin, review.client_id, profile.start_date || null);
@@ -156,11 +172,16 @@ export async function DELETE(request: Request) {
   const admin = createAdminClient();
   const { data: review, error: reviewError } = await admin
     .from("client_month4_reviews")
-    .select("id, status")
+    .select("id, client_id, status")
     .eq("id", reviewId)
     .maybeSingle();
   if (reviewError) return NextResponse.json({ error: reviewError.message }, { status: 500 });
   if (!review) return NextResponse.json({ error: "Month 4 review not found" }, { status: 404 });
+  const { data: profile, error: profileError } = await getProfile(admin, review.client_id);
+  if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
+  if (!profile) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+  const modeError = founderOnlyError(profile.experience_mode);
+  if (modeError) return modeError;
   if (review.status !== "draft") {
     return NextResponse.json({ error: "Completed reviews are kept as history and cannot be removed" }, { status: 409 });
   }

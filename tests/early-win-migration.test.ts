@@ -26,6 +26,14 @@ test("writes are admin-only through private.is_admin on both tables", async () =
   const migration = await readFile(migrationUrl, "utf8");
   assert.equal((migration.match(/\(SELECT private\.is_admin\(\)\)/g) || []).length, 4);
   assert.equal((migration.match(/FOR ALL TO authenticated/g) || []).length, 2);
+  assert.match(
+    migration,
+    /REVOKE ALL ON TABLE public\.client_early_wins, public\.client_early_win_entries\s+FROM anon, authenticated;/,
+  );
+  assert.match(
+    migration,
+    /GRANT SELECT ON TABLE public\.client_early_wins, public\.client_early_win_entries\s+TO authenticated;/,
+  );
 });
 
 test("only one active early win is allowed per client", async () => {

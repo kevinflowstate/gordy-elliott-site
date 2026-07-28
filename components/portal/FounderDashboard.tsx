@@ -417,7 +417,7 @@ export default function FounderDashboard({
               );
             })}
           </div>
-          <p className="mt-2 px-1 text-[10px] leading-4 text-text-muted">This view shows movement only. Guarantee conditions are not applied until Gordy confirms the exact thresholds.</p>
+          <p className="mt-2 px-1 text-[10px] leading-4 text-text-muted">This view shows movement only. Gordy applies any confirmed guarantee conditions during the Month 4 review.</p>
           {baselineComparison.month4Review && (
             <div className="mt-3 rounded-xl border border-[rgba(255,255,255,0.08)] bg-bg-card px-4 py-3">
               <div className="text-[9px] font-bold uppercase tracking-wider text-[#E667D6]">Month 4 review</div>
