@@ -159,6 +159,31 @@ function buildVirtualSchedule(plan: ClientExercisePlan): Map<string, ExerciseSes
   return map;
 }
 
+function buildSessionDrafts(session: ExerciseSession, existingLogs: ExerciseLog[] = []) {
+  const drafts: Record<string, SetData[]> = {};
+  for (const item of session.items) {
+    if (item.exercise_id === "__section__") continue;
+    const existing = existingLogs.find((log) => log.exercise_item_id === item.id)?.sets_data;
+    if (Array.isArray(existing) && existing.length > 0) {
+      drafts[item.id] = existing.map((set, index) => ({
+        set_number: typeof set.set_number === "number" ? set.set_number : index + 1,
+        weight: typeof set.weight === "string" ? set.weight : String(set.weight || ""),
+        reps: typeof set.reps === "string" ? set.reps : String(set.reps || ""),
+        notes: typeof set.notes === "string" ? set.notes : String(set.notes || ""),
+      }));
+      continue;
+    }
+    const setsCount = shouldUseSetLogging(item) ? Number(item.sets) || 3 : 1;
+    drafts[item.id] = Array.from({ length: setsCount }, (_, index) => ({
+      set_number: index + 1,
+      weight: "",
+      reps: "",
+      notes: "",
+    }));
+  }
+  return drafts;
+}
+
 // ---- component ----
 
 export default function PortalExercisePlanPage() {
@@ -172,6 +197,7 @@ export default function PortalExercisePlanPage() {
   const [plannerSavingSessionId, setPlannerSavingSessionId] = useState<string | null>(null);
   const plannerRequestIdRef = useRef(0);
   const resumePointerHandledRef = useRef<string | null>(null);
+  const sessionPanelRef = useRef<HTMLDivElement | null>(null);
 
   // Calendar state
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
@@ -208,27 +234,29 @@ export default function PortalExercisePlanPage() {
 
   // Fetch logs for the visible week
   const fetchWeekLogs = useCallback(
-    (ws: Date) => {
+    async (ws: Date) => {
       const from = formatDate(ws);
       const end = new Date(ws);
       end.setDate(end.getDate() + 6);
       const to = formatDate(end);
-      fetch(`/api/portal/exercise-log?from=${from}&to=${to}`)
-        .then((r) => r.json())
-        .then((data) => {
-          setAllLogs((prev) => {
-            // Merge: remove old logs in this range, add new ones
-            const filtered = prev.filter((l) => l.log_date < from || l.log_date > to);
-            return [...filtered, ...(data.logs || [])];
-          });
-        })
-        .catch(console.error);
+      try {
+        const response = await fetch(`/api/portal/exercise-log?from=${from}&to=${to}`);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error || "Training logs could not be loaded");
+        setAllLogs((prev) => {
+          // Merge: remove old logs in this range, add new ones
+          const filtered = prev.filter((l) => l.log_date < from || l.log_date > to);
+          return [...filtered, ...(data.logs || [])];
+        });
+      } catch (error) {
+        console.error("Failed to fetch training logs:", error);
+      }
     },
     []
   );
 
   useEffect(() => {
-    fetchWeekLogs(weekStart);
+    void fetchWeekLogs(weekStart);
   }, [weekStart, fetchWeekLogs]);
 
   const fetchWeekPlanner = useCallback(
@@ -331,6 +359,12 @@ export default function PortalExercisePlanPage() {
 
   const calendarSessionsByDate = visibleWeeklyAssignments.length > 0 ? plannedSessionsByDate : fallbackSessionsByDate;
 
+  const initDrafts = useCallback((session: ExerciseSession, existingLogs: ExerciseLog[] = []) => {
+    const drafts = buildSessionDrafts(session, existingLogs);
+    setDraftSets(drafts);
+    return drafts;
+  }, []);
+
   // When selected date changes, figure out what session to show
   useEffect(() => {
     if (!plan?.sessions?.length) return;
@@ -338,7 +372,7 @@ export default function PortalExercisePlanPage() {
     const dateStr = formatDate(selectedDate);
     const dayLogs = allLogs.filter((l) => l.log_date === dateStr && l.session_id);
 
-    if (dayLogs.length > 0) {
+    if (dayLogs.length > 0 && !manuallyPicked) {
       // Day already has a logged session — find which session
       const sessionId = dayLogs[0].session_id;
       const session = plan.sessions.find((s) => s.id === sessionId) ?? plan.sessions[0];
@@ -346,7 +380,7 @@ export default function PortalExercisePlanPage() {
       setViewMode("readonly");
       setManuallyPicked(false);
       setSessionOpen(false);
-    } else {
+    } else if (dayLogs.length === 0) {
       // No log for this day — use the auto-populated calendar (unless the
       // user explicitly picked a session). Days with nothing scheduled are
       // rest days and get Start Next Session / Add Session instead.
@@ -362,22 +396,7 @@ export default function PortalExercisePlanPage() {
       }
       setViewMode("log");
     }
-  }, [selectedDate, allLogs, plan, manuallyPicked, calendarSessionsByDate]);
-
-  function initDrafts(session: ExerciseSession) {
-    const drafts: Record<string, SetData[]> = {};
-    for (const item of session.items) {
-      if (item.exercise_id === "__section__") continue;
-      const setsCount = shouldUseSetLogging(item) ? Number(item.sets) || 3 : 1;
-      drafts[item.id] = Array.from({ length: setsCount }, (_, i) => ({
-        set_number: i + 1,
-        weight: "",
-        reps: "",
-        notes: "",
-      }));
-    }
-    setDraftSets(drafts);
-  }
+  }, [selectedDate, allLogs, plan, manuallyPicked, calendarSessionsByDate, initDrafts]);
 
   function updateSet(itemId: string, setIdx: number, field: keyof SetData, value: string) {
     setDraftSets((prev) => {
@@ -404,31 +423,20 @@ export default function PortalExercisePlanPage() {
     setSaveError(null);
     try {
       const exercises = activeSession.items.filter((i) => i.exercise_id !== "__section__");
-      const results = await Promise.all(
-        exercises.map((item) => {
-          const sets = draftSets[item.id] || [];
-          const completed = sets.some((s) => s.reps.trim() !== "");
-          return fetch("/api/portal/exercise-log", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
+      const response = await fetch("/api/portal/exercise-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: activeSession.id,
+          date: dateStr,
+          entries: exercises.map((item) => ({
               exercise_item_id: item.id,
-              session_id: activeSession.id,
-              date: dateStr,
-              sets_data: sets,
-              completed,
-            }),
-          }).then(async (response) => {
-            const data = await response.json().catch(() => ({}));
-            return { ok: response.ok, data };
-          });
-        })
-      );
-
-      const failed = results.find((result) => !result.ok);
-      if (failed) {
-        throw new Error(failed.data?.error || "We couldn't save this session. Please try again.");
-      }
+              sets_data: draftSets[item.id] || [],
+            })),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || "We couldn't save this session. Please try again.");
 
       // Refresh week logs
       await fetchWeekLogs(weekStart);
@@ -482,6 +490,7 @@ export default function PortalExercisePlanPage() {
     setManuallyPicked(true);
     setSessionOpen(true);
     setShowSessionPicker(false);
+    revealSessionPanel();
   }
 
   async function savePlannerAssignment(
@@ -600,7 +609,7 @@ export default function PortalExercisePlanPage() {
     } catch {
       window.localStorage.removeItem(activeSessionPointerKey(plan.id));
     }
-  }, [plan]);
+  }, [plan, initDrafts]);
 
   useEffect(() => {
     if (!plan?.id || !activeSession || !sessionStartedAt || viewMode !== "log") return;
@@ -643,13 +652,14 @@ export default function PortalExercisePlanPage() {
   }, [activeSession, plan?.id, selectedDateStr, viewMode]);
 
   function startSessionTimer(session: ExerciseSession) {
-    if (!plan?.id || viewMode === "readonly") return;
-    if (activeSession?.id !== session.id) {
-      setActiveSession(session);
-      initDrafts(session);
-      setViewMode("log");
-      setManuallyPicked(true);
-    }
+    if (!plan?.id) return;
+    const existingLogs = dayLogs.filter((log) => log.session_id === session.id);
+    const startingDrafts = activeSession?.id !== session.id || viewMode === "readonly"
+      ? initDrafts(session, existingLogs)
+      : draftSets;
+    setActiveSession(session);
+    setViewMode("log");
+    setManuallyPicked(true);
     const startedAt = Date.now();
     setSessionStartedAt(startedAt);
     setSessionOpen(true);
@@ -664,7 +674,7 @@ export default function PortalExercisePlanPage() {
         sessionId: session.id,
         date: selectedDateStr,
         startedAt,
-        draftSets,
+        draftSets: startingDrafts,
       }));
     } catch {
       // The timer still works for this visit when local storage is unavailable.
@@ -688,15 +698,20 @@ export default function PortalExercisePlanPage() {
 
   function openPrimarySession() {
     if (!primarySession) return;
-    if (viewMode === "readonly" && activeSession?.id === primarySession.id) {
-      setSessionOpen(true);
-      return;
-    }
     if (sessionStartedAt && activeSession?.id === primarySession.id) {
       setSessionOpen(true);
       return;
     }
     startSessionTimer(primarySession);
+    revealSessionPanel();
+  }
+
+  function revealSessionPanel() {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        sessionPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
   }
 
   function dayChipClass(active: boolean, disabled: boolean) {
@@ -823,15 +838,14 @@ export default function PortalExercisePlanPage() {
               disabled={!primarySession}
               className="min-h-12 rounded-xl bg-[#E040D0] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[#F060E0] disabled:opacity-40"
             >
-              {viewMode === "readonly" && activeSession ? "View logged session" : sessionStartedAt ? "Resume session" : activeSession ? "Start session" : "Start next session"}
+              {viewMode === "readonly" && activeSession ? "Edit logged session" : sessionStartedAt ? "Resume session" : activeSession ? "Start session" : "Start next session"}
             </button>
             <button
               type="button"
               onClick={() => setShowSessionPicker(true)}
-              disabled={viewMode === "readonly"}
-              className="min-h-12 rounded-xl border border-[#E040D0]/30 px-4 py-3 text-sm font-semibold text-[#F060E0] disabled:cursor-not-allowed disabled:border-white/10 disabled:text-text-muted"
+              className="min-h-12 rounded-xl border border-[#E040D0]/30 px-4 py-3 text-sm font-semibold text-[#F060E0]"
             >
-              {viewMode === "readonly" ? "Logged" : "Choose"}
+              Choose
             </button>
           </div>
         </section>
@@ -1173,7 +1187,7 @@ export default function PortalExercisePlanPage() {
 
       {/* ---- Selected Day Content ---- */}
       {activeSession && (
-        <div className={`app-card rounded-[28px] overflow-hidden transition-all duration-300 ${
+        <div ref={sessionPanelRef} className={`app-card scroll-mt-4 rounded-[28px] overflow-hidden transition-all duration-300 ${
           sessionStartedAt
             ? "border-[#E040D0]/55 shadow-[0_0_0_1px_rgba(224,64,208,0.35),0_0_28px_rgba(224,64,208,0.25)]"
             : ""
@@ -1262,7 +1276,8 @@ export default function PortalExercisePlanPage() {
                     onClick={() => {
                       setViewMode("log");
                       setSessionOpen(true);
-                      initDrafts(activeSession);
+                      setManuallyPicked(true);
+                      initDrafts(activeSession, dayLogs.filter((log) => log.session_id === activeSession.id));
                     }}
                     className="text-xs text-text-secondary hover:text-text-primary underline cursor-pointer"
                   >
