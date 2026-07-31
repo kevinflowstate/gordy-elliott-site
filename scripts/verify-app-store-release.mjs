@@ -89,8 +89,49 @@ try {
 
   await open(page, "/portal/exercise-plan");
   check(await page.getByText("Browse and schedule sessions", { exact: true }).count() === 1, "training plan is visible near the top");
-  check(await page.getByRole("button", { name: /start next session|start session|resume session|view logged session/i }).count() > 0, "training primary action is available near the top");
+  check(await page.getByRole("button", { name: /start next session|start session|resume session|edit logged session/i }).count() > 0, "training primary action is available near the top");
   check(await page.getByText(/2 sessions/i).count() > 0, "training plan exposes the full session count");
+  const chooseWorkout = page.getByRole("button", { name: "Choose workout", exact: true });
+  check(await chooseWorkout.count() === 1, "training exposes one unambiguous workout chooser");
+  await chooseWorkout.click();
+  const picker = page.getByRole("dialog", { name: "Choose a workout" });
+  check(await picker.count() === 1, "workout chooser opens above the app shell");
+  const pickerLayout = await picker.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const bottomChoice = element.querySelector("button:last-of-type");
+    const choiceRect = bottomChoice?.getBoundingClientRect();
+    return {
+      top: rect.top,
+      bottom: rect.bottom,
+      viewportHeight: window.innerHeight,
+      lastChoiceBottom: choiceRect?.bottom ?? null,
+      lastChoiceHit: choiceRect
+        ? document.elementFromPoint(choiceRect.left + choiceRect.width / 2, choiceRect.top + choiceRect.height / 2)?.closest("button") === bottomChoice
+        : false,
+    };
+  });
+  check(
+    pickerLayout.top >= 0
+      && pickerLayout.bottom <= pickerLayout.viewportHeight + 1
+      && pickerLayout.lastChoiceBottom !== null
+      && pickerLayout.lastChoiceBottom <= pickerLayout.viewportHeight + 1
+      && pickerLayout.lastChoiceHit,
+    "workout choices stay visible and tappable above mobile navigation",
+    JSON.stringify(pickerLayout),
+  );
+  await page.getByRole("button", { name: "Close session picker" }).click();
+
+  const editLoggedSession = page.getByRole("button", { name: "Edit logged session", exact: true });
+  if (await editLoggedSession.count() === 1) {
+    await editLoggedSession.click();
+    check(await page.getByText("Editing saved session", { exact: true }).count() === 1, "saved workout opens in explicit edit mode");
+    check(await page.getByRole("button", { name: "Next exercise", exact: true }).count() === 1, "saved workout edit starts with usable exercise controls");
+    const workoutFooterHit = await page.evaluate(() => document.elementFromPoint(window.innerWidth / 2, window.innerHeight - 40)?.textContent?.trim() || "");
+    check(/next exercise|review workout/i.test(workoutFooterHit), "workout footer receives taps above mobile navigation", workoutFooterHit);
+    await page.getByRole("button", { name: "Close workout" }).click();
+  } else {
+    check(false, "saved workout opens in explicit edit mode", "the fixture has no logged session");
+  }
   await assertNoHorizontalOverflow(page, "training plan");
 
   await open(page, "/portal/inbox");
