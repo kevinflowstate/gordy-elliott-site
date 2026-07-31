@@ -6,6 +6,7 @@ import type { WearableDailySummary } from "@/lib/wearable-insights";
 import type { CapacityBaseline, CapacityMetrics } from "@/lib/capacity-baseline";
 import type { StormWarningClientState } from "@/lib/storm-warning";
 import type { EarlyWinView } from "@/lib/early-win";
+import type { WeeklyCapacityResult } from "@/lib/weekly-capacity";
 import EarlyWinCard from "@/components/portal/EarlyWinCard";
 import {
   calendarEventOccursOn,
@@ -137,6 +138,7 @@ export default function FounderDashboard({
   baselineComparison,
   stormWarning,
   earlyWin,
+  weeklyCapacity,
   onToggleTask,
   onDismissStormWarning,
 }: {
@@ -151,6 +153,7 @@ export default function FounderDashboard({
   baselineComparison: BaselineComparison | null;
   stormWarning: StormWarningClientState | null;
   earlyWin: EarlyWinView | null;
+  weeklyCapacity: WeeklyCapacityResult | null | undefined;
   onToggleTask: (taskId: string, completed: boolean) => void;
   onDismissStormWarning: () => void;
 }) {
@@ -356,26 +359,137 @@ export default function FounderDashboard({
         </div>
       </section>
 
-      <section className="pt-1">
-        <div className="flex items-end justify-between gap-3 px-1">
-          <div>
-            <h2 className="font-heading text-lg font-bold text-text-primary">Week ahead</h2>
-            <p className="text-xs text-text-secondary">{weekTotal ? `${weekTotal} calendar item${weekTotal === 1 ? "" : "s"} showing` : "Calendar density will show here"}</p>
-          </div>
-          <Link href="/portal/calendar" className="text-xs font-semibold text-[#E667D6] no-underline">Open calendar</Link>
-        </div>
-        <div className="mt-3 grid grid-cols-7 gap-1.5">
-          {weekLoad.map((day) => {
-            const pressure = day.count >= 4 ? "bg-red-400" : day.count >= 2 ? "bg-amber-300" : day.count === 1 ? "bg-[#E667D6]" : "bg-white/10";
-            return (
-              <div key={localDateKey(day.date)} className={`rounded-xl border px-1.5 py-3 text-center ${day.isToday ? "border-[#E667D6]/45 bg-[#E667D6]/8" : "border-[rgba(255,255,255,0.07)] bg-bg-card"}`}>
-                <div className="text-[9px] font-bold uppercase text-text-muted">{day.date.toLocaleDateString("en-GB", { weekday: "narrow" })}</div>
-                <div className="mt-1 text-sm font-bold text-text-primary">{day.date.getDate()}</div>
-                <div className={`mx-auto mt-2 h-1.5 w-full max-w-6 rounded-full ${pressure}`} />
-                <div className="mt-1 text-[9px] text-text-muted">{day.count || "—"}</div>
+      <section className="overflow-hidden rounded-[24px] border border-[rgba(255,255,255,0.09)] bg-bg-card">
+        <div className="px-5 py-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#E667D6]">Weekly Capacity Checker</div>
+              <h2 className="mt-1 font-heading text-xl font-bold text-text-primary">
+                {weeklyCapacity === undefined
+                  ? "Checking the week ahead"
+                  : weeklyCapacity?.label || "Capacity is temporarily unavailable"}
+              </h2>
+            </div>
+            {weeklyCapacity?.status === "ready" && weeklyCapacity.score !== null ? (
+              <div className="shrink-0 text-right">
+                <div className="metric-num text-4xl font-bold text-text-primary">{weeklyCapacity.score}%</div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">available</div>
               </div>
-            );
-          })}
+            ) : (
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-text-muted">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+            )}
+          </div>
+
+          <p className="mt-3 text-sm leading-6 text-text-secondary">
+            {weeklyCapacity === undefined
+              ? "Sleep, calendar and training signals are being checked."
+              : weeklyCapacity?.message || "We couldn't load the weekly signals just now. Refresh the dashboard to try again."}
+          </p>
+
+          {weeklyCapacity?.status === "ready" && weeklyCapacity.score !== null && (
+            <>
+              <div
+                className="mt-4 h-2.5 overflow-hidden rounded-full bg-white/[0.07]"
+                role="progressbar"
+                aria-label="Weekly capacity available"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={weeklyCapacity.score}
+              >
+                <div
+                  className={`h-full rounded-full transition-[width] duration-700 ${
+                    weeklyCapacity.score >= 70
+                      ? "bg-emerald-400"
+                      : weeklyCapacity.score >= 50
+                        ? "bg-[#E667D6]"
+                        : weeklyCapacity.score >= 35
+                          ? "bg-amber-300"
+                          : "bg-red-400"
+                  }`}
+                  style={{ width: `${weeklyCapacity.score}%` }}
+                />
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                {[
+                  {
+                    label: "Sleep",
+                    value: weeklyCapacity.signals.sleepLoad === null ? "—" : `${100 - weeklyCapacity.signals.sleepLoad}%`,
+                    detail: `${weeklyCapacity.signals.sleepDays} nights`,
+                  },
+                  {
+                    label: "Calendar",
+                    value: weeklyCapacity.signals.calendarLoad === null ? "—" : `${100 - weeklyCapacity.signals.calendarLoad}%`,
+                    detail: `${weeklyCapacity.signals.calendarMeetings} items`,
+                  },
+                  {
+                    label: "Training",
+                    value: weeklyCapacity.signals.trainingLoad === null ? "—" : `${weeklyCapacity.signals.plannedSessions}`,
+                    detail: "sessions",
+                  },
+                ].map((signal) => (
+                  <div key={signal.label} className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-3 text-center">
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-text-muted">{signal.label}</div>
+                    <div className="mt-1 text-base font-bold text-text-primary">{signal.value}</div>
+                    <div className="mt-0.5 text-[10px] text-text-muted">{signal.detail}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {weeklyCapacity && weeklyCapacity.status !== "ready" && (
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {weeklyCapacity.requirements.map((requirement) => {
+                const content = (
+                  <>
+                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                      requirement.met ? "bg-emerald-400/12 text-emerald-400" : "bg-white/[0.05] text-text-muted"
+                    }`}>
+                      {requirement.met ? "✓" : "·"}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-xs font-semibold text-text-primary">{requirement.label}</span>
+                      <span className="mt-0.5 block text-[10px] text-text-muted">{requirement.detail}</span>
+                    </span>
+                  </>
+                );
+                const className = "flex min-h-[54px] items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-2.5 no-underline";
+                return requirement.href && !requirement.met ? (
+                  <Link key={requirement.id} href={requirement.href} className={className}>{content}</Link>
+                ) : (
+                  <div key={requirement.id} className={className}>{content}</div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-white/[0.07] px-5 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-semibold text-text-primary">Calendar shape</div>
+              <div className="mt-0.5 text-[10px] text-text-muted">
+                {weekTotal ? `${weekTotal} item${weekTotal === 1 ? "" : "s"} across the next seven days` : "No calendar pressure showing"}
+              </div>
+            </div>
+            <Link href="/portal/calendar" className="text-xs font-semibold text-[#E667D6] no-underline">Open calendar</Link>
+          </div>
+          <div className="mt-3 grid grid-cols-7 gap-1.5">
+            {weekLoad.map((day) => {
+              const pressure = day.count >= 4 ? "bg-red-400" : day.count >= 2 ? "bg-amber-300" : day.count === 1 ? "bg-[#E667D6]" : "bg-white/10";
+              return (
+                <div key={localDateKey(day.date)} className={`rounded-xl border px-1 py-2.5 text-center ${day.isToday ? "border-[#E667D6]/45 bg-[#E667D6]/8" : "border-white/[0.06] bg-white/[0.02]"}`}>
+                  <div className="text-[9px] font-bold uppercase text-text-muted">{day.date.toLocaleDateString("en-GB", { weekday: "narrow" })}</div>
+                  <div className={`mx-auto mt-2 h-1.5 w-full max-w-6 rounded-full ${pressure}`} />
+                  <div className="mt-1 text-[9px] text-text-muted">{day.count || "—"}</div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </section>
 

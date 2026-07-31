@@ -10,6 +10,7 @@ import FounderDashboard from "@/components/portal/FounderDashboard";
 import type { CapacityBaseline, CapacityMetrics } from "@/lib/capacity-baseline";
 import type { StormWarningClientState } from "@/lib/storm-warning";
 import type { EarlyWinView } from "@/lib/early-win";
+import type { WeeklyCapacityResult } from "@/lib/weekly-capacity";
 
 type Tier = "coached" | "premium" | "vip" | "ai_only";
 type BaselineComparison = {
@@ -288,6 +289,7 @@ export default function PortalDashboard() {
   const [baselineComparison, setBaselineComparison] = useState<BaselineComparison | null>(null);
   const [stormWarning, setStormWarning] = useState<StormWarningClientState | null>(null);
   const [earlyWinView, setEarlyWinView] = useState<EarlyWinView | null>(null);
+  const [weeklyCapacity, setWeeklyCapacity] = useState<WeeklyCapacityResult | null | undefined>(undefined);
 
   const loadStormWarning = useCallback(async () => {
     try {
@@ -354,11 +356,12 @@ export default function PortalDashboard() {
     let active = true;
     (async () => {
       try {
-        const [calendarRes, integrationsRes, exercisePlanRes, baselineRes] = await Promise.all([
+        const [calendarRes, integrationsRes, exercisePlanRes, baselineRes, weeklyCapacityRes] = await Promise.all([
           fetch("/api/calendar"),
           fetch("/api/portal/integrations"),
           fetch("/api/portal/exercise-plan"),
           fetch("/api/portal/capacity-baseline"),
+          fetch("/api/portal/weekly-capacity"),
         ]);
         const data = calendarRes.ok ? await calendarRes.json() : { events: [] };
         const events: CalendarEvent[] = data.events || [];
@@ -410,7 +413,14 @@ export default function PortalDashboard() {
           const baselineData = await baselineRes.json();
           if (active) setBaselineComparison(baselineData);
         }
+        if (weeklyCapacityRes.ok) {
+          const weeklyCapacityData = await weeklyCapacityRes.json();
+          if (active) setWeeklyCapacity(weeklyCapacityData);
+        } else if (active) {
+          setWeeklyCapacity(null);
+        }
       } catch {
+        if (active) setWeeklyCapacity(null);
         /* Upcoming tile falls back to the calendar link. */
       }
     })();
@@ -568,6 +578,7 @@ export default function PortalDashboard() {
         baselineComparison={baselineComparison}
         stormWarning={stormWarning}
         earlyWin={earlyWinView}
+        weeklyCapacity={weeklyCapacity}
         onToggleTask={(taskId, completed) => void toggleTask(taskId, completed)}
         onDismissStormWarning={() => void dismissStormWarning()}
       />
