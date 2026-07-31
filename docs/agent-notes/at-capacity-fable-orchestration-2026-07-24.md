@@ -61,9 +61,10 @@ migration tests assert both the revocations and the intended SELECT grants.
 Compliance integration notes (Fable): merge was conflict-free; Fable
 genericized the portal capacity-baseline route's error responses for
 P3-4 consistency and wired the 34 compliance tests into
-`test:release-contracts` (now 114 tests). Deploy notes: migrations
-`20260724120000` + `20260724121000` required at deploy, alongside the
-earlier `20260724100000` (early win) and `20260724110000` (storm).
+`test:release-contracts` (now 114 tests). The migrations were later
+applied and recorded in production as `20260728122252` +
+`20260728122318`, alongside `20260728122140` (early win) and
+`20260728122215` (storm).
 
 Wave 2 file boundaries: compliance agent owns new compliance/month4/
 override/guarantee files + mounts in `app/admin/clients/[id]/page.tsx`;
@@ -113,9 +114,8 @@ Fable 5 is the Claude 5 family model above Opus 4.8.
   `calendar_events` are globally shared by design - matches existing
   `/api/calendar`; 33/33 + 27/27 re-run by Fable). Storm tests wired into
   `test:release-contracts` by Fable post-merge.
-  DEPLOY NOTE: apply `20260724110000_add_storm_warnings.sql` before or
-  with the code deploy - without it, portal storm GET 500s whenever a
-  warning needs logging.
+  DEPLOY NOTE: production records this applied migration as
+  `20260728122215_add_storm_warnings.sql`.
 - `c26ea50` early-win workstream via merge `0321edb` (reviewed: lib,
   migration incl. immutability trigger and one-active index, portal
   gating, metric-to-column mapping verified against live schema usage;
@@ -124,7 +124,8 @@ Fable 5 is the Claude 5 family model above Opus 4.8.
   FounderDashboard/page.tsx overlap with storm resolved by Fable; both
   features re-verified post-resolution. Early-win tests wired into
   `test:release-contracts` by Fable.
-  DEPLOY NOTE: apply `20260724100000_add_early_win.sql` with the deploy.
+  DEPLOY NOTE: production records this applied migration as
+  `20260728122140_add_early_win.sql`.
 
 ## Docs-workstream findings (verified by Fable where noted)
 

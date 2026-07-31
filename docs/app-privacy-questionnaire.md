@@ -8,8 +8,8 @@ Prepared 21 July 2026 from the production code and Apple's current App Privacy t
 - Is any collected data used to track users? **No**
 - Is data sold or shared with data brokers? **No**
 - Is the advertising identifier used? **No**
-- Privacy Policy URL: `https://gordy-elliott-site.vercel.app/privacy`
-- User Privacy Choices URL: `https://gordy-elliott-site.vercel.app/privacy`
+- Privacy Policy URL: `https://app.onlinegordy.com/privacy`
+- User Privacy Choices URL: `https://app.onlinegordy.com/privacy`
 
 All declared types below are **linked to the user's identity** because AT CAPACITY stores them against an authenticated coaching account. None are used for third-party advertising or cross-company tracking.
 

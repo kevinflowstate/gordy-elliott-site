@@ -241,7 +241,7 @@ If any line is unchecked, the release is demo-safe only.
 This is the real-device/real-account walkthrough Gordy runs himself before giving the release green light. Tick every line or the product is not sign-off ready.
 
 **Setup (do once):**
-- [ ] On iPhone, open Safari → `https://gordy-elliott-site.vercel.app/portal` → sign in as your own test-client account (or a real client with permission).
+- [ ] On iPhone, open Safari → `https://app.onlinegordy.com/portal` → sign in as your own test-client account (or a real client with permission).
 - [ ] Install to home screen: Share → "Add to Home Screen". Confirm the app icon is correct, the splash background is dark (not white — fixed this sprint), and the status bar isn't clipped.
 - [ ] Launch from the home-screen icon. Confirm it opens in standalone mode (no browser chrome).
 
@@ -282,8 +282,8 @@ Before promoting a preview deploy to production, run these in the Vercel dashboa
 - [ ] Resend — `RESEND_FROM_EMAIL` domain is verified in the Resend dashboard; send one test to yourself from `/admin/clients` Add Client.
 - [ ] Anthropic — `ANTHROPIC_API_KEY` is set and has credit; `/admin/ai` and `/portal/ai` both answer at least once.
 - [ ] Push — enable notifications on a production client account; send a nudge from admin; device receives within 15s. If not, VAPID keys differ between envs.
-- [ ] Manifest — curl `https://gordy-elliott-site.vercel.app/manifest.json` and confirm `start_url: "/portal"`, `theme_color: "#0A0A0A"` (not the old `#ffffff`), and `shortcuts` array present.
-- [ ] Service worker — `https://gordy-elliott-site.vercel.app/sw.js` resolves to 200 and the version string matches the current deploy.
+- [ ] Manifest — curl `https://app.onlinegordy.com/manifest.json` and confirm `start_url: "/portal"`, `theme_color: "#0A0A0A"` (not the old `#ffffff`), and `shortcuts` array present.
+- [ ] Service worker — `https://app.onlinegordy.com/sw.js` resolves to 200 and the version string matches the current deploy.
 - [ ] Site URL — `NEXT_PUBLIC_SITE_URL` matches production domain so OG + email links don't point at preview.
 
 Any mismatch here is a launch blocker. Fix before announcing.

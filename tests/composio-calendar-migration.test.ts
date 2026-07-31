@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const migrationUrl = new URL(
-  "../supabase/migrations/20260723153000_add_composio_calendar_integrations.sql",
+  "../supabase/migrations/20260723132523_add_composio_calendar_integrations.sql",
   import.meta.url,
 );
 

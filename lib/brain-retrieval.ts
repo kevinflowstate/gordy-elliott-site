@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSiteUrl } from "@/lib/site-url";
 
 const DEFAULT_OPENAI_MODEL = "text-embedding-3-small";
 const DEFAULT_OPENROUTER_MODEL = "openai/text-embedding-3-small";
@@ -156,7 +157,7 @@ function embeddingEndpoint(provider: EmbeddingProvider) {
 function openRouterHeaders(provider: EmbeddingProvider): Record<string, string> {
   if (provider !== "openrouter") return {};
   return {
-    "HTTP-Referer": process.env.SHIFT_BRAIN_OPENROUTER_REFERER || "https://gordy-elliott-site.vercel.app",
+    "HTTP-Referer": process.env.SHIFT_BRAIN_OPENROUTER_REFERER || getSiteUrl(),
     "X-OpenRouter-Title": process.env.SHIFT_BRAIN_OPENROUTER_TITLE || "Gordy Elliott AT CAPACITY Portal",
   };
 }

@@ -202,9 +202,8 @@ Estimated effort: 2 to 3 days
       record per client per ISO week.
 - [x] Add a compliance summary without turning it into a gamified score.
       Plain facts with honest empty states; no scores, grades, streaks or
-      leaderboards. NOTE: migrations `20260724120000` and `20260724121000`
-      must be applied at deploy; until then the compliance panels and
-      override flow fail on missing tables.
+      leaderboards. Production records these migrations as
+      `20260728122252` and `20260728122318`; both are applied.
 
 Acceptance:
 
@@ -243,8 +242,8 @@ Acceptance:
 - [x] The card retires cleanly after the 14-day review. Completing the
       review (with outcome note) sets status `completed`; the client card
       disappears, history stays queryable and visible to Gordy, and RLS
-      only ever exposes the active win to the client. NOTE: migration
-      `20260724100000_add_early_win.sql` must be applied at deploy.
+      only ever exposes the active win to the client. Production records
+      the applied migration as `20260728122140_add_early_win.sql`.
 
 ## Phase 7: Gordy's Capacity Scan
 
@@ -298,9 +297,8 @@ Estimated effort: 0.5 to 1 day for deterministic v1
 - [x] Log the rule and inputs that generated each warning. Idempotent audit
       log (`client_storm_warnings`, unique on client/window/input-hash);
       snapshots hold counts and times only - no titles, descriptions or
-      attendees. NOTE: migration `20260724110000_add_storm_warnings.sql`
-      must be applied at deploy; until then a portal evaluation that finds
-      a warning cannot record its audit row.
+      attendees. Production records the applied migration as
+      `20260728122215_add_storm_warnings.sql`.
 
 Acceptance:
 

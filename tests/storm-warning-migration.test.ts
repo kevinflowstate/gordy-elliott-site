@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const migrationUrl = new URL(
-  "../supabase/migrations/20260724110000_add_storm_warnings.sql",
+  "../supabase/migrations/20260728122215_add_storm_warnings.sql",
   import.meta.url,
 );
 

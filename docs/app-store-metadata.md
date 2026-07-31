@@ -11,14 +11,14 @@ Prepared 21 July 2026 for the first iOS release; calendar-connection copy and re
 | Primary category | Health & Fitness |
 | Secondary category | Lifestyle |
 | Copyright | 2026 Gordy Elliott |
-| Support URL | https://gordy-elliott-site.vercel.app/support |
-| Marketing URL | https://gordy-elliott-site.vercel.app |
-| Privacy Policy URL | https://gordy-elliott-site.vercel.app/privacy |
-| Privacy Choices URL | https://gordy-elliott-site.vercel.app/privacy |
+| Support URL | https://app.onlinegordy.com/support |
+| Marketing URL | https://app.onlinegordy.com |
+| Privacy Policy URL | https://app.onlinegordy.com/privacy |
+| Privacy Choices URL | https://app.onlinegordy.com/privacy |
 | Version | 1.0 |
 | Release | Manually release after approval |
 
-Replace the Vercel host with Gordy's final production domain when it is live. The current URLs are public, functional submission fallbacks.
+`https://app.onlinegordy.com` is Gordy's canonical production domain. Use these URLs in App Store Connect and the Google OAuth verification submission.
 
 ## Promotional text
 

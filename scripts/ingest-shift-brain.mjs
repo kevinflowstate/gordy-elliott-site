@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { createClient } from "@supabase/supabase-js";
+import appIdentity from "../config/app-identity.json" with { type: "json" };
 
 const args = parseArgs(process.argv.slice(2));
 const inputPath = args.input || process.env.SHIFT_BRAIN_APPROVED_JSONL || "/private/tmp/shift-brain-approved.jsonl";
@@ -237,7 +238,7 @@ function embeddingEndpoint() {
 function openRouterHeaders() {
   if (embeddingProvider !== "openrouter") return {};
   return {
-    "HTTP-Referer": process.env.SHIFT_BRAIN_OPENROUTER_REFERER || "https://gordy-elliott-site.vercel.app",
+    "HTTP-Referer": process.env.SHIFT_BRAIN_OPENROUTER_REFERER || appIdentity.productionUrl,
     "X-OpenRouter-Title": process.env.SHIFT_BRAIN_OPENROUTER_TITLE || "Gordy Elliott AT CAPACITY Portal",
   };
 }

@@ -17,7 +17,7 @@ if (process.platform !== "darwin") {
   throw new Error("The iOS release preflight must run on macOS.");
 }
 
-const serverUrl = new URL(process.env.CAPACITOR_SERVER_URL || "https://gordy-elliott-site.vercel.app");
+const serverUrl = new URL(process.env.CAPACITOR_SERVER_URL || appIdentity.productionUrl);
 if (serverUrl.protocol !== "https:") {
   throw new Error("CAPACITOR_SERVER_URL must use HTTPS.");
 }
