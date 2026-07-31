@@ -1,16 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import AtCapacityWorkoutRunner from "@/components/portal/AtCapacityWorkoutRunner";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import { formatExercisePrescription, shouldUseSetLogging } from "@/lib/exercise-prescriptions";
+import { copyFirstWorkoutSetValues, type WorkoutSetData } from "@/lib/workout-runner";
 import type { ClientExercisePlan, ExerciseSession, WeeklyTrainingAssignment } from "@/lib/types";
 
-interface SetData {
-  set_number: number;
-  weight: string;
-  reps: string;
-  notes: string;
-}
+type SetData = WorkoutSetData;
 
 interface ExerciseLog {
   id: string;
@@ -170,6 +167,9 @@ function buildSessionDrafts(session: ExerciseSession, existingLogs: ExerciseLog[
         weight: typeof set.weight === "string" ? set.weight : String(set.weight || ""),
         reps: typeof set.reps === "string" ? set.reps : String(set.reps || ""),
         notes: typeof set.notes === "string" ? set.notes : String(set.notes || ""),
+        completed: typeof set.completed === "boolean"
+          ? set.completed
+          : Boolean(set.reps || set.weight || set.notes),
       }));
       continue;
     }
@@ -179,6 +179,7 @@ function buildSessionDrafts(session: ExerciseSession, existingLogs: ExerciseLog[
       weight: "",
       reps: "",
       notes: "",
+      completed: false,
     }));
   }
   return drafts;
@@ -213,6 +214,7 @@ export default function PortalExercisePlanPage() {
   const [showSessionPicker, setShowSessionPicker] = useState(false);
   const [manuallyPicked, setManuallyPicked] = useState(false);
   const [sessionOpen, setSessionOpen] = useState(false);
+  const [runnerOpen, setRunnerOpen] = useState(false);
   const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null);
 
   // Draft inputs: exerciseItemId -> SetData[]
@@ -398,11 +400,32 @@ export default function PortalExercisePlanPage() {
     }
   }, [selectedDate, allLogs, plan, manuallyPicked, calendarSessionsByDate, initDrafts]);
 
-  function updateSet(itemId: string, setIdx: number, field: keyof SetData, value: string) {
+  function updateSet(itemId: string, setIdx: number, field: keyof SetData, value: string | boolean) {
     setDraftSets((prev) => {
       const sets = [...(prev[itemId] || [])];
       sets[setIdx] = { ...sets[setIdx], [field]: value };
       return { ...prev, [itemId]: sets };
+    });
+  }
+
+  function toggleSet(itemId: string, setIdx: number) {
+    setDraftSets((prev) => {
+      const sets = [...(prev[itemId] || [])];
+      if (!sets[setIdx]) return prev;
+      sets[setIdx] = { ...sets[setIdx], completed: !sets[setIdx].completed };
+      return { ...prev, [itemId]: sets };
+    });
+  }
+
+  function applyFirstSetToAll(itemId: string) {
+    setDraftSets((prev) => {
+      const sets = prev[itemId] || [];
+      const first = sets[0];
+      if (!first || sets.length < 2) return prev;
+      return {
+        ...prev,
+        [itemId]: copyFirstWorkoutSetValues(sets),
+      };
     });
   }
 
@@ -411,13 +434,13 @@ export default function PortalExercisePlanPage() {
       const sets = prev[itemId] || [];
       return {
         ...prev,
-        [itemId]: [...sets, { set_number: sets.length + 1, weight: "", reps: "", notes: "" }],
+        [itemId]: [...sets, { set_number: sets.length + 1, weight: "", reps: "", notes: "", completed: false }],
       };
     });
   }
 
-  async function saveSession() {
-    if (!activeSession) return;
+  async function saveSession(): Promise<boolean> {
+    if (!activeSession) return false;
     const dateStr = formatDate(selectedDate);
     setSaving(true);
     setSaveError(null);
@@ -445,9 +468,11 @@ export default function PortalExercisePlanPage() {
       setSessionOpen(false);
       setSavedToast(true);
       setTimeout(() => setSavedToast(false), 2500);
+      return true;
     } catch (err) {
       console.error("Failed to save session:", err);
       setSaveError(err instanceof Error ? err.message : "We couldn't save this session.");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -489,8 +514,8 @@ export default function PortalExercisePlanPage() {
     setViewMode("log");
     setManuallyPicked(true);
     setSessionOpen(true);
+    setRunnerOpen(true);
     setShowSessionPicker(false);
-    revealSessionPanel();
   }
 
   async function savePlannerAssignment(
@@ -606,6 +631,7 @@ export default function PortalExercisePlanPage() {
       setViewMode("log");
       setManuallyPicked(true);
       setSessionOpen(true);
+      setRunnerOpen(true);
     } catch {
       window.localStorage.removeItem(activeSessionPointerKey(plan.id));
     }
@@ -663,6 +689,7 @@ export default function PortalExercisePlanPage() {
     const startedAt = Date.now();
     setSessionStartedAt(startedAt);
     setSessionOpen(true);
+    setRunnerOpen(true);
     try {
       const pointerRaw = window.localStorage.getItem(activeSessionPointerKey(plan.id));
       const pointer = pointerRaw ? JSON.parse(pointerRaw) as { sessionId?: string; date?: string } : null;
@@ -700,10 +727,14 @@ export default function PortalExercisePlanPage() {
     if (!primarySession) return;
     if (sessionStartedAt && activeSession?.id === primarySession.id) {
       setSessionOpen(true);
+      setRunnerOpen(true);
       return;
     }
-    startSessionTimer(primarySession);
-    revealSessionPanel();
+    setActiveSession(primarySession);
+    setViewMode("log");
+    setManuallyPicked(true);
+    setSessionOpen(true);
+    setRunnerOpen(true);
   }
 
   function revealSessionPanel() {
@@ -1194,7 +1225,13 @@ export default function PortalExercisePlanPage() {
         }`}>
           <button
             type="button"
-            onClick={() => setSessionOpen((open) => !open)}
+            onClick={() => {
+              if (viewMode === "log") {
+                setRunnerOpen(true);
+                return;
+              }
+              setSessionOpen((open) => !open);
+            }}
             className="w-full p-5 text-left app-tap"
             aria-expanded={sessionOpen}
           >
@@ -1246,8 +1283,8 @@ export default function PortalExercisePlanPage() {
                   <span className="metric-num text-lg font-bold text-text-primary"><ElapsedTime startedAt={sessionStartedAt} /></span>
                 </div>
               ) : (
-                <button type="button" onClick={() => startSessionTimer(activeSession)} className="w-full rounded-xl bg-[#E040D0] px-5 py-3.5 text-sm font-semibold text-white hover:bg-[#F060E0]">
-                  Start Session
+                <button type="button" onClick={() => setRunnerOpen(true)} className="w-full rounded-xl bg-[#E040D0] px-5 py-3.5 text-sm font-semibold text-white hover:bg-[#F060E0]">
+                  Open workout
                 </button>
               )}
             </div>
@@ -1278,6 +1315,7 @@ export default function PortalExercisePlanPage() {
                       setSessionOpen(true);
                       setManuallyPicked(true);
                       initDrafts(activeSession, dayLogs.filter((log) => log.session_id === activeSession.id));
+                      setRunnerOpen(true);
                     }}
                     className="text-xs text-text-secondary hover:text-text-primary underline cursor-pointer"
                   >
@@ -1368,6 +1406,7 @@ export default function PortalExercisePlanPage() {
                 setViewMode("log");
                 setSessionOpen(true);
                 initDrafts(activeSession);
+                setRunnerOpen(true);
               }}
                 className="mt-3 text-sm text-[#E040D0] hover:underline font-semibold cursor-pointer"
               >
@@ -1377,9 +1416,9 @@ export default function PortalExercisePlanPage() {
           )}
 
           {/* Log form (today, future, or retroactive) */}
-          {viewMode === "log" && (
+          {false && viewMode === "log" && (
             <div className="divide-y divide-[rgba(0,0,0,0.04)]">
-              {activeSession.items.map((item) => {
+              {activeSession!.items.map((item) => {
                 if (item.exercise_id === "__section__") {
                   return (
                     <div key={item.id} className="flex items-center gap-3 px-5 pt-5 pb-2">
@@ -1623,7 +1662,7 @@ export default function PortalExercisePlanPage() {
       )}
 
       {/* Mobile sticky save — stays above bottom nav + respects iPhone home indicator */}
-      {viewMode === "log" && activeSession && sessionOpen && (
+      {false && viewMode === "log" && activeSession && sessionOpen && (
         <div className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-30 bg-bg-primary/95 px-4 py-3 backdrop-blur sm:hidden">
           <button
             onClick={saveSession}
@@ -1633,6 +1672,26 @@ export default function PortalExercisePlanPage() {
             <CyclingStatusText active={saving} idle="Save Session" messages={["Saving...", "Logging sets...", "Updating week...", "Nearly there..."]} />
           </button>
         </div>
+      )}
+
+      {runnerOpen && activeSession && (
+        <AtCapacityWorkoutRunner
+          session={activeSession}
+          dateLabel={isToday(selectedDate)
+            ? "Today"
+            : selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}
+          sets={draftSets}
+          startedAt={sessionStartedAt}
+          saving={saving}
+          saveError={saveError}
+          onClose={() => setRunnerOpen(false)}
+          onStart={() => startSessionTimer(activeSession)}
+          onUpdateSet={updateSet}
+          onToggleSet={toggleSet}
+          onAddSet={addSet}
+          onApplyFirstSetToAll={applyFirstSetToAll}
+          onFinish={saveSession}
+        />
       )}
     </div>
   );
