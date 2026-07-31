@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import AtCapacityWorkoutRunner from "@/components/portal/AtCapacityWorkoutRunner";
+import { createPortal } from "react-dom";
+import AtCapacityWorkoutRunner, { type WorkoutRunnerMode } from "@/components/portal/AtCapacityWorkoutRunner";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import { formatExercisePrescription, shouldUseSetLogging } from "@/lib/exercise-prescriptions";
 import { copyFirstWorkoutSetValues, type WorkoutSetData } from "@/lib/workout-runner";
@@ -215,6 +216,7 @@ export default function PortalExercisePlanPage() {
   const [manuallyPicked, setManuallyPicked] = useState(false);
   const [sessionOpen, setSessionOpen] = useState(false);
   const [runnerOpen, setRunnerOpen] = useState(false);
+  const [runnerMode, setRunnerMode] = useState<WorkoutRunnerMode>("workout");
   const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null);
 
   // Draft inputs: exerciseItemId -> SetData[]
@@ -509,9 +511,11 @@ export default function PortalExercisePlanPage() {
   }
 
   function pickSession(session: ExerciseSession) {
+    const existingLogs = dayLogs.filter((log) => log.session_id === session.id);
     setActiveSession(session);
-    initDrafts(session);
-    setViewMode("log");
+    initDrafts(session, existingLogs);
+    setViewMode(existingLogs.length > 0 ? "readonly" : "log");
+    setRunnerMode(existingLogs.length > 0 ? "edit" : "workout");
     setManuallyPicked(true);
     setSessionOpen(true);
     setRunnerOpen(true);
@@ -629,6 +633,7 @@ export default function PortalExercisePlanPage() {
         initDrafts(session);
       }
       setViewMode("log");
+      setRunnerMode("workout");
       setManuallyPicked(true);
       setSessionOpen(true);
       setRunnerOpen(true);
@@ -685,6 +690,7 @@ export default function PortalExercisePlanPage() {
       : draftSets;
     setActiveSession(session);
     setViewMode("log");
+    setRunnerMode("workout");
     setManuallyPicked(true);
     const startedAt = Date.now();
     setSessionStartedAt(startedAt);
@@ -726,12 +732,17 @@ export default function PortalExercisePlanPage() {
   function openPrimarySession() {
     if (!primarySession) return;
     if (sessionStartedAt && activeSession?.id === primarySession.id) {
+      setRunnerMode("workout");
       setSessionOpen(true);
       setRunnerOpen(true);
       return;
     }
+    const existingLogs = dayLogs.filter((log) => log.session_id === primarySession.id);
+    const editing = existingLogs.length > 0;
     setActiveSession(primarySession);
-    setViewMode("log");
+    initDrafts(primarySession, existingLogs);
+    setViewMode(editing ? "readonly" : "log");
+    setRunnerMode(editing ? "edit" : "workout");
     setManuallyPicked(true);
     setSessionOpen(true);
     setRunnerOpen(true);
@@ -776,7 +787,7 @@ export default function PortalExercisePlanPage() {
                 ? `${DAY_NAMES[i]}, assigned to ${session.name}`
                 : occupied
                   ? `${DAY_NAMES[i]}, unavailable because another session is assigned`
-                  : `Assign ${session.name} to ${DAY_NAMES[i]}`}
+                  : `Schedule ${session.name} for ${DAY_NAMES[i]}`}
             >
               {DAY_NAMES[i]}
             </button>
@@ -876,7 +887,7 @@ export default function PortalExercisePlanPage() {
               onClick={() => setShowSessionPicker(true)}
               className="min-h-12 rounded-xl border border-[#E040D0]/30 px-4 py-3 text-sm font-semibold text-[#F060E0]"
             >
-              Choose
+              Choose workout
             </button>
           </div>
         </section>
@@ -918,8 +929,11 @@ export default function PortalExercisePlanPage() {
                         ))}
                       </div>
                       <div className="mt-4 border-t border-white/[0.06] pt-3">
-                        <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-muted">Assign this week</div>
-                        {renderPlannerDayChips(session, "Assign")}
+                        <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-muted">Choose a training day</div>
+                        <p className="mt-1 text-[11px] leading-4 text-text-muted">
+                          This adds the session to your week. It does not start the workout.
+                        </p>
+                        {renderPlannerDayChips(session, "Schedule")}
                         {assignment?.planned_date && (
                           <div className="mt-3 flex flex-wrap gap-2">
                             <button
@@ -928,7 +942,7 @@ export default function PortalExercisePlanPage() {
                               onClick={() => savePlannerAssignment(session.id, assignment.planned_date, !assignment.is_recurring, assignment.is_recurring)}
                               className="rounded-xl border border-white/[0.10] px-3 py-2 text-[11px] font-semibold text-text-secondary"
                             >
-                              {assignment.is_recurring ? "Stop repeating" : "Repeat weekly"}
+                              {assignment.is_recurring ? "Stop weekly repeat" : "Repeat every week"}
                             </button>
                             <button
                               type="button"
@@ -936,7 +950,7 @@ export default function PortalExercisePlanPage() {
                               onClick={() => savePlannerAssignment(session.id, null, false, assignment.recurrence_stopped)}
                               className="rounded-xl border border-amber-500/20 px-3 py-2 text-[11px] font-semibold text-amber-500"
                             >
-                              Unassign
+                              Remove from this week
                             </button>
                           </div>
                         )}
@@ -1043,7 +1057,7 @@ export default function PortalExercisePlanPage() {
               : "border-emerald-500/25 bg-emerald-500/10 text-emerald-500"
           }`}>
             {unassignedSessions.length > 0
-              ? `${unassignedSessions.length} unassigned`
+              ? `${unassignedSessions.length} to schedule`
               : "Week ready"}
           </div>
         </div>
@@ -1094,7 +1108,10 @@ export default function PortalExercisePlanPage() {
             )}
             {unassignedSessions.length > 0 && (
               <div>
-                <h3 className="text-xs font-bold uppercase tracking-[0.16em] text-amber-500">Needs Assigning</h3>
+                <h3 className="text-xs font-bold uppercase tracking-[0.16em] text-amber-500">Choose a day</h3>
+                <p className="mt-1 text-xs leading-5 text-text-muted">
+                  Tap a day to put each workout into this week. You can still choose a different workout when you train.
+                </p>
                 <div className="mt-2 space-y-2">
                   {unassignedSessions.map((session) => (
                     <div key={session.id} className="rounded-2xl border border-amber-500/15 bg-amber-500/5 px-4 py-3">
@@ -1107,7 +1124,7 @@ export default function PortalExercisePlanPage() {
                           <span className="text-[11px] font-semibold text-text-muted">Saving...</span>
                         )}
                       </div>
-                      {renderPlannerDayChips(session, "Assign")}
+                      {renderPlannerDayChips(session, "Schedule")}
                     </div>
                   ))}
                 </div>
@@ -1116,7 +1133,7 @@ export default function PortalExercisePlanPage() {
 
             {sortedSessions.some((session) => assignmentBySessionId.get(session.id)?.planned_date) && (
               <div>
-                <h3 className="text-xs font-bold uppercase tracking-[0.16em] text-text-muted">Placed Sessions</h3>
+                <h3 className="text-xs font-bold uppercase tracking-[0.16em] text-text-muted">Scheduled sessions</h3>
                 <div className="mt-2 space-y-2">
                   {sortedSessions.map((session) => {
                     const assignment = assignmentBySessionId.get(session.id);
@@ -1155,7 +1172,7 @@ export default function PortalExercisePlanPage() {
                               onClick={() => savePlannerAssignment(session.id, assignment.planned_date, !assignment.is_recurring, assignment.is_recurring)}
                               className="rounded-xl border border-[rgba(0,0,0,0.08)] px-3 py-2 text-[11px] font-semibold text-text-secondary transition-colors hover:border-[#E040D0]/35 hover:text-[#E040D0] disabled:opacity-50"
                             >
-                              {assignment.is_recurring ? "Stop Weekly" : "Make Weekly"}
+                              {assignment.is_recurring ? "Stop weekly repeat" : "Repeat every week"}
                             </button>
                             <button
                               type="button"
@@ -1163,10 +1180,11 @@ export default function PortalExercisePlanPage() {
                               onClick={() => savePlannerAssignment(session.id, null, false, assignment.recurrence_stopped)}
                               className="rounded-xl border border-amber-500/20 px-3 py-2 text-[11px] font-semibold text-amber-500 transition-colors hover:bg-amber-500/10 disabled:opacity-50"
                             >
-                              Unassign
+                              Remove from this week
                             </button>
                           </div>
                         </div>
+                        <p className="mt-3 text-[11px] text-text-muted">Move this workout to another day:</p>
                         {renderPlannerDayChips(session, "Move")}
                       </div>
                     );
@@ -1209,7 +1227,7 @@ export default function PortalExercisePlanPage() {
                 onClick={() => setShowSessionPicker(true)}
                 className="w-full rounded-xl border border-[#E040D0]/30 px-5 py-2.5 text-sm font-semibold text-[#F060E0] transition-colors hover:bg-[#E040D0]/10 cursor-pointer sm:w-auto"
               >
-                Add Session
+                Choose Workout
               </button>
             </div>
           )}
@@ -1227,6 +1245,7 @@ export default function PortalExercisePlanPage() {
             type="button"
             onClick={() => {
               if (viewMode === "log") {
+                setRunnerMode("workout");
                 setRunnerOpen(true);
                 return;
               }
@@ -1283,7 +1302,10 @@ export default function PortalExercisePlanPage() {
                   <span className="metric-num text-lg font-bold text-text-primary"><ElapsedTime startedAt={sessionStartedAt} /></span>
                 </div>
               ) : (
-                <button type="button" onClick={() => setRunnerOpen(true)} className="w-full rounded-xl bg-[#E040D0] px-5 py-3.5 text-sm font-semibold text-white hover:bg-[#F060E0]">
+                <button type="button" onClick={() => {
+                  setRunnerMode("workout");
+                  setRunnerOpen(true);
+                }} className="w-full rounded-xl bg-[#E040D0] px-5 py-3.5 text-sm font-semibold text-white hover:bg-[#F060E0]">
                   Open workout
                 </button>
               )}
@@ -1315,6 +1337,7 @@ export default function PortalExercisePlanPage() {
                       setSessionOpen(true);
                       setManuallyPicked(true);
                       initDrafts(activeSession, dayLogs.filter((log) => log.session_id === activeSession.id));
+                      setRunnerMode("edit");
                       setRunnerOpen(true);
                     }}
                     className="text-xs text-text-secondary hover:text-text-primary underline cursor-pointer"
@@ -1406,6 +1429,7 @@ export default function PortalExercisePlanPage() {
                 setViewMode("log");
                 setSessionOpen(true);
                 initDrafts(activeSession);
+                setRunnerMode("workout");
                 setRunnerOpen(true);
               }}
                 className="mt-3 text-sm text-[#E040D0] hover:underline font-semibold cursor-pointer"
@@ -1598,60 +1622,66 @@ export default function PortalExercisePlanPage() {
         </div>
       )}
 
-      {/* Session picker modal — swap to any session in the rotation for this day */}
-      {showSessionPicker && plan && (
+      {/* Session picker is portalled above the app shell so the mobile nav can never cover it. */}
+      {showSessionPicker && plan && typeof document !== "undefined" && createPortal((
         <div
-          className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center"
+          className="fixed inset-0 z-[1000] flex h-[100dvh] items-end justify-center bg-black/65 px-2 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-sm sm:items-center sm:p-4"
           onClick={() => setShowSessionPicker(false)}
         >
           <div
-            className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md max-h-[80vh] flex flex-col shadow-2xl pb-[env(safe-area-inset-bottom)]"
+            className="flex max-h-[calc(100dvh-max(1rem,env(safe-area-inset-top))-0.5rem)] min-h-0 w-full flex-col overflow-hidden rounded-t-[28px] border border-white/[0.10] bg-[#111114] pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[80vh] sm:max-w-md sm:rounded-[28px] sm:pb-4"
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="session-picker-title"
           >
-            <div className="p-4 border-b border-[rgba(0,0,0,0.06)] flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-text-primary">Pick a session</h3>
-                <p className="text-[11px] text-text-muted mt-0.5">
-                  This week&apos;s sessions from your plan. Logs save against the session you choose.
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-white/[0.08] p-4">
+              <div className="min-w-0">
+                <h3 id="session-picker-title" className="text-lg font-bold text-white">Choose a workout</h3>
+                <p className="mt-1 text-xs leading-5 text-white/55">
+                  Pick the session you want to do {isToday(selectedDate) ? "today" : "on this date"}. Choosing it opens the workout; it does not change your weekly schedule.
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setShowSessionPicker(false)}
-                className="p-1.5 text-text-secondary hover:text-text-primary cursor-pointer"
-                aria-label="Close"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/[0.10] bg-white/[0.05] text-white/70"
+                aria-label="Close session picker"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-2">
-              <div className="space-y-1">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
+              <div className="space-y-2">
                 {weekSessions.map((s) => {
                   const isActive = s.id === activeSession?.id;
                   const exerciseCount = s.items.filter((i) => i.exercise_id !== "__section__").length;
+                  const hasSavedLog = dayLogs.some((log) => log.session_id === s.id);
                   return (
                     <button
                       key={s.id}
+                      type="button"
                       onClick={() => pickSession(s)}
-                      className={`w-full flex items-center gap-3 p-3 rounded-xl text-left cursor-pointer active:scale-[0.99] transition-all ${
+                      className={`flex min-h-[68px] w-full items-center gap-3 rounded-2xl border p-3.5 text-left transition-all active:scale-[0.99] ${
                         isActive
-                          ? "border border-[#E040D0]/40 bg-[rgba(224,64,208,0.06)]"
-                          : "border border-transparent hover:border-[rgba(0,0,0,0.08)] hover:bg-[rgba(0,0,0,0.03)]"
+                          ? "border-[#E040D0]/55 bg-[#E040D0]/10"
+                          : "border-white/[0.08] bg-white/[0.035]"
                       }`}
                     >
-                      <span className="w-8 h-8 rounded-lg bg-[#E040D0]/10 text-[#E040D0] font-bold text-xs flex items-center justify-center flex-shrink-0">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#E040D0]/12 text-sm font-bold text-[#F060E0]">
                         {s.day_number}
                       </span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-text-primary">{s.name}</p>
-                        <p className="text-[11px] text-text-muted">{exerciseCount} exercises</p>
+                        <p className="text-sm font-bold text-white">{s.name}</p>
+                        <p className="mt-0.5 text-xs text-white/45">
+                          {exerciseCount} exercises{hasSavedLog ? " · already logged" : ""}
+                        </p>
                       </div>
-                      {isActive && (
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-[#E040D0] bg-[#E040D0]/10 px-2 py-1 rounded-full flex-shrink-0">
-                          Current
-                        </span>
-                      )}
+                      <span className="shrink-0 rounded-xl bg-[#E040D0] px-3 py-2 text-xs font-bold text-white">
+                        {hasSavedLog ? "Edit" : "Choose"}
+                      </span>
                     </button>
                   );
                 })}
@@ -1659,7 +1689,7 @@ export default function PortalExercisePlanPage() {
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
 
       {/* Mobile sticky save — stays above bottom nav + respects iPhone home indicator */}
       {false && viewMode === "log" && activeSession && sessionOpen && (
@@ -1674,9 +1704,11 @@ export default function PortalExercisePlanPage() {
         </div>
       )}
 
-      {runnerOpen && activeSession && (
+      {runnerOpen && activeSession && typeof document !== "undefined" && createPortal((
         <AtCapacityWorkoutRunner
+          key={`${activeSession.id}:${selectedDateStr}:${runnerMode}`}
           session={activeSession}
+          mode={runnerMode}
           dateLabel={isToday(selectedDate)
             ? "Today"
             : selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}
@@ -1692,7 +1724,7 @@ export default function PortalExercisePlanPage() {
           onApplyFirstSetToAll={applyFirstSetToAll}
           onFinish={saveSession}
         />
-      )}
+      ), document.body)}
     </div>
   );
 }

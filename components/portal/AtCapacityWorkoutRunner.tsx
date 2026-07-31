@@ -6,10 +6,12 @@ import type { WorkoutSetData } from "@/lib/workout-runner";
 import type { ExerciseSession, ExerciseSessionItem } from "@/lib/types";
 
 type RunnerStage = "preview" | "section" | "exercise" | "review" | "summary";
+export type WorkoutRunnerMode = "workout" | "edit";
 
 interface WorkoutRunnerProps {
   session: ExerciseSession;
   dateLabel: string;
+  mode: WorkoutRunnerMode;
   sets: Record<string, WorkoutSetData[]>;
   startedAt: number | null;
   saving: boolean;
@@ -101,6 +103,7 @@ function Icon({
 export default function AtCapacityWorkoutRunner({
   session,
   dateLabel,
+  mode,
   sets,
   startedAt,
   saving,
@@ -114,7 +117,8 @@ export default function AtCapacityWorkoutRunner({
   onFinish,
 }: WorkoutRunnerProps) {
   const exercises = useMemo(() => buildExercises(session), [session]);
-  const [stage, setStage] = useState<RunnerStage>("preview");
+  const editingSavedSession = mode === "edit";
+  const [stage, setStage] = useState<RunnerStage>(() => editingSavedSession ? "exercise" : "preview");
   const [exerciseIndex, setExerciseIndex] = useState(0);
   const [restRemaining, setRestRemaining] = useState<number | null>(null);
   const [finishing, setFinishing] = useState(false);
@@ -123,6 +127,9 @@ export default function AtCapacityWorkoutRunner({
   const workoutStartedAt = startedAt ?? localStartedAt;
 
   const current = exercises[exerciseIndex];
+  const currentSectionExerciseCount = current?.section
+    ? exercises.filter((exercise) => exercise.section === current.section).length
+    : 0;
   const completedSets = exercises.reduce(
     (total, exercise) => total + (sets[exercise.item.id] || []).filter((set) => set.completed).length,
     0,
@@ -161,7 +168,7 @@ export default function AtCapacityWorkoutRunner({
   }
 
   function startWorkout() {
-    if (!workoutStartedAt) {
+    if (!editingSavedSession && !workoutStartedAt) {
       setLocalStartedAt(Date.now());
       onStart();
     }
@@ -233,10 +240,14 @@ export default function AtCapacityWorkoutRunner({
             <p className="truncate text-[11px] font-semibold uppercase tracking-[0.16em] text-[#F060E0]">
               {session.name}
             </p>
-            <p className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold text-white/75">
-              <Icon name="timer" className="h-4 w-4" />
-              <LiveTimer startedAt={workoutStartedAt} />
-            </p>
+            {editingSavedSession ? (
+              <p className="mt-0.5 text-sm font-semibold text-white/75">Editing saved session</p>
+            ) : (
+              <p className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold text-white/75">
+                <Icon name="timer" className="h-4 w-4" />
+                <LiveTimer startedAt={workoutStartedAt} />
+              </p>
+            )}
           </div>
           <p className="shrink-0 text-xs font-semibold text-white/55">
             {stage === "preview" ? dateLabel : stage === "review" ? "Review" : stage === "summary" ? "Complete" : `${exerciseIndex + 1}/${exercises.length}`}
@@ -284,7 +295,7 @@ export default function AtCapacityWorkoutRunner({
               <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#F060E0]">Up next</p>
               <h1 className="mt-4 text-4xl font-black tracking-[-0.04em]">{current.section}</h1>
               <p className="mt-3 text-sm text-white/50">
-                {exercises.filter((exercise) => exercise.section === current.section).length} exercises in this section
+                {currentSectionExerciseCount} {currentSectionExerciseCount === 1 ? "exercise" : "exercises"} in this section
               </p>
               <button
                 type="button"
@@ -437,8 +448,12 @@ export default function AtCapacityWorkoutRunner({
 
           {stage === "review" && (
             <div className="pb-4">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#F060E0]">Final check</p>
-              <h1 className="mt-2 text-3xl font-black tracking-[-0.035em]">Review your session</h1>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#F060E0]">
+                {editingSavedSession ? "Review changes" : "Final check"}
+              </p>
+              <h1 className="mt-2 text-3xl font-black tracking-[-0.035em]">
+                {editingSavedSession ? "Save your updates" : "Review your session"}
+              </h1>
               <p className="mt-2 text-sm leading-5 text-white/55">
                 {completedSets === totalSets
                   ? "Everything is marked complete. Save when you’re happy with the session."
@@ -483,7 +498,7 @@ export default function AtCapacityWorkoutRunner({
                 disabled={saving || finishing}
                 className="mt-5 min-h-13 w-full rounded-2xl bg-[#E040D0] px-5 py-4 text-sm font-black text-white disabled:opacity-55"
               >
-                {saving || finishing ? "Saving session…" : "Save and end workout"}
+                {saving || finishing ? "Saving session…" : editingSavedSession ? "Save changes" : "Save and end workout"}
               </button>
             </div>
           )}
@@ -493,17 +508,21 @@ export default function AtCapacityWorkoutRunner({
               <span className="grid h-20 w-20 place-items-center rounded-full bg-emerald-400 text-black">
                 <Icon name="check" className="h-10 w-10" />
               </span>
-              <p className="mt-6 text-xs font-bold uppercase tracking-[0.2em] text-[#F060E0]">Workout complete</p>
+              <p className="mt-6 text-xs font-bold uppercase tracking-[0.2em] text-[#F060E0]">
+                {editingSavedSession ? "Session updated" : "Workout complete"}
+              </p>
               <h1 className="mt-2 text-4xl font-black tracking-[-0.04em]">
-                {totalSets > 0 && completedSets === totalSets ? "Strong work." : "Session saved."}
+                {editingSavedSession ? "Changes saved." : totalSets > 0 && completedSets === totalSets ? "Strong work." : "Session saved."}
               </h1>
               <p className="mt-3 text-sm text-white/55">{completedSets} of {totalSets} sets logged as complete</p>
               <div className="mt-7 grid w-full max-w-sm grid-cols-2 gap-3">
                 <div className="rounded-2xl border border-white/8 bg-white/[0.04] p-4">
                   <p className="text-2xl font-black">
-                    {workoutStartedAt && finishedAt ? formatElapsed(finishedAt - workoutStartedAt) : "0:00"}
+                    {editingSavedSession ? "Saved" : workoutStartedAt && finishedAt ? formatElapsed(finishedAt - workoutStartedAt) : "0:00"}
                   </p>
-                  <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-white/35">Duration</p>
+                  <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-white/35">
+                    {editingSavedSession ? "Status" : "Duration"}
+                  </p>
                 </div>
                 <div className="rounded-2xl border border-white/8 bg-white/[0.04] p-4">
                   <p className="text-2xl font-black">{completedSets}/{totalSets}</p>
@@ -525,7 +544,7 @@ export default function AtCapacityWorkoutRunner({
       {stage === "preview" && (
         <footer className="shrink-0 border-t border-white/8 bg-[#09090b]/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
           <button type="button" onClick={startWorkout} disabled={exercises.length === 0} className="mx-auto block min-h-13 w-full max-w-2xl rounded-2xl bg-[#E040D0] px-6 py-4 text-sm font-black disabled:opacity-40">
-            {workoutStartedAt ? "Continue workout" : "Start workout"}
+            {editingSavedSession ? "Edit workout" : workoutStartedAt ? "Continue workout" : "Start workout"}
           </button>
         </footer>
       )}
