@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { dbError } from "@/lib/api-errors";
 import { normalizeConsultationConfig } from "@/lib/consultation-form";
+import { getSiteUrl } from "@/lib/site-url";
 import { NextRequest, NextResponse } from "next/server";
 import { isValidIsoDateOfBirth } from "@/lib/date-of-birth";
 
@@ -52,7 +53,7 @@ async function extractConsultationSummary(data: Record<string, unknown>) {
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "https://gordy-elliott-site.vercel.app",
+        "HTTP-Referer": getSiteUrl(),
         "X-Title": "Gordy Elliott Portal",
       },
       body: JSON.stringify({

@@ -1,8 +1,9 @@
 import { access, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright-core";
+import appIdentity from "../config/app-identity.json" with { type: "json" };
 
-const baseUrl = process.env.PORTAL_QA_BASE_URL || "https://gordy-elliott-site.vercel.app";
+const baseUrl = process.env.PORTAL_QA_BASE_URL || appIdentity.productionUrl;
 const storageState = process.env.PORTAL_QA_STORAGE_STATE;
 const chromePath = process.env.PORTAL_QA_CHROME_PATH ||
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";

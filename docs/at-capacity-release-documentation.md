@@ -1,10 +1,10 @@
 # AT CAPACITY - Release Documentation (v1)
 
-Prepared 24 July 2026 and updated 27 July 2026 from the code on this branch, the implementation checklist and the App Store worksheets. This is the release-readiness summary; the canonical detail lives in the linked documents.
+Prepared 24 July 2026 and updated 31 July 2026 from the code on this branch, the implementation checklist and the App Store worksheets. This is the release-readiness summary; the canonical detail lives in the linked documents.
 
 ## 1. What v1 ships
 
-One coaching product across web, PWA and a Capacitor iOS shell (`com.gordyelliott.shift`, production host https://gordy-elliott-site.vercel.app), sign-in only, with two client experiences enforced in server routes as well as navigation:
+One coaching product across web, PWA and a Capacitor iOS shell (`com.gordyelliott.shift`, production host https://app.onlinegordy.com), sign-in only, with two client experiences enforced in server routes as well as navigation:
 
 - Founder Dashboard (higher tier): calendar-first daily view with next meeting and day summary, capacity/load bar from the wearable summary, today's training and non-negotiables, quick actions, seven-day calendar-density strip. Client-facing DM and AI surfaces are hidden and route-gated. Contact with Gordy is over WhatsApp and booked strategy calls (both awaiting Gordy's details).
 - AI Coaching (lower tier, final client-facing name pending): the existing portal - training, nutrition, daily tracker, check-ins, DM with Gordy, AT CAPACITY AI assistant, optional cycle tracking for eligible clients.
@@ -44,10 +44,10 @@ Explicitly out of scope for v1: Apple Health/HealthKit, Android Health Connect, 
 
 | Item | Value |
 | --- | --- |
-| Privacy policy | https://gordy-elliott-site.vercel.app/privacy |
-| Support page | https://gordy-elliott-site.vercel.app/support (monitored contact: kevin@flowstatesystems.ai) |
+| Privacy policy | https://app.onlinegordy.com/privacy |
+| Support page | https://app.onlinegordy.com/support (monitored contact: kevin@flowstatesystems.ai) |
 | Account deletion | In-app: Settings - Delete account (type DELETE to confirm) |
-| Final domain | Pending from Gordy; Vercel URLs are functional fallbacks and must be replaced in App Store Connect and the Composio/Google OAuth configuration when live |
+| Final domain | https://app.onlinegordy.com — DNS and Vercel alias configured 31 July 2026; replace the historical Vercel URLs in App Store Connect and Composio/Google OAuth configuration |
 
 ## 5. App Store review notes - calendar guidance
 
@@ -69,7 +69,7 @@ Tracked in the implementation checklist; all block copy or feature completion, n
 4. Booking link for private strategy calls (blocks the Founder booking action).
 5. Call tokens: visible balance or internal attendance allowance (blocks the call-token UI decision).
 
-Also awaiting Gordy: final production domain, Terra subscription, approval of listing copy/screenshots/content rights/review fixture, and DPIA sign-off.
+Also awaiting Gordy: Terra subscription, approval of listing copy/screenshots/content rights/review fixture, and DPIA sign-off.
 
 ## 7. Release sequence (summary)
 
@@ -77,5 +77,5 @@ Also awaiting Gordy: final production domain, Terra subscription, approval of li
 2. Run the real calendar contract tests (Outlook now; Google with a test user during review).
 3. On Terra credentials: configure, run provider acceptance tests, implement and verify deauthentication on disconnect.
 4. Complete the Apple gates (rename record, re-enter listing and privacy answers, screenshots from the release candidate, APNs, physical-device TestFlight).
-5. Apply migrations `20260724100000`, `20260724110000`, `20260724120000` and `20260724121000` in timestamp order, verify their tables/functions/ACLs, then deploy the matching code. Do not deploy the code first: warning writes depend on the service-role-only `log_client_storm_warning` RPC.
+5. The Early Win, Storm Warning, Founder compliance and Month 4 migrations are applied and recorded in production as `20260728122140`, `20260728122215`, `20260728122252` and `20260728122318`. Do not rerun them; verify schema/history alignment before future deploys.
 6. Run authenticated Founder/AI-only isolation and outcome-flow smoke tests, then complete Gordy and Founding Five acceptance before submission.

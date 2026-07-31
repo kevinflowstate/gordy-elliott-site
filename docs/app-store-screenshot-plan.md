@@ -37,7 +37,7 @@ Store raw candidate captures outside source control under the external Xcode vol
 Generate the six ordered draft captures with:
 
 ```bash
-PORTAL_QA_BASE_URL=https://gordy-elliott-site.vercel.app \
+PORTAL_QA_BASE_URL=https://app.onlinegordy.com \
 PORTAL_QA_STORAGE_STATE=/path/to/demo-client-state.json \
 npm run capture:app-store
 ```

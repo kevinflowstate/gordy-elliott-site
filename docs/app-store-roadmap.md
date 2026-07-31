@@ -33,7 +33,7 @@ The initial native shell uses the existing hosted portal so training, nutrition,
 - [x] Custom-scheme deep-link handling and external browser hand-off.
 - [x] In-app permanent account deletion and public privacy/support routes.
 - [ ] Verify password reset and magic-link return on physical TestFlight devices.
-- [ ] Add Universal Links after Gordy's final production domain is live.
+- [ ] Add Universal Links for `app.onlinegordy.com`.
 
 ### 3. Native value and notifications
 
@@ -74,13 +74,13 @@ The initial native shell uses the existing hosted portal so training, nutrition,
 - No Terra mock data or preview labels in production.
 - No automatic programme changes based on wearable data.
 - No medical diagnosis or treatment language.
-- Production authentication callbacks and Universal Links must use Gordy's final domain.
+- Production authentication callbacks and Universal Links must use `app.onlinegordy.com`.
 - Native push requires the Apple capability, APNs key and a physical-device delivery pass before it is advertised as complete.
 - The remote portal shell must gain enough native value for App Review before submission.
 
 ## Inputs still required
 
-- Gordy's final production domain. The public Vercel URLs and Kevin's monitored support email are valid launch fallbacks.
+- Universal Links and authentication callback validation on the live `app.onlinegordy.com` domain.
 - Terra production Dev ID, API key, webhook signing secret and confirmed launch providers.
 - Gordy's approval of the drafted listing copy, content-rights answer and fictional review fixture.
 - Apple Push Notifications capability plus APNs signing key details.

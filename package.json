@@ -22,7 +22,7 @@
     "verify:review-fixture": "node scripts/check-app-review-fixture.mjs",
     "verify:portal": "npm run lint && npm run build && npm run check:shift-ai-inputs",
     "ios:prepare": "node scripts/prepare-native-shell.mjs",
-    "ios:sync": "CAPACITOR_SERVER_URL=${CAPACITOR_SERVER_URL:-https://gordy-elliott-site.vercel.app} sh -c 'npm run ios:prepare && cap sync ios'",
+    "ios:sync": "node scripts/sync-ios.mjs",
     "ios:open": "cap open ios",
     "ios:build": "npm run ios:sync && xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath ${IOS_DERIVED_DATA_PATH:-.ios-derived-data} CODE_SIGNING_ALLOWED=NO build",
     "ios:preflight": "node scripts/ios-release-preflight.mjs",

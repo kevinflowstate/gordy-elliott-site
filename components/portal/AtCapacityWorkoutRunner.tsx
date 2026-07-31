@@ -118,8 +118,9 @@ export default function AtCapacityWorkoutRunner({
   const [exerciseIndex, setExerciseIndex] = useState(0);
   const [restRemaining, setRestRemaining] = useState<number | null>(null);
   const [finishing, setFinishing] = useState(false);
-  const [workoutStartedAt, setWorkoutStartedAt] = useState<number | null>(startedAt);
+  const [localStartedAt, setLocalStartedAt] = useState<number | null>(() => startedAt);
   const [finishedAt, setFinishedAt] = useState<number | null>(null);
+  const workoutStartedAt = startedAt ?? localStartedAt;
 
   const current = exercises[exerciseIndex];
   const completedSets = exercises.reduce(
@@ -136,10 +137,6 @@ export default function AtCapacityWorkoutRunner({
       document.body.style.overflow = "";
     };
   }, []);
-
-  useEffect(() => {
-    if (startedAt) setWorkoutStartedAt(startedAt);
-  }, [startedAt]);
 
   useEffect(() => {
     if (restRemaining === null) return;
@@ -165,7 +162,7 @@ export default function AtCapacityWorkoutRunner({
 
   function startWorkout() {
     if (!workoutStartedAt) {
-      setWorkoutStartedAt(Date.now());
+      setLocalStartedAt(Date.now());
       onStart();
     }
     if (exercises[0]?.section) setStage("section");

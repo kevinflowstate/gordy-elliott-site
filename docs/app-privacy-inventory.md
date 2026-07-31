@@ -64,7 +64,7 @@ Programme-level guarantee configuration (`guarantee_settings`) holds no client p
 
 ## Access model
 
-- Supabase RLS restricts clients to their own rows; Gordy's admin role can read client rows via `private.is_admin()` policies (see `supabase/migrations/20260723153000_add_composio_calendar_integrations.sql` for the calendar pattern).
+- Supabase RLS restricts clients to their own rows; Gordy's admin role can read client rows via `private.is_admin()` policies (see `supabase/migrations/20260723132523_add_composio_calendar_integrations.sql` for the calendar pattern).
 - Server routes authenticate the user first, then use the service-role client scoped to that client's profile ID.
 - Calendar and wearable write paths are service-role only; browser roles have SELECT at most.
 - The native push token store denies `anon` and `authenticated` table access entirely.

@@ -3,11 +3,11 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const complianceMigrationUrl = new URL(
-  "../supabase/migrations/20260724120000_add_founder_compliance.sql",
+  "../supabase/migrations/20260728122252_add_founder_compliance.sql",
   import.meta.url,
 );
 const reviewsMigrationUrl = new URL(
-  "../supabase/migrations/20260724121000_add_month4_reviews_and_baseline_overrides.sql",
+  "../supabase/migrations/20260728122318_add_month4_reviews_and_baseline_overrides.sql",
   import.meta.url,
 );
 

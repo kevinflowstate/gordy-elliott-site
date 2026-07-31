@@ -1,6 +1,7 @@
 import { access, readFile } from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright-core";
+import appIdentity from "../config/app-identity.json" with { type: "json" };
 
 const baseUrl = process.env.PORTAL_QA_BASE_URL || "http://localhost:4190";
 const storageState = process.env.PORTAL_QA_STORAGE_STATE;
@@ -204,7 +205,7 @@ try {
   const runtimeConfig = await readFile(path.resolve("native-shell/runtime-config.js"), "utf8");
   const serviceWorker = await readFile(path.resolve("public/sw.js"), "utf8");
   check(offlineHtml.includes("You're offline") && offlineHtml.includes("Try again"), "native shell includes a clear offline recovery screen");
-  check(runtimeConfig.includes("https://gordy-elliott-site.vercel.app"), "native shell retry targets the production portal");
+  check(runtimeConfig.includes(appIdentity.productionUrl), "native shell retry targets the production portal");
   check(serviceWorker.includes('data.title || "AT CAPACITY"'), "web push fallback uses AT CAPACITY branding");
 } finally {
   await browser.close();

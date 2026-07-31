@@ -27,6 +27,6 @@ Prepared 21 July 2026. Apple introduced additional social-capability questions i
 - Made for Kids: **No**
 - Age category: **Override to 16+**
 - Reason: AT CAPACITY's privacy policy and intended-client policy exclude children under 16, and the app handles private health, body, injury and optional cycle information.
-- Age Suitability URL: `https://gordy-elliott-site.vercel.app/privacy`
+- Age Suitability URL: `https://app.onlinegordy.com/privacy`
 
 If Apple's calculated rating is already 16+ or higher, retain the calculated result rather than applying a lower override.

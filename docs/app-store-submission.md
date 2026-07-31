@@ -35,7 +35,7 @@ This is the operational index for submission. Use the linked worksheets as the c
 - Client login: `/login`
 - Account deletion: Settings > Delete account
 
-Replace the Vercel-hosted URLs in App Store Connect when Gordy's final domain is live.
+Use the canonical `https://app.onlinegordy.com` URLs in App Store Connect.
 
 The canonical review notes and contact details are in `docs/app-store-metadata.md`. Review credentials remain only in App Store Connect.
 
