@@ -13,13 +13,19 @@ function sanitiseSets(value: unknown) {
   return value.slice(0, 20).map((entry, index) => {
     const set = entry && typeof entry === "object" ? entry as Record<string, unknown> : {};
     const requestedNumber = Number(set.set_number);
+    const weight = boundedText(set.weight, 32);
+    const reps = boundedText(set.reps, 120);
+    const notes = boundedText(set.notes, 240);
     return {
       set_number: Number.isInteger(requestedNumber) && requestedNumber > 0 && requestedNumber <= 20
         ? requestedNumber
         : index + 1,
-      weight: boundedText(set.weight, 32),
-      reps: boundedText(set.reps, 120),
-      notes: boundedText(set.notes, 240),
+      weight,
+      reps,
+      notes,
+      completed: typeof set.completed === "boolean"
+        ? set.completed
+        : Boolean(weight || reps || notes),
     };
   });
 }
@@ -152,7 +158,7 @@ export async function POST(request: Request) {
       session_id: session.id,
       log_date: logDate,
       sets_data: safeSets,
-      completed: safeSets.some((set) => set.reps.length > 0),
+      completed: safeSets.some((set) => set.completed),
       notes: entry.notes,
       updated_at: updatedAt,
     };
