@@ -10,6 +10,9 @@ export async function GET(request: Request) {
   const admin = createAdminClient();
   const { searchParams } = new URL(request.url);
   const date = searchParams.get("date") || new Date().toISOString().split("T")[0];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return NextResponse.json({ error: "Invalid date" }, { status: 400 });
+  }
 
   // Get client profile
   const { data: profile } = await admin
@@ -20,16 +23,58 @@ export async function GET(request: Request) {
 
   if (!profile) return NextResponse.json({ error: "No profile found" }, { status: 404 });
 
-  // Get active nutrition plan
-  const { data: plans } = await admin
-    .from("client_nutrition_plans")
-    .select("*")
-    .eq("client_id", profile.id)
-    .eq("status", "active")
-    .order("created_at", { ascending: false })
-    .limit(1);
+  const [plansResult, nutritionResult, connectionResult] = await Promise.all([
+    admin
+      .from("client_nutrition_plans")
+      .select("*")
+      .eq("client_id", profile.id)
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(1),
+    admin
+      .from("client_wearable_daily_summaries")
+      .select("summary_date, providers, nutrition_calories, protein_g, carbs_g, fat_g, water_ml, updated_at")
+      .eq("client_id", profile.id)
+      .eq("summary_date", date)
+      .contains("providers", ["myfitnesspal"])
+      .maybeSingle(),
+    admin
+      .from("client_wearable_connections")
+      .select("status, last_sync_at")
+      .eq("client_id", profile.id)
+      .eq("provider", "myfitnesspal")
+      .maybeSingle(),
+  ]);
 
-  if (!plans || plans.length === 0) return NextResponse.json({ plan: null, tracking: [], quickMeals: [] });
+  if (plansResult.error) return NextResponse.json({ error: plansResult.error.message }, { status: 500 });
+  if (nutritionResult.error) return NextResponse.json({ error: nutritionResult.error.message }, { status: 500 });
+  if (connectionResult.error) return NextResponse.json({ error: connectionResult.error.message }, { status: 500 });
+
+  const nutrition = nutritionResult.data;
+  const hasNutritionSignal = nutrition && [
+    nutrition.nutrition_calories,
+    nutrition.protein_g,
+    nutrition.carbs_g,
+    nutrition.fat_g,
+    nutrition.water_ml,
+  ].some((value) => value !== null);
+  const syncedNutrition = hasNutritionSignal ? {
+    provider: "myfitnesspal" as const,
+    summaryDate: nutrition.summary_date,
+    calories: nutrition.nutrition_calories,
+    proteinG: nutrition.protein_g,
+    carbsG: nutrition.carbs_g,
+    fatG: nutrition.fat_g,
+    waterMl: nutrition.water_ml,
+    summaryUpdatedAt: nutrition.updated_at,
+    lastSyncAt: connectionResult.data?.last_sync_at || null,
+    connectionStatus: connectionResult.data?.status || null,
+  } : null;
+
+  const plans = plansResult.data;
+  if (!plans || plans.length === 0) {
+    return NextResponse.json({ plan: null, tracking: [], quickMeals: [], syncedNutrition });
+  }
 
   const plan = plans[0];
 
@@ -89,5 +134,6 @@ export async function GET(request: Request) {
     plan: assembled,
     tracking: tracking || [],
     quickMeals: quickMeals || [],
+    syncedNutrition,
   });
 }
