@@ -58,6 +58,7 @@ async function extractConsultationSummary(data: Record<string, unknown>) {
       },
       body: JSON.stringify({
         model: process.env.OPENROUTER_CONSULTATION_MODEL || "openai/gpt-4o-mini",
+        provider: { zdr: true },
         messages: [
           {
             role: "system",

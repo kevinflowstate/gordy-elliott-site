@@ -209,6 +209,7 @@ async function createEmbeddings(inputs) {
   const body = {
     model: embeddingModel,
     input: inputs,
+    ...(embeddingProvider === "openrouter" ? { provider: { zdr: true } } : {}),
   };
   const response = await fetch(embeddingEndpoint(), {
     method: "POST",

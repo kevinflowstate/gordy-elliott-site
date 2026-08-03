@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   calendarProviderLabel,
   type CalendarConnection,
@@ -182,6 +183,35 @@ export default function CalendarConnections({
         </div>
       )}
 
+      <section
+        className="mb-4 rounded-xl border border-[#4285F4]/25 bg-[#4285F4]/[0.06] p-4"
+        aria-labelledby="google-calendar-disclosure-heading"
+        id="google-calendar-consent-summary"
+      >
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-[#4285F4]">Before you connect Google Calendar</div>
+        <h3 id="google-calendar-disclosure-heading" className="mt-1 text-sm font-bold text-text-primary">
+          Read-only schedule access, with AI kept separate
+        </h3>
+        <ul className="mt-3 space-y-2 text-xs leading-5 text-text-secondary">
+          <li>
+            <span className="font-semibold text-text-primary">Access:</span>{" "}
+            calendar identifiers and event titles, times, busy/all-day status and meeting links for today and the next seven days. Private events appear as Busy.
+          </li>
+          <li>
+            <span className="font-semibold text-text-primary">Use:</span>{" "}
+            your schedule, meeting load, deterministic Capacity Checker and Storm Warning, and Gordy&apos;s coaching view.
+          </li>
+          <li>
+            <span className="font-semibold text-text-primary">Handling:</span>{" "}
+            Composio processes the secure Google connection, Vercel processes the app request and Supabase stores the limited synced copy. Google Calendar data is never sent to Anthropic, OpenRouter or a downstream AI model, and is never used for advertising or general-purpose AI training.
+          </li>
+        </ul>
+        <p className="mt-3 text-[11px] leading-5 text-text-muted">
+          Disconnecting stops future access and removes AT CAPACITY&apos;s synced event copies. See the{" "}
+          <Link href="/privacy" className="font-semibold text-accent-bright">Privacy Policy</Link>.
+        </p>
+      </section>
+
       <div className="grid gap-3 sm:grid-cols-2">
         {(data?.providers || []).map((provider) => {
           const connection = data?.connections.find((item) => item.provider === provider.provider);
@@ -242,9 +272,14 @@ export default function CalendarConnections({
                     type="button"
                     onClick={() => connect(provider.provider)}
                     disabled={!canConnect || Boolean(activeAction)}
+                    aria-describedby={provider.provider === "google_calendar" ? "google-calendar-consent-summary" : undefined}
                     className="rounded-lg gradient-accent px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    {providerAction ? "Opening..." : connection?.status === "needs_reauth" || connection?.status === "error" ? "Reconnect" : "Connect"}
+                    {providerAction
+                      ? "Opening..."
+                      : connection?.status === "needs_reauth" || connection?.status === "error"
+                        ? `Reconnect ${provider.label}`
+                        : `Connect ${provider.label}`}
                   </button>
                 )}
               </div>

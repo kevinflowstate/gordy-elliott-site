@@ -6,18 +6,31 @@ export const metadata: Metadata = {
   description: "How AT CAPACITY handles client information.",
 };
 
-const sections = [
+const sections: Array<{ title: string; body: string; googlePolicyLink?: boolean }> = [
   {
     title: "Information AT CAPACITY handles",
     body: "AT CAPACITY stores account and contact details, coaching plans, messages, check-ins, progress photos, training and nutrition logs, consultation answers, and any health, injury or cycle information you choose to provide. If you connect a supported app through Terra, AT CAPACITY may also receive sleep, recovery, activity and nutrition summaries from that provider. If you connect Google Calendar or Outlook Calendar, AT CAPACITY reads the calendar and event information described below. For coached clients, AT CAPACITY also keeps coaching-administration records, such as call attendance, weekly notes of coaching support provided over WhatsApp, periodic review summaries, and an audited record of any correction to locked baseline figures.",
   },
   {
-    title: "Google Calendar and Outlook Calendar data",
-    body: "Calendar connection is optional and read-only. AT CAPACITY uses calendar-list access to identify the calendars in the account you connect and reads events from those calendars for today and the following seven days so it can show your next meeting, daily schedule and calendar-density signals. It stores only the calendar and event identifiers needed for syncing, event title, start and end times, all-day and busy status, and an available meeting link. Private or confidential event titles are stored as “Busy”. AT CAPACITY does not store event descriptions or attendee lists, does not create, edit or delete calendar events, and does not use calendar data for advertising or to train general-purpose AI models. Disconnecting a calendar stops future access and deletes its synced event copies from AT CAPACITY.",
+    title: "Google Calendar data AT CAPACITY accesses",
+    body: "Connecting Google Calendar is optional. When you choose to connect it, AT CAPACITY requests read-only access to the list of calendars in the Google account you authorise and to events from those calendars for today and the following seven days. It accesses the calendar and event identifiers needed for syncing, event title, start and end times, all-day and busy status, cancellation status, and an available meeting link. AT CAPACITY does not store event descriptions, attendee lists or locations. Private or confidential event titles are stored as “Busy”. It cannot create, edit or delete Google Calendar events.",
   },
   {
-    title: "Google API data use",
-    body: "AT CAPACITY’s use and transfer to any other app of information received from Google APIs will adhere to the Google API Services User Data Policy, including the Limited Use requirements.",
+    title: "How Google Calendar data is used",
+    body: "AT CAPACITY uses the Google Calendar data described above to show your upcoming meetings and daily schedule, calculate calendar-density signals, and run its deterministic Capacity Checker and Storm Warning rules. These user-facing features help you and Gordy plan training and nutrition around busier weeks. Google Calendar data is not used for advertising, eligibility decisions, medical diagnosis or an unrelated purpose.",
+  },
+  {
+    title: "Who receives Google Calendar data",
+    body: "Composio processes Google authorisation, holds the Google connection credentials and makes the read-only Calendar API requests on AT CAPACITY’s behalf. Vercel processes the application requests, and the normalised fields listed above are stored in Supabase. You can see the data in your authenticated portal, and Gordy can see upcoming event details in his authenticated coaching view for the coaching purpose described above. Flowstate may access it only where necessary to operate, secure or support AT CAPACITY. Google Calendar data is not disclosed to Anthropic, OpenRouter, their downstream AI model providers, advertisers or data brokers, and it is not sold.",
+  },
+  {
+    title: "Google Workspace data and AI",
+    body: "AT CAPACITY uses Anthropic API and OpenRouter for separate AI-assisted features involving non-Google coaching information. Raw, aggregated and derived Google Calendar data is excluded from AI prompts, embeddings, knowledge bases and model-training datasets. Calendar-based Capacity Checker and Storm Warning outputs are produced by deterministic application rules, not an AI model. The use of raw or derived user data received from Google Workspace APIs will adhere to the Google User Data Policy, including the Limited Use requirements.",
+    googlePolicyLink: true,
+  },
+  {
+    title: "Google Calendar retention and deletion",
+    body: "AT CAPACITY keeps the normalised calendar-event copies while the connection is active so it can provide the schedule and coaching features described above. Disconnecting Google Calendar stops future access, asks Composio to revoke the connected account and deletes the synced event copies held by AT CAPACITY. Deleting your AT CAPACITY account also deletes its associated calendar connection and event records.",
   },
   {
     title: "How information is used",
@@ -25,11 +38,11 @@ const sections = [
   },
   {
     title: "AI-assisted features",
-    body: "AT CAPACITY may send relevant coaching context to contracted AI service providers to produce summaries or suggestions. Gordy remains responsible for coaching decisions. AI output can be incomplete or wrong and should not be treated as medical advice.",
+    body: "AT CAPACITY may send relevant non-Google coaching context to Anthropic API or OpenRouter to produce summaries or suggestions. OpenRouter routes those requests to the model identified for the feature. Google Calendar data is technically separated from these AI routes and is never included. Gordy remains responsible for coaching decisions. AI output can be incomplete or wrong and should not be treated as medical advice.",
   },
   {
     title: "Who receives information",
-    body: "Information is available to Gordy and authorised service providers needed to operate AT CAPACITY, such as hosting, authentication, database, email, notification and AI providers. Google Calendar and Outlook Calendar authentication and syncing are processed by Composio as AT CAPACITY’s connected-app service provider. Information is not sold. Providers are given only the access needed to deliver their service.",
+    body: "Information is available to Gordy and authorised service providers needed to operate AT CAPACITY, including Vercel for hosting and application processing, Supabase for authentication and database services, Resend for email, notification providers, Terra for optional wearable connections, Composio for optional calendar connections, and the AI providers described above for non-Google coaching information. Information is not sold. Providers receive only the information needed to deliver their service.",
   },
   {
     title: "Retention and deletion",
@@ -51,7 +64,7 @@ export default function PrivacyPage() {
       <article className="mx-auto max-w-3xl">
         <Link href="/" className="text-sm font-semibold text-[#f06be3] no-underline">AT CAPACITY</Link>
         <h1 className="mt-6 font-heading text-4xl font-bold">Privacy Policy</h1>
-        <p className="mt-3 text-sm text-[#aeb0bb]">Effective 27 July 2026</p>
+        <p className="mt-3 text-sm text-[#aeb0bb]">Effective 3 August 2026</p>
         <p className="mt-8 text-base leading-7 text-[#d3d4dc]">
           This policy explains how AT CAPACITY by Gordy Elliott handles information when you use the website, PWA or iOS app.
         </p>
@@ -60,7 +73,20 @@ export default function PrivacyPage() {
           {sections.map((section) => (
             <section key={section.title}>
               <h2 className="font-heading text-xl font-bold">{section.title}</h2>
-              <p className="mt-3 text-[15px] leading-7 text-[#c3c4cd]">{section.body}</p>
+              <p className="mt-3 text-[15px] leading-7 text-[#c3c4cd]">
+                {section.body}
+                {section.googlePolicyLink && (
+                  <>
+                    {" "}
+                    <a
+                      href="https://developers.google.com/terms/api-services-user-data-policy"
+                      className="text-[#f06be3]"
+                    >
+                      Read the Google API Services User Data Policy.
+                    </a>
+                  </>
+                )}
+              </p>
             </section>
           ))}
           <section>
