@@ -1016,6 +1016,13 @@ export default function PortalExercisePlanPage() {
               <button
                 key={i}
                 onClick={() => selectDay(day)}
+                aria-label={`${day.toLocaleDateString("en-GB", {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}${hasLog ? ", workout logged" : hasPlanned ? ", workout planned" : ""}`}
+                data-training-date={dayStr}
                 className={`relative flex min-w-0 flex-col items-center justify-center rounded-xl px-0.5 py-2.5 transition-all cursor-pointer
                   ${todayDay
                     ? "bg-[#E040D0] text-white"

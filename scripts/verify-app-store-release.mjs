@@ -62,6 +62,28 @@ try {
     check(!new URL(publicPage.url()).pathname.startsWith("/login"), `${route} does not require sign-in`);
     check(response?.headers()["x-content-type-options"] === "nosniff", `${route} prevents MIME sniffing`);
     check(response?.headers()["x-frame-options"] === "DENY", `${route} cannot be embedded by another site`);
+    if (route === "/privacy") {
+      check(
+        await publicPage.getByRole("heading", { name: "Google Calendar data AT CAPACITY accesses" }).count() === 1,
+        "privacy policy identifies the Google data accessed",
+      );
+      check(
+        await publicPage.getByRole("heading", { name: "How Google Calendar data is used" }).count() === 1,
+        "privacy policy explains Google data use",
+      );
+      check(
+        await publicPage.getByRole("heading", { name: "Who receives Google Calendar data" }).count() === 1,
+        "privacy policy names Google data recipients",
+      );
+      check(
+        await publicPage.getByText(/Google Calendar data is not disclosed to Anthropic, OpenRouter/i).count() === 1,
+        "privacy policy discloses Google-to-AI data isolation",
+      );
+      check(
+        await publicPage.getByText(/will adhere to the Google User Data Policy, including the Limited Use requirements/i).count() === 1,
+        "privacy policy includes the affirmative Google Limited Use statement",
+      );
+    }
     await assertNoHorizontalOverflow(publicPage, route);
   }
   check(
@@ -88,10 +110,11 @@ try {
   page.on("request", (request) => requestedHosts.add(new URL(request.url()).hostname));
 
   await open(page, "/portal/exercise-plan");
+  const chooseWorkout = page.getByRole("button", { name: "Choose workout", exact: true });
+  await chooseWorkout.waitFor({ state: "visible" });
   check(await page.getByText("Browse and schedule sessions", { exact: true }).count() === 1, "training plan is visible near the top");
   check(await page.getByRole("button", { name: /start next session|start session|resume session|edit logged session/i }).count() > 0, "training primary action is available near the top");
   check(await page.getByText(/2 sessions/i).count() > 0, "training plan exposes the full session count");
-  const chooseWorkout = page.getByRole("button", { name: "Choose workout", exact: true });
   check(await chooseWorkout.count() === 1, "training exposes one unambiguous workout chooser");
   await chooseWorkout.click();
   const picker = page.getByRole("dialog", { name: "Choose a workout" });
@@ -121,8 +144,47 @@ try {
   );
   await page.getByRole("button", { name: "Close session picker" }).click();
 
+  const today = new Date();
+  const earliestLogDate = new Date(today);
+  earliestLogDate.setDate(today.getDate() - 56);
+  const dateKey = (date) => [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+  const logsPayload = await page.evaluate(async ({ from, to }) => {
+    const response = await fetch(`/api/portal/exercise-log?from=${from}&to=${to}`);
+    return response.ok ? response.json() : { logs: [] };
+  }, { from: dateKey(earliestLogDate), to: dateKey(today) });
+  const mostRecentLoggedDate = [...new Set(
+    (Array.isArray(logsPayload.logs) ? logsPayload.logs : [])
+      .map((log) => log?.log_date)
+      .filter((date) => typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)),
+  )].sort().at(-1);
+
+  if (mostRecentLoggedDate) {
+    const startOfWeek = (date) => {
+      const copy = new Date(date);
+      const weekday = copy.getDay();
+      copy.setDate(copy.getDate() - (weekday === 0 ? 6 : weekday - 1));
+      copy.setHours(12, 0, 0, 0);
+      return copy;
+    };
+    const currentWeek = startOfWeek(today);
+    const loggedWeek = startOfWeek(new Date(`${mostRecentLoggedDate}T12:00:00`));
+    const weekOffset = Math.round((loggedWeek.getTime() - currentWeek.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    const weekNavigation = weekOffset < 0 ? "Previous week" : "Next week";
+    for (let index = 0; index < Math.abs(weekOffset); index += 1) {
+      await page.getByRole("button", { name: weekNavigation, exact: true }).click();
+    }
+    await page.locator(`[data-training-date="${mostRecentLoggedDate}"]`).click();
+  }
+
   const editLoggedSession = page.getByRole("button", { name: "Edit logged session", exact: true });
-  if (await editLoggedSession.count() === 1) {
+  if (mostRecentLoggedDate) {
+    await editLoggedSession.waitFor({ state: "visible" }).catch(() => {});
+  }
+  if (mostRecentLoggedDate && await editLoggedSession.count() === 1) {
     await editLoggedSession.click();
     check(await page.getByText("Editing saved session", { exact: true }).count() === 1, "saved workout opens in explicit edit mode");
     check(await page.getByRole("button", { name: "Next exercise", exact: true }).count() === 1, "saved workout edit starts with usable exercise controls");
@@ -130,9 +192,31 @@ try {
     check(/next exercise|review workout/i.test(workoutFooterHit), "workout footer receives taps above mobile navigation", workoutFooterHit);
     await page.getByRole("button", { name: "Close workout" }).click();
   } else {
-    check(false, "saved workout opens in explicit edit mode", "the fixture has no logged session");
+    check(
+      false,
+      "saved workout opens in explicit edit mode",
+      mostRecentLoggedDate
+        ? `the logged session for ${mostRecentLoggedDate} did not become editable`
+        : "the fixture has no logged session in the last 56 days",
+    );
   }
   await assertNoHorizontalOverflow(page, "training plan");
+
+  await open(page, "/portal/calendar");
+  await page.getByRole("heading", { name: "Read-only schedule access, with AI kept separate" }).waitFor({ state: "visible" });
+  check(
+    await page.getByRole("heading", { name: "Read-only schedule access, with AI kept separate" }).count() === 1,
+    "calendar connection shows its Google data disclosure before consent",
+  );
+  check(
+    await page.getByText(/Google Calendar data is never sent to Anthropic, OpenRouter or a downstream AI model/i).count() === 1,
+    "calendar consent flow discloses Google-to-AI data isolation",
+  );
+  check(
+    await page.getByRole("link", { name: "Privacy Policy" }).count() === 1,
+    "calendar consent flow links to the full privacy policy",
+  );
+  await assertNoHorizontalOverflow(page, "calendar consent");
 
   await open(page, "/portal/inbox");
   const dmComposer = page.locator('textarea[placeholder="Message Gordy..."]');

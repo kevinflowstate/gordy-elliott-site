@@ -103,6 +103,7 @@ async function createQueryEmbedding(
     body: JSON.stringify({
       model,
       input,
+      ...(provider === "openrouter" ? { provider: { zdr: true } } : {}),
     }),
   });
 
