@@ -166,10 +166,10 @@ export default function ConnectedAppsPage() {
       <section className="rounded-[24px] border border-accent/20 bg-accent/[0.06] p-5">
         <h2 className="font-heading text-lg font-bold text-text-primary">Before you connect</h2>
         <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-          Your chosen app may share sleep, recovery, heart-rate, activity and nutrition data with AT CAPACITY through Terra.
-          Gordy uses these signals for coaching suggestions only; they never change your training plan automatically. Raw delivery
-          payloads are kept for up to 90 days, while useful coaching summaries remain with your account until you delete it or ask
-          for deletion. Disconnecting stops new data from being received.
+          Your chosen app will share sleep, recovery, heart-rate, activity or nutrition data with AT CAPACITY through Terra,
+          our connection provider. Gordy uses these signals for coaching suggestions only; they never change your training plan
+          automatically. Raw delivery payloads are kept for up to 90 days, while useful coaching summaries remain with your
+          account until you delete it or ask for deletion. Disconnecting stops new data from being received.
         </p>
         <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
           <input
@@ -179,8 +179,17 @@ export default function ConnectedAppsPage() {
             className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--accent)]"
           />
           <span className="text-sm font-semibold leading-relaxed text-text-primary">
-            I agree to this health-data use and want to connect my chosen app.{" "}
-            <Link href="/privacy" className="text-accent-bright underline underline-offset-2">Read the privacy notice</Link>.
+            I explicitly consent to this health-data use and want to connect my chosen app. I have read the{" "}
+            <Link href="/privacy" className="text-accent-bright underline underline-offset-2">AT CAPACITY Privacy Notice</Link>
+            {" "}and{" "}
+            <a
+              href="https://tryterra.co/end-user-privacy"
+              target="_blank"
+              rel="noreferrer"
+              className="text-accent-bright underline underline-offset-2"
+            >
+              Terra End User Privacy Policy
+            </a>.
           </span>
         </label>
       </section>

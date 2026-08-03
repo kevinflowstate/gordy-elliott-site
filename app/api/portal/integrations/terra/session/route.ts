@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
-const TERRA_CONSENT_VERSION = "wearable_connection_v1";
+const TERRA_CONSENT_VERSION = "wearable_connection_v2";
 
 async function getClientContext() {
   const supabase = await createClient();

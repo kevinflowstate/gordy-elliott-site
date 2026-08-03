@@ -225,3 +225,24 @@ test("Terra hardening migration records explicit consent and indexes raw-event r
   assert.match(migration, /ADD COLUMN IF NOT EXISTS consented_at TIMESTAMPTZ/i);
   assert.match(migration, /client_wearable_events\(received_at\)/i);
 });
+
+test("Terra connection consent names the processor and records the revised notice version", () => {
+  const connectedAppsPage = fs.readFileSync(
+    path.join(process.cwd(), "app/portal/connected-apps/page.tsx"),
+    "utf8",
+  );
+  const sessionRoute = fs.readFileSync(
+    path.join(process.cwd(), "app/api/portal/integrations/terra/session/route.ts"),
+    "utf8",
+  );
+  const privacyPage = fs.readFileSync(
+    path.join(process.cwd(), "app/privacy/page.tsx"),
+    "utf8",
+  );
+
+  assert.match(connectedAppsPage, /through Terra,\s*our connection provider/);
+  assert.match(connectedAppsPage, /https:\/\/tryterra\.co\/end-user-privacy/);
+  assert.match(connectedAppsPage, /I explicitly consent to this health-data use/);
+  assert.match(sessionRoute, /TERRA_CONSENT_VERSION = "wearable_connection_v2"/);
+  assert.match(privacyPage, /https:\/\/tryterra\.co\/end-user-privacy/);
+});
