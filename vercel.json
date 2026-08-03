@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/calendar-sync",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/terra-maintenance",
+      "schedule": "30 5 * * *"
     }
   ]
 }

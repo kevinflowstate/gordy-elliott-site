@@ -153,10 +153,10 @@ Estimated effort after credentials: 0.5 to 1 day
 - [ ] Confirm daily summaries update capacity and coach-side flags.
 - [ ] Confirm cycle data continues to use the existing tracker unless a
       supported Terra source is explicitly verified.
-- [ ] Deauthenticate the provider with Terra on wearable disconnect so a
+- [x] Deauthenticate the provider with Terra on wearable disconnect so a
       later provider webhook cannot silently restore the connection and
-      resume storing summaries. Implementation can precede credentials;
-      real verification blocked: Terra credentials.
+      resume storing summaries. Implemented 3 August 2026; real
+      testing-environment verification remains required before launch.
 
 Acceptance:
 
@@ -330,15 +330,18 @@ Estimated effort: 1 to 2 days
 - [x] Test dashboard layout at 390x844 and 1440x1000.
 - [ ] Update privacy inventory and client consent language. The privacy
       inventory rewrite is complete (`docs/app-privacy-inventory.md`,
-      24 July 2026). Consent language at the calendar and wearable
-      connection points, plus a consent-version bump, remains outstanding.
+      24 July 2026). The versioned wearable connection notice shipped in
+      the Terra activation branch on 3 August 2026; the calendar
+      connection-point notice remains outstanding.
 - [ ] Complete a health and calendar data DPIA. Drafted 24 July 2026
       (`docs/at-capacity-dpia.md`); awaiting Gordy/Kevin sign-off.
 - [ ] Add controller legal identity and ICO complaint-right wording to the
       privacy policy. (blocked: controller legal identity from Gordy/Kevin)
 - [ ] Agree and implement bounded retention for synced calendar-event
-      history and raw Terra webhook payloads (currently unbounded; storm
-      pattern comparison needs only the trailing 28 days).
+      history and raw Terra webhook payloads. Terra raw events now default
+      to a 90-day scheduled purge (configurable from 7-365 days); calendar
+      history remains outstanding and storm pattern comparison needs only
+      the trailing 28 days.
 - [ ] Regenerate App Store screenshots.
 - [ ] Upload a new TestFlight build if native identity or capabilities change.
 - [ ] Complete Gordy and Founding Five acceptance testing.

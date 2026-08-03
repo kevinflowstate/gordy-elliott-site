@@ -37,6 +37,10 @@ const sections: Array<{ title: string; body: string; googlePolicyLink?: boolean 
     body: "Your information is used to deliver and personalise coaching, show your plans and progress, support messaging and reminders, identify useful coaching trends, secure the service, and resolve technical problems. Connected-health data informs coaching suggestions only; it does not automatically change your programme and is not used for medical diagnosis or emergency care.",
   },
   {
+    title: "Connected health apps",
+    body: "Connecting a supported health or nutrition app is optional. Before connecting, you must explicitly agree that the selected provider may share sleep, recovery, heart-rate, activity or nutrition data with AT CAPACITY through Terra. Gordy can use the resulting summaries for coaching. Terra manages the provider authorisation and delivers the data to AT CAPACITY; Vercel processes the application request and Supabase stores the connection, delivery record and coaching summary. Raw Terra delivery payloads are deleted after no more than 90 days. Disconnecting asks Terra to revoke and remove its connection, stops AT CAPACITY accepting new health data for it, and keeps existing coaching summaries until you delete your account or request their deletion.",
+  },
+  {
     title: "AI-assisted features",
     body: "AT CAPACITY may send relevant non-Google coaching context to Anthropic API or OpenRouter to produce summaries or suggestions. OpenRouter routes those requests to the model identified for the feature. Google Calendar data is technically separated from these AI routes and is never included. Gordy remains responsible for coaching decisions. AI output can be incomplete or wrong and should not be treated as medical advice.",
   },
@@ -50,7 +54,7 @@ const sections: Array<{ title: string; body: string; googlePolicyLink?: boolean 
   },
   {
     title: "Your choices",
-    body: "You can update profile information, disconnect supported apps, turn optional cycle tracking off, and request access to or correction of your information. You can also delete your account in Settings. Disconnecting Google Calendar or Outlook Calendar stops new syncs and removes the synced calendar-event copies associated with that connection. Other information already received may remain until you delete your account or request deletion.",
+    body: "You can update profile information, disconnect supported apps, turn optional cycle tracking off, and request access to or correction of your information. You can also delete your account in Settings. Disconnecting Google Calendar or Outlook Calendar stops new syncs and removes the synced calendar-event copies associated with that connection. Disconnecting a Terra health connection revokes Terra's access and stops AT CAPACITY accepting new data from it. Existing coaching summaries remain until you delete your account or request their deletion.",
   },
   {
     title: "Security and age",

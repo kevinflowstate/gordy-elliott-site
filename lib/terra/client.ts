@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { getSiteUrl } from "@/lib/site-url";
+import { getTerraWidgetProvider, type TerraLaunchProvider } from "@/lib/terra/events";
 
 export type TerraWidgetSession = {
   url: string;
@@ -39,7 +40,13 @@ export function parseTerraReferenceId(referenceId: unknown) {
   return match?.[1] || null;
 }
 
-export async function generateTerraWidgetSession(clientProfileId: string): Promise<TerraWidgetSession> {
+type TerraFetch = typeof fetch;
+
+export async function generateTerraWidgetSession(
+  clientProfileId: string,
+  provider: TerraLaunchProvider,
+  fetchImpl: TerraFetch = fetch,
+): Promise<TerraWidgetSession> {
   const config = getTerraConfig();
   const siteUrl = getSiteUrl();
 
@@ -61,14 +68,16 @@ export async function generateTerraWidgetSession(clientProfileId: string): Promi
     throw new Error("Connected apps are not available yet.");
   }
 
-  const response = await fetch("https://api.tryterra.co/v2/auth/generateWidgetSession", {
+  const response = await fetchImpl("https://api.tryterra.co/v2/auth/generateWidgetSession", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "dev-id": config.devId,
       "x-api-key": config.apiKey,
     },
+    signal: AbortSignal.timeout(10_000),
     body: JSON.stringify({
+      providers: getTerraWidgetProvider(provider),
       language: "en",
       reference_id: getTerraReferenceId(clientProfileId),
       auth_success_redirect_url: `${siteUrl}/portal/connected-apps?terra=success`,
@@ -82,6 +91,37 @@ export async function generateTerraWidgetSession(clientProfileId: string): Promi
   }
 
   return data as TerraWidgetSession;
+}
+
+export async function deauthenticateTerraUser(
+  terraUserId: string,
+  fetchImpl: TerraFetch = fetch,
+) {
+  const config = getTerraConfig();
+  if (!config.configured) {
+    throw new Error("Terra credentials are not configured.");
+  }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(terraUserId)) {
+    throw new Error("The stored Terra user ID is invalid.");
+  }
+
+  const url = new URL("https://api.tryterra.co/v2/auth/deauthenticateUser");
+  url.searchParams.set("user_id", terraUserId);
+  const response = await fetchImpl(url, {
+    method: "DELETE",
+    headers: {
+      "dev-id": config.devId,
+      "x-api-key": config.apiKey,
+    },
+    signal: AbortSignal.timeout(10_000),
+  });
+  const data = await response.json().catch(() => ({}));
+
+  if (response.status === 404) return { status: "already_deauthenticated" as const };
+  if (!response.ok) {
+    throw new Error(data?.message || data?.error || "Terra could not disconnect this account.");
+  }
+  return { status: "success" as const };
 }
 
 export function verifyTerraWebhookSignature(
