@@ -51,7 +51,7 @@ export function classifyTerraEvent(eventType: unknown, authStatus?: unknown): Te
 }
 
 export function canApplyTerraEvent(action: TerraEventAction, status: TerraConnectionStatus) {
-  if (action === "data") return status === "connected";
+  if (action === "data") return status === "pending" || status === "connected";
   if (action === "connect") return status === "pending" || status === "connected";
   if (action === "error") return status !== "disconnected";
   return action === "disconnect";

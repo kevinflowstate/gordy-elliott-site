@@ -118,6 +118,7 @@ test("a disconnected connection stays terminal until the client starts a new con
   assert.equal(canApplyTerraEvent("error", "disconnected"), false);
   assert.equal(canApplyTerraEvent("disconnect", "disconnected"), true);
   assert.equal(canApplyTerraEvent("connect", "pending"), true);
+  assert.equal(canApplyTerraEvent("data", "pending"), true);
   assert.equal(canApplyTerraEvent("data", "connected"), true);
 });
 
@@ -159,18 +160,66 @@ test("generates a provider-scoped Terra widget session", async () => {
     const session = await generateTerraWidgetSession(
       "00000000-0000-0000-0000-000000000001",
       "oura",
-      async (_input, init) => {
-        requestBody = JSON.parse(String(init?.body));
-        return new Response(JSON.stringify({
-          status: "success",
-          url: "https://widget.tryterra.co/session/test",
-        }), { status: 200, headers: { "Content-Type": "application/json" } });
+      {
+        fetchImpl: async (_input, init) => {
+          requestBody = JSON.parse(String(init?.body));
+          return new Response(JSON.stringify({
+            status: "success",
+            url: "https://widget.tryterra.co/session/test",
+          }), { status: 200, headers: { "Content-Type": "application/json" } });
+        },
       },
     );
 
     assert.equal(requestBody?.providers, "OURA");
     assert.equal(requestBody?.reference_id, "client:00000000-0000-0000-0000-000000000001");
+    assert.equal(requestBody?.auth_success_redirect_url, "https://app.example.test/portal/connected-apps?provider=oura&terra=success");
     assert.equal(session.url, "https://widget.tryterra.co/session/test");
+  } finally {
+    if (originalEnv.devId === undefined) delete process.env.TERRA_DEV_ID;
+    else process.env.TERRA_DEV_ID = originalEnv.devId;
+    if (originalEnv.apiKey === undefined) delete process.env.TERRA_API_KEY;
+    else process.env.TERRA_API_KEY = originalEnv.apiKey;
+    if (originalEnv.siteUrl === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
+    else process.env.NEXT_PUBLIC_SITE_URL = originalEnv.siteUrl;
+  }
+});
+
+test("returns native Terra sessions through the installed app URL bridge", async () => {
+  const originalEnv = {
+    devId: process.env.TERRA_DEV_ID,
+    apiKey: process.env.TERRA_API_KEY,
+    siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+  };
+  process.env.TERRA_DEV_ID = "testing-dev";
+  process.env.TERRA_API_KEY = "testing-key";
+  process.env.NEXT_PUBLIC_SITE_URL = "https://app.example.test";
+  let requestBody: Record<string, unknown> = {};
+
+  try {
+    await generateTerraWidgetSession(
+      "00000000-0000-0000-0000-000000000001",
+      "myfitnesspal",
+      {
+        nativeReturn: true,
+        fetchImpl: async (_input, init) => {
+          requestBody = JSON.parse(String(init?.body));
+          return new Response(JSON.stringify({
+            status: "success",
+            url: "https://widget.tryterra.co/session/test",
+          }), { status: 200, headers: { "Content-Type": "application/json" } });
+        },
+      },
+    );
+
+    assert.equal(
+      requestBody?.auth_success_redirect_url,
+      "https://app.example.test/connected-app-return?provider=myfitnesspal&status=success",
+    );
+    assert.equal(
+      requestBody?.auth_failure_redirect_url,
+      "https://app.example.test/connected-app-return?provider=myfitnesspal&status=failed",
+    );
   } finally {
     if (originalEnv.devId === undefined) delete process.env.TERRA_DEV_ID;
     else process.env.TERRA_DEV_ID = originalEnv.devId;
@@ -244,5 +293,7 @@ test("Terra connection consent names the processor and records the revised notic
   assert.match(connectedAppsPage, /https:\/\/tryterra\.co\/end-user-privacy/);
   assert.match(connectedAppsPage, /I explicitly consent to this health-data use/);
   assert.match(sessionRoute, /TERRA_CONSENT_VERSION = "wearable_connection_v2"/);
+  assert.match(sessionRoute, /export async function PATCH/);
+  assert.match(sessionRoute, /\.eq\("status", "pending"\)/);
   assert.match(privacyPage, /https:\/\/tryterra\.co\/end-user-privacy/);
 });

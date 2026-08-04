@@ -1,7 +1,9 @@
 "use client";
 
+import { Browser } from "@capacitor/browser";
+import { Capacitor } from "@capacitor/core";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import type { WearableConnection, WearableDailySummary } from "@/lib/wearable-insights";
@@ -9,6 +11,7 @@ import type { WearableConnection, WearableDailySummary } from "@/lib/wearable-in
 type IntegrationsPayload = {
   mockMode: boolean;
   available: boolean;
+  consentAccepted: boolean;
   connections: WearableConnection[];
   latestSummary: WearableDailySummary | null;
   summaries: WearableDailySummary[];
@@ -37,7 +40,8 @@ function formatDate(value: string | null | undefined) {
 
 function statusClass(status?: string) {
   if (status === "connected") return "border-emerald-500/25 bg-emerald-500/10 text-emerald-400";
-  if (status === "disconnected") return "border-red-500/25 bg-red-500/10 text-red-400";
+  if (status === "disconnected" || status === "error") return "border-red-500/25 bg-red-500/10 text-red-400";
+  if (status === "pending") return "border-amber-500/25 bg-amber-500/10 text-amber-300";
   return "border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.04)] text-text-muted";
 }
 
@@ -48,24 +52,86 @@ export default function ConnectedAppsPage() {
   const [connecting, setConnecting] = useState<string | null>(null);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
   const [consentAccepted, setConsentAccepted] = useState(false);
+  const handledReturn = useRef(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (showLoading = true): Promise<IntegrationsPayload | null> => {
+    if (showLoading) setLoading(true);
     try {
       const res = await fetch("/api/portal/integrations");
-      const json = await res.json();
+      const json = await res.json() as IntegrationsPayload & { error?: string };
       if (!res.ok) throw new Error(json.error || "Couldn't load connected apps");
       setData(json);
+      if (json.consentAccepted) setConsentAccepted(true);
+      return json;
     } catch (err) {
       toast(err instanceof Error ? err.message : "Couldn't load connected apps", "error");
+      return null;
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, [toast]);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
+
+  useEffect(() => {
+    if (handledReturn.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const terraResult = params.get("terra");
+    const provider = params.get("provider");
+    if (!terraResult) return;
+    handledReturn.current = true;
+
+    if (terraResult === "failed") {
+      void (async () => {
+        if (provider) {
+          await fetch("/api/portal/integrations/terra/session", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ provider }),
+          });
+          await load(false);
+        }
+        toast("That connection wasn't completed. You can try again when you're ready.", "error");
+        window.history.replaceState({}, "", window.location.pathname);
+      })();
+      return;
+    }
+    if (terraResult !== "success" || !provider) return;
+
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let attempts = 0;
+    const poll = async () => {
+      const refreshed = await load(false);
+      if (cancelled || !refreshed) return;
+      const connection = refreshed.connections.find((item) => item.provider === provider);
+      if (connection?.status === "connected") {
+        toast(`${providers.find((item) => item.id === provider)?.name || "App"} connected`);
+        window.history.replaceState({}, "", window.location.pathname);
+        return;
+      }
+      if (connection?.status === "error" || attempts >= 9) {
+        toast(
+          connection?.status === "error"
+            ? "That connection could not be completed. Please try again."
+            : "Connection received. The first sync is still finishing.",
+          connection?.status === "error" ? "error" : "info",
+        );
+        window.history.replaceState({}, "", window.location.pathname);
+        return;
+      }
+      attempts += 1;
+      timeoutId = setTimeout(poll, 1_500);
+    };
+    void poll();
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [load, toast]);
 
   const connectionByProvider = useMemo(() => {
     const map = new Map<string, WearableConnection>();
@@ -79,7 +145,11 @@ export default function ConnectedAppsPage() {
       const res = await fetch("/api/portal/integrations/terra/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, consent: consentAccepted }),
+        body: JSON.stringify({
+          provider,
+          consent: consentAccepted,
+          native: Capacitor.isNativePlatform(),
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Couldn't start connection");
@@ -90,7 +160,11 @@ export default function ConnectedAppsPage() {
         return;
       }
 
-      window.location.assign(json.url);
+      if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("Browser")) {
+        await Browser.open({ url: json.url });
+      } else {
+        window.location.assign(json.url);
+      }
     } catch (err) {
       toast(err instanceof Error ? err.message : "Couldn't connect that app", "error");
     } finally {

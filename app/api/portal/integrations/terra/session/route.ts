@@ -52,7 +52,9 @@ export async function POST(request: Request) {
 
   let session;
   try {
-    session = await generateTerraWidgetSession(profile.id, provider);
+    session = await generateTerraWidgetSession(profile.id, provider, {
+      nativeReturn: body.native === true,
+    });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Terra connection could not be started" },
@@ -122,4 +124,29 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json(session);
+}
+
+export async function PATCH(request: Request) {
+  const context = await getClientContext();
+  if (context.error) return context.error;
+  const { admin, profile } = context;
+
+  const body = await request.json().catch(() => ({}));
+  const provider = normaliseTerraProvider(body.provider);
+  if (!provider) {
+    return NextResponse.json({ error: "That connected app is not available." }, { status: 400 });
+  }
+
+  const { error } = await admin
+    .from("client_wearable_connections")
+    .update({
+      status: "error",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("client_id", profile.id)
+    .eq("provider", provider)
+    .eq("status", "pending");
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
 }
