@@ -1,7 +1,7 @@
 "use client";
 
 import { Browser } from "@capacitor/browser";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
@@ -53,6 +53,7 @@ export default function ConnectedAppsPage() {
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
   const [consentAccepted, setConsentAccepted] = useState(false);
   const handledReturn = useRef(false);
+  const browserFinishedListener = useRef<PluginListenerHandle | null>(null);
 
   const load = useCallback(async (showLoading = true): Promise<IntegrationsPayload | null> => {
     if (showLoading) setLoading(true);
@@ -74,6 +75,10 @@ export default function ConnectedAppsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => () => {
+    void browserFinishedListener.current?.remove();
+  }, []);
 
   useEffect(() => {
     if (handledReturn.current) return;
@@ -141,6 +146,7 @@ export default function ConnectedAppsPage() {
 
   async function connect(provider: string) {
     setConnecting(provider);
+    let listener: PluginListenerHandle | null = null;
     try {
       const res = await fetch("/api/portal/integrations/terra/session", {
         method: "POST",
@@ -153,6 +159,7 @@ export default function ConnectedAppsPage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Couldn't start connection");
+      setData((current) => current ? { ...current, consentAccepted: true } : current);
 
       if (json.mock) {
         toast("Preview connection added");
@@ -161,11 +168,40 @@ export default function ConnectedAppsPage() {
       }
 
       if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("Browser")) {
+        await browserFinishedListener.current?.remove();
+        listener = await Browser.addListener("browserFinished", () => {
+          void (async () => {
+            await listener?.remove();
+            if (browserFinishedListener.current === listener) browserFinishedListener.current = null;
+            await new Promise((resolve) => setTimeout(resolve, 1_500));
+            if (handledReturn.current) return;
+
+            const refreshed = await load(false);
+            const connection = refreshed?.connections.find((item) => item.provider === provider);
+            if (connection?.status !== "pending") return;
+
+            await fetch("/api/portal/integrations/terra/session", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ provider }),
+            });
+            await load(false);
+            toast(
+              provider === "myfitnesspal"
+                ? "Terra couldn't complete the MyFitnessPal sign-in. Please try again shortly."
+                : "That connection wasn't completed. You can try again when you're ready.",
+              "error",
+            );
+          })();
+        });
+        browserFinishedListener.current = listener;
         await Browser.open({ url: json.url });
       } else {
         window.location.assign(json.url);
       }
     } catch (err) {
+      await listener?.remove();
+      if (browserFinishedListener.current === listener) browserFinishedListener.current = null;
       toast(err instanceof Error ? err.message : "Couldn't connect that app", "error");
     } finally {
       setConnecting(null);
@@ -188,6 +224,14 @@ export default function ConnectedAppsPage() {
   }
 
   const latest = data?.latestSummary || null;
+  const hasNutritionConnection = data?.connections.some((connection) =>
+    connection.provider === "myfitnesspal" && connection.status === "connected"
+  ) || latest?.providers.includes("myfitnesspal");
+  const sleepValue = latest?.sleep_minutes
+    ? `${Math.floor(latest.sleep_minutes / 60)}h ${latest.sleep_minutes % 60}m`
+    : latest?.sleep_score !== null && latest?.sleep_score !== undefined
+      ? `${latest.sleep_score}/100`
+      : "—";
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-28 sm:pb-8">
@@ -229,44 +273,54 @@ export default function ConnectedAppsPage() {
             </div>
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-4">
-            <Metric label="Sleep" value={latest.sleep_minutes ? `${Math.round(latest.sleep_minutes / 60)}h ${latest.sleep_minutes % 60}m` : "—"} />
+            <Metric label={latest.sleep_minutes ? "Sleep" : "Sleep score"} value={sleepValue} />
             <Metric label="HRV" value={latest.hrv_ms ? `${Math.round(latest.hrv_ms)} ms` : "—"} />
+            <Metric label="Resting HR" value={latest.resting_hr_bpm ? `${latest.resting_hr_bpm} bpm` : "—"} />
             <Metric label="Steps" value={latest.steps ? latest.steps.toLocaleString("en-GB") : "—"} />
-            <Metric label="Protein" value={latest.protein_g ? `${Math.round(latest.protein_g)}g` : "—"} />
+            {hasNutritionConnection && (
+              <>
+                <Metric label="Calories" value={latest.nutrition_calories ? latest.nutrition_calories.toLocaleString("en-GB") : "—"} />
+                <Metric label="Protein" value={latest.protein_g ? `${Math.round(latest.protein_g)}g` : "—"} />
+                <Metric label="Carbs" value={latest.carbs_g ? `${Math.round(latest.carbs_g)}g` : "—"} />
+                <Metric label="Fat" value={latest.fat_g ? `${Math.round(latest.fat_g)}g` : "—"} />
+              </>
+            )}
           </div>
         </section>
       )}
 
-      <section className="rounded-[24px] border border-accent/20 bg-accent/[0.06] p-5">
-        <h2 className="font-heading text-lg font-bold text-text-primary">Before you connect</h2>
-        <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-          Your chosen app will share sleep, recovery, heart-rate, activity or nutrition data with AT CAPACITY through Terra,
-          our connection provider. Gordy uses these signals for coaching suggestions only; they never change your training plan
-          automatically. Raw delivery payloads are kept for up to 90 days, while useful coaching summaries remain with your
-          account until you delete it or ask for deletion. Disconnecting stops new data from being received.
-        </p>
-        <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-          <input
-            type="checkbox"
-            checked={consentAccepted}
-            onChange={(event) => setConsentAccepted(event.target.checked)}
-            className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--accent)]"
-          />
-          <span className="text-sm font-semibold leading-relaxed text-text-primary">
-            I explicitly consent to this health-data use and want to connect my chosen app. I have read the{" "}
-            <Link href="/privacy" className="text-accent-bright underline underline-offset-2">AT CAPACITY Privacy Notice</Link>
-            {" "}and{" "}
-            <a
-              href="https://tryterra.co/end-user-privacy"
-              target="_blank"
-              rel="noreferrer"
-              className="text-accent-bright underline underline-offset-2"
-            >
-              Terra End User Privacy Policy
-            </a>.
-          </span>
-        </label>
-      </section>
+      {data && !data.consentAccepted && (
+        <section className="rounded-[24px] border border-accent/20 bg-accent/[0.06] p-5">
+          <h2 className="font-heading text-lg font-bold text-text-primary">Before you connect</h2>
+          <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+            Your chosen app will share sleep, recovery, heart-rate, activity or nutrition data with AT CAPACITY through Terra,
+            our connection provider. Gordy uses these signals for coaching suggestions only; they never change your training plan
+            automatically. Raw delivery payloads are kept for up to 90 days, while useful coaching summaries remain with your
+            account until you delete it or ask for deletion. Disconnecting stops new data from being received.
+          </p>
+          <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <input
+              type="checkbox"
+              checked={consentAccepted}
+              onChange={(event) => setConsentAccepted(event.target.checked)}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--accent)]"
+            />
+            <span className="text-sm font-semibold leading-relaxed text-text-primary">
+              I explicitly consent to this health-data use and want to connect my chosen app. I have read the{" "}
+              <Link href="/privacy" className="text-accent-bright underline underline-offset-2">AT CAPACITY Privacy Notice</Link>
+              {" "}and{" "}
+              <a
+                href="https://tryterra.co/end-user-privacy"
+                target="_blank"
+                rel="noreferrer"
+                className="text-accent-bright underline underline-offset-2"
+              >
+                Terra End User Privacy Policy
+              </a>.
+            </span>
+          </label>
+        </section>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         {providers.map((provider) => {
