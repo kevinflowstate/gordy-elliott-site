@@ -78,6 +78,7 @@ export default function NativeAppBridge() {
         if (destination.protocol === "shiftcoaching:") {
           const path = `/${destination.host}${destination.pathname}`.replace(/\/{2,}/g, "/");
           if (!isNativeRoute(path)) return;
+          void Browser.close().catch(() => {});
 
           if (path === "/login") {
             const query = new URLSearchParams({
@@ -97,6 +98,7 @@ export default function NativeAppBridge() {
             void Browser.open({ url: destination.href });
             return true;
           }
+          void Browser.close().catch(() => {});
           window.location.assign(`${destination.pathname}${destination.search}${destination.hash}`);
           return true;
         }

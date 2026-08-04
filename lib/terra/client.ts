@@ -42,13 +42,26 @@ export function parseTerraReferenceId(referenceId: unknown) {
 
 type TerraFetch = typeof fetch;
 
+type TerraWidgetSessionOptions = {
+  fetchImpl?: TerraFetch;
+  nativeReturn?: boolean;
+};
+
 export async function generateTerraWidgetSession(
   clientProfileId: string,
   provider: TerraLaunchProvider,
-  fetchImpl: TerraFetch = fetch,
+  options: TerraWidgetSessionOptions = {},
 ): Promise<TerraWidgetSession> {
   const config = getTerraConfig();
   const siteUrl = getSiteUrl();
+  const fetchImpl = options.fetchImpl || fetch;
+  const returnParams = new URLSearchParams({ provider });
+  const successUrl = options.nativeReturn
+    ? `${siteUrl}/connected-app-return?${new URLSearchParams({ ...Object.fromEntries(returnParams), status: "success" })}`
+    : `${siteUrl}/portal/connected-apps?${new URLSearchParams({ ...Object.fromEntries(returnParams), terra: "success" })}`;
+  const failureUrl = options.nativeReturn
+    ? `${siteUrl}/connected-app-return?${new URLSearchParams({ ...Object.fromEntries(returnParams), status: "failed" })}`
+    : `${siteUrl}/portal/connected-apps?${new URLSearchParams({ ...Object.fromEntries(returnParams), terra: "failed" })}`;
 
   if (config.partialCredentials) {
     throw new Error("Terra is partially configured. Add both TERRA_DEV_ID and TERRA_API_KEY, or remove both to use preview mode.");
@@ -80,8 +93,8 @@ export async function generateTerraWidgetSession(
       providers: getTerraWidgetProvider(provider),
       language: "en",
       reference_id: getTerraReferenceId(clientProfileId),
-      auth_success_redirect_url: `${siteUrl}/portal/connected-apps?terra=success`,
-      auth_failure_redirect_url: `${siteUrl}/portal/connected-apps?terra=failed`,
+      auth_success_redirect_url: successUrl,
+      auth_failure_redirect_url: failureUrl,
     }),
   });
 

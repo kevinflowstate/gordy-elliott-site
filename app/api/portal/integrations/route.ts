@@ -3,6 +3,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
+const TERRA_CONSENT_VERSION = "wearable_connection_v2";
+const TERRA_PENDING_TIMEOUT_MS = 15 * 60 * 1000;
+
 async function getClientContext() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -27,7 +30,7 @@ export async function GET() {
   const [connectionsRes, summariesRes] = await Promise.all([
     admin
       .from("client_wearable_connections")
-      .select("id, client_id, provider, status, last_sync_at, connected_at, disconnected_at, created_at, updated_at")
+      .select("id, client_id, provider, status, last_sync_at, connected_at, disconnected_at, consent_version, consented_at, created_at, updated_at")
       .eq("client_id", profile.id)
       .order("updated_at", { ascending: false }),
     admin
@@ -43,10 +46,21 @@ export async function GET() {
   if (summariesRes.error) return NextResponse.json({ error: summariesRes.error.message }, { status: 500 });
 
   const terra = getTerraConfig();
+  const stalePendingBefore = Date.now() - TERRA_PENDING_TIMEOUT_MS;
+  const connections = (connectionsRes.data || []).map((connection) => (
+    connection.status === "pending"
+      && connection.updated_at
+      && new Date(connection.updated_at).getTime() < stalePendingBefore
+      ? { ...connection, status: "error" as const }
+      : connection
+  ));
   return NextResponse.json({
     mockMode: terra.mockMode,
     available: terra.available,
-    connections: connectionsRes.data || [],
+    consentAccepted: connections.some((connection) =>
+      connection.consent_version === TERRA_CONSENT_VERSION && Boolean(connection.consented_at)
+    ),
+    connections,
     latestSummary: summariesRes.data?.[0] || null,
     summaries: summariesRes.data || [],
   });

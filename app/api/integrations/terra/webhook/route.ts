@@ -100,12 +100,12 @@ export async function POST(request: Request) {
       ? "error"
       : "connected";
   const connectionUpdate = {
-    terra_user_id: action === "connect" && terraUser.terraUserId
+    terra_user_id: (action === "connect" || action === "data") && terraUser.terraUserId
       ? terraUser.terraUserId
       : connection.terra_user_id,
     reference_id: terraUser.referenceId || connection.reference_id,
     status,
-    connected_at: action === "connect" ? connection.connected_at || now : connection.connected_at,
+    connected_at: action === "connect" || action === "data" ? connection.connected_at || now : connection.connected_at,
     disconnected_at: action === "disconnect" ? now : action === "connect" ? null : connection.disconnected_at,
     last_sync_at: action === "data" ? now : connection.last_sync_at,
     scopes: normaliseScopes(terraUser.rawUser.scopes),
