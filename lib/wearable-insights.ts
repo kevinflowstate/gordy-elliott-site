@@ -38,6 +38,8 @@ export type WearableConnection = {
   last_sync_at: string | null;
   connected_at: string | null;
   disconnected_at: string | null;
+  consent_version?: string | null;
+  consented_at?: string | null;
   scopes?: unknown;
   raw_user?: unknown;
   created_at?: string;

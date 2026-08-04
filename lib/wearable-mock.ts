@@ -3,7 +3,7 @@ import { buildWearableInsight, type WearableDailySummary } from "@/lib/wearable-
 
 const today = () => new Date().toISOString().split("T")[0];
 
-export const MOCK_WEARABLE_PROVIDERS = ["garmin", "oura", "myfitnesspal"] as const;
+export const MOCK_WEARABLE_PROVIDERS = ["garmin", "oura", "fitbit", "myfitnesspal"] as const;
 export type MockWearableProvider = typeof MOCK_WEARABLE_PROVIDERS[number];
 
 export function createMockTerraPayload(clientId: string, provider: MockWearableProvider = "garmin") {

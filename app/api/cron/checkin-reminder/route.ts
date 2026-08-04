@@ -146,7 +146,7 @@ export async function GET(request: Request) {
 
       // Push notification
       const result = await sendPushToUser(client.id, {
-        title: "Time for your weekly check-in",
+        title: "Accountability time",
         body: "Take 2 minutes to share your wins, challenges, and questions.",
         url: "/portal/checkin",
         tag: "checkin-reminder",

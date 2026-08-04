@@ -27,7 +27,7 @@ export async function GET() {
   const [connectionsRes, summariesRes] = await Promise.all([
     admin
       .from("client_wearable_connections")
-      .select("*")
+      .select("id, client_id, provider, status, last_sync_at, connected_at, disconnected_at, created_at, updated_at")
       .eq("client_id", profile.id)
       .order("updated_at", { ascending: false }),
     admin

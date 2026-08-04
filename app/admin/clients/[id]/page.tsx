@@ -21,6 +21,7 @@ import CapacityBaselinePanel from "@/components/admin/CapacityBaselinePanel";
 import CompliancePanel from "@/components/admin/CompliancePanel";
 import EarlyWinPanel from "@/components/admin/EarlyWinPanel";
 import Month4ReviewPanel from "@/components/admin/Month4ReviewPanel";
+import StrengthTrackerManager from "@/components/admin/StrengthTrackerManager";
 import {
   ATTENTION_SIGNAL_LABELS,
   DEFAULT_MONITORING_PREFERENCES,
@@ -4183,6 +4184,8 @@ function TrainingTabContent({
           </div>
         )}
       </div>
+
+      <StrengthTrackerManager clientId={client.id} />
 
       {activeExPlan && (
         <div>

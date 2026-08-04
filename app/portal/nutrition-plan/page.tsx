@@ -4,6 +4,11 @@ import { useEffect, useRef, useState, useCallback, type Dispatch, type SetStateA
 import Link from "next/link";
 import MacroDonutChart from "@/components/portal/MacroDonutChart";
 import { useToast } from "@/components/ui/Toast";
+import {
+  isWholeDayNutritionTotal,
+  resolveNutritionTotals,
+  type SyncedNutrition,
+} from "@/lib/nutrition-totals";
 import type { ClientNutritionPlan, MealTracking, NutritionMeal, NutritionMealItem, QuickMeal, ClientSavedMeal, Food } from "@/lib/types";
 
 function parseGrams(servingSize: string): number {
@@ -46,9 +51,16 @@ function isToday(date: Date): boolean {
   return date.toDateString() === today.toDateString();
 }
 
-function isWholeDayTotals(name: string): boolean {
-  const normalized = name.trim().toLowerCase();
-  return normalized === "myfitnesspal totals" || normalized === "daily totals (manual)";
+function formatSyncDateTime(value: string | null): string {
+  if (!value) return "Sync time unavailable";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sync time unavailable";
+  return `Last synced ${date.toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`;
 }
 
 interface AssignedMealsProps {
@@ -190,6 +202,7 @@ export default function PortalNutritionPlanPage() {
   const [plan, setPlan] = useState<ClientNutritionPlan | null>(null);
   const [tracking, setTracking] = useState<MealTracking[]>([]);
   const [quickMeals, setQuickMeals] = useState<QuickMeal[]>([]);
+  const [syncedNutrition, setSyncedNutrition] = useState<SyncedNutrition | null>(null);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
   const [savedMeals, setSavedMeals] = useState<ClientSavedMeal[]>([]);
@@ -225,18 +238,28 @@ export default function PortalNutritionPlanPage() {
   const fetchData = useCallback(() => {
     setLoading(true);
     Promise.all([
-      fetch(`/api/portal/nutrition-plan?date=${dateStr}`).then((r) => r.json()),
-      fetch(`/api/portal/quick-meals?date=${dateStr}`).then((r) => r.json()),
+      fetch(`/api/portal/nutrition-plan?date=${dateStr}`).then(async (response) => {
+        if (!response.ok) throw new Error("Failed to load nutrition plan");
+        return response.json();
+      }),
+      fetch(`/api/portal/quick-meals?date=${dateStr}`).then(async (response) => {
+        if (!response.ok) throw new Error("Failed to load manual meals");
+        return response.json();
+      }),
     ])
       .then(([planData, quickData]) => {
         setPlan(planData.plan);
         setTracking(planData.tracking || []);
         setQuickMeals(quickData.quickMeals || planData.quickMeals || []);
         setSavedMeals(quickData.savedMeals || []);
+        setSyncedNutrition(planData.syncedNutrition || null);
       })
-      .catch(console.error)
+      .catch((error) => {
+        console.error(error);
+        toast("Couldn't load nutrition data. Pull down to try again.", "error");
+      })
       .finally(() => setLoading(false));
-  }, [dateStr]);
+  }, [dateStr, toast]);
 
   useEffect(() => {
     fetchData();
@@ -427,9 +450,9 @@ export default function PortalNutritionPlanPage() {
     if (!qName.trim()) return;
     setQSubmitting(true);
     try {
-      const isDailyTotals = isWholeDayTotals(qName);
+      const isDailyTotals = isWholeDayNutritionTotal(qName);
       const existingDailyTotals = isDailyTotals
-        ? quickMeals.filter((meal) => isWholeDayTotals(meal.name))
+        ? quickMeals.filter((meal) => isWholeDayNutritionTotal(meal.name))
         : [];
       const res = await fetch("/api/portal/quick-meals", {
         method: "POST",
@@ -573,35 +596,24 @@ export default function PortalNutritionPlanPage() {
     );
   }
 
-  // A whole-day manual total replaces assigned-meal completion macros for that
-  // date so the same intake is not counted twice. Legacy MFP entries remain valid.
-  let consumedCalories = 0, consumedProtein = 0, consumedCarbs = 0, consumedFat = 0, consumedFibre = 0, consumedSugar = 0;
-  const hasCompletedDailyTotals = quickMeals.some(
-    (meal) => meal.completed && isWholeDayTotals(meal.name),
-  );
-  for (const qm of quickMeals) {
-    if (qm.completed) {
-      consumedCalories += Number(qm.calories);
-      consumedProtein += Number(qm.protein_g);
-      consumedCarbs += Number(qm.carbs_g);
-      consumedFat += Number(qm.fat_g);
-      consumedFibre += Number(qm.fibre_g || 0);
-      consumedSugar += Number(qm.sugar_g || 0);
-    }
-  }
-  if (!hasCompletedDailyTotals && plan?.meals.length) {
-    for (const meal of plan.meals) {
-      const completed = tracking.some((t) => t.meal_id === meal.id && t.completed);
-      if (!completed) continue;
-      const macros = calcMealMacros(meal);
-      consumedCalories += macros.calories;
-      consumedProtein += macros.protein;
-      consumedCarbs += macros.carbs;
-      consumedFat += macros.fat;
-      consumedFibre += macros.fibre;
-      consumedSugar += macros.sugar;
-    }
-  }
+  const resolvedNutrition = resolveNutritionTotals({
+    syncedNutrition,
+    manualEntries: quickMeals,
+    assignedEntries: (plan?.meals || []).map((meal) => ({
+      completed: tracking.some((item) => item.meal_id === meal.id && item.completed),
+      totals: calcMealMacros(meal),
+    })),
+  });
+  const {
+    calories: consumedCalories,
+    protein: consumedProtein,
+    carbs: consumedCarbs,
+    fat: consumedFat,
+    fibre: consumedFibre,
+    sugar: consumedSugar,
+  } = resolvedNutrition.totals;
+  const usingSyncedNutrition = resolvedNutrition.source === "myfitnesspal";
+  const usingManualOverride = resolvedNutrition.source === "manual_override";
 
   const hasResettableEntries = quickMeals.some((meal) => meal.completed) || tracking.some((t) => t.completed);
 
@@ -669,10 +681,60 @@ export default function PortalNutritionPlanPage() {
         <div className="border-b border-[#E040D0]/15 bg-[linear-gradient(135deg,rgba(224,64,208,0.16),rgba(245,158,11,0.06))] px-5 py-4">
           <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#E040D0]">Targets dashboard</div>
           <p className="mt-1 text-sm text-text-secondary">
-            Your assigned targets and today&apos;s logged intake. Connected app data syncs automatically when available.
+            Your assigned targets and {isToday(selectedDate) ? "today's" : "this day's"} logged intake.
           </p>
         </div>
         <div className="p-5">
+          {syncedNutrition && (
+            <div className={`mb-5 rounded-2xl border px-4 py-4 ${
+              usingSyncedNutrition
+                ? "border-[#E040D0]/25 bg-[#E040D0]/8"
+                : "border-amber-500/25 bg-amber-500/8"
+            }`}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#E040D0]">
+                    Synced from MyFitnessPal
+                  </div>
+                  <p className="mt-1 text-xs text-text-secondary">
+                    {usingManualOverride
+                      ? "A manual daily correction is currently being used for the dashboard."
+                      : "These daily totals are used automatically, so meals are not counted twice."}
+                  </p>
+                </div>
+                <span className="flex-shrink-0 rounded-full bg-green-500/12 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-green-600 dark:text-green-400">
+                  {syncedNutrition.connectionStatus === "connected" ? "Live" : "Saved"}
+                </span>
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-text-muted">Calories</div>
+                  <div className="font-semibold text-text-primary">{syncedNutrition.calories?.toLocaleString() ?? "—"}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-text-muted">Protein</div>
+                  <div className="font-semibold text-blue-500">{syncedNutrition.proteinG !== null ? `${Math.round(syncedNutrition.proteinG)}g` : "—"}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-text-muted">Carbs</div>
+                  <div className="font-semibold text-[#B830A8]">{syncedNutrition.carbsG !== null ? `${Math.round(syncedNutrition.carbsG)}g` : "—"}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-text-muted">Fat</div>
+                  <div className="font-semibold text-red-500">{syncedNutrition.fatG !== null ? `${Math.round(syncedNutrition.fatG)}g` : "—"}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-text-muted">Water</div>
+                  <div className="font-semibold text-cyan-600 dark:text-cyan-400">
+                    {syncedNutrition.waterMl !== null ? `${(syncedNutrition.waterMl / 1000).toFixed(1)}L` : "—"}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 text-[10px] text-text-muted">
+                {formatSyncDateTime(syncedNutrition.lastSyncAt || syncedNutrition.summaryUpdatedAt)}
+              </div>
+            </div>
+          )}
           {hasCompleteTargets ? (
             <MacroDonutChart
               targetCalories={targetCalories}
@@ -743,20 +805,20 @@ export default function PortalNutritionPlanPage() {
             </div>
             <div className="app-inset rounded-2xl px-4 py-3">
               <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-text-muted">Fibre</div>
-              <div className="mt-1 text-xl font-heading font-bold text-emerald-500">{Math.round(consumedFibre)}g</div>
-              {plan?.target_fibre_g ? <div className="text-xs text-text-secondary">of {Math.round(targetFibre)}g</div> : <div className="text-xs text-text-secondary">target not set</div>}
+              <div className="mt-1 text-xl font-heading font-bold text-emerald-500">{usingSyncedNutrition ? "—" : `${Math.round(consumedFibre)}g`}</div>
+              {usingSyncedNutrition ? <div className="text-xs text-text-secondary">not supplied</div> : plan?.target_fibre_g ? <div className="text-xs text-text-secondary">of {Math.round(targetFibre)}g</div> : <div className="text-xs text-text-secondary">target not set</div>}
             </div>
             <div className="app-inset rounded-2xl px-4 py-3">
               <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-text-muted">Sugar</div>
-              <div className="mt-1 text-xl font-heading font-bold text-amber-500">{Math.round(consumedSugar)}g</div>
-              {plan?.target_sugar_g ? <div className="text-xs text-text-secondary">cap {Math.round(targetSugar)}g</div> : <div className="text-xs text-text-secondary">cap not set</div>}
+              <div className="mt-1 text-xl font-heading font-bold text-amber-500">{usingSyncedNutrition ? "—" : `${Math.round(consumedSugar)}g`}</div>
+              {usingSyncedNutrition ? <div className="text-xs text-text-secondary">not supplied</div> : plan?.target_sugar_g ? <div className="text-xs text-text-secondary">cap {Math.round(targetSugar)}g</div> : <div className="text-xs text-text-secondary">cap not set</div>}
             </div>
           </div>
           <button
             onClick={openDailyTotals}
             className="mt-5 w-full rounded-2xl gradient-accent px-4 py-3.5 text-sm font-bold text-white shadow-[0_16px_32px_rgba(224,64,208,0.22)]"
           >
-            Add daily totals manually
+            {syncedNutrition ? "Correct totals manually" : "Add daily totals manually"}
           </button>
         </div>
       </section>
@@ -767,7 +829,11 @@ export default function PortalNutritionPlanPage() {
         <div className="app-card-quiet mb-3 rounded-2xl px-4 py-3.5">
           <div>
             <h2 className="text-[14px] font-semibold text-text-secondary uppercase tracking-wider">{entryHeading}</h2>
-            <p className="text-[11px] text-text-muted mt-0.5">Connected app totals sync automatically when available. Use this section for a manual entry or correction.</p>
+            <p className="text-[11px] text-text-muted mt-0.5">
+              {syncedNutrition
+                ? "MyFitnessPal supplies the dashboard total. Entries here stay as notes unless you add a manual daily correction."
+                : "Use this section for meals, food entries or a manual daily total."}
+            </p>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
@@ -1088,7 +1154,7 @@ export default function PortalNutritionPlanPage() {
                   disabled={!qName.trim() || qSubmitting}
                   className="flex-1 py-2.5 rounded-xl gradient-accent text-white font-semibold text-[13px] disabled:opacity-40 cursor-pointer"
                 >
-                  {qSubmitting ? "Adding..." : "Add Meal"}
+                  {qSubmitting ? "Saving..." : isWholeDayNutritionTotal(qName) ? "Save daily totals" : "Add Meal"}
                 </button>
               </div>
             </div>

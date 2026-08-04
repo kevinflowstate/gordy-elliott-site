@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
+import StrengthProgressPanel from "@/components/portal/StrengthProgressPanel";
+import type { StrengthProgressPayload } from "@/lib/strength-progress";
 import {
   LineChart,
   Line,
@@ -53,6 +55,9 @@ const MEASUREMENT_KEYS = Object.keys(MEASUREMENT_LABELS) as (keyof Measurement)[
 
 export default function ProgressPage() {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [strengthProgress, setStrengthProgress] = useState<StrengthProgressPayload | null>(null);
+  const [strengthLoading, setStrengthLoading] = useState(true);
+  const [strengthError, setStrengthError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +82,7 @@ export default function ProgressPage() {
 
   useEffect(() => {
     load();
+    loadStrength();
   }, []);
 
   async function load() {
@@ -92,6 +98,21 @@ export default function ProgressPage() {
       setError("We couldn't load your progress entries. Check your connection and try again.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadStrength() {
+    setStrengthLoading(true);
+    setStrengthError(null);
+    try {
+      const response = await fetch("/api/portal/strength-progress");
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Strength progress could not be loaded");
+      setStrengthProgress(body);
+    } catch {
+      setStrengthError("We couldn't load training progress. Try refreshing the page.");
+    } finally {
+      setStrengthLoading(false);
     }
   }
 
@@ -222,7 +243,7 @@ export default function ProgressPage() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-heading font-bold text-text-primary">Progress Tracking</h1>
-          <p className="text-text-secondary mt-1">Log your weight and measurements to track your progress over time.</p>
+          <p className="text-text-secondary mt-1">See training consistency, key movement progress and body changes over time.</p>
           {latestDateLabel && (
             <p className="mt-2 text-xs text-text-muted">
               Last entry: {latestDateLabel}
@@ -240,9 +261,15 @@ export default function ProgressPage() {
 
       {/* Progress surface nav — progress data here, photos one tap away on /portal/gallery */}
       <div className="mb-6 flex flex-wrap gap-2">
-        <span className="inline-flex items-center rounded-full border border-[#E040D0]/25 bg-[#E040D0]/8 px-3 py-1.5 text-xs font-semibold text-[#E040D0]">
+        <a
+          href="#strength-performance"
+          className="inline-flex items-center rounded-full border border-[#E040D0]/25 bg-[#E040D0]/8 px-3 py-1.5 text-xs font-semibold text-[#E040D0] no-underline"
+        >
+          Strength &amp; training
+        </a>
+        <a href="#body-progress" className="inline-flex items-center rounded-full border border-[rgba(0,0,0,0.08)] bg-bg-card px-3 py-1.5 text-xs font-semibold text-text-secondary no-underline">
           Measurements & weight
-        </span>
+        </a>
         <Link
           href="/portal/gallery"
           className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(0,0,0,0.08)] bg-bg-card px-3 py-1.5 text-xs font-semibold text-text-secondary no-underline transition-all hover:text-text-primary hover:border-[#E040D0]/30"
@@ -260,8 +287,10 @@ export default function ProgressPage() {
         </Link>
       </div>
 
+      <StrengthProgressPanel data={strengthProgress} loading={strengthLoading} error={strengthError} />
+
       {/* Log New Entry */}
-      <div className="app-card rounded-2xl p-4 sm:p-6 mb-6">
+      <div id="body-progress" className="app-card scroll-mt-4 rounded-2xl p-4 sm:p-6 mb-6">
         <h2 className="text-base font-heading font-bold text-text-primary mb-4">Log New Entry</h2>
 
         {error && (

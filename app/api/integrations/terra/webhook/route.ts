@@ -1,5 +1,11 @@
 import crypto from "crypto";
 import { parseTerraReferenceId, verifyTerraWebhookRequest } from "@/lib/terra/client";
+import {
+  canApplyTerraEvent,
+  classifyTerraEvent,
+  normaliseTerraProvider,
+  type TerraConnectionStatus,
+} from "@/lib/terra/events";
 import { extractTerraUser, mergeDailySummary, normaliseTerraPayloads } from "@/lib/terra/normalise";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { WearableDailySummary } from "@/lib/wearable-insights";
@@ -32,48 +38,84 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
   const terraUser = extractTerraUser(payload as Record<string, unknown>);
-  let clientId = parseTerraReferenceId(terraUser.referenceId);
-
-  if (!clientId && terraUser.terraUserId) {
-    const { data: connection } = await admin
-      .from("client_wearable_connections")
-      .select("client_id")
-      .eq("terra_user_id", terraUser.terraUserId)
-      .maybeSingle();
-    clientId = connection?.client_id || null;
+  const action = classifyTerraEvent(terraUser.eventType, terraUser.authStatus);
+  if (action === "healthcheck") {
+    return NextResponse.json({ ok: true, healthcheck: true });
+  }
+  if (action === "ignore") {
+    return NextResponse.json({ ok: true, ignored: true, eventType: terraUser.eventType });
   }
 
-  if (!clientId) {
-    return NextResponse.json({ error: "Unable to resolve Terra user to a client" }, { status: 400 });
+  const provider = normaliseTerraProvider(terraUser.provider);
+  if (!provider) {
+    console.warn("Ignoring Terra webhook for an unapproved provider", { eventType: terraUser.eventType });
+    return NextResponse.json({ ok: true, ignored: true, reason: "provider_not_enabled" });
+  }
+
+  const admin = createAdminClient();
+  const clientId = parseTerraReferenceId(terraUser.referenceId);
+  const connectionFields = "id, client_id, provider, terra_user_id, reference_id, status, connected_at, disconnected_at, last_sync_at, consented_at";
+  let connection = null;
+  if (clientId) {
+    const result = await admin
+      .from("client_wearable_connections")
+      .select(connectionFields)
+      .eq("client_id", clientId)
+      .eq("provider", provider)
+      .maybeSingle();
+    if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
+    connection = result.data;
+  }
+
+  const terraUserIds = [terraUser.terraUserId, terraUser.oldTerraUserId]
+    .filter((value): value is string => Boolean(value));
+  for (const terraUserId of terraUserIds) {
+    if (connection) break;
+    const result = await admin
+      .from("client_wearable_connections")
+      .select(connectionFields)
+      .eq("terra_user_id", terraUserId)
+      .eq("provider", provider)
+      .maybeSingle();
+    if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
+    connection = result.data;
+  }
+
+  if (!connection || !connection.consented_at) {
+    console.warn("Ignoring Terra webhook without a consented app connection", {
+      eventType: terraUser.eventType,
+      provider,
+    });
+    return NextResponse.json({ ok: true, ignored: true, reason: "connection_not_consented" });
+  }
+  if (!canApplyTerraEvent(action, connection.status as TerraConnectionStatus)) {
+    return NextResponse.json({ ok: true, ignored: true, reason: "connection_state_rejects_event" });
   }
 
   const now = new Date().toISOString();
-  const referenceId = terraUser.referenceId || `client:${clientId}`;
-  const disconnected = ["deauth", "disconnect", "revoked"].includes(terraUser.eventType.toLowerCase());
-  const failedAuth = terraUser.eventType.toLowerCase() === "auth" && terraUser.authStatus !== "success";
-  const { data: existingConnection } = await admin
+  const status = action === "disconnect"
+    ? "disconnected"
+    : action === "error"
+      ? "error"
+      : "connected";
+  const connectionUpdate = {
+    terra_user_id: action === "connect" && terraUser.terraUserId
+      ? terraUser.terraUserId
+      : connection.terra_user_id,
+    reference_id: terraUser.referenceId || connection.reference_id,
+    status,
+    connected_at: action === "connect" ? connection.connected_at || now : connection.connected_at,
+    disconnected_at: action === "disconnect" ? now : action === "connect" ? null : connection.disconnected_at,
+    last_sync_at: action === "data" ? now : connection.last_sync_at,
+    scopes: normaliseScopes(terraUser.rawUser.scopes),
+    raw_user: terraUser.rawUser,
+    updated_at: now,
+  };
+  const { data: updatedConnection, error: connectionError } = await admin
     .from("client_wearable_connections")
-    .select("connected_at")
-    .eq("client_id", clientId)
-    .eq("provider", terraUser.provider)
-    .maybeSingle();
-  const { data: connection, error: connectionError } = await admin
-    .from("client_wearable_connections")
-    .upsert({
-      client_id: clientId,
-      provider: terraUser.provider,
-      terra_user_id: terraUser.terraUserId,
-      reference_id: referenceId,
-      status: disconnected ? "disconnected" : failedAuth ? "error" : "connected",
-      connected_at: existingConnection?.connected_at || (!disconnected && !failedAuth ? now : null),
-      disconnected_at: disconnected ? now : null,
-      last_sync_at: now,
-      scopes: normaliseScopes(terraUser.rawUser.scopes),
-      raw_user: terraUser.rawUser,
-      updated_at: now,
-    }, { onConflict: "client_id,provider" })
+    .update(connectionUpdate)
+    .eq("id", connection.id)
     .select("*")
     .single();
 
@@ -83,10 +125,10 @@ export async function POST(request: Request) {
   const { data: event, error: eventError } = await admin
     .from("client_wearable_events")
     .upsert({
-      client_id: clientId,
-      connection_id: connection.id,
+      client_id: connection.client_id,
+      connection_id: updatedConnection.id,
       terra_user_id: terraUser.terraUserId,
-      provider: terraUser.provider,
+      provider,
       event_type: terraUser.eventType,
       payload,
       payload_hash: payloadHash,
@@ -105,7 +147,7 @@ export async function POST(request: Request) {
   const { data: existingSummaries, error: existingSummaryError } = await admin
     .from("client_wearable_daily_summaries")
     .select("*")
-    .eq("client_id", clientId)
+    .eq("client_id", connection.client_id)
     .in("summary_date", summaryDates);
 
   if (existingSummaryError) return NextResponse.json({ error: existingSummaryError.message }, { status: 500 });
@@ -116,7 +158,7 @@ export async function POST(request: Request) {
   for (const normalized of summaries) {
     const merged = mergeDailySummary(summariesByDate.get(normalized.summary_date) || null, normalized, event.id);
     summariesByDate.set(normalized.summary_date, {
-      client_id: clientId,
+      client_id: connection.client_id,
       summary_date: normalized.summary_date,
       ...merged,
     } as WearableDailySummary);

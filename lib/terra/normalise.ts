@@ -40,7 +40,13 @@ function sumNumbers(values: unknown[]) {
 }
 
 export function extractTerraUser(payload: AnyRecord) {
-  const user = asRecord(payload.user);
+  const eventType = getString(payload.type, payload.event_type, payload.status) || "unknown";
+  const user = asRecord(
+    eventType.toLowerCase() === "user_reauth"
+      ? payload.new_user || payload.user
+      : payload.user,
+  );
+  const oldUser = asRecord(payload.old_user);
   const metadata = asRecord(user.metadata);
   const provider = getString(
     payload.provider,
@@ -54,8 +60,9 @@ export function extractTerraUser(payload: AnyRecord) {
   return {
     provider: provider?.toLowerCase() || "terra",
     terraUserId: getString(user.user_id, user.id, payload.user_id, payload.terra_user_id),
+    oldTerraUserId: getString(oldUser.user_id, oldUser.id),
     referenceId: getString(user.reference_id, metadata.reference_id, payload.reference_id),
-    eventType: getString(payload.type, payload.event_type, payload.status) || "unknown",
+    eventType,
     authStatus: getString(payload.status),
     rawUser: user,
   };

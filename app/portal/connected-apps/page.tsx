@@ -26,7 +26,7 @@ const providers: ProviderCard[] = [
   { id: "oura", name: "Oura", description: "Sleep, recovery, HRV and resting heart rate." },
   { id: "myfitnesspal", name: "MyFitnessPal", description: "Calories, protein, carbs, fats and hydration when available." },
   { id: "fitbit", name: "Fitbit", description: "Daily activity, sleep and heart-rate data through Terra." },
-  { id: "whoop", name: "WHOOP / Strava", description: "Recovery, strain and workout history, depending on provider." },
+  { id: "whoop", name: "WHOOP and Strava", description: "Available after their provider credentials and account-level tests are complete.", disabled: true },
   { id: "apple_health", name: "Apple Health", description: "Later native HealthKit phase. Apple Health is not included in the first App Store release.", disabled: true },
 ] as const;
 
@@ -47,6 +47,7 @@ export default function ConnectedAppsPage() {
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  const [consentAccepted, setConsentAccepted] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -78,7 +79,7 @@ export default function ConnectedAppsPage() {
       const res = await fetch("/api/portal/integrations/terra/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider }),
+        body: JSON.stringify({ provider, consent: consentAccepted }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Couldn't start connection");
@@ -89,8 +90,7 @@ export default function ConnectedAppsPage() {
         return;
       }
 
-      window.open(json.url, "_blank", "noopener,noreferrer");
-      toast("Opening secure Terra connection");
+      window.location.assign(json.url);
     } catch (err) {
       toast(err instanceof Error ? err.message : "Couldn't connect that app", "error");
     } finally {
@@ -104,7 +104,7 @@ export default function ConnectedAppsPage() {
       const res = await fetch(`/api/portal/integrations/${connection.id}/disconnect`, { method: "POST" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Couldn't disconnect");
-      toast("Connection removed locally");
+      toast("Connection disconnected");
       await load();
     } catch (err) {
       toast(err instanceof Error ? err.message : "Couldn't disconnect", "error");
@@ -163,6 +163,37 @@ export default function ConnectedAppsPage() {
         </section>
       )}
 
+      <section className="rounded-[24px] border border-accent/20 bg-accent/[0.06] p-5">
+        <h2 className="font-heading text-lg font-bold text-text-primary">Before you connect</h2>
+        <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+          Your chosen app will share sleep, recovery, heart-rate, activity or nutrition data with AT CAPACITY through Terra,
+          our connection provider. Gordy uses these signals for coaching suggestions only; they never change your training plan
+          automatically. Raw delivery payloads are kept for up to 90 days, while useful coaching summaries remain with your
+          account until you delete it or ask for deletion. Disconnecting stops new data from being received.
+        </p>
+        <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+          <input
+            type="checkbox"
+            checked={consentAccepted}
+            onChange={(event) => setConsentAccepted(event.target.checked)}
+            className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--accent)]"
+          />
+          <span className="text-sm font-semibold leading-relaxed text-text-primary">
+            I explicitly consent to this health-data use and want to connect my chosen app. I have read the{" "}
+            <Link href="/privacy" className="text-accent-bright underline underline-offset-2">AT CAPACITY Privacy Notice</Link>
+            {" "}and{" "}
+            <a
+              href="https://tryterra.co/end-user-privacy"
+              target="_blank"
+              rel="noreferrer"
+              className="text-accent-bright underline underline-offset-2"
+            >
+              Terra End User Privacy Policy
+            </a>.
+          </span>
+        </label>
+      </section>
+
       <div className="grid gap-4 md:grid-cols-2">
         {providers.map((provider) => {
           const connection = connectionByProvider.get(provider.id);
@@ -197,7 +228,7 @@ export default function ConnectedAppsPage() {
                   <button
                     type="button"
                     onClick={() => connect(provider.id)}
-                    disabled={Boolean(provider.disabled) || data?.available === false || connecting === provider.id}
+                    disabled={Boolean(provider.disabled) || !consentAccepted || data?.available === false || connecting === provider.id}
                     className="rounded-xl gradient-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
                   >
                     <CyclingStatusText active={connecting === provider.id} idle={data?.mockMode ? "Preview sync" : "Connect"} messages={["Starting...", "Creating session...", "Opening Terra...", "Nearly there..."]} />
