@@ -96,6 +96,32 @@ test("normalises Terra sleep and nutrition coaching signals", () => {
   assert.equal(nutrition.water_ml, 2100);
 });
 
+test("rounds fractional wearable fields before integer database writes", () => {
+  const summary = normaliseTerraPayloads({
+    type: "sleep",
+    user: { provider: "OURA" },
+    data: [{
+      metadata: {
+        start_time: "2026-08-03T23:47:33.000000+01:00",
+        end_time: "2026-08-04T04:13:03.000000+01:00",
+      },
+      sleep_durations_data: {
+        asleep: { duration_asleep_state_seconds: 15_930 },
+      },
+      heart_rate_data: {
+        summary: { avg_hrv_rmssd: 34, resting_hr_bpm: 67.6 },
+      },
+      scores: { sleep: 66.4 },
+    }],
+  })[0];
+
+  assert.equal(summary.sleep_minutes, 266);
+  assert.equal(summary.summary_date, "2026-08-04");
+  assert.equal(summary.sleep_score, 66);
+  assert.equal(summary.hrv_ms, 34);
+  assert.equal(summary.resting_hr_bpm, 68);
+});
+
 test("classifies Terra lifecycle events without treating revocations as active data", () => {
   assert.equal(classifyTerraEvent("healthcheck"), "healthcheck");
   assert.equal(classifyTerraEvent("auth", "success"), "connect");
@@ -292,6 +318,9 @@ test("Terra connection consent names the processor and records the revised notic
   assert.match(connectedAppsPage, /through Terra,\s*our connection provider/);
   assert.match(connectedAppsPage, /https:\/\/tryterra\.co\/end-user-privacy/);
   assert.match(connectedAppsPage, /I explicitly consent to this health-data use/);
+  assert.match(connectedAppsPage, /data && !data\.consentAccepted/);
+  assert.match(connectedAppsPage, /Browser\.addListener\("browserFinished"/);
+  assert.match(connectedAppsPage, /hasNutritionConnection/);
   assert.match(sessionRoute, /TERRA_CONSENT_VERSION = "wearable_connection_v2"/);
   assert.match(sessionRoute, /export async function PATCH/);
   assert.match(sessionRoute, /\.eq\("status", "pending"\)/);

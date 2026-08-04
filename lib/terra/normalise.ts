@@ -17,6 +17,16 @@ function getNumber(...values: unknown[]) {
   return null;
 }
 
+function getInteger(...values: unknown[]) {
+  const value = getNumber(...values);
+  return value === null ? null : Math.round(value);
+}
+
+function secondsToMinutes(value: unknown) {
+  const seconds = getNumber(value);
+  return seconds === null ? null : seconds / 60;
+}
+
 function getString(...values: unknown[]) {
   for (const value of values) {
     if (typeof value === "string" && value.trim()) return value;
@@ -90,6 +100,7 @@ function normaliseTerraEntry(payload: AnyRecord): Omit<WearableDailySummary, "id
   const strain = asRecord(activity.strain_data || daily.strain_data);
   const drinks = Array.isArray(nutrition.drink_samples) ? nutrition.drink_samples.map(asRecord) : [];
   const userInfo = extractTerraUser(payload);
+  const isSleepEvent = userInfo.eventType.toLowerCase() === "sleep";
 
   const summaryDate = getDateKey(
     summary.summary_date,
@@ -97,8 +108,8 @@ function normaliseTerraEntry(payload: AnyRecord): Omit<WearableDailySummary, "id
     sleep.summary_date,
     nutrition.summary_date,
     activity.summary_date,
-    metadata.start_time,
-    metadata.end_time,
+    isSleepEvent ? metadata.end_time : metadata.start_time,
+    isSleepEvent ? metadata.start_time : metadata.end_time,
     data.start_time,
     payload.start_time,
     payload.created_at,
@@ -107,32 +118,32 @@ function normaliseTerraEntry(payload: AnyRecord): Omit<WearableDailySummary, "id
   const base = {
     summary_date: summaryDate,
     providers: uniqueProviders(userInfo.provider),
-    sleep_minutes: getNumber(
+    sleep_minutes: getInteger(
       sleep.sleep_minutes,
-      asleep.duration_asleep_state_seconds ? Number(asleep.duration_asleep_state_seconds) / 60 : null,
-      inBed.duration_in_bed_seconds ? Number(inBed.duration_in_bed_seconds) / 60 : null,
-      sleep.duration_in_bed_seconds ? Number(sleep.duration_in_bed_seconds) / 60 : null,
-      sleep.total_sleep_duration_seconds ? Number(sleep.total_sleep_duration_seconds) / 60 : null,
+      secondsToMinutes(asleep.duration_asleep_state_seconds),
+      secondsToMinutes(inBed.duration_in_bed_seconds),
+      secondsToMinutes(sleep.duration_in_bed_seconds),
+      secondsToMinutes(sleep.total_sleep_duration_seconds),
       summary.sleep_minutes,
     ),
-    sleep_score: getNumber(sleep.score, sleep.sleep_score, scores.sleep, enrichment.sleep_score, summary.sleep_score),
+    sleep_score: getInteger(sleep.score, sleep.sleep_score, scores.sleep, enrichment.sleep_score, summary.sleep_score),
     hrv_ms: getNumber(sleep.hrv_ms, sleep.avg_hrv, heartRateSummary.avg_hrv_rmssd, heartRateSummary.avg_hrv_sdnn, daily.hrv_ms, summary.hrv_ms),
-    resting_hr_bpm: getNumber(sleep.resting_hr_bpm, heartRateSummary.resting_hr_bpm, daily.resting_hr_bpm, daily.resting_heart_rate, summary.resting_hr_bpm),
-    steps: getNumber(daily.steps, activity.steps, distanceData.steps, distanceSummary.steps, summary.steps),
-    active_calories: getNumber(daily.active_calories, activity.active_calories, activity.calories, caloriesData.net_activity_calories, summary.active_calories),
-    total_calories_burned: getNumber(daily.total_calories_burned, daily.calories_burned, caloriesData.total_burned_calories, summary.total_calories_burned),
+    resting_hr_bpm: getInteger(sleep.resting_hr_bpm, heartRateSummary.resting_hr_bpm, daily.resting_hr_bpm, daily.resting_heart_rate, summary.resting_hr_bpm),
+    steps: getInteger(daily.steps, activity.steps, distanceData.steps, distanceSummary.steps, summary.steps),
+    active_calories: getInteger(daily.active_calories, activity.active_calories, activity.calories, caloriesData.net_activity_calories, summary.active_calories),
+    total_calories_burned: getInteger(daily.total_calories_burned, daily.calories_burned, caloriesData.total_burned_calories, summary.total_calories_burned),
     training_load: getNumber(activity.training_load, daily.training_load, strain.strain_level, summary.training_load),
-    workout_count: getNumber(
+    workout_count: getInteger(
       activity.workout_count,
       daily.workout_count,
       summary.workout_count,
       userInfo.eventType.toLowerCase() === "activity" ? 1 : null,
     ),
-    nutrition_calories: getNumber(nutrition.calories, nutrition.energy_kcal, macros.calories, summary.nutrition_calories),
+    nutrition_calories: getInteger(nutrition.calories, nutrition.energy_kcal, macros.calories, summary.nutrition_calories),
     protein_g: getNumber(nutrition.protein_g, nutrition.protein, macros.protein_g, summary.protein_g),
     carbs_g: getNumber(nutrition.carbs_g, nutrition.carbohydrates_g, nutrition.carbs, macros.carbohydrates_g, summary.carbs_g),
     fat_g: getNumber(nutrition.fat_g, nutrition.fat, macros.fat_g, summary.fat_g),
-    water_ml: getNumber(
+    water_ml: getInteger(
       nutrition.water_ml,
       nutrition.water,
       summary.water_ml,
