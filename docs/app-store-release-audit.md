@@ -43,7 +43,7 @@ The complete authenticated production contract previously passed 85/85 on 6 Augu
 
 The Apple account for team `H4J3XX8R8M` was restored in Xcode. Organizer validated Build 5 successfully, uploaded it to App Store Connect and recorded the archive status as **Uploaded**. App Store Connect completed processing at 16:18 BST on 6 August 2026. No validation or processing warning was shown.
 
-Build 5 is in the existing internal TestFlight group only. It has not been added to the external `Gordy Preview` group, selected for the App Store version or added for App Review.
+Build 5 is in the existing internal TestFlight group only. Its TestFlight **What to Test** field contains the exact launch, workout, tracker, connected-health, native-return, APNs, photo, offline and accessibility focus for this candidate. It has not been added to the external `Gordy Preview` group, selected for the App Store version or added for App Review.
 
 ## Reviewer-access blocker
 
