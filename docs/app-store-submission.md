@@ -5,6 +5,8 @@ This is the operational index for submission. Use the linked worksheets as the c
 - Listing copy and review notes: `docs/app-store-metadata.md`
 - App Privacy answers: `docs/app-privacy-questionnaire.md`
 - Age rating: `docs/app-store-age-rating.md`
+- Accessibility declarations: `docs/app-store-accessibility.md`
+- Reviewer walkthrough and Guideline 4.2 evidence: `docs/app-store-reviewer-walkthrough.md`
 - Screenshot sequence: `docs/app-store-screenshot-plan.md`
 - TestFlight execution: `docs/testflight-checklist.md`
 - Current technical evidence: `docs/app-store-release-audit.md`
@@ -18,7 +20,7 @@ This is the operational index for submission. Use the linked worksheets as the c
 | Bundle ID | `com.gordyelliott.shift` |
 | Apple team | `H4J3XX8R8M` |
 | Marketing version | `1.0` |
-| Current candidate | Build `3` |
+| Current candidate | Build `5` (pre-submission validation candidate; not submitted for review) |
 | Business model | Existing clients sign up/pay on the web, then sign in to the app |
 
 ## Build commands
@@ -41,15 +43,26 @@ The canonical review notes and contact details are in `docs/app-store-metadata.m
 
 ## Submission blockers
 
-- Confirm the live App Store Connect record is named "AT CAPACITY by Gordy"; the repository cannot verify the signed-in Apple state.
 - Gordy's approval of the listing copy, content-rights answer and representative review fixture.
-- Reconcile the drafted listing, age rating, privacy answers and review notes against App Store Connect. The last repository evidence says the saved listing predates the calendar and connected-health updates.
 - Keep Google Calendar in version 1 only after Google's branding/data-access verification is approved and a real production connection, sync, disconnect and native return pass succeeds. Outlook also needs its production contract test.
-- Capture final screenshots from the approved candidate. The uploaded 21 July set predates the redesigned Health & Capacity and workout experiences.
-- Physical-device TestFlight pass and crash review.
+- Sign the Apple account that owns team `H4J3XX8R8M` into Xcode, complete Organizer validation for Build 5, then upload it to TestFlight without adding the version for App Review.
+- Complete the physical-device TestFlight pass and crash review on that exact Build 5.
+- Reset and retest the fictional Demo Client password, then update App Store Connect to the same verified credential. The account exists, but the credential currently saved in App Store Connect was rejected by production on 6 August.
 - Retest MyFitnessPal after the observed Terra upstream login timeout. Oura has connected and returned recovery/readiness data in TestFlight.
-- Enable the Apple Push Notifications capability, add APNs server credentials and pass a real-device delivery test.
-- Enable Supabase leaked-password protection in the dashboard.
+- Pass a real-device APNs delivery and deep-link opening test.
+- Complete Digital Services Act trader/business details with the account owner's legal information.
+- Complete and publish truthful App Accessibility declarations after physical-device accessibility QA.
+- Resolve or explicitly accept the Guideline 4.2 risk documented in `docs/app-store-reviewer-walkthrough.md`: the native integrations are real, but the core client interface is still delivered by the hosted portal.
+
+## Closed pre-submission controls
+
+- Supabase leaked-password protection is enabled. The live Supabase security advisor returned no findings on 6 August.
+- Build 5 has a production-signed local archive with a valid distribution signature, production APNs entitlement, `get-task-allow = false`, iPhone-only device family and valid Capacitor/Cordova privacy manifests.
+- The live App Store Connect version remains **Prepare for Submission**, uses manual release and has not been added for review.
+
+## Submission hold
+
+Preparation may include archiving, validating and uploading Build 5 to TestFlight. Do not click **Add for Review**, submit version 1.0 to App Review, accept new legal terms or enable automatic release until Kevin gives separate submission authorization.
 
 ## Google approval trigger
 

@@ -52,8 +52,8 @@ These screenshots were captured on 21 July 2026, before the Founder Dashboard, c
 
 All six files were verified as opaque JPEGs at `1284 x 2778`, visually inspected and uploaded to App Store Connect in the capture-sequence order above.
 
-The 6 August replacement candidate is stored at:
+The 6 August replacement set is stored at:
 
 `/Volumes/XCode/Storage-Quarantine-2026-07-15/SHIFT-AppStore-Screenshots/2026-08-06-production-candidate`
 
-It contains six opaque `1284 x 2778` JPEGs generated from production with the marked fictional review account. The set has been visually inspected and includes the current exercise-by-exercise workout runner. It has not yet replaced the historical uploads in App Store Connect.
+It contains six opaque `1284 x 2778` JPEGs generated from production with the marked fictional review account. The set has been visually inspected, includes the current exercise-by-exercise workout runner and was uploaded to App Store Connect in the approved order on 6 August.

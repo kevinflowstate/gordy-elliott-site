@@ -2,63 +2,105 @@
 
 Date: 6 August 2026
 
-Candidate: AT CAPACITY 1.0 (Build 4)
+Candidate: AT CAPACITY 1.0 (Build 5)
 
-Status: engineering preflight passed; not ready for final App Store submission
+Verdict: **not ready to submit**. The code-controlled preparation is substantially complete, but exact-build Apple validation, reviewer access, physical-device QA and account-owner declarations remain open.
 
-## Verified evidence
+## Exact candidate
 
-- Production Next.js build: passed, 141 routes.
+- Source branch: `codex/app-store-readiness-2026-08-06`.
+- Local signed archive: `/Volumes/XCode/Storage-Quarantine-2026-07-15/AT-CAPACITY-Releases/AT-CAPACITY-1.0-5.xcarchive`.
+- Bundle ID: `com.gordyelliott.shift`.
+- Marketing/build version: `1.0 (5)`.
+- Minimum iOS: 15.0.
+- Device family: iPhone only.
+- Production origin: `https://app.onlinegordy.com`.
+- Apple team: `H4J3XX8R8M`.
+
+Build 4 remains attached to version 1.0 in App Store Connect. Build 5 has not been uploaded or attached, and version 1.0 remains in **Prepare for Submission**.
+
+## Passed engineering evidence
+
+- `npm run ios:preflight`: passed for the expected identity, production origin, team, version and build.
+- `npm run ios:archive`: passed with Xcode 26.3. The archive is production signed.
+- `codesign --verify --deep --strict`: passed.
+- Archived entitlements: correct application identifier; `aps-environment = production`; `get-task-allow = false`; beta reports enabled.
+- Archive contents: Capacitor and Cordova privacy manifests are present and valid; no unexpected embedded frameworks were found; the embedded public-shell hashes match the source shell.
+- Release contract tests: 168/168 passed.
 - Strict TypeScript: passed.
-- ESLint: zero errors and 45 existing application warnings. Generated Capacitor build products under `.ios-derived-data` are excluded from source linting.
-- Release contract tests: 168 passed, including Google-data isolation, Terra lifecycle/consent, MyFitnessPal totals, strength progress, native push and the current workout overview.
-- App Store production browser contract: 85 assertions passed on 6 August, including workout edit/navigation, mobile picker hit targets, Settings accessibility, Google disclosure/data isolation, public support/privacy and native push isolation.
-- Focused visual QA passed for Health & Capacity, workout navigation, Strength Progress and MyFitnessPal nutrition at their supported mobile/desktop viewports.
-- iPhone 17 Pro Max simulator build: succeeded with Xcode 26.3.
-- Native launch and custom-scheme deep-link smoke tests: passed.
-- App Store Connect Build 4 was uploaded on 31 July 2026, is validated, production-signed, iPhone-only, uses bundle ID `com.gordyelliott.shift`, targets iOS 15.0 and declares no non-exempt encryption.
-- iOS release preflight passed on 6 August 2026 for the production URL, bundle ID, Apple team, distribution identity, manual signing, provisioning profile and production APNs entitlement.
-- App Review fixture passed on 6 August: active adult fictional client with 2 sessions, 10 prescribed exercises, 4 meals, 3 recent tracker entries, 3 check-ins and two-way DM.
-- Native push database: migration applied; RLS enabled; no `anon`/`authenticated` table access; authenticated register/read/remove API round trip passed.
-- Dependency audit: zero known production vulnerabilities at the last release pass.
-- Replacement App Store screenshots: six opaque `1284 x 2778` iPhone captures generated from production with the fictional review account, visually inspected, converted losslessly to PNG and uploaded in the approved order on 6 August.
+- ESLint: zero errors and 45 pre-existing application warnings.
+- Production Next.js build: passed, 141 routes. The only framework warning is the existing Next.js middleware-convention deprecation.
+- App Store metadata verifier: passed the name, subtitle, promotional text, keyword and iPhone-only checks.
+- Public production App Store contract: 19 checks passed for privacy/support/auth boundaries, Google disclosures, security headers and unauthenticated native-push rejection.
+- Supabase leaked-password protection is enabled. The live Supabase security advisor returned no findings after the change.
+- Live App Store Connect draft: metadata, privacy answers, 16+ age override, manual release, six replacement screenshots and Build 4 were verified; **Add for Review** was not selected.
 
-## App Store Connect state
+The complete authenticated production contract previously passed 85/85 on 6 August. It could not be independently rerun from the release shell during this pass because the temporary QA storage state/service-role environment was not present.
 
-The following state was verified live in App Store Connect on 6 August 2026:
+## Xcode validation status
 
-- The app and version metadata use AT CAPACITY branding, the canonical `app.onlinegordy.com` marketing/support URLs and the current review notes.
-- Review credentials and contact details are present in App Store Connect; secrets remain out of source control.
-- Distribution is free, public and iPhone-only; Mac, Apple Vision Pro and education-volume availability are disabled.
-- The age questionnaire has a 16+ override and links to the public privacy policy, which states that the service is not directed to children under 16. The app remains declared not to be a regulated medical device.
-- App Privacy is published with the audited 13 linked-to-identity data types and no tracking declaration. Broad `Customer Support` and `Other Data` selections were replaced by `Product Interaction` and `Other Diagnostic Data`.
-- Manual release is selected. The version has not been added for review or submitted.
-- Push Notifications is enabled for `com.gordyelliott.shift`, and the App Store distribution profile has been regenerated.
-- Validated Build 4 is attached to version 1.0.
-- The current iPhone screenshot set is uploaded in this order: Dashboard, Training, Active Session, Daily Tracker, DM and Nutrition.
+Organizer recognises the Build 5 archive. Validation reached Apple's account-access gate, then stopped with:
 
-## Security review
+> App Store Connect access for “Kevin Harkin” is required.
 
-The new APNs path now has bounded payload fields, a ten-second stream timeout, bounded provider responses, one HTTP/2 session per APNs environment per dispatch, app-topic filtering and invalid-token disablement. Sandbox/production classification comes from the native build marker. The current device token is removed before sign-out and account deletion clears the associated database rows.
+Xcode currently has no Apple account signed in. This means Organizer validation and TestFlight upload for Build 5 remain **unverified**, not failed. Sign in to the Apple account that owns team `H4J3XX8R8M`, then resume validation. Do not add the version for App Review.
 
-Supabase's only current security warning is **Leaked Password Protection Disabled**. Enable it under Authentication settings before submission: [Supabase password security guidance](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+## Reviewer-access blocker
 
-## Existing performance debt
+The fictional Demo Client user exists, but a production login using the credential currently saved in App Store Connect was rejected on 6 August. Do not put the password in source control.
 
-- The release migration added all 13 missing foreign-key indexes and removed duplicate body-measurement indexes.
-- 71 existing RLS policies use per-row auth function evaluation: [Auth RLS initialization-plan guidance](https://supabase.com/docs/guides/database/database-linter?lint=0003_auth_rls_initplan).
-- 252 existing role/action combinations have multiple permissive policies: [multiple permissive policy guidance](https://supabase.com/docs/guides/database/database-linter?lint=0006_multiple_permissive_policies).
-- Newly created and low-traffic indexes appear as unused until production queries exercise them: [unused index guidance](https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index).
+Required resolution:
 
-The RLS advisories are optimization work, not evidence of unauthorized access. Consolidating them changes the authorization boundary across most tables and should be a dedicated migration with admin/client regression coverage, not folded into the App Store release deploy.
+1. Reset the synthetic review account password in Supabase.
+2. Prove a clean production sign-in using the new value.
+3. Update only the App Store Connect review credential to the same value.
+4. Re-run the reviewer walkthrough on exact TestFlight Build 5.
 
-## Remaining human and external gates
+## Security and privacy scan
 
-- Prove APNs delivery and deep-link opening on a physical TestFlight device.
-- Complete Digital Services Act trader/business details with the account owner's legal information.
-- Complete and publish truthful App Accessibility declarations after physical-device accessibility QA.
-- Gordy approves listing copy, screenshots, content rights and the fictional review account before submission.
-- Retest MyFitnessPal after the observed Terra upstream timeout. Oura has completed a real TestFlight connection and recovery/readiness data pass.
-- Complete the Google Calendar production OAuth contract after Google approves the request; Outlook needs its production contract test as well.
-- Physical-device TestFlight covers password reset, keyboard, offline recovery, photos/camera, backgrounding, pause/freeze and account switching.
-- TestFlight crash data and Xcode Organizer validation are reviewed before submission.
+Passed:
+
+- The native archive has production APNs and no debug entitlement.
+- Authenticated portal/admin routes enforce server-side user/role checks. Founder-restricted routes and client APIs fail closed.
+- Auth callbacks use a local-path redirect validator. Native deep links constrain schemes, host and route families.
+- The Terra callback path verifies connection state before storing a connected account.
+- The only `dangerouslySetInnerHTML` use found is a constant service-worker bootstrap string, not user-derived content.
+- Browser storage findings are limited to UI preferences, workout-resume state, a handled deep-link marker and the native APNs device token; no password, Supabase session or OAuth token is explicitly written by application code.
+- Production sends HTTPS/HSTS, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: strict-origin-when-cross-origin`.
+
+Open hardening item:
+
+- **SEC-CSP-001 — Medium, non-Apple-specific:** `next.config.ts` and the live production response do not send a Content Security Policy or Permissions Policy. No exploitable HTML injection path was established in this focused scan, so this is defense-in-depth rather than evidence of an active vulnerability. The smallest safe remediation is to introduce a report-only CSP, inventory required Next.js/Supabase/Terra/Composio origins, then enforce a nonce-based policy after violation-free QA. Do not add `unsafe-eval` or a broad wildcard policy merely to make the build pass.
+
+Dependency note:
+
+- `npm audit --omit=dev --audit-level=high` exits successfully because there are no high/critical findings. It currently reports two moderate PostCSS findings through Next.js. The suggested forced remediation moves Next outside the declared range, so it must be handled as a separately tested framework update rather than an audit-force change immediately before submission.
+
+## Guideline 4.2 assessment
+
+The app has genuine native behaviour: production APNs registration/deep-link routing, haptics, native status/splash treatment, camera/photo permission paths, secure external OAuth browser hand-off and return, safe native deep links and offline recovery. The client also includes materially interactive coaching workflows rather than a brochure website.
+
+Residual risk remains significant because the core signed app loads the hosted portal and most product UI/business logic is shared with the web/PWA. This is not proven safe against Apple's “repackaged website” interpretation. Complete the exact reviewer walkthrough and preserve evidence of the native behaviours in `docs/app-store-reviewer-walkthrough.md`; if a stronger mitigation is required, the smallest product-level addition is a clearly native, client-useful surface rather than more reviewer-note copy.
+
+## App Store Connect and external gates
+
+- Digital Services Act status is incomplete. Trader/non-trader status and any displayed contact details require the account owner's legal decision.
+- App Accessibility declarations are unconfigured. Publish only after the evidence matrix in `docs/app-store-accessibility.md` is completed on physical devices.
+- Google Calendar OAuth verification remains under review. Either complete the production Google contract before submission or remove/disable the Google launch claim and show an honest unavailable state.
+- Outlook needs its production connect/sync/disconnect/native-return contract.
+- MyFitnessPal needs a successful retest after the observed Terra upstream login timeout.
+- Oura has completed a real TestFlight connection and returned recovery/readiness data.
+- Gordy must approve listing copy, content rights, screenshots and the fictional review fixture.
+
+## Exact remaining pre-submission sequence
+
+1. Sign the correct Apple account into Xcode and run Organizer **Validate App** on Build 5.
+2. Upload Build 5 to TestFlight only. Wait for processing; do not click **Add for Review**.
+3. Restore and verify the fictional review credential, then update App Store Connect.
+4. Run `docs/testflight-checklist.md` and `docs/app-store-reviewer-walkthrough.md` on exact Build 5 using a small and a current large iPhone.
+5. Prove APNs delivery/deep-link opening, password reset/native return, backgrounding, offline recovery, photo permissions and account separation.
+6. Retest MyFitnessPal and decide the Google/Outlook launch state.
+7. Complete the accessibility evidence matrix and publish only declarations that passed.
+8. Complete the DSA legal declaration with the account owner.
+9. Review TestFlight crash data, Organizer warnings and the final App Store metadata/build attachment.
+10. Stop with version 1.0 still in **Prepare for Submission** until Kevin gives separate submission authorization.

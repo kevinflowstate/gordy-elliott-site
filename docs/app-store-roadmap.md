@@ -5,7 +5,8 @@
 - App Store Connect record `6792719833` is named **AT CAPACITY by Gordy**.
 - Registered bundle ID: `com.gordyelliott.shift` on Apple team `H4J3XX8R8M`. Bundle IDs cannot be changed after registration; the `shift` segment is a permanent historical artefact and does not appear to clients.
 - Build 1 uploaded successfully and available to the `SHIFT Internal` TestFlight group (historical group name; rename alongside the record if desired).
-- Build 2 was the hardening candidate for the 21 July audit. Validated production-signed Build 4 is attached to version 1.0 in App Store Connect and is the current candidate recorded in `config/app-identity.json` and the Xcode project.
+- Build 2 was the hardening candidate for the 21 July audit. Validated production-signed Build 4 is attached to version 1.0 in App Store Connect. Build 5 is the frozen pre-submission validation candidate recorded in `config/app-identity.json` and the Xcode project; it has not been submitted for review.
+- Build 5 archived successfully on 6 August and passed the local signature, entitlement, privacy-manifest and embedded-shell checks. Organizer validation and TestFlight upload are waiting only for the Apple account that owns team `H4J3XX8R8M` to be signed back into Xcode.
 - The production database now has a locked-down native device-token store. A live authenticated register/read/remove round trip passes without exposing tokens to browser roles.
 - The App Store metadata, privacy answers, 16+ age override, review notes, current screenshots and Build 4 were reconciled against the live App Store Connect draft on 6 August. The version remains in Prepare for Submission and has not been added for review.
 - Google OAuth verification for the optional Founder Google Calendar connection remains under review. Apple preparation continues independently; Google approval is a final calendar smoke-test gate, not the start of App Store preparation.
@@ -43,7 +44,7 @@ The initial native shell uses the existing hosted portal so training, nutrition,
 - [x] APNs permission/registration bridge and a server-side native-device token store.
 - [x] Existing DM, coach nudge, task and reminder notifications fan out to web push and native APNs.
 - [x] Device tokens are removed on sign-out, scoped to the app topic and classified by sandbox/production build.
-- [ ] Enable Push Notifications for the production App ID and add APNs key credentials to Vercel.
+- [x] Enable Push Notifications for the production App ID, regenerate the App Store profile and add APNs credentials to Vercel.
 - [ ] Prove delivery and deep-link opening on a physical TestFlight device.
 - [ ] Native sharing where it improves an established client workflow.
 
@@ -68,6 +69,10 @@ The initial native shell uses the existing hosted portal so training, nutrition,
 - [x] Provide a dedicated review account with representative, non-personal client data.
 - [x] Reconcile the approved metadata, privacy answers and review notes against the live App Store Connect record.
 - [x] Replace the 21 July screenshot set with captures from the deployed Health & Capacity and workout candidate.
+- [x] Enable Supabase leaked-password protection and clear the live security-advisor warning.
+- [x] Prepare the App Accessibility evidence matrix and reviewer/Guideline 4.2 walkthrough.
+- [ ] Restore the fictional Demo Client review credential and prove a clean production sign-in.
+- [ ] Validate and upload Build 5 to TestFlight without adding version 1.0 for review.
 - [ ] Test pause/freeze states, DM, training, nutrition, cycle tracking and Terra fallback on physical devices.
 - [ ] Complete internal/external TestFlight, accessibility, crash review and final submission.
 
@@ -86,6 +91,6 @@ The initial native shell uses the existing hosted portal so training, nutrition,
 - Universal Links and authentication callback validation on the live `app.onlinegordy.com` domain.
 - A successful MyFitnessPal provider retest and the final list of connected-health providers advertised at launch.
 - Gordy's approval of the drafted listing copy, content-rights answer and fictional review fixture.
-- Apple Push Notifications capability plus APNs signing key details.
-- Final candidate screenshots and completed physical-device TestFlight evidence.
-- Supabase leaked-password protection enabled in the project dashboard.
+- A verified Demo Client password held only in App Store Connect.
+- The account owner's Digital Services Act trader/non-trader decision and any legally required contact details.
+- Completed physical-device TestFlight, APNs, accessibility and crash evidence for Build 5.

@@ -88,6 +88,8 @@ Notification permission is requested only after the client selects Enable. DMs, 
 
 Account deletion is available after sign-in under Settings > Delete account and requires explicit confirmation. The privacy policy and support page are also available publicly at the URLs supplied in App Store Connect.
 
+Before final submission, append the native-behaviour paragraph prepared in `docs/app-store-reviewer-walkthrough.md` only after every named behaviour has passed on exact TestFlight Build 5. Reviewer-note copy must not overstate an unverified APNs, external-provider, camera/photo or offline-return path.
+
 ## Other submission answers
 
 - Content rights: **Yes, the app has the necessary rights to all content it displays.** Confirm Gordy owns or is licensed to use every uploaded coaching video, document and image before final submission.
