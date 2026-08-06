@@ -19,6 +19,7 @@
     "verify:app-store-release": "node scripts/verify-app-store-release.mjs",
     "capture:app-store": "node scripts/capture-app-store-screenshots.mjs",
     "verify:mobile": "node scripts/verify-mobile-portal.mjs",
+    "verify:workout-runner-ui": "node scripts/verify-workout-runner-navigation.mjs",
     "verify:terra-ui": "node scripts/verify-terra-connected-apps.mjs",
     "verify:myfitnesspal-ui": "node scripts/verify-myfitnesspal-nutrition.mjs",
     "verify:strength-progress": "node scripts/verify-strength-progress.mjs",
