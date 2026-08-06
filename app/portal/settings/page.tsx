@@ -308,14 +308,14 @@ function SettingsContent() {
         <div className="app-card rounded-2xl p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-lg font-heading font-bold text-text-primary">Connected Apps</h2>
-              <p className="mt-1 text-sm text-text-secondary">Link wearables and nutrition apps for sleep, recovery and nutrition signals.</p>
+              <h2 className="text-lg font-heading font-bold text-text-primary">Health &amp; Capacity</h2>
+              <p className="mt-1 text-sm text-text-secondary">Review wearable trends or manage the services contributing health and nutrition signals.</p>
             </div>
             <Link
               href="/portal/connected-apps"
               className="inline-flex items-center justify-center rounded-xl border border-accent/20 bg-accent/10 px-4 py-2 text-sm font-semibold text-accent-bright no-underline transition-colors hover:bg-accent/15"
             >
-              Manage apps
+              Open health
             </Link>
           </div>
         </div>
