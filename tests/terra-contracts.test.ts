@@ -306,6 +306,14 @@ test("Terra connection consent names the processor and records the revised notic
     path.join(process.cwd(), "app/portal/connected-apps/page.tsx"),
     "utf8",
   );
+  const connectionsPanel = fs.readFileSync(
+    path.join(process.cwd(), "components/portal/WearableConnectionsPanel.tsx"),
+    "utf8",
+  );
+  const healthOverview = fs.readFileSync(
+    path.join(process.cwd(), "components/portal/HealthCapacityOverview.tsx"),
+    "utf8",
+  );
   const sessionRoute = fs.readFileSync(
     path.join(process.cwd(), "app/api/portal/integrations/terra/session/route.ts"),
     "utf8",
@@ -315,12 +323,13 @@ test("Terra connection consent names the processor and records the revised notic
     "utf8",
   );
 
-  assert.match(connectedAppsPage, /through Terra,\s*our connection provider/);
-  assert.match(connectedAppsPage, /https:\/\/tryterra\.co\/end-user-privacy/);
-  assert.match(connectedAppsPage, /I explicitly consent to this health-data use/);
-  assert.match(connectedAppsPage, /data && !data\.consentAccepted/);
+  assert.match(connectionsPanel, /Terra securely passes the health categories you approve to AT CAPACITY/);
+  assert.match(connectionsPanel, /https:\/\/tryterra\.co\/end-user-privacy/);
+  assert.match(connectionsPanel, /I consent to AT CAPACITY receiving health data/);
+  assert.match(connectionsPanel, /!consentAccepted/);
   assert.match(connectedAppsPage, /Browser\.addListener\("browserFinished"/);
-  assert.match(connectedAppsPage, /hasNutritionConnection/);
+  assert.match(healthOverview, /connection\.provider === "myfitnesspal"/);
+  assert.match(healthOverview, /summary\.providers\.includes\("myfitnesspal"\)/);
   assert.match(sessionRoute, /TERRA_CONSENT_VERSION = "wearable_connection_v2"/);
   assert.match(sessionRoute, /export async function PATCH/);
   assert.match(sessionRoute, /\.eq\("status", "pending"\)/);

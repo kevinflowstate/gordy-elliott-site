@@ -242,8 +242,21 @@ export default function DailyTrackerPage() {
       </div>
 
       {wearableSummary && (
-        <TrackerCard title="Synced from connected apps" hint="This is separate from your manual daily tracker entry.">
-          <div className="grid gap-3 sm:grid-cols-4">
+        <section className="overflow-hidden rounded-[26px] border border-white/[0.08] bg-[#151419] p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#ef68db]">Connected health</div>
+              <h2 className="mt-1 text-lg font-semibold tracking-tight text-white">Health &amp; Capacity</h2>
+              <p className="mt-1 text-xs leading-5 text-white/40">Latest wearable signals, separate from your manual entry.</p>
+            </div>
+            <Link
+              href="/portal/connected-apps"
+              className="shrink-0 rounded-full border border-white/10 px-3 py-2 text-xs font-semibold text-white/60 no-underline"
+            >
+              View trends
+            </Link>
+          </div>
+          <div className={`mt-5 grid grid-cols-2 gap-3 ${wearableSummary.providers.includes("myfitnesspal") ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
             <SyncedMetric
               label="Readiness"
               value={wearableSummary.readiness_score !== null ? `${wearableSummary.readiness_score}/100` : "—"}
@@ -256,17 +269,19 @@ export default function DailyTrackerPage() {
               label="Steps"
               value={wearableSummary.steps ? wearableSummary.steps.toLocaleString("en-GB") : "—"}
             />
-            <SyncedMetric
-              label="Protein"
-              value={wearableSummary.protein_g ? `${Math.round(wearableSummary.protein_g)}g` : "—"}
-            />
+            {wearableSummary.providers.includes("myfitnesspal") && (
+              <SyncedMetric
+                label="Protein"
+                value={wearableSummary.protein_g ? `${Math.round(wearableSummary.protein_g)}g` : "Awaiting MFP"}
+              />
+            )}
           </div>
           {wearableSummary.insight && (
-            <p className="mt-4 rounded-2xl border border-[#E040D0]/15 bg-[#E040D0]/5 px-4 py-3 text-sm leading-relaxed text-text-secondary">
+            <p className="mt-4 border-l-2 border-[#e440d0]/60 pl-4 text-sm leading-6 text-white/55">
               {wearableSummary.insight}
             </p>
           )}
-        </TrackerCard>
+        </section>
       )}
 
       <div ref={formRef} className="scroll-mt-4">
