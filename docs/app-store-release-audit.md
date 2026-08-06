@@ -17,12 +17,14 @@ Verdict: **not ready to submit**. The code-controlled preparation is substantial
 - Production origin: `https://app.onlinegordy.com`.
 - Apple team: `H4J3XX8R8M`.
 
-Build 4 remains attached to version 1.0 in App Store Connect. Build 5 has not been uploaded or attached, and version 1.0 remains in **Prepare for Submission**.
+Build 4 remains attached to version 1.0 in App Store Connect. Build 5 is processed and available to the `SHIFT Internal` TestFlight group, but is not attached to the App Store version. Version 1.0 remains in **Prepare for Submission**.
 
 ## Passed engineering evidence
 
 - `npm run ios:preflight`: passed for the expected identity, production origin, team, version and build.
 - `npm run ios:archive`: passed with Xcode 26.3. The archive is production signed.
+- Xcode Organizer **Validate App**: passed all App Store Connect validation checks.
+- App Store Connect upload: complete. Build 5 finished Apple processing, shows **Ready to Submit**, expires in 90 days and is available to the existing internal group.
 - `codesign --verify --deep --strict`: passed.
 - Archived entitlements: correct application identifier; `aps-environment = production`; `get-task-allow = false`; beta reports enabled.
 - Archive contents: Capacitor and Cordova privacy manifests are present and valid; no unexpected embedded frameworks were found; the embedded public-shell hashes match the source shell.
@@ -33,17 +35,15 @@ Build 4 remains attached to version 1.0 in App Store Connect. Build 5 has not be
 - App Store metadata verifier: passed the name, subtitle, promotional text, keyword and iPhone-only checks.
 - Public production App Store contract: 19 checks passed for privacy/support/auth boundaries, Google disclosures, security headers and unauthenticated native-push rejection.
 - Supabase leaked-password protection is enabled. The live Supabase security advisor returned no findings after the change.
-- Live App Store Connect draft: metadata, privacy answers, 16+ age override, manual release, six replacement screenshots and Build 4 were verified; **Add for Review** was not selected.
+- Live App Store Connect draft: metadata, privacy answers, 16+ age override, manual release, six replacement screenshots and Build 4 were verified; **Add for Review** was not selected. The draft was rechecked after the Build 5 upload and still remains **Prepare for Submission** with Build 4 attached.
 
 The complete authenticated production contract previously passed 85/85 on 6 August. It could not be independently rerun from the release shell during this pass because the temporary QA storage state/service-role environment was not present.
 
-## Xcode validation status
+## Xcode and TestFlight status
 
-Organizer recognises the Build 5 archive. Validation reached Apple's account-access gate, then stopped with:
+The Apple account for team `H4J3XX8R8M` was restored in Xcode. Organizer validated Build 5 successfully, uploaded it to App Store Connect and recorded the archive status as **Uploaded**. App Store Connect completed processing at 16:18 BST on 6 August 2026. No validation or processing warning was shown.
 
-> App Store Connect access for “Kevin Harkin” is required.
-
-Xcode currently has no Apple account signed in. This means Organizer validation and TestFlight upload for Build 5 remain **unverified**, not failed. Sign in to the Apple account that owns team `H4J3XX8R8M`, then resume validation. Do not add the version for App Review.
+Build 5 is in the existing internal TestFlight group only. It has not been added to the external `Gordy Preview` group, selected for the App Store version or added for App Review.
 
 ## Reviewer-access blocker
 
@@ -94,13 +94,12 @@ Residual risk remains significant because the core signed app loads the hosted p
 
 ## Exact remaining pre-submission sequence
 
-1. Sign the correct Apple account into Xcode and run Organizer **Validate App** on Build 5.
-2. Upload Build 5 to TestFlight only. Wait for processing; do not click **Add for Review**.
-3. Restore and verify the fictional review credential, then update App Store Connect.
-4. Run `docs/testflight-checklist.md` and `docs/app-store-reviewer-walkthrough.md` on exact Build 5 using a small and a current large iPhone.
-5. Prove APNs delivery/deep-link opening, password reset/native return, backgrounding, offline recovery, photo permissions and account separation.
-6. Retest MyFitnessPal and decide the Google/Outlook launch state.
-7. Complete the accessibility evidence matrix and publish only declarations that passed.
-8. Complete the DSA legal declaration with the account owner.
-9. Review TestFlight crash data, Organizer warnings and the final App Store metadata/build attachment.
-10. Stop with version 1.0 still in **Prepare for Submission** until Kevin gives separate submission authorization.
+1. Restore and verify the fictional review credential, then update App Store Connect.
+2. Install exact Build 5 from the `SHIFT Internal` TestFlight group.
+3. Run `docs/testflight-checklist.md` and `docs/app-store-reviewer-walkthrough.md` on a small and a current large iPhone.
+4. Prove APNs delivery/deep-link opening, password reset/native return, backgrounding, offline recovery, photo permissions and account separation.
+5. Retest MyFitnessPal and decide the Google/Outlook launch state.
+6. Complete the accessibility evidence matrix and publish only declarations that passed.
+7. Complete the DSA legal declaration with the account owner.
+8. Review TestFlight crash data and the final App Store metadata/build attachment.
+9. Stop with version 1.0 still in **Prepare for Submission** until Kevin gives separate submission authorization.

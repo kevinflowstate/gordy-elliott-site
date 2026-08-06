@@ -6,7 +6,7 @@
 - Registered bundle ID: `com.gordyelliott.shift` on Apple team `H4J3XX8R8M`. Bundle IDs cannot be changed after registration; the `shift` segment is a permanent historical artefact and does not appear to clients.
 - Build 1 uploaded successfully and available to the `SHIFT Internal` TestFlight group (historical group name; rename alongside the record if desired).
 - Build 2 was the hardening candidate for the 21 July audit. Validated production-signed Build 4 is attached to version 1.0 in App Store Connect. Build 5 is the frozen pre-submission validation candidate recorded in `config/app-identity.json` and the Xcode project; it has not been submitted for review.
-- Build 5 archived successfully on 6 August and passed the local signature, entitlement, privacy-manifest and embedded-shell checks. Organizer validation and TestFlight upload are waiting only for the Apple account that owns team `H4J3XX8R8M` to be signed back into Xcode.
+- Build 5 archived successfully on 6 August, passed the local signature, entitlement, privacy-manifest and embedded-shell checks, passed Organizer validation and completed Apple processing. It is available to the `SHIFT Internal` TestFlight group as Ready to Submit.
 - The production database now has a locked-down native device-token store. A live authenticated register/read/remove round trip passes without exposing tokens to browser roles.
 - The App Store metadata, privacy answers, 16+ age override, review notes, current screenshots and Build 4 were reconciled against the live App Store Connect draft on 6 August. The version remains in Prepare for Submission and has not been added for review.
 - Google OAuth verification for the optional Founder Google Calendar connection remains under review. Apple preparation continues independently; Google approval is a final calendar smoke-test gate, not the start of App Store preparation.
@@ -72,7 +72,7 @@ The initial native shell uses the existing hosted portal so training, nutrition,
 - [x] Enable Supabase leaked-password protection and clear the live security-advisor warning.
 - [x] Prepare the App Accessibility evidence matrix and reviewer/Guideline 4.2 walkthrough.
 - [ ] Restore the fictional Demo Client review credential and prove a clean production sign-in.
-- [ ] Validate and upload Build 5 to TestFlight without adding version 1.0 for review.
+- [x] Validate, upload and process Build 5 in TestFlight without adding version 1.0 for review.
 - [ ] Test pause/freeze states, DM, training, nutrition, cycle tracking and Terra fallback on physical devices.
 - [ ] Complete internal/external TestFlight, accessibility, crash review and final submission.
 

@@ -45,7 +45,6 @@ The canonical review notes and contact details are in `docs/app-store-metadata.m
 
 - Gordy's approval of the listing copy, content-rights answer and representative review fixture.
 - Keep Google Calendar in version 1 only after Google's branding/data-access verification is approved and a real production connection, sync, disconnect and native return pass succeeds. Outlook also needs its production contract test.
-- Sign the Apple account that owns team `H4J3XX8R8M` into Xcode, complete Organizer validation for Build 5, then upload it to TestFlight without adding the version for App Review.
 - Complete the physical-device TestFlight pass and crash review on that exact Build 5.
 - Reset and retest the fictional Demo Client password, then update App Store Connect to the same verified credential. The account exists, but the credential currently saved in App Store Connect was rejected by production on 6 August.
 - Retest MyFitnessPal after the observed Terra upstream login timeout. Oura has connected and returned recovery/readiness data in TestFlight.
@@ -58,6 +57,7 @@ The canonical review notes and contact details are in `docs/app-store-metadata.m
 
 - Supabase leaked-password protection is enabled. The live Supabase security advisor returned no findings on 6 August.
 - Build 5 has a production-signed local archive with a valid distribution signature, production APNs entitlement, `get-task-allow = false`, iPhone-only device family and valid Capacitor/Cordova privacy manifests.
+- Build 5 passed Organizer validation, uploaded successfully, completed Apple processing and is available to the `SHIFT Internal` TestFlight group as **Ready to Submit**.
 - The live App Store Connect version remains **Prepare for Submission**, uses manual release and has not been added for review.
 
 ## Submission hold

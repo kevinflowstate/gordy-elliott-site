@@ -30,7 +30,7 @@ Explicitly out of scope for v1: Apple Health/HealthKit, Android Health Connect, 
 | Google branding + Calendar data-access verification (project `at-capacity-503314`) | Submitted 24 July 2026, UNDER REVIEW. Initial Trust & Safety contact expected in roughly 3-5 business days; full verification may take 4-6 weeks. Scopes are sensitive, not restricted. Do not describe approval as complete. | Normal client Google Calendar connections. Test users can connect during review. |
 | Real production calendar contract tests | Outstanding for both Google and Outlook. Outlook is implemented and ready to test; it does not depend on the Google review. | Advertising calendar connections; Founder pilot calendar onboarding. |
 | Terra production acceptance | Credentials are configured and Oura passed a real TestFlight connection/data run. MyFitnessPal hit an upstream login timeout and needs a successful retest; disconnect/revocation evidence remains required. | Advertising MyFitnessPal support and closing the provider acceptance record. |
-| Apple exact-candidate gates | Build 5 is archived and locally signed; Xcode is signed out, the saved review credential is rejected, and physical TestFlight/accessibility/APNs/DSA checks remain. See `docs/app-store-release-audit.md`. | Final App Store submission. |
+| Apple exact-candidate gates | Build 5 passed Organizer validation, uploaded and completed processing in the internal TestFlight group. The saved review credential is rejected, and physical TestFlight/accessibility/APNs/DSA checks remain. See `docs/app-store-release-audit.md`. | Final App Store submission. |
 | Supabase leaked-password protection | Enabled; live security advisor clear on 6 August 2026 | Complete. |
 
 ## 3. Privacy and consent position
@@ -73,9 +73,8 @@ Also awaiting Gordy: approval of listing copy/screenshots/content rights/review 
 
 ## 7. Release sequence (summary)
 
-1. Sign the correct Apple account into Xcode, validate Build 5 and upload it to TestFlight without adding version 1.0 for review.
-2. Restore the fictional review credential and complete the exact-build reviewer, accessibility, APNs, provider-return and crash passes.
-3. Run the remaining provider contracts: MyFitnessPal, Outlook and Google when its review gate allows the final production test.
-4. Complete the DSA legal declaration, DPIA/controller sign-off and truthful App Accessibility declarations.
-5. The Early Win, Storm Warning, Founder compliance and Month 4 migrations are applied and recorded in production as `20260728122140`, `20260728122215`, `20260728122252` and `20260728122318`. Do not rerun them; verify schema/history alignment before future deploys.
-6. Reconcile Build 5 and the final review notes in App Store Connect, then stop in **Prepare for Submission** until Kevin authorises **Add for Review**.
+1. Restore the fictional review credential and complete the exact-build reviewer, accessibility, APNs, provider-return and crash passes on internal TestFlight Build 5.
+2. Run the remaining provider contracts: MyFitnessPal, Outlook and Google when its review gate allows the final production test.
+3. Complete the DSA legal declaration, DPIA/controller sign-off and truthful App Accessibility declarations.
+4. The Early Win, Storm Warning, Founder compliance and Month 4 migrations are applied and recorded in production as `20260728122140`, `20260728122215`, `20260728122252` and `20260728122318`. Do not rerun them; verify schema/history alignment before future deploys.
+5. Reconcile Build 5 and the final review notes in App Store Connect, then stop in **Prepare for Submission** until Kevin authorises **Add for Review**.
