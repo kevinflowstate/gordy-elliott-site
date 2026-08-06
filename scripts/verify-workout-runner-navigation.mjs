@@ -190,6 +190,7 @@ try {
   for (const viewport of [
     { name: "iphone", width: 390, height: 844 },
     { name: "iphone-large", width: 430, height: 932 },
+    { name: "desktop", width: 1440, height: 1000 },
   ]) {
     const context = await browser.newContext({
       viewport: { width: viewport.width, height: viewport.height },
@@ -296,6 +297,6 @@ try {
 
 console.log(
   baselineOnly
-    ? "Workout runner baseline captured at 390x844 and 430x932."
-    : "Workout runner navigation QA passed at 390x844 and 430x932.",
+    ? "Workout runner baseline captured at 390x844, 430x932 and 1440x1000."
+    : "Workout runner navigation QA passed at 390x844, 430x932 and 1440x1000.",
 );
