@@ -2,12 +2,12 @@
 
 ## Current position - 6 August 2026
 
-- App Store Connect record exists under the historical product name **SHIFT Coaching by Gordy** (`6792719833`) and must be renamed to **AT CAPACITY by Gordy** before the next submission.
+- App Store Connect record `6792719833` is named **AT CAPACITY by Gordy**.
 - Registered bundle ID: `com.gordyelliott.shift` on Apple team `H4J3XX8R8M`. Bundle IDs cannot be changed after registration; the `shift` segment is a permanent historical artefact and does not appear to clients.
 - Build 1 uploaded successfully and available to the `SHIFT Internal` TestFlight group (historical group name; rename alongside the record if desired).
-- Build 2 was the hardening candidate for the 21 July audit. Build 3 is the current candidate recorded in `config/app-identity.json` and the Xcode project; it carries that hardening work forward.
+- Build 2 was the hardening candidate for the 21 July audit. Validated production-signed Build 4 is attached to version 1.0 in App Store Connect and is the current candidate recorded in `config/app-identity.json` and the Xcode project.
 - The production database now has a locked-down native device-token store. A live authenticated register/read/remove round trip passes without exposing tokens to browser roles.
-- The App Store metadata, privacy answers, age-rating worksheet, review notes and screenshot plan are drafted and machine-checked. The live App Store Connect values still need to be reconciled against these documents and confirmed by Gordy.
+- The App Store metadata, privacy answers, 16+ age override, review notes, current screenshots and Build 4 were reconciled against the live App Store Connect draft on 6 August. The version remains in Prepare for Submission and has not been added for review.
 - Google OAuth verification for the optional Founder Google Calendar connection remains under review. Apple preparation continues independently; Google approval is a final calendar smoke-test gate, not the start of App Store preparation.
 - The web/PWA remains the source application. The iOS target is an additional signed client, not a replacement repository or separate product database.
 
@@ -66,8 +66,8 @@ The initial native shell uses the existing hosted portal so training, nutrition,
 - [x] Add deployable privacy/support URLs and an App Privacy data inventory.
 - [x] Draft and validate App Store privacy answers, age rating, description and review notes.
 - [x] Provide a dedicated review account with representative, non-personal client data.
-- [ ] Reconcile the approved metadata, privacy answers and review notes against the live App Store Connect record.
-- [ ] Replace the 21 July screenshot set with captures from the deployed Health & Capacity and workout candidate.
+- [x] Reconcile the approved metadata, privacy answers and review notes against the live App Store Connect record.
+- [x] Replace the 21 July screenshot set with captures from the deployed Health & Capacity and workout candidate.
 - [ ] Test pause/freeze states, DM, training, nutrition, cycle tracking and Terra fallback on physical devices.
 - [ ] Complete internal/external TestFlight, accessibility, crash review and final submission.
 

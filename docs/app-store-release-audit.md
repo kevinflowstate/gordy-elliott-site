@@ -2,7 +2,7 @@
 
 Date: 6 August 2026
 
-Candidate: AT CAPACITY 1.0 (Build 3)
+Candidate: AT CAPACITY 1.0 (Build 4)
 
 Status: engineering preflight passed; not ready for final App Store submission
 
@@ -16,25 +16,26 @@ Status: engineering preflight passed; not ready for final App Store submission
 - Focused visual QA passed for Health & Capacity, workout navigation, Strength Progress and MyFitnessPal nutrition at their supported mobile/desktop viewports.
 - iPhone 17 Pro Max simulator build: succeeded with Xcode 26.3.
 - Native launch and custom-scheme deep-link smoke tests: passed.
-- Signed AT CAPACITY 1.0 (3) archive exists from 31 July 2026. No native-project, identity, launch-asset or native-shell files have changed since that archive.
+- App Store Connect Build 4 was uploaded on 31 July 2026, is validated, production-signed, iPhone-only, uses bundle ID `com.gordyelliott.shift`, targets iOS 15.0 and declares no non-exempt encryption.
 - iOS release preflight passed on 6 August 2026 for the production URL, bundle ID, Apple team, distribution identity, manual signing, provisioning profile and production APNs entitlement.
 - App Review fixture passed on 6 August: active adult fictional client with 2 sessions, 10 prescribed exercises, 4 meals, 3 recent tracker entries, 3 check-ins and two-way DM.
 - Native push database: migration applied; RLS enabled; no `anon`/`authenticated` table access; authenticated register/read/remove API round trip passed.
 - Dependency audit: zero known production vulnerabilities at the last release pass.
-- Replacement App Store candidate screenshots: six opaque `1284 x 2778` iPhone JPEGs generated from production with the fictional review account on 6 August and visually inspected. They are ready for Gordy's approval and App Store Connect upload.
+- Replacement App Store screenshots: six opaque `1284 x 2778` iPhone captures generated from production with the fictional review account, visually inspected, converted losslessly to PNG and uploaded in the approved order on 6 August.
 
 ## App Store Connect state
 
-The following state was last verified on 21 July 2026. It could not be rechecked on 6 August because the available browser sessions were signed out of App Store Connect:
+The following state was verified live in App Store Connect on 6 August 2026:
 
-- Version 1.0 listing copy, keywords, categories and support details are saved.
-- Review username, contact details and notes are restored in the live form; Apple will not save that section until the required review password is entered.
+- The app and version metadata use AT CAPACITY branding, the canonical `app.onlinegordy.com` marketing/support URLs and the current review notes.
+- Review credentials and contact details are present in App Store Connect; secrets remain out of source control.
 - Distribution is free, public and iPhone-only; Mac, Apple Vision Pro and education-volume availability are disabled.
-- The age questionnaire was complete at 9+, and the app was declared not to be a regulated medical device. Reconcile this against the current worksheet, which recommends a 16+ override because the intended-client policy excludes under-16s.
-- App Privacy is published with 13 linked-to-identity data types and no tracking declaration.
+- The age questionnaire has a 16+ override and links to the public privacy policy, which states that the service is not directed to children under 16. The app remains declared not to be a regulated medical device.
+- App Privacy is published with the audited 13 linked-to-identity data types and no tracking declaration. Broad `Customer Support` and `Other Data` selections were replaced by `Product Interaction` and `Other Diagnostic Data`.
 - Manual release is selected. The version has not been added for review or submitted.
 - Push Notifications is enabled for `com.gordyelliott.shift`, and the App Store distribution profile has been regenerated.
-- The iPhone screenshot set is uploaded in this order: Dashboard, Training, Active Session, Daily Tracker, DM and Nutrition.
+- Validated Build 4 is attached to version 1.0.
+- The current iPhone screenshot set is uploaded in this order: Dashboard, Training, Active Session, Daily Tracker, DM and Nutrition.
 
 ## Security review
 
@@ -53,14 +54,10 @@ The RLS advisories are optimization work, not evidence of unauthorized access. C
 
 ## Remaining human and external gates
 
-- Sign into App Store Connect and reconcile the live app name, build availability, metadata, privacy answers, age rating, review notes, release mode and uploaded screenshots against this repository.
-- Confirm build 3 is still selectable for version 1.0. The signed archive and local signing preflight are already present.
 - Prove APNs delivery and deep-link opening on a physical TestFlight device.
-- Enter the App Review account password in App Store Connect without storing it in source control.
-- Confirm the privacy-policy URL is persisted in App Store Connect.
 - Complete Digital Services Act trader/business details with the account owner's legal information.
-- Gordy approves listing copy, screenshots, content rights and the fictional review account.
-- Gordy approves the 6 August replacement screenshot set before it replaces the historical App Store Connect uploads.
+- Complete and publish truthful App Accessibility declarations after physical-device accessibility QA.
+- Gordy approves listing copy, screenshots, content rights and the fictional review account before submission.
 - Retest MyFitnessPal after the observed Terra upstream timeout. Oura has completed a real TestFlight connection and recovery/readiness data pass.
 - Complete the Google Calendar production OAuth contract after Google approves the request; Outlook needs its production contract test as well.
 - Physical-device TestFlight covers password reset, keyboard, offline recovery, photos/camera, backgrounding, pause/freeze and account switching.
