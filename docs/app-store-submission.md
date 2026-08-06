@@ -41,12 +41,22 @@ The canonical review notes and contact details are in `docs/app-store-metadata.m
 
 ## Submission blockers
 
-- Rename the App Store Connect record from the historical "SHIFT Coaching by Gordy" to "AT CAPACITY by Gordy".
+- Confirm the live App Store Connect record is named "AT CAPACITY by Gordy"; the repository cannot verify the signed-in Apple state.
 - Gordy's approval of the listing copy, content-rights answer and representative review fixture.
-- Enter the drafted listing, age rating and privacy answers in App Store Connect. The listing and review notes saved there predate the 24 July 2026 calendar additions and must be re-entered from `docs/app-store-metadata.md`.
-- Decide whether calendar connections ship in version 1: Google Calendar is externally gated by Google's branding and data-access verification (submitted 24 July 2026, under review), and both Google and Outlook still need a real authenticated production contract test.
-- Capture final screenshots from the approved candidate.
+- Reconcile the drafted listing, age rating, privacy answers and review notes against App Store Connect. The last repository evidence says the saved listing predates the calendar and connected-health updates.
+- Keep Google Calendar in version 1 only after Google's branding/data-access verification is approved and a real production connection, sync, disconnect and native return pass succeeds. Outlook also needs its production contract test.
+- Capture final screenshots from the approved candidate. The uploaded 21 July set predates the redesigned Health & Capacity and workout experiences.
 - Physical-device TestFlight pass and crash review.
-- Terra production provider testing if Connected Apps is included in version 1.
+- Retest MyFitnessPal after the observed Terra upstream login timeout. Oura has connected and returned recovery/readiness data in TestFlight.
 - Enable the Apple Push Notifications capability, add APNs server credentials and pass a real-device delivery test.
 - Enable Supabase leaked-password protection in the dashboard.
+
+## Google approval trigger
+
+Google's approval should start only the final calendar closeout:
+
+1. Connect the review fixture to Google Calendar through the production OAuth consent screen.
+2. Confirm the app receives the native return, shows Connected rather than Pending, syncs read-only events and can disconnect cleanly.
+3. Confirm no unverified-app warning appears and calendar data remains excluded from AI routes.
+4. Update the final review notes with the verified behaviour and select the approved TestFlight build.
+5. Submit manually to Apple only after the remaining App Store Connect and physical-device gates above are complete.

@@ -25,6 +25,7 @@
     "verify:strength-progress": "node scripts/verify-strength-progress.mjs",
     "verify:app-store-metadata": "node scripts/check-app-store-metadata.mjs",
     "verify:review-fixture": "node scripts/check-app-review-fixture.mjs",
+    "refresh:review-fixture": "node scripts/refresh-app-review-fixture.mjs",
     "verify:portal": "npm run lint && npm run build && npm run check:shift-ai-inputs",
     "ios:prepare": "node scripts/prepare-native-shell.mjs",
     "ios:sync": "node scripts/sync-ios.mjs",

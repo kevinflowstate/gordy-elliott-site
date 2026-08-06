@@ -21,7 +21,9 @@ Record device model, iOS version, build number, tester and result for every run.
 - Progress/gallery: camera and photo-library permission paths, upload, cancel and denial state.
 - Cycle Tracker: visible only for eligible opted-in female accounts; safety copy remains client-appropriate.
 - Pause/freeze: paused coaching suppresses attention noise; frozen access shows the paused screen.
-- Connected Apps: unavailable state before Terra credentials, then widget hand-off and return after Terra is live.
+- Health & Capacity: consent disappears permanently after acceptance, each provider starts disconnected, widget hand-off returns to the installed app, and successful providers settle on Connected rather than Pending.
+- Connected-health data: Oura sleep, HRV, readiness and activity populate independently; nutrition is not shown as missing merely because an Oura user does not track food.
+- MyFitnessPal: provider login, native return and synced nutrition totals complete without exposing a raw Terra gateway error.
 
 ## Device behaviour
 

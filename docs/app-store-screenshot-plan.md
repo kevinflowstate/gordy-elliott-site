@@ -20,7 +20,7 @@ Restricting version 1 to iPhone avoids an untested iPad interface and the separa
 | 3 | Active session | Log every set without losing focus | Session glow/timer visible with no keyboard |
 | 4 | Daily Tracker | One minute to keep coaching personal | Current sliders and three recent fictional days |
 | 5 | DM | Direct access to your coach | Neutral two-way fictional conversation |
-| 6 | Nutrition or Connected Apps | Targets and recovery context in one place | Complete nutrition plan, or real Terra provider state only after credentials exist |
+| 6 | Health & Capacity or Nutrition | Recovery context, made useful | Fictional connected-health fixture with representative non-personal data, or the complete assigned nutrition plan |
 
 ## Visual rules
 
@@ -44,10 +44,16 @@ npm run capture:app-store
 
 The script refuses to continue unless the authenticated dashboard visibly identifies the fictional Demo Client. It writes opaque JPEGs and a non-secret manifest under the external Xcode volume by default. Draft captures are for visual review; repeat the command against the approved release candidate before uploading the final set.
 
-The final production-backed set is stored outside source control at the path below (the directory name predates the AT CAPACITY rename and is kept as-is because App Store Connect already references these uploads):
+The historical production-backed set is stored outside source control at the path below (the directory name predates the AT CAPACITY rename and is kept as-is because App Store Connect already references these uploads):
 
 `/Volumes/XCode/Storage-Quarantine-2026-07-15/SHIFT-AppStore-Screenshots/2026-07-21-production-final-v2`
 
-These screenshots were captured on 21 July 2026, before the Founder Dashboard and calendar work. If Founder Dashboard or calendar features ship in version 1, regenerate the set from the release candidate as required by the implementation checklist.
+These screenshots were captured on 21 July 2026, before the Founder Dashboard, calendar work, redesigned Health & Capacity screen and current workout runner. They are historical evidence only and must be regenerated from the approved release candidate before submission.
 
 All six files were verified as opaque JPEGs at `1284 x 2778`, visually inspected and uploaded to App Store Connect in the capture-sequence order above.
+
+The 6 August replacement candidate is stored at:
+
+`/Volumes/XCode/Storage-Quarantine-2026-07-15/SHIFT-AppStore-Screenshots/2026-08-06-production-candidate`
+
+It contains six opaque `1284 x 2778` JPEGs generated from production with the marked fictional review account. The set has been visually inspected and includes the current exercise-by-exercise workout runner. It has not yet replaced the historical uploads in App Store Connect.

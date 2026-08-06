@@ -73,7 +73,7 @@ Programme-level guarantee configuration (`guarantee_settings`) holds no client p
 
 - Data is used to provide coaching and app functionality; it is not sold and is not used for third-party advertising or cross-company tracking.
 - Calendar connections are optional, client-initiated, read-only, and disclosed in the privacy policy with Google Limited Use wording and Composio named as processor.
-- Wearable connections are optional and client-initiated through the Terra widget; production credentials are not yet configured, so production presents an unavailable state rather than mock data.
+- Wearable connections are optional and client-initiated through the Terra widget. Production credentials are configured; Oura has completed a real TestFlight connection/data pass, while MyFitnessPal still needs a successful retest after an observed upstream provider timeout. Production never substitutes mock data.
 - Camera and photo library access are used only when the client chooses to upload an image.
 - Clients can disconnect providers and permanently delete their account from Settings.
 

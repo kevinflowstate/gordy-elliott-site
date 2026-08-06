@@ -1,13 +1,14 @@
 # AT CAPACITY iOS Roadmap
 
-## Current position - 21 July 2026
+## Current position - 6 August 2026
 
 - App Store Connect record exists under the historical product name **SHIFT Coaching by Gordy** (`6792719833`) and must be renamed to **AT CAPACITY by Gordy** before the next submission.
 - Registered bundle ID: `com.gordyelliott.shift` on Apple team `H4J3XX8R8M`. Bundle IDs cannot be changed after registration; the `shift` segment is a permanent historical artefact and does not appear to clients.
 - Build 1 uploaded successfully and available to the `SHIFT Internal` TestFlight group (historical group name; rename alongside the record if desired).
 - Build 2 was the hardening candidate for the 21 July audit. Build 3 is the current candidate recorded in `config/app-identity.json` and the Xcode project; it carries that hardening work forward.
 - The production database now has a locked-down native device-token store. A live authenticated register/read/remove round trip passes without exposing tokens to browser roles.
-- The App Store metadata, privacy answers, age-rating worksheet, review notes and screenshot plan are drafted and machine-checked. They still need to be entered in App Store Connect and confirmed by Gordy.
+- The App Store metadata, privacy answers, age-rating worksheet, review notes and screenshot plan are drafted and machine-checked. The live App Store Connect values still need to be reconciled against these documents and confirmed by Gordy.
+- Google OAuth verification for the optional Founder Google Calendar connection remains under review. Apple preparation continues independently; Google approval is a final calendar smoke-test gate, not the start of App Store preparation.
 - The web/PWA remains the source application. The iOS target is an additional signed client, not a replacement repository or separate product database.
 
 ## Product shape
@@ -51,7 +52,9 @@ The initial native shell uses the existing hosted portal so training, nutrition,
 - [x] Widget-session, connection, raw-event and normalized daily-summary groundwork.
 - [x] Raw-body HMAC webhook verification, idempotency and multi-item payload normalization.
 - [x] Production mock-data lockout and suggestion-only coaching safeguards.
-- [ ] Add Terra production credentials/signing secret and complete provider sandbox testing.
+- [x] Add Terra production credentials/signing secret and activate the production connection flow.
+- [x] Prove Oura connection, native return and recovery/readiness ingestion with a real TestFlight account.
+- [ ] Retest MyFitnessPal after Terra's observed upstream login timeout and record a successful nutrition sync.
 - Garmin, Oura and other Terra web-widget connections remain available inside the app through secure browser hand-off.
 - Synced summaries remain suggestion-only and never mutate training plans automatically.
 - Apple Health is a later native SDK phase and is not required for the first Terra-enabled App Store build.
@@ -63,8 +66,8 @@ The initial native shell uses the existing hosted portal so training, nutrition,
 - [x] Add deployable privacy/support URLs and an App Privacy data inventory.
 - [x] Draft and validate App Store privacy answers, age rating, description and review notes.
 - [x] Provide a dedicated review account with representative, non-personal client data.
-- [ ] Enter the approved metadata and privacy answers in App Store Connect.
-- [ ] Capture final screenshots from the deployed, approved candidate.
+- [ ] Reconcile the approved metadata, privacy answers and review notes against the live App Store Connect record.
+- [ ] Replace the 21 July screenshot set with captures from the deployed Health & Capacity and workout candidate.
 - [ ] Test pause/freeze states, DM, training, nutrition, cycle tracking and Terra fallback on physical devices.
 - [ ] Complete internal/external TestFlight, accessibility, crash review and final submission.
 
@@ -81,7 +84,7 @@ The initial native shell uses the existing hosted portal so training, nutrition,
 ## Inputs still required
 
 - Universal Links and authentication callback validation on the live `app.onlinegordy.com` domain.
-- Terra production Dev ID, API key, webhook signing secret and confirmed launch providers.
+- A successful MyFitnessPal provider retest and the final list of connected-health providers advertised at launch.
 - Gordy's approval of the drafted listing copy, content-rights answer and fictional review fixture.
 - Apple Push Notifications capability plus APNs signing key details.
 - Final candidate screenshots and completed physical-device TestFlight evidence.

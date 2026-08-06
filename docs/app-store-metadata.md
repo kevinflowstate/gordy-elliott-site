@@ -1,6 +1,6 @@
 # AT CAPACITY App Store Metadata
 
-Prepared 21 July 2026 for the first iOS release; calendar-connection copy and review notes added 24 July 2026. Recheck character limits in App Store Connect before submission. The listing currently saved in App Store Connect predates the calendar additions and must be re-entered from this document.
+Prepared 21 July 2026 for the first iOS release; calendar-connection copy and review notes added 24 July and connected-health status rechecked 6 August 2026. Recheck character limits and reconcile every value against App Store Connect before submission.
 
 ## Product fields
 
@@ -80,7 +80,7 @@ AT CAPACITY is a sign-in-only companion app for existing Gordy Elliott coaching 
 
 Use the supplied Demo Client account to inspect an assigned training programme and log a session; view the assigned nutrition plan; use Daily Tracker; review check-ins and coach replies; open DM; view consultation and Settings; and inspect Connected Apps. The account contains representative fictional data only.
 
-Connected-health summaries are informational coaching signals. They do not diagnose conditions and never alter a training programme automatically. Apple Health is not enabled in version 1. When Terra production credentials are unavailable, Connected Apps presents an unavailable state rather than fabricated data.
+Connected-health summaries are optional informational coaching signals. They do not diagnose conditions and never alter a training programme automatically. Apple Health is not enabled in version 1. Oura has completed a real TestFlight connection and data-ingestion pass. MyFitnessPal must complete a final provider retest after an observed Terra upstream login timeout. Connection failures are shown honestly and the app never substitutes fabricated production data.
 
 Calendar connections (Founder Dashboard clients) are optional and read-only. The app does not use EventKit or request the iOS calendar permission; clients authorise Google Calendar or Outlook Calendar through the provider's own OAuth consent screen, processed by Composio as service provider. AT CAPACITY stores only event identifiers, titles (private events shown as "Busy"), start/end times, busy status and a meeting link - never descriptions or attendee lists. Disconnecting removes the synced copies. If calendar providers are not configured in the review build, the connect screen presents a not-available state.
 
