@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatExercisePrescription, shouldUseSetLogging } from "@/lib/exercise-prescriptions";
-import type { WorkoutSetData } from "@/lib/workout-runner";
+import {
+  nextWorkoutExerciseIndex,
+  workoutSetProgress,
+  type WorkoutSetData,
+} from "@/lib/workout-runner";
 import type { ExerciseSession, ExerciseSessionItem } from "@/lib/types";
 
 type RunnerStage = "preview" | "section" | "exercise" | "review" | "summary";
@@ -76,13 +80,21 @@ function Icon({
   name,
   className = "h-5 w-5",
 }: {
-  name: "back" | "check" | "close" | "play" | "timer";
+  name: "back" | "check" | "close" | "list" | "play" | "timer";
   className?: string;
 }) {
   const paths = {
     back: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m15 18-6-6 6-6" />,
     check: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="m5 12 4 4L19 6" />,
     close: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 6l12 12M18 6 6 18" />,
+    list: (
+      <>
+        <path strokeLinecap="round" strokeWidth="1.9" d="M9 7h11M9 12h11M9 17h11" />
+        <circle cx="4.5" cy="7" r="1" fill="currentColor" stroke="none" />
+        <circle cx="4.5" cy="12" r="1" fill="currentColor" stroke="none" />
+        <circle cx="4.5" cy="17" r="1" fill="currentColor" stroke="none" />
+      </>
+    ),
     play: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m10 8 6 4-6 4V8Z" />,
     timer: (
       <>
@@ -124,6 +136,8 @@ export default function AtCapacityWorkoutRunner({
   const [finishing, setFinishing] = useState(false);
   const [localStartedAt, setLocalStartedAt] = useState<number | null>(() => startedAt);
   const [finishedAt, setFinishedAt] = useState<number | null>(null);
+  const [showOverview, setShowOverview] = useState(false);
+  const currentOverviewItemRef = useRef<HTMLButtonElement | null>(null);
   const workoutStartedAt = startedAt ?? localStartedAt;
 
   const current = exercises[exerciseIndex];
@@ -156,6 +170,21 @@ export default function AtCapacityWorkoutRunner({
     }, 1000);
     return () => window.clearInterval(interval);
   }, [restRemaining]);
+
+  useEffect(() => {
+    if (!showOverview) return;
+    const frame = window.requestAnimationFrame(() => {
+      currentOverviewItemRef.current?.scrollIntoView({ block: "center" });
+    });
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowOverview(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [exerciseIndex, showOverview]);
 
   function enterExercise(index: number, fromSection: string | null) {
     const next = exercises[index];
@@ -194,6 +223,13 @@ export default function AtCapacityWorkoutRunner({
     enterExercise(exerciseIndex + 1, current?.section || null);
   }
 
+  function jumpToExercise(index: number) {
+    if (index < 0 || index >= exercises.length) return;
+    setExerciseIndex(index);
+    setStage("exercise");
+    setShowOverview(false);
+  }
+
   function toggleSet(item: ExerciseSessionItem, setIndex: number) {
     const wasCompleted = sets[item.id]?.[setIndex]?.completed;
     onToggleSet(item.id, setIndex);
@@ -217,6 +253,8 @@ export default function AtCapacityWorkoutRunner({
       ? 100
       : Math.round(((exerciseIndex + 1) / exercises.length) * 100)
     : 0;
+  const upcomingIndex = nextWorkoutExerciseIndex(exerciseIndex, exercises.length);
+  const upcomingExercise = upcomingIndex === null ? null : exercises[upcomingIndex];
 
   return (
     <div
@@ -249,9 +287,21 @@ export default function AtCapacityWorkoutRunner({
               </p>
             )}
           </div>
-          <p className="shrink-0 text-xs font-semibold text-white/55">
-            {stage === "preview" ? dateLabel : stage === "review" ? "Review" : stage === "summary" ? "Complete" : `${exerciseIndex + 1}/${exercises.length}`}
-          </p>
+          {stage === "exercise" || stage === "section" ? (
+            <button
+              type="button"
+              onClick={() => setShowOverview(true)}
+              aria-label="Session overview"
+              className="flex h-11 shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 text-xs font-bold text-white/70 transition active:scale-95"
+            >
+              <span>{exerciseIndex + 1}/{exercises.length}</span>
+              <Icon name="list" className="h-[18px] w-[18px] text-[#F060E0]" />
+            </button>
+          ) : (
+            <p className="shrink-0 text-xs font-semibold text-white/55">
+              {stage === "preview" ? dateLabel : stage === "review" ? "Review" : "Complete"}
+            </p>
+          )}
         </div>
         <div className="mx-auto mt-3 h-1 w-full max-w-2xl overflow-hidden rounded-full bg-white/8">
           <div className="h-full rounded-full bg-[#E040D0] transition-[width] duration-300" style={{ width: `${progress}%` }} />
@@ -551,6 +601,20 @@ export default function AtCapacityWorkoutRunner({
 
       {stage === "exercise" && (
         <footer className="shrink-0 border-t border-white/8 bg-[#09090b]/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+          {upcomingExercise && (
+            <button
+              type="button"
+              onClick={() => jumpToExercise(upcomingIndex!)}
+              className="mx-auto mb-2.5 flex min-h-11 w-full max-w-2xl items-center gap-3 rounded-xl border border-white/8 bg-white/[0.035] px-3.5 text-left transition active:bg-white/[0.07]"
+            >
+              <span className="text-[9px] font-black uppercase tracking-[0.16em] text-[#F060E0]">Up next</span>
+              <span className="min-w-0 flex-1 truncate text-xs font-bold text-white/72">
+                {upcomingExercise.item.exercise?.name || "Exercise"}
+              </span>
+              <span className="text-[10px] font-semibold text-white/30">{upcomingIndex! + 1}/{exercises.length}</span>
+              <Icon name="back" className="h-3.5 w-3.5 rotate-180 text-white/35" />
+            </button>
+          )}
           <div className="mx-auto grid w-full max-w-2xl grid-cols-[0.8fr_1.2fr] gap-3">
             <button type="button" onClick={previous} className="flex min-h-12 items-center justify-center gap-1 rounded-2xl border border-white/12 bg-white/5 px-4 text-sm font-bold text-white/70">
               <Icon name="back" className="h-4 w-4" /> Previous
@@ -571,7 +635,7 @@ export default function AtCapacityWorkoutRunner({
       )}
 
       {restRemaining !== null && stage === "exercise" && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-[110] flex justify-center px-4">
+        <div className={`pointer-events-none fixed inset-x-0 z-[110] flex justify-center px-4 ${upcomingExercise ? "bottom-[calc(8.5rem+env(safe-area-inset-bottom))]" : "bottom-[calc(5.5rem+env(safe-area-inset-bottom))]"}`}>
           <div className={`pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur ${restRemaining === 0 ? "border-emerald-400/40 bg-emerald-950/95" : "border-[#E040D0]/30 bg-[#181119]/95"}`}>
             <span className={`grid h-10 w-10 place-items-center rounded-full ${restRemaining === 0 ? "bg-emerald-400 text-black" : "bg-[#E040D0] text-white"}`}>
               {restRemaining === 0 ? <Icon name="check" /> : <Icon name="timer" />}
@@ -586,6 +650,111 @@ export default function AtCapacityWorkoutRunner({
               </button>
             )}
           </div>
+        </div>
+      )}
+
+      {showOverview && (
+        <div
+          className="fixed inset-0 z-[120] flex h-[100dvh] items-end justify-center bg-black/70 px-2 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-sm sm:items-center sm:p-4"
+          onClick={() => setShowOverview(false)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label="Session overview"
+            className="flex max-h-[86dvh] min-h-0 w-full max-w-2xl flex-col overflow-hidden rounded-t-[28px] border border-white/10 bg-[#121216] pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-28px_80px_rgba(0,0,0,0.52)] sm:max-h-[82vh] sm:rounded-[28px] sm:pb-3"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="shrink-0 border-b border-white/8 px-4 pb-4 pt-3">
+              <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/18 sm:hidden" />
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#F060E0]">Your workout</p>
+                  <h2 className="mt-1 font-heading text-2xl font-bold leading-none text-white">Session overview</h2>
+                  <p className="mt-1.5 text-xs text-white/42">
+                    {completedSets} of {totalSets} sets complete · tap any exercise to jump there
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowOverview(false)}
+                  aria-label="Close session overview"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/10 bg-white/5 text-white/65 transition active:scale-95"
+                >
+                  <Icon name="close" className="h-[18px] w-[18px]" />
+                </button>
+              </div>
+              <div className="mt-4 h-1 overflow-hidden rounded-full bg-white/8">
+                <div
+                  className="h-full rounded-full bg-[#E040D0] transition-[width] duration-300"
+                  style={{ width: `${totalSets ? Math.round((completedSets / totalSets) * 100) : 0}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3">
+              {exercises.map((exercise, index) => {
+                const itemProgress = workoutSetProgress(sets[exercise.item.id]);
+                const currentExercise = index === exerciseIndex;
+                const startsSection = exercise.section && (index === 0 || exercises[index - 1]?.section !== exercise.section);
+                return (
+                  <div key={exercise.item.id}>
+                    {startsSection && (
+                      <p className="px-2 pb-2 pt-3 text-[9px] font-black uppercase tracking-[0.2em] text-white/28 first:pt-0">
+                        {exercise.section}
+                      </p>
+                    )}
+                    <button
+                      ref={currentExercise ? currentOverviewItemRef : undefined}
+                      type="button"
+                      onClick={() => jumpToExercise(index)}
+                      aria-label={`${exercise.item.exercise?.name || "Exercise"}, exercise ${index + 1} of ${exercises.length}, ${itemProgress.completed} of ${itemProgress.total} sets complete`}
+                      className={`mb-2 flex min-h-[76px] w-full items-center gap-3 rounded-2xl border p-3 text-left transition active:scale-[0.995] ${
+                        currentExercise
+                          ? "border-[#E040D0]/55 bg-[#E040D0]/10 shadow-[inset_3px_0_0_#E040D0]"
+                          : "border-white/[0.07] bg-white/[0.025] active:bg-white/[0.055]"
+                      }`}
+                    >
+                      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-black ${
+                        itemProgress.done
+                          ? "bg-emerald-400 text-black"
+                          : currentExercise
+                            ? "bg-[#E040D0] text-white"
+                            : "bg-white/[0.06] text-white/42"
+                      }`}>
+                        {itemProgress.done ? <Icon name="check" className="h-4 w-4" /> : index + 1}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-bold text-white">
+                          {exercise.item.exercise?.name || "Exercise"}
+                        </span>
+                        <span className="mt-1 block text-[11px] text-white/38">
+                          {formatExercisePrescription(exercise.item)} · {itemProgress.completed}/{itemProgress.total} sets
+                        </span>
+                      </span>
+                      {currentExercise ? (
+                        <span className="shrink-0 rounded-full bg-[#E040D0]/14 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#F060E0]">
+                          Current
+                        </span>
+                      ) : (
+                        <Icon name="back" className="h-4 w-4 shrink-0 rotate-180 text-white/24" />
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="shrink-0 border-t border-white/8 px-3 pt-3">
+              <button
+                type="button"
+                onClick={() => setShowOverview(false)}
+                className="min-h-12 w-full rounded-2xl bg-white px-5 text-sm font-black text-black transition active:scale-[0.995]"
+              >
+                Continue current exercise
+              </button>
+            </div>
+          </section>
         </div>
       )}
     </div>
