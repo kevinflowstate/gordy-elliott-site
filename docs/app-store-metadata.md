@@ -1,6 +1,6 @@
 # AT CAPACITY App Store Metadata
 
-Prepared 21 July 2026 for the first iOS release; calendar-connection copy and review notes added 24 July 2026. Recheck character limits in App Store Connect before submission. The listing currently saved in App Store Connect predates the calendar additions and must be re-entered from this document.
+Prepared 21 July 2026 for the first iOS release; calendar-connection copy and review notes added 24 July and connected-health status rechecked 6 August 2026. Recheck character limits and reconcile every value against App Store Connect before submission.
 
 ## Product fields
 
@@ -53,7 +53,7 @@ COACHING CONTEXT THAT MOVES WITH YOU
 
 Eligible clients can use optional cycle tracking. Supported connected apps can also contribute sleep, recovery, activity and nutrition summaries when enabled. Founder Dashboard clients can optionally connect Google Calendar or Outlook Calendar with read-only access so the dashboard reflects the shape of their day. These signals support coaching suggestions only and never change a programme automatically.
 
-Note before submission: keep the calendar sentence only if calendar connections are enabled for the launch build. Google Calendar remains externally gated by Google's verification review (submitted 24 July 2026, under review); Outlook does not depend on that review but still needs its production contract test.
+Note before submission: Google Calendar branding and data-access verification was approved on 7 August 2026. Production browser connect, sync, refresh, disconnect/reconnect and cancellation QA passed without an unverified-app warning. Keep the calendar sentence only after exact TestFlight native return and real event ingestion also pass. Outlook still needs its production contract test.
 
 AT CAPACITY AI can help eligible AI Coaching clients find assigned content and understand their existing coaching plan. Founder Dashboard clients receive direct coaching from Gordy and do not use in-app AI. AI does not replace Gordy, diagnose conditions or provide emergency or medical care.
 
@@ -80,13 +80,17 @@ AT CAPACITY is a sign-in-only companion app for existing Gordy Elliott coaching 
 
 Use the supplied Demo Client account to inspect an assigned training programme and log a session; view the assigned nutrition plan; use Daily Tracker; review check-ins and coach replies; open DM; view consultation and Settings; and inspect Connected Apps. The account contains representative fictional data only.
 
-Connected-health summaries are informational coaching signals. They do not diagnose conditions and never alter a training programme automatically. Apple Health is not enabled in version 1. When Terra production credentials are unavailable, Connected Apps presents an unavailable state rather than fabricated data.
+Connected-health summaries are optional informational coaching signals. They do not diagnose conditions and never alter a training programme automatically. Apple Health is not enabled in version 1. Oura has completed a real TestFlight connection and data-ingestion pass. MyFitnessPal must complete a final provider retest after an observed Terra upstream login timeout. Connection failures are shown honestly and the app never substitutes fabricated production data.
 
 Calendar connections (Founder Dashboard clients) are optional and read-only. The app does not use EventKit or request the iOS calendar permission; clients authorise Google Calendar or Outlook Calendar through the provider's own OAuth consent screen, processed by Composio as service provider. AT CAPACITY stores only event identifiers, titles (private events shown as "Busy"), start/end times, busy status and a meeting link - never descriptions or attendee lists. Disconnecting removes the synced copies. If calendar providers are not configured in the review build, the connect screen presents a not-available state.
+
+Google Calendar OAuth branding and data-access verification is approved. Production browser QA passed the verified consent screen, read-only permissions, return to AT CAPACITY, sync, refresh, disconnect/reconnect and cancelled-permission handling without an unverified-app warning. Exact TestFlight native-return QA will be completed before submission.
 
 Notification permission is requested only after the client selects Enable. DMs, coach nudges, tasks and reminders use the same account-level pause/freeze suppression rules as in-app notifications.
 
 Account deletion is available after sign-in under Settings > Delete account and requires explicit confirmation. The privacy policy and support page are also available publicly at the URLs supplied in App Store Connect.
+
+Before final submission, append the native-behaviour paragraph prepared in `docs/app-store-reviewer-walkthrough.md` only after every named behaviour has passed on exact TestFlight Build 5. Reviewer-note copy must not overstate an unverified APNs, external-provider, camera/photo or offline-return path.
 
 ## Other submission answers
 
