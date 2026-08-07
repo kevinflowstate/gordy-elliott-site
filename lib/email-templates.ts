@@ -12,7 +12,7 @@ async function getResend() {
   const { Resend } = await import("resend");
   return new Resend(process.env.RESEND_API_KEY!);
 }
-const FROM = "AT CAPACITY <team@flowstatesystems.ai>";
+const FROM = process.env.RESEND_FROM_EMAIL || "AT CAPACITY <info@onlinegordy.com>";
 
 function wrap(content: string): string {
   return `
