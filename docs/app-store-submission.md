@@ -44,9 +44,9 @@ The canonical review notes and contact details are in `docs/app-store-metadata.m
 ## Submission blockers
 
 - Gordy's approval of the listing copy, content-rights answer and representative review fixture.
-- Keep Google Calendar in version 1 only after Google's branding/data-access verification is approved and a real production connection, sync, disconnect and native return pass succeeds. Outlook also needs its production contract test.
+- Google Calendar branding/data-access verification is approved and its production browser connect, sync, refresh, disconnect/reconnect and cancellation paths pass. Keep it in version 1 only after exact TestFlight native return and real event ingestion also pass. Outlook still needs its production contract test.
 - Complete the physical-device TestFlight pass and crash review on that exact Build 5.
-- Reset and retest the fictional Demo Client password, then update App Store Connect to the same verified credential. The account exists, but the credential currently saved in App Store Connect was rejected by production on 6 August.
+- Run the exact TestFlight reviewer walkthrough with the now-verified fictional Demo Client credential saved in App Store Connect.
 - Retest MyFitnessPal after the observed Terra upstream login timeout. Oura has connected and returned recovery/readiness data in TestFlight.
 - Pass a real-device APNs delivery and deep-link opening test.
 - Complete Digital Services Act trader/business details with the account owner's legal information.
@@ -58,7 +58,8 @@ The canonical review notes and contact details are in `docs/app-store-metadata.m
 - Supabase leaked-password protection is enabled. The live Supabase security advisor returned no findings on 6 August.
 - Build 5 has a production-signed local archive with a valid distribution signature, production APNs entitlement, `get-task-allow = false`, iPhone-only device family and valid Capacitor/Cordova privacy manifests.
 - Build 5 passed Organizer validation, uploaded successfully, completed Apple processing and is available to the `SHIFT Internal` TestFlight group as **Ready to Submit**.
-- The live App Store Connect version remains **Prepare for Submission**, uses manual release and has not been added for review.
+- Build 5 is attached to App Store version 1.0. The live version remains **Prepare for Submission**, uses manual release and has not been added for review.
+- The fictional Demo Client credential stored in App Store Connect signs in successfully to production.
 
 ## Submission hold
 
@@ -68,8 +69,14 @@ Preparation may include archiving, validating and uploading Build 5 to TestFligh
 
 Google's approval should start only the final calendar closeout:
 
-1. Connect the review fixture to Google Calendar through the production OAuth consent screen.
-2. Confirm the app receives the native return, shows Connected rather than Pending, syncs read-only events and can disconnect cleanly.
-3. Confirm no unverified-app warning appears and calendar data remains excluded from AI routes.
-4. Update the final review notes with the verified behaviour and select the approved TestFlight build.
-5. Submit manually to Apple only after the remaining App Store Connect and physical-device gates above are complete.
+Completed on 7 August 2026:
+
+1. Google approved AT CAPACITY branding and data access.
+2. Production browser QA showed no unverified-app warning and passed connect, return, sync, refresh, disconnect/reconnect and cancellation handling.
+3. Calendar-to-AI isolation remains covered by the release-contract suite.
+4. App Store Connect review notes were updated and Build 5 was selected.
+
+Still required:
+
+1. Prove exact TestFlight native return and real event ingestion; the QA Google calendar had zero events in the seven-day sync window.
+2. Submit manually to Apple only after the remaining App Store Connect and physical-device gates above are complete.

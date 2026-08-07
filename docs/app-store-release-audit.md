@@ -1,6 +1,6 @@
 # App Store Release Audit
 
-Date: 6 August 2026
+Date: 7 August 2026
 
 Candidate: AT CAPACITY 1.0 (Build 5)
 
@@ -17,7 +17,7 @@ Verdict: **not ready to submit**. The code-controlled preparation is substantial
 - Production origin: `https://app.onlinegordy.com`.
 - Apple team: `H4J3XX8R8M`.
 
-Build 4 remains attached to version 1.0 in App Store Connect. Build 5 is processed and available to the `SHIFT Internal` TestFlight group, but is not attached to the App Store version. Version 1.0 remains in **Prepare for Submission**.
+Build 5 is processed, available to the `SHIFT Internal` TestFlight group and attached to App Store version 1.0. Version 1.0 remains in **Prepare for Submission** and has not been added for review.
 
 ## Passed engineering evidence
 
@@ -35,7 +35,7 @@ Build 4 remains attached to version 1.0 in App Store Connect. Build 5 is process
 - App Store metadata verifier: passed the name, subtitle, promotional text, keyword and iPhone-only checks.
 - Public production App Store contract: 19 checks passed for privacy/support/auth boundaries, Google disclosures, security headers and unauthenticated native-push rejection.
 - Supabase leaked-password protection is enabled. The live Supabase security advisor returned no findings after the change.
-- Live App Store Connect draft: metadata, privacy answers, 16+ age override, manual release, six replacement screenshots and Build 4 were verified; **Add for Review** was not selected. The draft was rechecked after the Build 5 upload and still remains **Prepare for Submission** with Build 4 attached.
+- Live App Store Connect draft: metadata, privacy answers, 16+ age override, manual release, six replacement screenshots and Build 5 were verified; **Add for Review** was not selected. The Calendar review note was updated after production OAuth QA and the draft remains **Prepare for Submission**.
 
 The complete authenticated production contract previously passed 85/85 on 6 August. It could not be independently rerun from the release shell during this pass because the temporary QA storage state/service-role environment was not present.
 
@@ -43,18 +43,11 @@ The complete authenticated production contract previously passed 85/85 on 6 Augu
 
 The Apple account for team `H4J3XX8R8M` was restored in Xcode. Organizer validated Build 5 successfully, uploaded it to App Store Connect and recorded the archive status as **Uploaded**. App Store Connect completed processing at 16:18 BST on 6 August 2026. No validation or processing warning was shown.
 
-Build 5 is in the existing internal TestFlight group only. Its TestFlight **What to Test** field contains the exact launch, workout, tracker, connected-health, native-return, APNs, photo, offline and accessibility focus for this candidate. It has not been added to the external `Gordy Preview` group, selected for the App Store version or added for App Review.
+Build 5 is in the existing internal TestFlight group only and is selected for App Store version 1.0. Its TestFlight **What to Test** field contains the exact launch, workout, tracker, connected-health, native-return, APNs, photo, offline and accessibility focus for this candidate. It has not been added to the external `Gordy Preview` group or added for App Review.
 
-## Reviewer-access blocker
+## Reviewer access
 
-The fictional Demo Client user exists, but a production login using the credential currently saved in App Store Connect was rejected on 6 August. Do not put the password in source control.
-
-Required resolution:
-
-1. Reset the synthetic review account password in Supabase.
-2. Prove a clean production sign-in using the new value.
-3. Update only the App Store Connect review credential to the same value.
-4. Re-run the reviewer walkthrough on exact TestFlight Build 5.
+The fictional Demo Client credential stored in App Store Connect now signs in successfully to production and remains isolated as a client account. Do not put the password in source control. The exact TestFlight Build 5 reviewer walkthrough is still required on physical devices.
 
 ## Security and privacy scan
 
@@ -84,9 +77,9 @@ Residual risk remains significant because the core signed app loads the hosted p
 
 ## App Store Connect and external gates
 
-- Digital Services Act status is incomplete. Trader/non-trader status and any displayed contact details require the account owner's legal decision.
+- Digital Services Act status is incomplete. App Store Connect still shows **Complete Compliance Requirements**. Trader/non-trader status and any displayed contact details require the account owner's legal decision.
 - App Accessibility declarations are unconfigured. Publish only after the evidence matrix in `docs/app-store-accessibility.md` is completed on physical devices.
-- Google Calendar OAuth verification remains under review. Either complete the production Google contract before submission or remove/disable the Google launch claim and show an honest unavailable state.
+- Google Calendar OAuth branding and data-access verification is approved. Production browser QA passed the verified consent screen, the two read-only permissions, return to AT CAPACITY, sync, refresh, disconnect/reconnect and cancelled-permission handling without an unverified-app warning. The connected QA calendar contained no events in the seven-day window, so real event ingestion and capacity impact were not observed. Exact TestFlight native-return QA remains required.
 - Outlook needs its production connect/sync/disconnect/native-return contract.
 - MyFitnessPal needs a successful retest after the observed Terra upstream login timeout.
 - Oura has completed a real TestFlight connection and returned recovery/readiness data.
@@ -94,12 +87,11 @@ Residual risk remains significant because the core signed app loads the hosted p
 
 ## Exact remaining pre-submission sequence
 
-1. Restore and verify the fictional review credential, then update App Store Connect.
-2. Install exact Build 5 from the `SHIFT Internal` TestFlight group.
-3. Run `docs/testflight-checklist.md` and `docs/app-store-reviewer-walkthrough.md` on a small and a current large iPhone.
-4. Prove APNs delivery/deep-link opening, password reset/native return, backgrounding, offline recovery, photo permissions and account separation.
-5. Retest MyFitnessPal and decide the Google/Outlook launch state.
-6. Complete the accessibility evidence matrix and publish only declarations that passed.
-7. Complete the DSA legal declaration with the account owner.
-8. Review TestFlight crash data and the final App Store metadata/build attachment.
-9. Stop with version 1.0 still in **Prepare for Submission** until Kevin gives separate submission authorization.
+1. Install exact Build 5 from the `SHIFT Internal` TestFlight group.
+2. Run `docs/testflight-checklist.md` and `docs/app-store-reviewer-walkthrough.md` on a small and a current large iPhone.
+3. Prove APNs delivery/deep-link opening, password reset/native return, Google Calendar event ingestion, backgrounding, offline recovery, photo permissions and account separation.
+4. Retest MyFitnessPal and complete the Outlook production contract or present it as unavailable for launch.
+5. Complete the accessibility evidence matrix and publish only declarations that passed.
+6. Complete the DSA legal declaration with the account owner.
+7. Review TestFlight crash data and the final App Store metadata/build attachment.
+8. Stop with version 1.0 still in **Prepare for Submission** until Kevin gives separate submission authorization.
