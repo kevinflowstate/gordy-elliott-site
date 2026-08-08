@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import InboxThread from "@/components/inbox/InboxThread";
 import { useToast } from "@/components/ui/Toast";
+import { hasUnreadIncomingMessages } from "@/lib/inbox-client";
 import type { InboxMessage } from "@/lib/types";
 
 interface ThreadResponse {
@@ -19,30 +20,51 @@ export default function ClientInboxClient() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const threadAbortController = useRef<AbortController | null>(null);
 
   const loadThread = useCallback(async () => {
+    threadAbortController.current?.abort();
+    const controller = new AbortController();
+    threadAbortController.current = controller;
+
     try {
-      const res = await fetch("/api/inbox/thread");
+      const res = await fetch("/api/inbox/thread", { signal: controller.signal });
       if (!res.ok) throw new Error("Could not load your DMs.");
-      const data = await res.json();
+      const data = await res.json() as ThreadResponse;
+      if (controller.signal.aborted) return;
       setThread(data);
       setError(null);
-      await fetch("/api/inbox/read", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
+      if (hasUnreadIncomingMessages(data.messages || [], "client")) {
+        await fetch("/api/inbox/read", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+          signal: controller.signal,
+        });
+      }
     } catch (err) {
+      if (controller.signal.aborted) return;
       setError(err instanceof Error ? err.message : "Could not load your DMs.");
     } finally {
-      setLoading(false);
+      if (threadAbortController.current === controller) {
+        threadAbortController.current = null;
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
     void loadThread();
-    const interval = setInterval(loadThread, 10000);
-    return () => clearInterval(interval);
+    const refreshVisibleThread = () => {
+      if (!document.hidden) void loadThread();
+    };
+    const interval = setInterval(refreshVisibleThread, 30000);
+    document.addEventListener("visibilitychange", refreshVisibleThread);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshVisibleThread);
+      threadAbortController.current?.abort();
+    };
   }, [loadThread]);
 
   async function handleSend(message: string) {
