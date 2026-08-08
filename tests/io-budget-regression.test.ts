@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { hasUnreadIncomingMessages } from "../lib/inbox-client";
+import { OperationTimeoutError, withTimeout } from "../lib/operation-timeout";
 import type { InboxMessage } from "../lib/types";
 
 function read(relativePath: string) {
@@ -63,4 +64,18 @@ test("Terra retries do not rewrite identical raw payloads or completed summaries
   assert.match(terraWebhook, /duplicateAlreadyApplied/);
   assert.match(terraWebhook, /source_payload_ids\?\.includes\(event\.id\)/);
   assert.doesNotMatch(terraWebhook, /client_wearable_events"\)[\s\S]*?\.select\("\*"\)/);
+});
+
+test("middleware skips public auth work and fails fast when Supabase stalls", async () => {
+  assert.equal(await withTimeout(Promise.resolve("ok"), 50, "fast operation"), "ok");
+  await assert.rejects(
+    withTimeout(new Promise<never>(() => {}), 10, "stalled operation"),
+    OperationTimeoutError,
+  );
+
+  const middleware = read("middleware.ts");
+  assert.match(middleware, /if \(!isProtectedPage && !isClientAppApi\)/);
+  assert.match(middleware, /SUPABASE_OPERATION_TIMEOUT_MS = 3_000/);
+  assert.match(middleware, /authResult\.error && !isUnauthenticatedError/);
+  assert.match(middleware, /serviceUnavailableResponse\(path\)/);
 });

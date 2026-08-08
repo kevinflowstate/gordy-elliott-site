@@ -2,7 +2,40 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { resolveClientLifecycleStatus } from '@/lib/client-attention';
 import { isFounderExperience, isFounderRestrictedPath } from '@/lib/client-experience';
+import { withTimeout } from '@/lib/operation-timeout';
 
+const SUPABASE_OPERATION_TIMEOUT_MS = 3_000;
+
+function isUnauthenticatedError(error: { name?: string; status?: number } | null) {
+  if (!error) return false;
+  return error.name === 'AuthSessionMissingError'
+    || error.status === 400
+    || error.status === 401
+    || error.status === 403;
+}
+
+function serviceUnavailableResponse(path: string) {
+  if (path.startsWith('/api/')) {
+    return NextResponse.json(
+      { error: 'AT CAPACITY is temporarily reconnecting. Please try again.', code: 'SERVICE_UNAVAILABLE' },
+      { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '10' } },
+    );
+  }
+
+  return new NextResponse(`<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reconnecting | AT CAPACITY</title><style>
+body{margin:0;background:#09090b;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:grid;min-height:100vh;place-items:center;padding:24px;box-sizing:border-box}
+main{max-width:440px;text-align:center}.mark{color:#e040d0;font-weight:800;letter-spacing:.14em;font-size:13px}h1{font-size:28px;line-height:1.15;margin:18px 0 12px}p{color:#b8b8c2;line-height:1.6;margin:0 0 24px}button{border:0;border-radius:14px;background:#e040d0;color:#09090b;font:inherit;font-weight:750;padding:13px 20px;cursor:pointer}
+</style></head><body><main><div class="mark">AT CAPACITY</div><h1>We’re reconnecting</h1><p>Your data is safe. The app is taking longer than expected to connect. Please try again in a few seconds.</p><button onclick="location.reload()">Try again</button></main></body></html>`, {
+    status: 503,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'Retry-After': '10',
+    },
+  });
+}
 
 export async function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
@@ -23,6 +56,16 @@ export async function middleware(request: NextRequest) {
       url.pathname = '/login';
       return NextResponse.redirect(url);
     }
+  }
+
+  const isProtectedPage = path.startsWith('/portal')
+    || path.startsWith('/admin')
+    || path.startsWith('/account-paused');
+
+  // Public pages and independently authenticated webhooks/routes do not need
+  // a Supabase round trip in middleware.
+  if (!isProtectedPage && !isClientAppApi) {
+    return NextResponse.next({ request });
   }
 
   let supabaseResponse = NextResponse.next({ request });
@@ -48,10 +91,26 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Always refresh the session so API routes can read auth
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const authResult = await withTimeout(
+      supabase.auth.getUser(),
+      SUPABASE_OPERATION_TIMEOUT_MS,
+      'Supabase authentication',
+    );
+    if (authResult.error && !isUnauthenticatedError(authResult.error)) {
+      console.error('[middleware] Supabase authentication unavailable', {
+        path,
+        error: authResult.error.name,
+        status: authResult.error.status,
+      });
+      return serviceUnavailableResponse(path);
+    }
+    user = authResult.data.user;
+  } catch (error) {
+    console.error('[middleware] Supabase authentication timed out', { path, error: String(error) });
+    return serviceUnavailableResponse(path);
+  }
 
   // Protect portal and admin routes
   if ((path.startsWith('/portal') || path.startsWith('/admin') || path.startsWith('/account-paused')) && !user) {
@@ -76,28 +135,50 @@ export async function middleware(request: NextRequest) {
       }
     );
 
-    const { data: profile, error: roleError } = await adminSupabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+    let profile;
+    let roleError;
+    try {
+      const result = await withTimeout(
+        adminSupabase.from('users').select('role').eq('id', user.id).single(),
+        SUPABASE_OPERATION_TIMEOUT_MS,
+        'account role lookup',
+      );
+      profile = result.data;
+      roleError = result.error;
+    } catch (error) {
+      console.error('[middleware] Account role lookup timed out', { path, error: String(error) });
+      return serviceUnavailableResponse(path);
+    }
 
     if (roleError) {
-      return NextResponse.json({ error: 'Unable to verify account access' }, { status: 503 });
+      return serviceUnavailableResponse(path);
     }
 
     const role = profile?.role;
     const requiresPasswordSetup = user.user_metadata?.requires_password_setup === true;
 
     if (role !== 'admin') {
-      const { data: clientProfile, error: lifecycleError } = await adminSupabase
-        .from('client_profiles')
-        .select('id, lifecycle_status, lifecycle_resumes_at, experience_mode')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      let clientProfile;
+      let lifecycleError;
+      try {
+        const result = await withTimeout(
+          adminSupabase
+            .from('client_profiles')
+            .select('id, lifecycle_status, lifecycle_resumes_at, experience_mode')
+            .eq('user_id', user.id)
+            .maybeSingle(),
+          SUPABASE_OPERATION_TIMEOUT_MS,
+          'client lifecycle lookup',
+        );
+        clientProfile = result.data;
+        lifecycleError = result.error;
+      } catch (error) {
+        console.error('[middleware] Client lifecycle lookup timed out', { path, error: String(error) });
+        return serviceUnavailableResponse(path);
+      }
 
       if (lifecycleError || !clientProfile) {
-        return NextResponse.json({ error: 'Unable to verify client access' }, { status: 503 });
+        return serviceUnavailableResponse(path);
       }
 
       let lifecycleStatus = resolveClientLifecycleStatus(
@@ -105,20 +186,44 @@ export async function middleware(request: NextRequest) {
         clientProfile.lifecycle_resumes_at,
       );
       if (lifecycleStatus === 'active' && clientProfile.lifecycle_status !== 'active') {
-        const { data: resumed, error: resumeError } = await adminSupabase.rpc('resume_client_if_due', {
-          p_client_id: clientProfile.id,
-        });
+        let resumed;
+        let resumeError;
+        try {
+          const result = await withTimeout(
+            adminSupabase.rpc('resume_client_if_due', { p_client_id: clientProfile.id }),
+            SUPABASE_OPERATION_TIMEOUT_MS,
+            'client resume check',
+          );
+          resumed = result.data;
+          resumeError = result.error;
+        } catch (error) {
+          console.error('[middleware] Client resume check timed out', { path, error: String(error) });
+          return serviceUnavailableResponse(path);
+        }
         if (resumeError) {
-          return NextResponse.json({ error: 'Unable to resume client access' }, { status: 503 });
+          return serviceUnavailableResponse(path);
         }
         if (!resumed) {
-          const { data: refreshed, error: refreshError } = await adminSupabase
-            .from('client_profiles')
-            .select('lifecycle_status, lifecycle_resumes_at')
-            .eq('id', clientProfile.id)
-            .maybeSingle();
+          let refreshed;
+          let refreshError;
+          try {
+            const result = await withTimeout(
+              adminSupabase
+                .from('client_profiles')
+                .select('lifecycle_status, lifecycle_resumes_at')
+                .eq('id', clientProfile.id)
+                .maybeSingle(),
+              SUPABASE_OPERATION_TIMEOUT_MS,
+              'client lifecycle refresh',
+            );
+            refreshed = result.data;
+            refreshError = result.error;
+          } catch (error) {
+            console.error('[middleware] Client lifecycle refresh timed out', { path, error: String(error) });
+            return serviceUnavailableResponse(path);
+          }
           if (refreshError || !refreshed) {
-            return NextResponse.json({ error: 'Unable to refresh client access' }, { status: 503 });
+            return serviceUnavailableResponse(path);
           }
           lifecycleStatus = resolveClientLifecycleStatus(
             refreshed.lifecycle_status,
