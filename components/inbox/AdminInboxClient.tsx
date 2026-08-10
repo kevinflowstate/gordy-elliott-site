@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import InboxThread from "@/components/inbox/InboxThread";
 import { useToast } from "@/components/ui/Toast";
+import { hasUnreadIncomingMessages } from "@/lib/inbox-client";
 import type { InboxConversation, InboxMessage } from "@/lib/types";
 
 interface ThreadResponse {
@@ -39,6 +40,8 @@ export default function AdminInboxClient() {
   const [loadingThread, setLoadingThread] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const conversationsRequestInFlight = useRef(false);
+  const threadAbortController = useRef<AbortController | null>(null);
 
   const filteredConversations = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
@@ -55,6 +58,8 @@ export default function AdminInboxClient() {
   const selectedConversation = conversations.find((conversation) => conversation.client_id === selectedClientId) ?? null;
 
   const loadConversations = useCallback(async () => {
+    if (conversationsRequestInFlight.current) return;
+    conversationsRequestInFlight.current = true;
     try {
       const res = await fetch("/api/inbox");
       if (!res.ok) throw new Error("Could not load DM conversations.");
@@ -65,41 +70,70 @@ export default function AdminInboxClient() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load DM conversations.");
     } finally {
+      conversationsRequestInFlight.current = false;
       setLoadingList(false);
     }
   }, []);
 
   const loadThread = useCallback(async (clientId: string) => {
+    threadAbortController.current?.abort();
+    const controller = new AbortController();
+    threadAbortController.current = controller;
     setLoadingThread(true);
     try {
-      const res = await fetch(`/api/inbox/thread?client_id=${encodeURIComponent(clientId)}`);
+      const res = await fetch(`/api/inbox/thread?client_id=${encodeURIComponent(clientId)}`, {
+        signal: controller.signal,
+      });
       if (!res.ok) throw new Error("Could not load conversation.");
-      const data = await res.json();
+      const data = await res.json() as ThreadResponse;
+      if (controller.signal.aborted) return;
       setThread(data);
       setError(null);
-      await fetch("/api/inbox/read", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ client_id: clientId }),
-      });
+      if (hasUnreadIncomingMessages(data.messages || [], "admin")) {
+        await fetch("/api/inbox/read", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ client_id: clientId }),
+          signal: controller.signal,
+        });
+      }
     } catch (err) {
+      if (controller.signal.aborted) return;
       setError(err instanceof Error ? err.message : "Could not load conversation.");
     } finally {
-      setLoadingThread(false);
+      if (threadAbortController.current === controller) {
+        threadAbortController.current = null;
+        setLoadingThread(false);
+      }
     }
   }, []);
 
   useEffect(() => {
     void loadConversations();
-    const interval = setInterval(loadConversations, 10000);
-    return () => clearInterval(interval);
+    const refreshVisibleConversations = () => {
+      if (!document.hidden) void loadConversations();
+    };
+    const interval = setInterval(refreshVisibleConversations, 30000);
+    document.addEventListener("visibilitychange", refreshVisibleConversations);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshVisibleConversations);
+    };
   }, [loadConversations]);
 
   useEffect(() => {
     if (!selectedClientId) return;
     void loadThread(selectedClientId);
-    const interval = setInterval(() => loadThread(selectedClientId), 10000);
-    return () => clearInterval(interval);
+    const refreshVisibleThread = () => {
+      if (!document.hidden) void loadThread(selectedClientId);
+    };
+    const interval = setInterval(refreshVisibleThread, 30000);
+    document.addEventListener("visibilitychange", refreshVisibleThread);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshVisibleThread);
+      threadAbortController.current?.abort();
+    };
   }, [selectedClientId, loadThread]);
 
   useEffect(() => {

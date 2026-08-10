@@ -1,7 +1,11 @@
 import { access, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright-core";
+import nextEnv from "@next/env";
 import appIdentity from "../config/app-identity.json" with { type: "json" };
+import { createAppReviewBrowserCookies } from "./lib/app-review-browser-auth.mjs";
+
+nextEnv.loadEnvConfig(process.env.PORTAL_QA_ENV_DIR || process.cwd());
 
 const baseUrl = process.env.PORTAL_QA_BASE_URL || appIdentity.productionUrl;
 const storageState = process.env.PORTAL_QA_STORAGE_STATE;
@@ -10,17 +14,15 @@ const chromePath = process.env.PORTAL_QA_CHROME_PATH ||
 const outputDir = process.env.APP_STORE_SCREENSHOT_OUTPUT ||
   "/Volumes/XCode/Storage-Quarantine-2026-07-15/SHIFT-AppStore-Screenshots/draft";
 
-if (!storageState) {
-  console.error("Set PORTAL_QA_STORAGE_STATE to the fictional Demo Client Playwright state file.");
-  process.exit(2);
-}
-
-await Promise.all([access(storageState), access(chromePath)]);
+await Promise.all([
+  access(chromePath),
+  storageState ? access(storageState) : Promise.resolve(),
+]);
 await mkdir(outputDir, { recursive: true });
 
 const browser = await chromium.launch({ executablePath: chromePath, headless: true });
 const context = await browser.newContext({
-  storageState,
+  ...(storageState ? { storageState } : {}),
   viewport: { width: 428, height: 926 },
   deviceScaleFactor: 3,
   isMobile: true,
@@ -31,6 +33,9 @@ const context = await browser.newContext({
   serviceWorkers: "block",
   userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 SHIFT-Native/1.0 SHIFT-APNS/production",
 });
+if (!storageState) {
+  await context.addCookies(await createAppReviewBrowserCookies({ baseUrl }));
+}
 
 const page = await context.newPage();
 page.setDefaultTimeout(20_000);
@@ -93,6 +98,7 @@ const manifest = [];
 
 try {
   await open("/portal");
+  await page.getByText(/good (morning|afternoon|evening), demo/i).waitFor({ state: "visible" });
   const dashboardText = await page.locator("body").innerText();
   if (!/good (morning|afternoon|evening), demo/i.test(dashboardText)) {
     throw new Error("The authenticated dashboard is not visibly identified as the Demo fixture. Capture aborted.");
@@ -136,18 +142,17 @@ try {
     throw new Error("No active-session action is available in the Demo Client training plan.");
   }
   await sessionAction.click();
-  await settle();
-  if (await page.getByRole("button", { name: /save session/i }).count() === 0) {
+  const workoutDialog = page.getByRole("dialog", { name: /workout$/i });
+  await workoutDialog.waitFor({ state: "visible" });
+  const beginWorkout = workoutDialog.getByRole("button", {
+    name: /start workout|continue workout|edit workout/i,
+  });
+  if (await beginWorkout.count() === 1) {
+    await beginWorkout.click();
+  }
+  if (await page.getByRole("button", { name: /next exercise|review workout|save session/i }).count() === 0) {
     throw new Error("The active session did not open after selecting the primary training action.");
   }
-  const sessionInProgress = page.getByText("Session in progress", { exact: true });
-  if (await sessionInProgress.count() === 0) {
-    throw new Error("The active Demo Client session is not visible for capture.");
-  }
-  await sessionInProgress.last().evaluate((element) => {
-    document.documentElement.style.scrollBehavior = "auto";
-    window.scrollTo(0, element.getBoundingClientRect().top + window.scrollY - 180);
-  });
   await page.waitForTimeout(250);
   manifest.push(await capture(3, "active-session"));
 

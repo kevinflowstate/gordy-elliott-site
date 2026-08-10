@@ -10,6 +10,16 @@ export type TerraWidgetSession = {
   mock?: boolean;
 };
 
+export type TerraUser = {
+  user_id: string;
+  provider: string;
+  reference_id?: string | null;
+  active?: boolean;
+  last_webhook_update?: string | null;
+  scopes?: string | string[] | null;
+  [key: string]: unknown;
+};
+
 export function getTerraConfig() {
   const devId = process.env.TERRA_DEV_ID || "";
   const apiKey = process.env.TERRA_API_KEY || "";
@@ -135,6 +145,42 @@ export async function deauthenticateTerraUser(
     throw new Error(data?.message || data?.error || "Terra could not disconnect this account.");
   }
   return { status: "success" as const };
+}
+
+export async function getTerraUsersByReferenceId(
+  referenceId: string,
+  fetchImpl: TerraFetch = fetch,
+): Promise<TerraUser[]> {
+  const config = getTerraConfig();
+  if (!config.configured) {
+    throw new Error("Terra credentials are not configured.");
+  }
+
+  const url = new URL("https://api.tryterra.co/v2/userInfo");
+  url.searchParams.set("reference_id", referenceId);
+  const response = await fetchImpl(url, {
+    headers: {
+      "dev-id": config.devId,
+      "x-api-key": config.apiKey,
+    },
+    signal: AbortSignal.timeout(10_000),
+  });
+  const data = await response.json().catch(() => ({}));
+
+  if (response.status === 404) return [];
+  if (!response.ok) {
+    throw new Error(data?.message || data?.error || "Terra could not verify this connection.");
+  }
+
+  const candidate = data?.user ?? data?.users ?? data;
+  const users = Array.isArray(candidate) ? candidate : candidate && typeof candidate === "object" ? [candidate] : [];
+  return users.filter((user): user is TerraUser => (
+    Boolean(user)
+    && typeof user === "object"
+    && typeof user.user_id === "string"
+    && typeof user.provider === "string"
+    && (user.reference_id === undefined || user.reference_id === null || user.reference_id === referenceId)
+  ));
 }
 
 export function verifyTerraWebhookSignature(

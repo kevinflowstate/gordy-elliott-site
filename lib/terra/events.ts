@@ -5,6 +5,8 @@ export const TERRA_LAUNCH_PROVIDERS = [
   "myfitnesspal",
 ] as const;
 
+export const TERRA_CONSENT_VERSION = "wearable_connection_v2";
+
 export type TerraLaunchProvider = (typeof TERRA_LAUNCH_PROVIDERS)[number];
 export type TerraEventAction = "healthcheck" | "connect" | "disconnect" | "error" | "data" | "ignore";
 export type TerraConnectionStatus = "connected" | "disconnected" | "pending" | "error";
@@ -34,6 +36,17 @@ export function normaliseTerraProvider(value: unknown): TerraLaunchProvider | nu
 
 export function getTerraWidgetProvider(provider: TerraLaunchProvider) {
   return provider.toUpperCase();
+}
+
+export function normaliseTerraScopes(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .filter((scope): scope is string => typeof scope === "string")
+      .map((scope) => scope.trim())
+      .filter(Boolean);
+  }
+  if (typeof value !== "string") return [];
+  return value.split(/[\s,]+/).map((scope) => scope.trim()).filter(Boolean);
 }
 
 export function classifyTerraEvent(eventType: unknown, authStatus?: unknown): TerraEventAction {

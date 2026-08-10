@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Browser } from "@capacitor/browser";
+import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   calendarProviderLabel,
@@ -53,6 +55,8 @@ export default function CalendarConnections({
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const browserFinishedListener = useRef<PluginListenerHandle | null>(null);
+  const mounted = useRef(true);
 
   const load = useCallback(async () => {
     try {
@@ -86,17 +90,46 @@ export default function CalendarConnections({
     load();
   }, [load, onEventsChanged]);
 
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      void browserFinishedListener.current?.remove();
+    };
+  }, []);
+
   async function connect(provider: CalendarProvider) {
     setActiveAction(`connect:${provider}`);
     setError(null);
     setNotice(null);
+    let listener: PluginListenerHandle | null = null;
     try {
       const response = await fetch(`/api/portal/calendar-integrations/providers/${provider}/connect`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ native: Capacitor.isNativePlatform() }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Calendar connection could not be started.");
       if (payload.redirectUrl) {
+        if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("Browser")) {
+          await browserFinishedListener.current?.remove();
+          listener = await Browser.addListener("browserFinished", () => {
+            void (async () => {
+              await listener?.remove();
+              if (browserFinishedListener.current === listener) browserFinishedListener.current = null;
+              await load();
+              onEventsChanged();
+            })();
+          });
+          if (!mounted.current) {
+            await listener.remove();
+            return;
+          }
+          browserFinishedListener.current = listener;
+          await Browser.open({ url: payload.redirectUrl });
+          return;
+        }
         window.location.assign(payload.redirectUrl);
         return;
       }
@@ -104,6 +137,8 @@ export default function CalendarConnections({
       await load();
       onEventsChanged();
     } catch (connectError) {
+      await listener?.remove();
+      if (browserFinishedListener.current === listener) browserFinishedListener.current = null;
       setError(connectError instanceof Error ? connectError.message : "Calendar connection could not be started.");
     } finally {
       setActiveAction(null);

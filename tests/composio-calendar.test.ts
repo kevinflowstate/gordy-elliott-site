@@ -1,6 +1,33 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import test from "node:test";
+import {
+  createCalendarCallbackToken,
+  verifyCalendarCallbackToken,
+} from "../lib/composio/callback-token";
 import { normaliseCalendarEvents } from "../lib/composio/normalise";
+
+test("calendar callback tokens bind connection, return mode, signature and expiry", () => {
+  const originalSecret = process.env.COMPOSIO_CALLBACK_SECRET;
+  process.env.COMPOSIO_CALLBACK_SECRET = "calendar-test-secret";
+
+  try {
+    const issuedAt = Date.UTC(2026, 7, 10, 9, 0, 0);
+    const webToken = createCalendarCallbackToken("connection-1", false, issuedAt);
+    const nativeToken = createCalendarCallbackToken("connection-1", true, issuedAt);
+
+    assert.equal(verifyCalendarCallbackToken("connection-1", webToken, false, issuedAt), true);
+    assert.equal(verifyCalendarCallbackToken("connection-1", nativeToken, true, issuedAt), true);
+    assert.equal(verifyCalendarCallbackToken("connection-2", webToken, false, issuedAt), false);
+    assert.equal(verifyCalendarCallbackToken("connection-1", webToken, true, issuedAt), false);
+    assert.equal(verifyCalendarCallbackToken("connection-1", `${webToken}tampered`, false, issuedAt), false);
+    assert.equal(verifyCalendarCallbackToken("connection-1", webToken, false, issuedAt + 15 * 60 * 1000 + 1), false);
+  } finally {
+    if (originalSecret === undefined) delete process.env.COMPOSIO_CALLBACK_SECRET;
+    else process.env.COMPOSIO_CALLBACK_SECRET = originalSecret;
+  }
+});
 
 test("normalises Google events without retaining descriptions or attendees", () => {
   const events = normaliseCalendarEvents("google_calendar", {
@@ -98,4 +125,34 @@ test("drops unsafe calendar links", () => {
   });
 
   assert.equal(events[0].meeting_url, null);
+});
+
+test("calendar OAuth uses a signed native return and the installed app browser", () => {
+  const connectRoute = fs.readFileSync(
+    path.join(process.cwd(), "app/api/portal/calendar-integrations/providers/[provider]/connect/route.ts"),
+    "utf8",
+  );
+  const callbackRoute = fs.readFileSync(
+    path.join(process.cwd(), "app/api/portal/calendar-integrations/callback/route.ts"),
+    "utf8",
+  );
+  const connectionsPanel = fs.readFileSync(
+    path.join(process.cwd(), "components/portal/CalendarConnections.tsx"),
+    "utf8",
+  );
+  const returnPage = fs.readFileSync(
+    path.join(process.cwd(), "app/calendar-connection-return/page.tsx"),
+    "utf8",
+  );
+  const middleware = fs.readFileSync(path.join(process.cwd(), "middleware.ts"), "utf8");
+
+  assert.match(connectRoute, /body\.native === true/);
+  assert.match(connectRoute, /createCalendarCallbackToken\(connection\.id, nativeReturn\)/);
+  assert.match(connectRoute, /callbackUrl\.searchParams\.set\("native", "1"\)/);
+  assert.match(callbackRoute, /verifyCalendarCallbackToken\(connectionId, token, nativeReturn\)/);
+  assert.match(callbackRoute, /"\/calendar-connection-return"/);
+  assert.match(connectionsPanel, /Browser\.open\(\{ url: payload\.redirectUrl \}\)/);
+  assert.match(returnPage, /shiftcoaching:\/\/portal\/calendar/);
+  assert.match(middleware, /isSignedCalendarOAuthCallback/);
+  assert.match(middleware, /!isSignedCalendarOAuthCallback && path\.startsWith\('\/api\/portal'\)/);
 });

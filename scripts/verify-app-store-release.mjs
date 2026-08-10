@@ -1,19 +1,21 @@
 import { access, readFile } from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright-core";
+import nextEnv from "@next/env";
 import appIdentity from "../config/app-identity.json" with { type: "json" };
+import { createAppReviewBrowserCookies } from "./lib/app-review-browser-auth.mjs";
+
+nextEnv.loadEnvConfig(process.env.PORTAL_QA_ENV_DIR || process.cwd());
 
 const baseUrl = process.env.PORTAL_QA_BASE_URL || "http://localhost:4190";
 const storageState = process.env.PORTAL_QA_STORAGE_STATE;
 const chromePath = process.env.PORTAL_QA_CHROME_PATH ||
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
-if (!storageState) {
-  console.error("Set PORTAL_QA_STORAGE_STATE to an authenticated client Playwright state file.");
-  process.exit(2);
-}
-
-await Promise.all([access(storageState), access(chromePath)]);
+await Promise.all([
+  access(chromePath),
+  storageState ? access(storageState) : Promise.resolve(),
+]);
 
 const failures = [];
 const passes = [];
@@ -100,10 +102,13 @@ try {
   await publicContext.close();
 
   const context = await browser.newContext({
-    storageState,
+    ...(storageState ? { storageState } : {}),
     viewport: { width: 390, height: 844 },
     serviceWorkers: "block",
   });
+  if (!storageState) {
+    await context.addCookies(await createAppReviewBrowserCookies({ baseUrl }));
+  }
   const page = await context.newPage();
   page.setDefaultTimeout(15_000);
   const requestedHosts = new Set();
@@ -260,9 +265,13 @@ try {
   await assertNoHorizontalOverflow(page, "Daily Tracker");
 
   await open(page, "/portal/nutrition-plan");
+  const nutritionFallback = page.getByRole("button", {
+    name: /add daily totals manually|correct totals manually/i,
+  }).first();
+  await nutritionFallback.waitFor({ state: "visible" });
   const assignedNutritionPlan = page.locator("details[open]").filter({ hasText: "Your assigned meals from Gordy" }).first();
   check(await assignedNutritionPlan.count() === 1, "assigned nutrition plan is expanded and ready to use");
-  check(await page.getByRole("button", { name: "Add daily totals manually" }).count() === 1, "nutrition keeps manual totals as a clearly labelled fallback");
+  check(await nutritionFallback.count() === 1, "nutrition keeps manual totals as a clearly labelled fallback");
   const nutritionText = await page.locator("body").innerText();
   check(!/copy (your|today's|this date's) myfitnesspal totals|mfp totals remain the main/i.test(nutritionText), "nutrition contains no stale manual MyFitnessPal instructions");
   await assertNoHorizontalOverflow(page, "nutrition plan");
@@ -289,6 +298,7 @@ try {
   await assertNoHorizontalOverflow(page, "SHIFT AI");
 
   await open(page, "/portal/settings");
+  await page.getByLabel("Full Name", { exact: true }).waitFor({ state: "visible" });
   for (const label of ["Full Name", "Date of Birth", "Sex", "New Password", "Confirm Password"]) {
     check(await page.getByLabel(label, { exact: true }).count() === 1, `Settings exposes ${label} to assistive technology`);
   }

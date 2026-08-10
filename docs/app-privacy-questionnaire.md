@@ -1,6 +1,6 @@
 # App Privacy Questionnaire
 
-Prepared 21 July 2026 from the production code and Apple's current App Privacy taxonomy; calendar-connection coverage added 24 July 2026. Confirm again after the calendar launch decision, Terra configuration and any analytics or crash SDK configuration are final.
+Prepared 21 July 2026 from the production code and Apple's current App Privacy taxonomy; calendar-connection coverage added 24 July and connected-health configuration rechecked 6 August 2026. Confirm again after the calendar launch decision and any analytics or crash SDK configuration are final.
 
 ## Top-level answers
 
@@ -58,5 +58,5 @@ Apple has no calendar-specific data type, so synced calendar events sit under Us
 2. Confirm no analytics, crash-reporting or attribution SDK was added after this inventory.
 3. Confirm Vercel is not intentionally retaining or using client IP addresses as location or device data.
 4. Confirm Gordy's final privacy/support contact and retention wording.
-5. Confirm Terra's enabled production providers and privacy policy before real client connections begin.
+5. Confirm the final advertised Terra provider list and complete the outstanding MyFitnessPal production retest.
 6. Confirm the calendar launch decision (Google verification is under review; Outlook needs its production contract test) and that the review build's Connected Calendar screen behaves as described in the review notes.

@@ -4,6 +4,7 @@ import {
   canApplyTerraEvent,
   classifyTerraEvent,
   normaliseTerraProvider,
+  normaliseTerraScopes,
   type TerraConnectionStatus,
 } from "@/lib/terra/events";
 import { extractTerraUser, mergeDailySummary, normaliseTerraPayloads } from "@/lib/terra/normalise";
@@ -11,14 +12,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { WearableDailySummary } from "@/lib/wearable-insights";
 import { NextResponse } from "next/server";
 
+const CONNECTION_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const SUMMARY_FIELDS = "id, client_id, summary_date, providers, sleep_minutes, sleep_score, hrv_ms, resting_hr_bpm, steps, active_calories, total_calories_burned, training_load, workout_count, nutrition_calories, protein_g, carbs_g, fat_g, water_ml, readiness_score, recovery_status, flags, insight, source_payload_ids" as const;
+
 function stableHash(payload: unknown) {
   return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
-}
-
-function normaliseScopes(value: unknown) {
-  if (Array.isArray(value)) return value.filter((scope): scope is string => typeof scope === "string");
-  if (typeof value === "string") return value.split(",").map((scope) => scope.trim()).filter(Boolean);
-  return [];
 }
 
 export async function POST(request: Request) {
@@ -55,7 +53,7 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
   const clientId = parseTerraReferenceId(terraUser.referenceId);
-  const connectionFields = "id, client_id, provider, terra_user_id, reference_id, status, connected_at, disconnected_at, last_sync_at, consented_at";
+  const connectionFields = "id, client_id, provider, terra_user_id, reference_id, status, connected_at, disconnected_at, last_sync_at, consented_at, scopes";
   let connection = null;
   if (clientId) {
     const result = await admin
@@ -94,59 +92,84 @@ export async function POST(request: Request) {
   }
 
   const now = new Date().toISOString();
+  const nowTimestamp = Date.parse(now);
   const status = action === "disconnect"
     ? "disconnected"
     : action === "error"
       ? "error"
       : "connected";
+  const terraUserId = (action === "connect" || action === "data") && terraUser.terraUserId
+    ? terraUser.terraUserId
+    : connection.terra_user_id;
+  const referenceId = terraUser.referenceId || connection.reference_id;
+  const scopes = normaliseTerraScopes(terraUser.rawUser.scopes);
+  const lastSyncTimestamp = connection.last_sync_at ? Date.parse(connection.last_sync_at) : Number.NaN;
+  const syncRefreshDue = action === "data" && (
+    !Number.isFinite(lastSyncTimestamp)
+    || nowTimestamp - lastSyncTimestamp >= CONNECTION_REFRESH_INTERVAL_MS
+  );
+  const connectionStateChanged = connection.status !== status
+    || connection.terra_user_id !== terraUserId
+    || connection.reference_id !== referenceId;
+  const shouldUpdateConnection = action !== "data" || connectionStateChanged || syncRefreshDue;
   const connectionUpdate = {
-    terra_user_id: (action === "connect" || action === "data") && terraUser.terraUserId
-      ? terraUser.terraUserId
-      : connection.terra_user_id,
-    reference_id: terraUser.referenceId || connection.reference_id,
+    terra_user_id: terraUserId,
+    reference_id: referenceId,
     status,
     connected_at: action === "connect" || action === "data" ? connection.connected_at || now : connection.connected_at,
     disconnected_at: action === "disconnect" ? now : action === "connect" ? null : connection.disconnected_at,
     last_sync_at: action === "data" ? now : connection.last_sync_at,
-    scopes: normaliseScopes(terraUser.rawUser.scopes),
+    scopes: scopes.length ? scopes : connection.scopes,
     raw_user: terraUser.rawUser,
     updated_at: now,
   };
-  const { data: updatedConnection, error: connectionError } = await admin
-    .from("client_wearable_connections")
-    .update(connectionUpdate)
-    .eq("id", connection.id)
-    .select("*")
-    .single();
+  if (shouldUpdateConnection) {
+    const { error: connectionError } = await admin
+      .from("client_wearable_connections")
+      .update(connectionUpdate)
+      .eq("id", connection.id);
 
-  if (connectionError) return NextResponse.json({ error: connectionError.message }, { status: 500 });
+    if (connectionError) return NextResponse.json({ error: connectionError.message }, { status: 500 });
+  }
 
   const payloadHash = stableHash(payload);
-  const { data: event, error: eventError } = await admin
+  const { data: insertedEvent, error: eventError } = await admin
     .from("client_wearable_events")
     .upsert({
       client_id: connection.client_id,
-      connection_id: updatedConnection.id,
+      connection_id: connection.id,
       terra_user_id: terraUser.terraUserId,
       provider,
       event_type: terraUser.eventType,
       payload,
       payload_hash: payloadHash,
-    }, { onConflict: "payload_hash" })
-    .select("*")
-    .single();
+    }, { onConflict: "payload_hash", ignoreDuplicates: true })
+    .select("id")
+    .maybeSingle();
 
   if (eventError) return NextResponse.json({ error: eventError.message }, { status: 500 });
 
+  let event = insertedEvent;
+  const duplicateEvent = !event;
+  if (!event) {
+    const { data: existingEvent, error: existingEventError } = await admin
+      .from("client_wearable_events")
+      .select("id")
+      .eq("payload_hash", payloadHash)
+      .single();
+    if (existingEventError) return NextResponse.json({ error: existingEventError.message }, { status: 500 });
+    event = existingEvent;
+  }
+
   const summaries = normaliseTerraPayloads(payload as Record<string, unknown>);
   if (!summaries.length) {
-    return NextResponse.json({ ok: true, stored: true, summaryUpdated: false });
+    return NextResponse.json({ ok: true, stored: true, duplicate: duplicateEvent, summaryUpdated: false });
   }
 
   const summaryDates = Array.from(new Set(summaries.map((summary) => summary.summary_date)));
   const { data: existingSummaries, error: existingSummaryError } = await admin
     .from("client_wearable_daily_summaries")
-    .select("*")
+    .select(SUMMARY_FIELDS)
     .eq("client_id", connection.client_id)
     .in("summary_date", summaryDates);
 
@@ -155,6 +178,13 @@ export async function POST(request: Request) {
   const summariesByDate = new Map(
     (existingSummaries || []).map((summary) => [summary.summary_date, summary as WearableDailySummary]),
   );
+  const duplicateAlreadyApplied = duplicateEvent && summaryDates.every((date) =>
+    summariesByDate.get(date)?.source_payload_ids?.includes(event.id)
+  );
+  if (duplicateAlreadyApplied) {
+    return NextResponse.json({ ok: true, stored: true, duplicate: true, summaryUpdated: false });
+  }
+
   for (const normalized of summaries) {
     const merged = mergeDailySummary(summariesByDate.get(normalized.summary_date) || null, normalized, event.id);
     summariesByDate.set(normalized.summary_date, {

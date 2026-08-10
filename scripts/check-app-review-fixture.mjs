@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import nextEnv from "@next/env";
 
-nextEnv.loadEnvConfig(process.cwd());
+nextEnv.loadEnvConfig(process.env.PORTAL_QA_ENV_DIR || process.cwd());
 
 const reviewEmail = (process.env.APP_REVIEW_EMAIL || "demo@flowstatesystems.ai").toLowerCase();
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

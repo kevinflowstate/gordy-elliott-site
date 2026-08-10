@@ -14,12 +14,14 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
   const update = viewer.role === "admin" ? { read_by_admin: true } : { read_by_client: true };
   const senderRole = viewer.role === "admin" ? "client" : "admin";
+  const readColumn = viewer.role === "admin" ? "read_by_admin" : "read_by_client";
 
   const { error } = await admin
     .from("inbox_messages")
     .update(update)
     .eq("client_id", clientId)
-    .eq("sender_role", senderRole);
+    .eq("sender_role", senderRole)
+    .eq(readColumn, false);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

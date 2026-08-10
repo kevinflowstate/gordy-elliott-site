@@ -97,21 +97,46 @@ export default function Sidebar() {
   );
 
   useEffect(() => {
+    let cancelled = false;
+    let requestInFlight = false;
+    let lastFetchedAt = 0;
+
     async function loadNotifications() {
+      if (document.hidden || requestInFlight) return;
+      if (Date.now() - lastFetchedAt < 30000) return;
+
+      requestInFlight = true;
       try {
         const res = await fetch("/api/notifications");
         if (res.ok) {
           const data = await res.json();
+          if (cancelled) return;
           setUnreadCount(data.unreadCount);
           setNotifications(data.notifications);
         }
       } catch {
         // Silently fail - notifications are non-critical
+      } finally {
+        lastFetchedAt = Date.now();
+        requestInFlight = false;
       }
     }
-    loadNotifications();
-    const interval = setInterval(loadNotifications, 60000);
-    return () => clearInterval(interval);
+
+    function handleForeground() {
+      if (!document.hidden) void loadNotifications();
+    }
+
+    void loadNotifications();
+    const interval = setInterval(() => void loadNotifications(), 5 * 60 * 1000);
+    document.addEventListener("visibilitychange", handleForeground);
+    window.addEventListener("focus", handleForeground);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleForeground);
+      window.removeEventListener("focus", handleForeground);
+    };
   }, []);
 
   useEffect(() => {
