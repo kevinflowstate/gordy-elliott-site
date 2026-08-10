@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import test from "node:test";
 import {
   resolveNutritionTotals,
@@ -106,4 +108,17 @@ test("manual and assigned entries continue to add up when no synced total exists
     fibre: 10,
     sugar: 16,
   });
+});
+
+test("the targets dashboard appears before the assigned sample plan", () => {
+  const source = fs.readFileSync(
+    path.join(process.cwd(), "app/portal/nutrition-plan/page.tsx"),
+    "utf8",
+  );
+  const targetsIndex = source.indexOf("Targets dashboard");
+  const assignedMealsIndex = source.indexOf("<AssignedMeals");
+
+  assert.ok(targetsIndex >= 0);
+  assert.ok(assignedMealsIndex >= 0);
+  assert.ok(targetsIndex < assignedMealsIndex);
 });

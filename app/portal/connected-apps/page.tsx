@@ -30,6 +30,13 @@ export default function ConnectedAppsPage() {
   const handledReturn = useRef(false);
   const browserFinishedListener = useRef<PluginListenerHandle | null>(null);
 
+  const requestNutritionSync = useCallback(async () => {
+    const response = await fetch("/api/portal/integrations/terra/sync", { method: "POST" });
+    if (!response.ok && response.status !== 409) {
+      throw new Error("MyFitnessPal data could not be refreshed yet.");
+    }
+  }, []);
+
   const load = useCallback(async (showLoading = true): Promise<IntegrationsPayload | null> => {
     if (showLoading) setLoading(true);
     try {
@@ -108,6 +115,11 @@ export default function ConnectedAppsPage() {
       if (cancelled || !refreshed) return;
       const connection = refreshed.connections.find((item) => item.provider === provider);
       if (connection?.status === "connected") {
+        if (provider === "myfitnesspal") {
+          await requestNutritionSync().catch(() => null);
+          await new Promise((resolve) => setTimeout(resolve, 1_500));
+          await load(false);
+        }
         toast(`${wearableProviders.find((item) => item.id === provider)?.name || "App"} connected`);
         window.history.replaceState({}, "", window.location.pathname);
         return;
@@ -131,7 +143,7 @@ export default function ConnectedAppsPage() {
       cancelled = true;
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [load, toast]);
+  }, [load, requestNutritionSync, toast]);
 
   async function connect(provider: string) {
     setConnecting(provider);
@@ -173,6 +185,11 @@ export default function ConnectedAppsPage() {
 
             const refreshed = await load(false);
             const connection = refreshed?.connections.find((item) => item.provider === provider);
+            if (connection?.status === "connected" && provider === "myfitnesspal") {
+              await requestNutritionSync().catch(() => null);
+              await new Promise((resolve) => setTimeout(resolve, 1_500));
+              await load(false);
+            }
             if (connection?.status !== "pending") return;
             toast(
               "Connection received. Verification is still finishing; check again in a moment.",
@@ -212,7 +229,25 @@ export default function ConnectedAppsPage() {
   async function refresh() {
     setRefreshing(true);
     try {
+      const hasMyFitnessPal = data?.connections.some(
+        (connection) => connection.provider === "myfitnesspal" && connection.status === "connected",
+      );
+      let nutritionSyncRequested = false;
+      if (hasMyFitnessPal) {
+        try {
+          await requestNutritionSync();
+          nutritionSyncRequested = true;
+          await new Promise((resolve) => setTimeout(resolve, 1_500));
+        } catch (error) {
+          toast(error instanceof Error ? error.message : "MyFitnessPal data could not be refreshed yet.", "error");
+        }
+      }
       await load(false);
+      if (nutritionSyncRequested) {
+        toast("MyFitnessPal sync requested. New totals can take a moment to appear.", "info");
+      }
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Health data could not be refreshed yet.", "error");
     } finally {
       setRefreshing(false);
     }

@@ -7,6 +7,7 @@ import {
   deauthenticateTerraUser,
   generateTerraWidgetSession,
   getTerraUsersByReferenceId,
+  requestTerraNutritionData,
   verifyTerraWebhookSignature,
 } from "@/lib/terra/client";
 import {
@@ -15,7 +16,8 @@ import {
   getTerraWidgetProvider,
   normaliseTerraProvider,
 } from "@/lib/terra/events";
-import { extractTerraUser, normaliseTerraPayloads } from "@/lib/terra/normalise";
+import { extractTerraUser, mergeDailySummary, normaliseTerraPayloads } from "@/lib/terra/normalise";
+import { buildWearableInsight } from "@/lib/wearable-insights";
 
 test("verifies Terra's timestamped HMAC signature against the raw body", () => {
   const rawBody = JSON.stringify({ type: "daily", data: [] });
@@ -97,6 +99,40 @@ test("normalises Terra sleep and nutrition coaching signals", () => {
   assert.equal(nutrition.water_ml, 2100);
 });
 
+test("keeps live partial-day nutrition out of the recovery score", () => {
+  const summary = {
+    summary_date: "2026-08-10",
+    providers: ["oura", "myfitnesspal"],
+    sleep_minutes: 339,
+    sleep_score: 75,
+    hrv_ms: 35,
+    resting_hr_bpm: 67,
+    steps: 5_745,
+    active_calories: 629,
+    total_calories_burned: null,
+    training_load: null,
+    workout_count: 1,
+    nutrition_calories: 68,
+    protein_g: 16,
+    carbs_g: 0.56,
+    fat_g: 0.08,
+    water_ml: null,
+  };
+
+  const withPartialNutrition = buildWearableInsight(summary);
+  const withoutNutrition = buildWearableInsight({
+    ...summary,
+    nutrition_calories: null,
+    protein_g: null,
+    carbs_g: null,
+    fat_g: null,
+  });
+
+  assert.equal(withPartialNutrition.readiness_score, 76);
+  assert.deepEqual(withPartialNutrition.flags, ["light_sleep"]);
+  assert.deepEqual(withPartialNutrition, withoutNutrition);
+});
+
 test("rounds fractional wearable fields before integer database writes", () => {
   const summary = normaliseTerraPayloads({
     type: "sleep",
@@ -121,6 +157,100 @@ test("rounds fractional wearable fields before integer database writes", () => {
   assert.equal(summary.sleep_score, 66);
   assert.equal(summary.hrv_ms, 34);
   assert.equal(summary.resting_hr_bpm, 68);
+});
+
+test("keeps the main overnight sleep when Terra sends a later nap", () => {
+  const overnight = normaliseTerraPayloads({
+    type: "sleep",
+    user: { provider: "OURA" },
+    data: [{
+      metadata: { start_time: "2026-08-08T23:59:00+01:00", end_time: "2026-08-09T08:36:00+01:00" },
+      sleep_durations_data: { asleep: { duration_asleep_state_seconds: 27_420 } },
+      heart_rate_data: { summary: { resting_hr_bpm: 61, avg_hrv_rmssd: 44 } },
+      scores: { sleep: 86 },
+    }],
+  })[0];
+  const nap = normaliseTerraPayloads({
+    type: "sleep",
+    user: { provider: "OURA" },
+    data: [{
+      metadata: { start_time: "2026-08-09T15:23:00+01:00", end_time: "2026-08-09T15:47:00+01:00" },
+      sleep_durations_data: { asleep: { duration_asleep_state_seconds: 600 } },
+      heart_rate_data: { summary: { resting_hr_bpm: 77, avg_hrv_rmssd: 17 } },
+      scores: { sleep: 49 },
+    }],
+  })[0];
+
+  const existing = { ...overnight, source_payload_ids: ["overnight"] } as Parameters<typeof mergeDailySummary>[0];
+  const merged = mergeDailySummary(existing, nap, "nap");
+
+  assert.equal(merged.sleep_minutes, 457);
+  assert.equal(merged.sleep_score, 86);
+  assert.equal(merged.hrv_ms, 44);
+  assert.equal(merged.resting_hr_bpm, 61);
+  assert.deepEqual(merged.source_payload_ids, ["overnight", "nap"]);
+});
+
+test("accepts a longer replacement sleep session", () => {
+  const existing = {
+    summary_date: "2026-08-10",
+    providers: ["oura"],
+    sleep_minutes: 300,
+    sleep_score: 70,
+    hrv_ms: 30,
+    resting_hr_bpm: 68,
+    source_payload_ids: ["partial"],
+  } as Parameters<typeof mergeDailySummary>[0];
+  const incoming = {
+    ...existing,
+    sleep_minutes: 420,
+    sleep_score: 82,
+    hrv_ms: 39,
+    resting_hr_bpm: 62,
+  } as Parameters<typeof mergeDailySummary>[1];
+
+  const merged = mergeDailySummary(existing, incoming, "complete");
+  assert.equal(merged.sleep_minutes, 420);
+  assert.equal(merged.sleep_score, 82);
+  assert.equal(merged.hrv_ms, 39);
+  assert.equal(merged.resting_hr_bpm, 62);
+});
+
+test("requests MyFitnessPal nutrition data through Terra's webhook delivery", async () => {
+  const originalEnv = {
+    devId: process.env.TERRA_DEV_ID,
+    apiKey: process.env.TERRA_API_KEY,
+  };
+  process.env.TERRA_DEV_ID = "testing-dev";
+  process.env.TERRA_API_KEY = "testing-key";
+  let requestedUrl = "";
+
+  try {
+    await requestTerraNutritionData(
+      "00000000-0000-4000-8000-000000000001",
+      "2026-08-09",
+      "2026-08-10",
+      async (input) => {
+        requestedUrl = String(input);
+        return new Response(JSON.stringify({ status: "success" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      },
+    );
+
+    const url = new URL(requestedUrl);
+    assert.equal(url.pathname, "/v2/nutrition");
+    assert.equal(url.searchParams.get("user_id"), "00000000-0000-4000-8000-000000000001");
+    assert.equal(url.searchParams.get("start_date"), "2026-08-09");
+    assert.equal(url.searchParams.get("end_date"), "2026-08-10");
+    assert.equal(url.searchParams.get("to_webhook"), "true");
+  } finally {
+    if (originalEnv.devId === undefined) delete process.env.TERRA_DEV_ID;
+    else process.env.TERRA_DEV_ID = originalEnv.devId;
+    if (originalEnv.apiKey === undefined) delete process.env.TERRA_API_KEY;
+    else process.env.TERRA_API_KEY = originalEnv.apiKey;
+  }
 });
 
 test("classifies Terra lifecycle events without treating revocations as active data", () => {
@@ -364,6 +494,10 @@ test("Terra connection consent names the processor and records the revised notic
     path.join(process.cwd(), "app/privacy/page.tsx"),
     "utf8",
   );
+  const globalStyles = fs.readFileSync(
+    path.join(process.cwd(), "app/globals.css"),
+    "utf8",
+  );
 
   assert.match(connectionsPanel, /Terra securely passes the health categories you approve to AT CAPACITY/);
   assert.match(connectionsPanel, /https:\/\/tryterra\.co\/end-user-privacy/);
@@ -372,6 +506,10 @@ test("Terra connection consent names the processor and records the revised notic
   assert.match(connectedAppsPage, /Browser\.addListener\("browserFinished"/);
   assert.match(healthOverview, /connection\.provider === "myfitnesspal"/);
   assert.match(healthOverview, /summary\.providers\.includes\("myfitnesspal"\)/);
+  assert.match(healthOverview, /AT CAPACITY score/);
+  assert.match(healthOverview, /label: "HRV"/);
+  assert.match(globalStyles, /\.portal-main\s*\{[\s\S]*?env\(safe-area-inset-top/);
+  assert.doesNotMatch(globalStyles, /\.native-app \.portal-main\s*\{[\s\S]*?padding-top:\s*1rem/);
   assert.match(sessionRoute, /TERRA_CONSENT_VERSION/);
   assert.match(terraEvents, /TERRA_CONSENT_VERSION = "wearable_connection_v2"/);
   assert.match(sessionRoute, /export async function PATCH/);

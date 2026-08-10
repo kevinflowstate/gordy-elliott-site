@@ -184,13 +184,28 @@ export function mergeDailySummary(
   incoming: Omit<WearableDailySummary, "id" | "client_id" | "source_payload_ids" | "created_at" | "updated_at">,
   sourcePayloadId: string,
 ): Partial<WearableDailySummary> {
+  const existingSleepMinutes = existing?.sleep_minutes ?? null;
+  const incomingSleepMinutes = incoming.sleep_minutes;
+  const existingHasSleepSession = existingSleepMinutes !== null;
+  const preferIncomingSleep = incomingSleepMinutes !== null && (
+    existingSleepMinutes === null || incomingSleepMinutes >= existingSleepMinutes
+  );
+  const primarySleep = preferIncomingSleep
+    ? incoming
+    : existingHasSleepSession
+      ? existing
+      : incoming;
+  const fallbackSleep = preferIncomingSleep ? existing : incoming;
   const mergedBase = {
     ...incoming,
     providers: Array.from(new Set([...(existing?.providers || []), ...incoming.providers])),
-    sleep_minutes: incoming.sleep_minutes ?? existing?.sleep_minutes ?? null,
-    sleep_score: incoming.sleep_score ?? existing?.sleep_score ?? null,
-    hrv_ms: incoming.hrv_ms ?? existing?.hrv_ms ?? null,
-    resting_hr_bpm: incoming.resting_hr_bpm ?? existing?.resting_hr_bpm ?? null,
+    // Terra can send naps after the main overnight sleep. Keep the longest
+    // sleep session as the day's recovery source so a short nap cannot replace
+    // the overnight duration, sleep score, HRV or resting heart rate.
+    sleep_minutes: primarySleep?.sleep_minutes ?? fallbackSleep?.sleep_minutes ?? null,
+    sleep_score: primarySleep?.sleep_score ?? fallbackSleep?.sleep_score ?? null,
+    hrv_ms: primarySleep?.hrv_ms ?? fallbackSleep?.hrv_ms ?? null,
+    resting_hr_bpm: primarySleep?.resting_hr_bpm ?? fallbackSleep?.resting_hr_bpm ?? null,
     steps: incoming.steps ?? existing?.steps ?? null,
     active_calories: incoming.active_calories ?? existing?.active_calories ?? null,
     total_calories_burned: incoming.total_calories_burned ?? existing?.total_calories_burned ?? null,

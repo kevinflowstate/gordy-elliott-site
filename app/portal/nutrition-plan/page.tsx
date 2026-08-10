@@ -673,10 +673,6 @@ export default function PortalNutritionPlanPage() {
         </div>
       </div>
 
-      {plan && (
-        <AssignedMeals plan={plan} tracking={tracking} toggling={toggling} onToggle={toggleMeal} />
-      )}
-
       <section className="app-card app-rise app-rise-2 mb-6 overflow-hidden rounded-[28px]">
         <div className="border-b border-[#E040D0]/15 bg-[linear-gradient(135deg,rgba(224,64,208,0.16),rgba(245,158,11,0.06))] px-5 py-4">
           <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#E040D0]">Targets dashboard</div>
@@ -822,6 +818,10 @@ export default function PortalNutritionPlanPage() {
           </button>
         </div>
       </section>
+
+      {plan && (
+        <AssignedMeals plan={plan} tracking={tracking} toggling={toggling} onToggle={toggleMeal} />
+      )}
 
 
       {/* Manual entries remain available as a fallback or correction. */}

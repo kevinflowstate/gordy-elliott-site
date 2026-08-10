@@ -93,10 +93,6 @@ body {
   isolation: isolate;
 }
 
-.native-app .portal-main {
-  padding-top: 1rem;
-}
-
 @media (max-width: 767px) {
   .portal-main {
     min-width: 0;

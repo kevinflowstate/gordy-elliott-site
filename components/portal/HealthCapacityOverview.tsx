@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { dateKeyInTimeZone } from "@/lib/founder-dashboard";
 import type { WearableConnection, WearableDailySummary } from "@/lib/wearable-insights";
 import { titleCaseProvider } from "@/lib/wearable-insights";
 
@@ -72,7 +73,7 @@ const CATEGORY_COPY: Record<SignalCategory, { label: string; icon: string; headi
   overview: { label: "Overview", icon: "spark", heading: "Today at a glance" },
   sleep: { label: "Sleep", icon: "moon", heading: "Sleep and restoration" },
   activity: { label: "Activity", icon: "bolt", heading: "Movement and training" },
-  heart: { label: "Heart", icon: "heart", heading: "Recovery signals" },
+  heart: { label: "HRV", icon: "heart", heading: "Heart & recovery" },
   nutrition: { label: "Nutrition", icon: "drop", heading: "Nutrition logged" },
 };
 
@@ -158,7 +159,7 @@ export default function HealthCapacityOverview({
     ? selected.providers.map(titleCaseProvider).join(" + ")
     : connectedProviders.map((connection) => titleCaseProvider(connection.provider)).join(" + ");
   const dateLabel = formatSummaryDate(selected.summary_date);
-  const isToday = selected.summary_date === new Date().toISOString().slice(0, 10);
+  const isToday = selected.summary_date === dateKeyInTimeZone(new Date(), "Europe/London");
 
   return (
     <div className="mx-auto w-full max-w-6xl pb-28 sm:pb-8">
@@ -259,7 +260,7 @@ export default function HealthCapacityOverview({
               {sourceLabel && (
                 <div className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/15 px-4 text-xs font-semibold text-white/50">
                   <span className="h-1.5 w-1.5 rounded-full bg-[#58d6b0]" />
-                  {sourceLabel}
+                  Today&apos;s {sourceLabel} signals
                 </div>
               )}
             </div>
@@ -298,7 +299,7 @@ export default function HealthCapacityOverview({
             Your data stays coaching-led
           </div>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-white/48">
-            AT CAPACITY uses these signals to add context to your plan. A single lower score never changes a session automatically.
+            This daily score uses sleep, recovery and training signals. Nutrition progress is shown separately and never lowers a live recovery score.
           </p>
         </div>
         <button
@@ -377,7 +378,7 @@ function CapacityRing({
         aria-label={score === null ? "Capacity score unavailable" : `Capacity score ${score} out of 100`}
       >
         <div className="flex h-full w-full flex-col items-center justify-center rounded-full border border-white/[0.07] bg-[#0f0e12]/95 shadow-[inset_0_0_42px_rgba(255,255,255,0.022)] backdrop-blur-sm">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/35">Capacity</div>
+          <div className="text-center text-[9px] font-semibold uppercase tracking-[0.18em] text-white/35">AT CAPACITY score</div>
           <div className="mt-1 font-heading text-[4.15rem] font-bold leading-none tracking-[-0.04em] text-white sm:text-[4.8rem]">{score ?? "—"}</div>
           <div className="mt-1 text-xs font-semibold text-white/42">{score === null ? "Collecting data" : status}</div>
         </div>
@@ -589,7 +590,7 @@ function categoryReading(category: SignalCategory, summary: WearableDailySummary
     if (summary.steps === null) return "—";
     return summary.steps >= 1000 ? `${(summary.steps / 1000).toFixed(1)}k` : Math.round(summary.steps);
   }
-  if (category === "heart") return summary.hrv_ms === null ? "—" : Math.round(summary.hrv_ms);
+  if (category === "heart") return summary.hrv_ms === null ? "—" : `${Math.round(summary.hrv_ms)}ms`;
   return summary.protein_g === null ? "—" : `${Math.round(summary.protein_g)}g`;
 }
 
