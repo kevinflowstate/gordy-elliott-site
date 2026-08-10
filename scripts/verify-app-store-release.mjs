@@ -208,20 +208,16 @@ try {
   await assertNoHorizontalOverflow(page, "training plan");
 
   await open(page, "/portal/calendar");
-  await page.getByRole("heading", { name: "Read-only schedule access, with AI kept separate" }).waitFor({ state: "visible" });
+  await page.getByRole("heading", { name: "Plan around real life" }).waitFor({ state: "visible" });
   check(
-    await page.getByRole("heading", { name: "Read-only schedule access, with AI kept separate" }).count() === 1,
-    "calendar connection shows its Google data disclosure before consent",
+    await page.getByText(/Connect your calendar to sync AT CAPACITY with your week/i).count() === 1,
+    "calendar connection explains its coaching benefit concisely",
   );
   check(
-    await page.getByText(/Google Calendar data is never sent to Anthropic, OpenRouter or a downstream AI model/i).count() === 1,
-    "calendar consent flow discloses Google-to-AI data isolation",
+    await page.getByRole("heading", { name: "Read-only schedule access, with AI kept separate" }).count() === 0,
+    "calendar page does not show a permanent disclosure wall",
   );
-  check(
-    await page.getByRole("link", { name: "Privacy Policy" }).count() === 1,
-    "calendar consent flow links to the full privacy policy",
-  );
-  await assertNoHorizontalOverflow(page, "calendar consent");
+  await assertNoHorizontalOverflow(page, "calendar connections");
 
   await open(page, "/portal/inbox");
   const dmComposer = page.locator('textarea[placeholder="Message Gordy..."]');

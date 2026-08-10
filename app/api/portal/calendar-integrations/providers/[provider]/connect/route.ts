@@ -5,7 +5,11 @@ import {
   getComposioUserId,
 } from "@/lib/composio/client";
 import { syncCalendarConnection } from "@/lib/composio/calendar";
-import { isCalendarProvider, type CalendarConnection } from "@/lib/composio/types";
+import {
+  CALENDAR_CONSENT_VERSION,
+  isCalendarProvider,
+  type CalendarConnection,
+} from "@/lib/composio/types";
 import { getSiteUrl } from "@/lib/site-url";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -49,6 +53,12 @@ export async function POST(
   const { admin, profile } = context;
   const body = await request.json().catch(() => ({}));
   const nativeReturn = body.native === true;
+  if (body.consentVersion !== CALENDAR_CONSENT_VERSION) {
+    return NextResponse.json(
+      { error: "Please review the calendar connection details before continuing." },
+      { status: 400 },
+    );
+  }
 
   const config = getCalendarProviderConfig(providerValue);
   if (!config.authConfigId) {
@@ -87,6 +97,8 @@ export async function POST(
           connected_at: now,
           disconnected_at: null,
           last_error: null,
+          consent_version: CALENDAR_CONSENT_VERSION,
+          consented_at: now,
           updated_at: now,
         }, { onConflict: "client_id,provider" })
         .select("*")
@@ -107,6 +119,8 @@ export async function POST(
         status: "connecting",
         last_error: null,
         disconnected_at: null,
+        consent_version: CALENDAR_CONSENT_VERSION,
+        consented_at: now,
         updated_at: now,
       }, { onConflict: "client_id,provider" })
       .select("*")

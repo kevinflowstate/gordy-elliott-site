@@ -35,7 +35,7 @@ export async function GET() {
   const [connectionsResult, eventsResult] = await Promise.all([
     admin
       .from("client_calendar_connections")
-      .select("id, provider, status, last_sync_at, connected_at, disconnected_at, created_at, updated_at")
+      .select("id, provider, status, last_sync_at, connected_at, disconnected_at, consent_version, consented_at, created_at, updated_at")
       .eq("client_id", profile.id)
       .order("updated_at", { ascending: false }),
     admin

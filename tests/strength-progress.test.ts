@@ -98,7 +98,7 @@ test("training consistency matches scheduled sessions within their week and coun
 
 test("strength tracker migration is client-isolated, coach-controlled and capped at five", () => {
   const migration = fs.readFileSync(
-    path.join(process.cwd(), "supabase/migrations/20260804100000_add_client_strength_trackers.sql"),
+    path.join(process.cwd(), "supabase/migrations/20260804100949_add_client_strength_trackers.sql"),
     "utf8",
   );
   assert.match(migration, /ENABLE ROW LEVEL SECURITY/i);

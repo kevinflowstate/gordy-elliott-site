@@ -147,11 +147,17 @@ test("calendar OAuth uses a signed native return and the installed app browser",
   const middleware = fs.readFileSync(path.join(process.cwd(), "middleware.ts"), "utf8");
 
   assert.match(connectRoute, /body\.native === true/);
+  assert.match(connectRoute, /body\.consentVersion !== CALENDAR_CONSENT_VERSION/);
+  assert.match(connectRoute, /consented_at: now/);
   assert.match(connectRoute, /createCalendarCallbackToken\(connection\.id, nativeReturn\)/);
   assert.match(connectRoute, /callbackUrl\.searchParams\.set\("native", "1"\)/);
   assert.match(callbackRoute, /verifyCalendarCallbackToken\(connectionId, token, nativeReturn\)/);
   assert.match(callbackRoute, /"\/calendar-connection-return"/);
   assert.match(connectionsPanel, /Browser\.open\(\{ url: payload\.redirectUrl \}\)/);
+  assert.match(connectionsPanel, /Connect your calendar to sync AT CAPACITY with your week/);
+  assert.match(connectionsPanel, /role="dialog"/);
+  assert.match(connectionsPanel, /consent_version === CALENDAR_CONSENT_VERSION/);
+  assert.doesNotMatch(connectionsPanel, /Before you connect Google Calendar/);
   assert.match(returnPage, /shiftcoaching:\/\/portal\/calendar/);
   assert.match(middleware, /isSignedCalendarOAuthCallback/);
   assert.match(middleware, /!isSignedCalendarOAuthCallback && path\.startsWith\('\/api\/portal'\)/);
