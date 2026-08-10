@@ -47,6 +47,8 @@ export async function POST(
   const context = await getClientContext();
   if (context.error) return context.error;
   const { admin, profile } = context;
+  const body = await request.json().catch(() => ({}));
+  const nativeReturn = body.native === true;
 
   const config = getCalendarProviderConfig(providerValue);
   if (!config.authConfigId) {
@@ -111,10 +113,11 @@ export async function POST(
       .single();
     if (error) throw new Error(error.message);
 
-    const token = createCalendarCallbackToken(connection.id);
+    const token = createCalendarCallbackToken(connection.id, nativeReturn);
     const callbackUrl = new URL("/api/portal/calendar-integrations/callback", callbackOrigin(request));
     callbackUrl.searchParams.set("connection", connection.id);
     callbackUrl.searchParams.set("token", token);
+    if (nativeReturn) callbackUrl.searchParams.set("native", "1");
 
     const link = await composio.connectedAccounts.link(composioUserId, config.authConfigId, {
       callbackUrl: callbackUrl.toString(),

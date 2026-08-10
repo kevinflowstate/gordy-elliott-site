@@ -1,8 +1,9 @@
 import "server-only";
 
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { Composio } from "@composio/core";
 import type { CalendarProvider } from "./types";
+
+export { createCalendarCallbackToken, verifyCalendarCallbackToken } from "./callback-token";
 
 const TOOLKIT_VERSIONS = {
   googlecalendar: "20260721_00",
@@ -60,38 +61,4 @@ export function getComposioClient() {
 
 export function getComposioUserId(clientId: string) {
   return `client:${clientId}`;
-}
-
-function callbackSigningSecret() {
-  const secret = process.env.COMPOSIO_CALLBACK_SECRET || process.env.COMPOSIO_API_KEY;
-  if (!secret) throw new Error("Connected calendar callback signing is not configured.");
-  return secret;
-}
-
-export function createCalendarCallbackToken(connectionId: string, now = Date.now()) {
-  const expiresAt = now + 15 * 60 * 1000;
-  const payload = `${connectionId}.${expiresAt}`;
-  const signature = createHmac("sha256", callbackSigningSecret()).update(payload).digest("base64url");
-  return `${expiresAt}.${signature}`;
-}
-
-export function verifyCalendarCallbackToken(
-  connectionId: string,
-  token: string,
-  now = Date.now(),
-) {
-  const [expiresRaw, suppliedSignature] = token.split(".");
-  const expiresAt = Number(expiresRaw);
-  if (!Number.isFinite(expiresAt) || expiresAt < now || !suppliedSignature) return false;
-
-  const expected = createHmac("sha256", callbackSigningSecret())
-    .update(`${connectionId}.${expiresAt}`)
-    .digest();
-  let supplied: Buffer;
-  try {
-    supplied = Buffer.from(suppliedSignature, "base64url");
-  } catch {
-    return false;
-  }
-  return supplied.length === expected.length && timingSafeEqual(supplied, expected);
 }

@@ -9,10 +9,15 @@ import { getSiteUrl } from "@/lib/site-url";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
-function calendarRedirect(request: Request, status: "connected" | "error", provider?: string) {
+function calendarRedirect(
+  request: Request,
+  status: "connected" | "error",
+  provider?: string,
+  nativeReturn = false,
+) {
   const origin = process.env.NODE_ENV === "production" ? getSiteUrl() : new URL(request.url).origin;
-  const url = new URL("/portal/calendar", origin);
-  url.searchParams.set("calendar", status);
+  const url = new URL(nativeReturn ? "/calendar-connection-return" : "/portal/calendar", origin);
+  url.searchParams.set(nativeReturn ? "status" : "calendar", status);
   if (provider) url.searchParams.set("provider", provider);
   return NextResponse.redirect(url);
 }
@@ -21,11 +26,12 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const connectionId = url.searchParams.get("connection") || "";
   const token = url.searchParams.get("token") || "";
+  const nativeReturn = url.searchParams.get("native") === "1";
   const callbackStatus = url.searchParams.get("status");
   const callbackAccountId = url.searchParams.get("connected_account_id");
 
-  if (!connectionId || !token || !verifyCalendarCallbackToken(connectionId, token)) {
-    return calendarRedirect(request, "error");
+  if (!connectionId || !token || !verifyCalendarCallbackToken(connectionId, token, nativeReturn)) {
+    return calendarRedirect(request, "error", undefined, nativeReturn);
   }
 
   const admin = createAdminClient();
@@ -34,7 +40,7 @@ export async function GET(request: Request) {
     .select("*")
     .eq("id", connectionId)
     .maybeSingle();
-  if (error || !connection) return calendarRedirect(request, "error");
+  if (error || !connection) return calendarRedirect(request, "error", undefined, nativeReturn);
 
   const provider = connection.provider;
   if (callbackStatus !== "success" || !callbackAccountId) {
@@ -46,13 +52,13 @@ export async function GET(request: Request) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", connectionId);
-    return calendarRedirect(request, "error", provider);
+    return calendarRedirect(request, "error", provider, nativeReturn);
   }
   if (
     connection.composio_connected_account_id
     && connection.composio_connected_account_id !== callbackAccountId
   ) {
-    return calendarRedirect(request, "error", provider);
+    return calendarRedirect(request, "error", provider, nativeReturn);
   }
 
   try {
@@ -91,7 +97,7 @@ export async function GET(request: Request) {
       disconnected_at: null,
       updated_at: now,
     } as CalendarConnection);
-    return calendarRedirect(request, "connected", provider);
+    return calendarRedirect(request, "connected", provider, nativeReturn);
   } catch (syncError) {
     await admin
       .from("client_calendar_connections")
@@ -101,6 +107,6 @@ export async function GET(request: Request) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", connectionId);
-    return calendarRedirect(request, "error", provider);
+    return calendarRedirect(request, "error", provider, nativeReturn);
   }
 }

@@ -4,6 +4,7 @@ import {
   canApplyTerraEvent,
   classifyTerraEvent,
   normaliseTerraProvider,
+  normaliseTerraScopes,
   type TerraConnectionStatus,
 } from "@/lib/terra/events";
 import { extractTerraUser, mergeDailySummary, normaliseTerraPayloads } from "@/lib/terra/normalise";
@@ -16,12 +17,6 @@ const SUMMARY_FIELDS = "id, client_id, summary_date, providers, sleep_minutes, s
 
 function stableHash(payload: unknown) {
   return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
-}
-
-function normaliseScopes(value: unknown) {
-  if (Array.isArray(value)) return value.filter((scope): scope is string => typeof scope === "string");
-  if (typeof value === "string") return value.split(",").map((scope) => scope.trim()).filter(Boolean);
-  return [];
 }
 
 export async function POST(request: Request) {
@@ -107,7 +102,7 @@ export async function POST(request: Request) {
     ? terraUser.terraUserId
     : connection.terra_user_id;
   const referenceId = terraUser.referenceId || connection.reference_id;
-  const scopes = normaliseScopes(terraUser.rawUser.scopes);
+  const scopes = normaliseTerraScopes(terraUser.rawUser.scopes);
   const lastSyncTimestamp = connection.last_sync_at ? Date.parse(connection.last_sync_at) : Number.NaN;
   const syncRefreshDue = action === "data" && (
     !Number.isFinite(lastSyncTimestamp)

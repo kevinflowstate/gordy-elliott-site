@@ -97,6 +97,13 @@ export default function ConnectedAppsPage() {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     let attempts = 0;
     const poll = async () => {
+      if ([0, 2, 5, 9].includes(attempts)) {
+        await fetch("/api/portal/integrations/terra/reconcile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider }),
+        }).catch(() => null);
+      }
       const refreshed = await load(false);
       if (cancelled || !refreshed) return;
       const connection = refreshed.connections.find((item) => item.provider === provider);
@@ -158,21 +165,18 @@ export default function ConnectedAppsPage() {
             await new Promise((resolve) => setTimeout(resolve, 1_500));
             if (handledReturn.current) return;
 
+            await fetch("/api/portal/integrations/terra/reconcile", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ provider }),
+            }).catch(() => null);
+
             const refreshed = await load(false);
             const connection = refreshed?.connections.find((item) => item.provider === provider);
             if (connection?.status !== "pending") return;
-
-            await fetch("/api/portal/integrations/terra/session", {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ provider }),
-            });
-            await load(false);
             toast(
-              provider === "myfitnesspal"
-                ? "Terra couldn't complete the MyFitnessPal sign-in. Please try again shortly."
-                : "That connection wasn't completed. You can try again when you're ready.",
-              "error",
+              "Connection received. Verification is still finishing; check again in a moment.",
+              "info",
             );
           })();
         });

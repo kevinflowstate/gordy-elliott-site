@@ -1,9 +1,9 @@
 import { getTerraConfig } from "@/lib/terra/client";
+import { TERRA_CONSENT_VERSION } from "@/lib/terra/events";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
-const TERRA_CONSENT_VERSION = "wearable_connection_v2";
 const TERRA_PENDING_TIMEOUT_MS = 15 * 60 * 1000;
 
 async function getClientContext() {

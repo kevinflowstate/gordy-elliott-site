@@ -1,11 +1,9 @@
 import { generateTerraWidgetSession, getTerraReferenceId } from "@/lib/terra/client";
-import { normaliseTerraProvider } from "@/lib/terra/events";
+import { normaliseTerraProvider, TERRA_CONSENT_VERSION } from "@/lib/terra/events";
 import { createMockWearableSummary } from "@/lib/wearable-mock";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-
-const TERRA_CONSENT_VERSION = "wearable_connection_v2";
 
 async function getClientContext() {
   const supabase = await createClient();

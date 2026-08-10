@@ -41,8 +41,9 @@ export async function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
   const path = request.nextUrl.pathname;
   const isNativePushRemoval = path.startsWith('/api/push/native') && request.method === 'DELETE';
+  const isSignedCalendarOAuthCallback = path === '/api/portal/calendar-integrations/callback';
   const isClientAppApi =
-    path.startsWith('/api/portal') ||
+    (!isSignedCalendarOAuthCallback && path.startsWith('/api/portal')) ||
     path.startsWith('/api/inbox') ||
     path.startsWith('/api/notifications') ||
     path.startsWith('/api/calendar') ||
@@ -62,7 +63,7 @@ export async function middleware(request: NextRequest) {
     || path.startsWith('/admin')
     || path.startsWith('/account-paused');
 
-  // Public pages and independently authenticated webhooks/routes do not need
+  // Public pages and independently authenticated webhooks/signed callbacks do not need
   // a Supabase round trip in middleware.
   if (!isProtectedPage && !isClientAppApi) {
     return NextResponse.next({ request });

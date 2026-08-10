@@ -6,6 +6,7 @@ import test from "node:test";
 import {
   deauthenticateTerraUser,
   generateTerraWidgetSession,
+  getTerraUsersByReferenceId,
   verifyTerraWebhookSignature,
 } from "@/lib/terra/client";
 import {
@@ -290,6 +291,43 @@ test("deauthenticates the Terra user before a connection is removed locally", as
   }
 });
 
+test("verifies a Terra connection by internal reference id without trusting redirect parameters", async () => {
+  const originalEnv = {
+    devId: process.env.TERRA_DEV_ID,
+    apiKey: process.env.TERRA_API_KEY,
+  };
+  process.env.TERRA_DEV_ID = "testing-dev";
+  process.env.TERRA_API_KEY = "testing-key";
+  let requestedUrl = "";
+
+  try {
+    const users = await getTerraUsersByReferenceId(
+      "client:00000000-0000-0000-0000-000000000001",
+      async (input) => {
+        requestedUrl = String(input);
+        return new Response(JSON.stringify({
+          status: "success",
+          user: {
+            user_id: "23dc2540-7139-44c6-8158-f81196e2cf2e",
+            provider: "MYFITNESSPAL",
+            reference_id: "client:00000000-0000-0000-0000-000000000001",
+            active: true,
+          },
+        }), { status: 200, headers: { "Content-Type": "application/json" } });
+      },
+    );
+
+    assert.match(requestedUrl, /userInfo\?reference_id=client%3A00000000-0000-0000-0000-000000000001$/);
+    assert.equal(users.length, 1);
+    assert.equal(users[0].provider, "MYFITNESSPAL");
+  } finally {
+    if (originalEnv.devId === undefined) delete process.env.TERRA_DEV_ID;
+    else process.env.TERRA_DEV_ID = originalEnv.devId;
+    if (originalEnv.apiKey === undefined) delete process.env.TERRA_API_KEY;
+    else process.env.TERRA_API_KEY = originalEnv.apiKey;
+  }
+});
+
 test("Terra hardening migration records explicit consent and indexes raw-event retention", () => {
   const migration = fs.readFileSync(
     path.join(process.cwd(), "supabase/migrations/20260803120000_harden_terra_consent_and_retention.sql"),
@@ -318,6 +356,10 @@ test("Terra connection consent names the processor and records the revised notic
     path.join(process.cwd(), "app/api/portal/integrations/terra/session/route.ts"),
     "utf8",
   );
+  const terraEvents = fs.readFileSync(
+    path.join(process.cwd(), "lib/terra/events.ts"),
+    "utf8",
+  );
   const privacyPage = fs.readFileSync(
     path.join(process.cwd(), "app/privacy/page.tsx"),
     "utf8",
@@ -330,7 +372,8 @@ test("Terra connection consent names the processor and records the revised notic
   assert.match(connectedAppsPage, /Browser\.addListener\("browserFinished"/);
   assert.match(healthOverview, /connection\.provider === "myfitnesspal"/);
   assert.match(healthOverview, /summary\.providers\.includes\("myfitnesspal"\)/);
-  assert.match(sessionRoute, /TERRA_CONSENT_VERSION = "wearable_connection_v2"/);
+  assert.match(sessionRoute, /TERRA_CONSENT_VERSION/);
+  assert.match(terraEvents, /TERRA_CONSENT_VERSION = "wearable_connection_v2"/);
   assert.match(sessionRoute, /export async function PATCH/);
   assert.match(sessionRoute, /\.eq\("status", "pending"\)/);
   assert.match(privacyPage, /https:\/\/tryterra\.co\/end-user-privacy/);
