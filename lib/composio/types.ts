@@ -1,4 +1,5 @@
 export const CALENDAR_PROVIDERS = ["google_calendar", "outlook"] as const;
+export const CALENDAR_CONSENT_VERSION = "calendar_connection_v1";
 
 export type CalendarProvider = (typeof CALENDAR_PROVIDERS)[number];
 export type CalendarConnectionStatus =
@@ -18,6 +19,8 @@ export interface CalendarConnection {
   last_sync_at: string | null;
   connected_at: string | null;
   disconnected_at: string | null;
+  consent_version: string | null;
+  consented_at: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -460,7 +460,7 @@ test("verifies a Terra connection by internal reference id without trusting redi
 
 test("Terra hardening migration records explicit consent and indexes raw-event retention", () => {
   const migration = fs.readFileSync(
-    path.join(process.cwd(), "supabase/migrations/20260803120000_harden_terra_consent_and_retention.sql"),
+    path.join(process.cwd(), "supabase/migrations/20260803134739_harden_terra_consent_and_retention.sql"),
     "utf8",
   );
 

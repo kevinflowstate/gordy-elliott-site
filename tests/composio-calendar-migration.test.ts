@@ -6,6 +6,10 @@ const migrationUrl = new URL(
   "../supabase/migrations/20260723132523_add_composio_calendar_integrations.sql",
   import.meta.url,
 );
+const consentMigrationUrl = new URL(
+  "../supabase/migrations/20260810170000_record_calendar_connection_consent.sql",
+  import.meta.url,
+);
 
 test("calendar tables are tenant-bound and clients receive read-only grants", async () => {
   const migration = await readFile(migrationUrl, "utf8");
@@ -21,4 +25,11 @@ test("calendar storage excludes raw payloads, descriptions, and attendees", asyn
   assert.doesNotMatch(migration, /\bdescription\b/i);
   assert.doesNotMatch(migration, /\battendees\b/i);
   assert.match(migration, /UNIQUE\(connection_id, external_event_key\)/);
+});
+
+test("calendar consent is versioned and timestamped on the existing connection", async () => {
+  const migration = await readFile(consentMigrationUrl, "utf8");
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS consent_version TEXT/i);
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS consented_at TIMESTAMPTZ/i);
+  assert.doesNotMatch(migration, /GRANT|POLICY|DISABLE ROW LEVEL SECURITY/i);
 });

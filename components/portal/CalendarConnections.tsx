@@ -3,8 +3,10 @@
 import { Browser } from "@capacitor/browser";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
+  CALENDAR_CONSENT_VERSION,
   calendarProviderLabel,
   type CalendarConnection,
   type CalendarProvider,
@@ -18,7 +20,7 @@ type ProviderOption = {
 
 type ConnectionWithCount = Pick<
   CalendarConnection,
-  "id" | "provider" | "status" | "last_sync_at" | "connected_at" | "disconnected_at" | "created_at" | "updated_at"
+  "id" | "provider" | "status" | "last_sync_at" | "connected_at" | "disconnected_at" | "consent_version" | "consented_at" | "created_at" | "updated_at"
 > & { event_count: number };
 
 type IntegrationsResponse = {
@@ -55,7 +57,10 @@ export default function CalendarConnections({
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [consentProvider, setConsentProvider] = useState<CalendarProvider | null>(null);
   const browserFinishedListener = useRef<PluginListenerHandle | null>(null);
+  const consentContinueRef = useRef<HTMLButtonElement | null>(null);
+  const consentTriggerRef = useRef<HTMLButtonElement | null>(null);
   const mounted = useRef(true);
 
   const load = useCallback(async () => {
@@ -98,6 +103,51 @@ export default function CalendarConnections({
     };
   }, []);
 
+  useEffect(() => {
+    if (!consentProvider) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusFrame = window.requestAnimationFrame(() => consentContinueRef.current?.focus());
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setConsentProvider(null);
+        window.requestAnimationFrame(() => consentTriggerRef.current?.focus());
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [consentProvider]);
+
+  function closeConsent() {
+    setConsentProvider(null);
+    window.requestAnimationFrame(() => consentTriggerRef.current?.focus());
+  }
+
+  function requestConnect(provider: CalendarProvider, trigger: HTMLButtonElement) {
+    consentTriggerRef.current = trigger;
+    const hasCurrentCalendarConsent = data?.connections.some(
+      (connection) => connection.consent_version === CALENDAR_CONSENT_VERSION && Boolean(connection.consented_at),
+    );
+    if (!hasCurrentCalendarConsent) {
+      setConsentProvider(provider);
+      return;
+    }
+    void connect(provider);
+  }
+
+  function continueFromConsent() {
+    if (!consentProvider) return;
+    const provider = consentProvider;
+    setConsentProvider(null);
+    void connect(provider);
+  }
+
   async function connect(provider: CalendarProvider) {
     setActiveAction(`connect:${provider}`);
     setError(null);
@@ -107,7 +157,10 @@ export default function CalendarConnections({
       const response = await fetch(`/api/portal/calendar-integrations/providers/${provider}/connect`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ native: Capacitor.isNativePlatform() }),
+        body: JSON.stringify({
+          native: Capacitor.isNativePlatform(),
+          consentVersion: CALENDAR_CONSENT_VERSION,
+        }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Calendar connection could not be started.");
@@ -199,11 +252,10 @@ export default function CalendarConnections({
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-wider text-accent-bright">Connected calendars</div>
           <h2 id="connected-calendars-heading" className="mt-1 text-lg font-heading font-bold text-text-primary">
-            Bring your week into one view
+            Plan around real life
           </h2>
           <p className="mt-1 max-w-2xl text-xs leading-5 text-text-secondary">
-            Read-only access syncs event times and titles for the next seven days. Private events appear as Busy.
-            AT CAPACITY uses your schedule to show meeting load and help you and Gordy plan training and nutrition around busier weeks.
+            Connect your calendar to sync AT CAPACITY with your week, helping you and Gordy plan training and nutrition around your busiest days.
           </p>
         </div>
       </div>
@@ -217,35 +269,6 @@ export default function CalendarConnections({
           {error || notice}
         </div>
       )}
-
-      <section
-        className="mb-4 rounded-xl border border-[#4285F4]/25 bg-[#4285F4]/[0.06] p-4"
-        aria-labelledby="google-calendar-disclosure-heading"
-        id="google-calendar-consent-summary"
-      >
-        <div className="text-[10px] font-semibold uppercase tracking-wider text-[#4285F4]">Before you connect Google Calendar</div>
-        <h3 id="google-calendar-disclosure-heading" className="mt-1 text-sm font-bold text-text-primary">
-          Read-only schedule access, with AI kept separate
-        </h3>
-        <ul className="mt-3 space-y-2 text-xs leading-5 text-text-secondary">
-          <li>
-            <span className="font-semibold text-text-primary">Access:</span>{" "}
-            calendar identifiers and event titles, times, busy/all-day status and meeting links for today and the next seven days. Private events appear as Busy.
-          </li>
-          <li>
-            <span className="font-semibold text-text-primary">Use:</span>{" "}
-            your schedule, meeting load, deterministic Capacity Checker and Storm Warning, and Gordy&apos;s coaching view.
-          </li>
-          <li>
-            <span className="font-semibold text-text-primary">Handling:</span>{" "}
-            Composio processes the secure Google connection, Vercel processes the app request and Supabase stores the limited synced copy. Google Calendar data is never sent to Anthropic, OpenRouter or a downstream AI model, and is never used for advertising or general-purpose AI training.
-          </li>
-        </ul>
-        <p className="mt-3 text-[11px] leading-5 text-text-muted">
-          Disconnecting stops future access and removes AT CAPACITY&apos;s synced event copies. See the{" "}
-          <Link href="/privacy" className="font-semibold text-accent-bright">Privacy Policy</Link>.
-        </p>
-      </section>
 
       <div className="grid gap-3 sm:grid-cols-2">
         {(data?.providers || []).map((provider) => {
@@ -276,7 +299,7 @@ export default function CalendarConnections({
                     {connection?.last_sync_at
                       ? `${formatSyncDate(connection.last_sync_at)} · ${connection.event_count} upcoming`
                       : provider.configured
-                        ? "Connect securely through Composio."
+                        ? "Securely connect your account."
                         : `${provider.label} connection is being prepared.`}
                   </p>
                 </div>
@@ -305,9 +328,8 @@ export default function CalendarConnections({
                 ) : (
                   <button
                     type="button"
-                    onClick={() => connect(provider.provider)}
+                    onClick={(event) => requestConnect(provider.provider, event.currentTarget)}
                     disabled={!canConnect || Boolean(activeAction)}
-                    aria-describedby={provider.provider === "google_calendar" ? "google-calendar-consent-summary" : undefined}
                     className="rounded-lg gradient-accent px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {providerAction
@@ -322,6 +344,91 @@ export default function CalendarConnections({
           );
         })}
       </div>
+
+      {consentProvider && typeof document !== "undefined" && createPortal((
+        <div
+          className="fixed inset-0 z-[1000] flex h-[100dvh] items-end justify-center bg-black/70 px-2 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-sm sm:items-center sm:p-4"
+          onClick={closeConsent}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="calendar-consent-title"
+            aria-describedby="calendar-consent-description"
+            className="w-full max-w-md rounded-t-[28px] border border-white/[0.10] bg-[#111114] px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 shadow-2xl sm:rounded-[28px] sm:p-6"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#F060E0]">One quick check</div>
+                <h3 id="calendar-consent-title" className="mt-1.5 text-xl font-heading font-bold text-white">
+                  Connect {calendarProviderLabel(consentProvider)}?
+                </h3>
+                <p id="calendar-consent-description" className="mt-2 text-sm leading-6 text-white/60">
+                  AT CAPACITY uses your next seven days to help plan training and nutrition around your schedule.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeConsent}
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/[0.10] bg-white/[0.05] text-white/70"
+                aria-label="Close calendar connection"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mt-5 divide-y divide-white/[0.08] border-y border-white/[0.08]">
+              <div className="flex gap-3 py-3.5">
+                <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#E040D0]/12 text-[#F060E0]" aria-hidden="true">✓</span>
+                <div>
+                  <p className="text-sm font-semibold text-white">Read-only</p>
+                  <p className="mt-0.5 text-xs leading-5 text-white/50">We can&apos;t add, edit or delete anything in your calendar.</p>
+                </div>
+              </div>
+              <div className="flex gap-3 py-3.5">
+                <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#E040D0]/12 text-[#F060E0]" aria-hidden="true">7</span>
+                <div>
+                  <p className="text-sm font-semibold text-white">Only what helps</p>
+                  <p className="mt-0.5 text-xs leading-5 text-white/50">We sync event times and titles for seven days. Private events appear as Busy.</p>
+                </div>
+              </div>
+              <div className="flex gap-3 py-3.5">
+                <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#E040D0]/12 text-[#F060E0]" aria-hidden="true">×</span>
+                <div>
+                  <p className="text-sm font-semibold text-white">You stay in control</p>
+                  <p className="mt-0.5 text-xs leading-5 text-white/50">Your calendar isn&apos;t used for ads or sent to AI. Disconnecting removes the synced copy.</p>
+                </div>
+              </div>
+            </div>
+
+            <p className="mt-4 text-center text-[11px] leading-5 text-white/40">
+              See how your data is handled in the{" "}
+              <Link href="/privacy" className="font-semibold text-[#F060E0]">Privacy Policy</Link>.
+            </p>
+
+            <div className="mt-5 grid gap-2 sm:grid-cols-[0.7fr_1.3fr]">
+              <button
+                type="button"
+                onClick={closeConsent}
+                className="min-h-12 rounded-xl border border-white/[0.10] px-4 text-sm font-semibold text-white/65"
+              >
+                Not now
+              </button>
+              <button
+                ref={consentContinueRef}
+                type="button"
+                onClick={continueFromConsent}
+                className="min-h-12 rounded-xl bg-[#E040D0] px-4 text-sm font-bold text-white transition-colors hover:bg-[#F060E0]"
+              >
+                Continue to {consentProvider === "google_calendar" ? "Google" : "Microsoft"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ), document.body)}
     </section>
   );
 }
