@@ -183,6 +183,43 @@ export async function getTerraUsersByReferenceId(
   ));
 }
 
+export async function requestTerraNutritionData(
+  terraUserId: string,
+  startDate: string,
+  endDate: string,
+  fetchImpl: TerraFetch = fetch,
+) {
+  const config = getTerraConfig();
+  if (!config.configured) {
+    throw new Error("Terra credentials are not configured.");
+  }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(terraUserId)) {
+    throw new Error("The stored Terra user ID is invalid.");
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || startDate > endDate) {
+    throw new Error("The requested nutrition date range is invalid.");
+  }
+
+  const url = new URL("https://api.tryterra.co/v2/nutrition");
+  url.searchParams.set("user_id", terraUserId);
+  url.searchParams.set("start_date", startDate);
+  url.searchParams.set("end_date", endDate);
+  url.searchParams.set("to_webhook", "true");
+  const response = await fetchImpl(url, {
+    headers: {
+      "dev-id": config.devId,
+      "x-api-key": config.apiKey,
+    },
+    signal: AbortSignal.timeout(10_000),
+  });
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data?.message || data?.error || "Terra could not request nutrition data.");
+  }
+  return data;
+}
+
 export function verifyTerraWebhookSignature(
   rawBody: string,
   signatureHeader: string,

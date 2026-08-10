@@ -103,7 +103,7 @@ try {
       type: "magiclink",
       email: reviewEmail,
     });
-    if (linkError || !link.properties?.hashed_token) {
+    if (linkError || (!link.properties?.hashed_token && !link.properties?.email_otp)) {
       throw new Error(linkError?.message || "Could not create the local QA sign-in.");
     }
     const authCookies = [];
@@ -113,10 +113,10 @@ try {
         setAll: (cookies) => authCookies.push(...cookies),
       },
     });
-    const { error: verifyError } = await authClient.auth.verifyOtp({
-      token_hash: link.properties.hashed_token,
-      type: "magiclink",
-    });
+    const verifyOptions = link.properties.email_otp
+      ? { email: reviewEmail, token: link.properties.email_otp, type: "email" }
+      : { token_hash: link.properties.hashed_token, type: "magiclink" };
+    const { error: verifyError } = await authClient.auth.verifyOtp(verifyOptions);
     if (verifyError) throw new Error(`Could not authenticate the QA fixture: ${verifyError.message}`);
     await context.addCookies(authCookies.map(({ name, value, options }) => ({
       name,

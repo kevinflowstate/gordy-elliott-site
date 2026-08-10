@@ -66,15 +66,29 @@ export function buildWearableInsight(
   const flags: string[] = [];
   let score = 82;
 
-  if (summary.sleep_minutes !== null && summary.sleep_minutes < 360) {
+  const durationSleepPenalty = summary.sleep_minutes === null
+    ? 0
+    : summary.sleep_minutes < 240
+      ? 20
+      : summary.sleep_minutes < 300
+        ? 12
+        : summary.sleep_minutes < 360
+          ? 6
+          : 0;
+  const providerSleepPenalty = summary.sleep_score === null
+    ? 0
+    : summary.sleep_score < 55
+      ? 18
+      : summary.sleep_score < 70
+        ? 8
+        : 0;
+  const sleepPenalty = Math.max(durationSleepPenalty, providerSleepPenalty);
+  if (sleepPenalty >= 12) {
     flags.push("poor_sleep");
-    score -= 24;
-  } else if (summary.sleep_score !== null && summary.sleep_score < 55) {
-    flags.push("poor_sleep");
-    score -= 20;
-  } else if (summary.sleep_score !== null && summary.sleep_score < 70) {
+    score -= sleepPenalty;
+  } else if (sleepPenalty > 0) {
     flags.push("light_sleep");
-    score -= 10;
+    score -= sleepPenalty;
   }
 
   if (
@@ -100,26 +114,11 @@ export function buildWearableInsight(
     score -= flags.includes("poor_sleep") ? 16 : 6;
   }
 
-  if (summary.protein_g !== null && summary.protein_g < 90) {
-    flags.push("low_protein");
-    score -= 8;
-  }
-
-  if (summary.nutrition_calories !== null && summary.nutrition_calories < 1200) {
-    flags.push("low_calories");
-    score -= 8;
-  }
-
-  if (summary.steps !== null && summary.steps < 3000) {
-    flags.push("low_steps");
-    score -= 4;
-  }
-
   const readinessScore = roundScore(score);
   const recoveryStatus: RecoveryStatus =
     flags.includes("poor_sleep") && (flags.includes("high_strain") || flags.includes("elevated_resting_hr") || flags.includes("low_hrv"))
       ? "reduce_intensity"
-      : readinessScore < 62 || flags.includes("poor_sleep")
+      : readinessScore < 62 || flags.includes("poor_sleep") || flags.includes("light_sleep")
         ? "watch"
         : "good";
 
