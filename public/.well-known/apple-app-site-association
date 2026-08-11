@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "H4J3XX8R8M.com.gordyelliott.shift",
+        "paths": [
+          "/auth/callback"
+        ]
+      }
+    ]
+  }
+}

@@ -25,10 +25,22 @@ if (serverUrl.protocol !== "https:") {
 const projectPath = "ios/App/App.xcodeproj/project.pbxproj";
 const infoPath = "ios/App/App/Info.plist";
 const capacitorConfigPath = "ios/App/App/capacitor.config.json";
-await Promise.all([access(projectPath), access(infoPath), access(capacitorConfigPath)]);
+const entitlementsPath = "ios/App/App/App.entitlements";
+const associationPath = "public/.well-known/apple-app-site-association";
+await Promise.all([
+  access(projectPath),
+  access(infoPath),
+  access(capacitorConfigPath),
+  access(entitlementsPath),
+  access(associationPath),
+]);
 
 const project = await readFile(projectPath, "utf8");
 const capacitorConfig = JSON.parse(await readFile(capacitorConfigPath, "utf8"));
+const entitlements = await readFile(entitlementsPath, "utf8");
+const association = JSON.parse(await readFile(associationPath, "utf8"));
+const expectedAppId = `${expected.teamId}.${expected.appId}`;
+const associatedApp = association.applinks?.details?.find((entry) => entry.appID === expectedAppId);
 const checks = [
   [project.includes(`PRODUCT_BUNDLE_IDENTIFIER = ${expected.appId};`), `bundle ID ${expected.appId}`],
   [project.includes(`DEVELOPMENT_TEAM = ${expected.teamId};`), `team ${expected.teamId}`],
@@ -38,6 +50,9 @@ const checks = [
   [project.includes("CODE_SIGN_STYLE = Manual;"), "manual App Store release signing"],
   [project.includes(`PROVISIONING_PROFILE_SPECIFIER = "${appIdentity.appName} App Store";`), `${appIdentity.appName} App Store provisioning profile`],
   [project.includes("APS_ENVIRONMENT = production;"), "production APNs entitlement"],
+  [project.includes("com.apple.AssociatedDomains"), "Associated Domains target capability"],
+  [entitlements.includes("applinks:app.onlinegordy.com"), "app.onlinegordy.com associated-domain entitlement"],
+  [associatedApp?.paths?.includes("/auth/callback"), `AASA recovery callback for ${expectedAppId}`],
   [capacitorConfig.appId === expected.appId, `Capacitor app ID ${expected.appId}`],
   [capacitorConfig.appendUserAgent === "SHIFT-APNS/production", "production APNs build marker"],
 ];
