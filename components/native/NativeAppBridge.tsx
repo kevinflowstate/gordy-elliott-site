@@ -17,6 +17,7 @@ import {
 } from "@/lib/native-push-client-contract";
 import { rememberNativePushToken } from "@/lib/native-push-client";
 import { safeLocalRedirect } from "@/lib/safe-redirect";
+import { isNativeAppRoute, resolveNativeAppLink } from "@/lib/native-app-links";
 
 const HANDLED_LAUNCH_URL_KEY = "shift-native-launch-url";
 let pendingNativePushToken: string | null = null;
@@ -46,15 +47,6 @@ async function syncNativePushToken(token: string) {
   }
 }
 
-function isNativeRoute(pathname: string) {
-  return (
-    pathname === "/login" ||
-    pathname === "/auth/callback" ||
-    pathname === "/portal" ||
-    pathname.startsWith("/portal/")
-  );
-}
-
 export default function NativeAppBridge() {
   const pathname = usePathname();
 
@@ -73,40 +65,16 @@ export default function NativeAppBridge() {
     let navigatingUrl: string | undefined;
 
     const handleAppUrl = (url: string) => {
-      try {
-        const destination = new URL(url);
-        if (destination.protocol === "shiftcoaching:") {
-          const path = `/${destination.host}${destination.pathname}`.replace(/\/{2,}/g, "/");
-          if (!isNativeRoute(path)) return;
-          void Browser.close().catch(() => {});
+      const destination = resolveNativeAppLink(url, window.location.host);
+      if (!destination) return false;
 
-          if (path === "/login") {
-            const query = new URLSearchParams({
-              redirect: safeLocalRedirect(destination.searchParams.get("redirect")),
-            });
-            window.location.assign(`/login?${query}`);
-            return true;
-          }
-
-          window.location.assign(`${path}${destination.search}${destination.hash}`);
-          return true;
-        }
-
-        if (destination.protocol === "http:" || destination.protocol === "https:") {
-          if (destination.host !== window.location.host) return;
-          if (!isNativeRoute(destination.pathname)) {
-            void Browser.open({ url: destination.href });
-            return true;
-          }
-          void Browser.close().catch(() => {});
-          window.location.assign(`${destination.pathname}${destination.search}${destination.hash}`);
-          return true;
-        }
-      } catch {
-        // Ignore malformed URLs supplied by another application.
+      if (destination.action === "open-browser") {
+        void Browser.open({ url: destination.href });
+      } else {
+        void Browser.close().catch(() => {});
+        window.location.assign(destination.href);
       }
-
-      return false;
+      return true;
     };
 
     const navigateToAppUrl = (url: string) => {
@@ -203,7 +171,7 @@ export default function NativeAppBridge() {
       if (!["http:", "https:"].includes(destination.protocol)) return;
       const staysInNativeApp =
         destination.host === window.location.host &&
-        isNativeRoute(destination.pathname) &&
+        isNativeAppRoute(destination.pathname) &&
         anchor.target !== "_blank";
       if (staysInNativeApp) return;
 
