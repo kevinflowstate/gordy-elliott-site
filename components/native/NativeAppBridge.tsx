@@ -57,7 +57,11 @@ export default function NativeAppBridge() {
     void StatusBar.setOverlaysWebView({ overlay: false });
     // Capacitor Style.Dark is light status-bar content for dark backgrounds.
     void StatusBar.setStyle({ style: Style.Dark });
-    void SplashScreen.hide({ fadeOutDuration: 250 });
+    // Keep the complete brand mark visible through the first hydrated paint so
+    // the native launch screen does not flash into a half-drawn portal shell.
+    const splashTimer = window.setTimeout(() => {
+      void SplashScreen.hide({ fadeOutDuration: 250 });
+    }, 450);
 
     let disposed = false;
     let removeDeepLinkListener: (() => Promise<void>) | undefined;
@@ -189,6 +193,7 @@ export default function NativeAppBridge() {
     document.addEventListener("click", provideHapticFeedback);
 
     return () => {
+      window.clearTimeout(splashTimer);
       disposed = true;
       document.documentElement.classList.remove("native-app");
       document.removeEventListener("click", openExternalLinks);

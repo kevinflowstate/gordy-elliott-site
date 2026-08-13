@@ -63,56 +63,12 @@ export default function StrengthProgressPanel({
   const consistency = data.consistency;
   return (
     <section id="strength-performance" className="mb-6 scroll-mt-4 space-y-4">
-      <div className="app-card overflow-hidden rounded-[28px]">
-        <div className="border-b border-[#E040D0]/15 bg-[linear-gradient(135deg,rgba(224,64,208,0.16),rgba(59,130,246,0.06))] px-5 py-4">
-          <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#E040D0]">Training progress</div>
-          <h2 className="mt-1 font-heading text-xl font-bold text-text-primary">Strength &amp; Performance</h2>
-          <p className="mt-1 text-sm leading-relaxed text-text-secondary">
-            Updated automatically from completed sessions—nothing extra to log.
-          </p>
-        </div>
-
-        <div className="p-5">
-          <div className="grid grid-cols-3 gap-2">
-            <div className="app-inset rounded-2xl px-3 py-3">
-              <div className="text-[9px] font-bold uppercase tracking-[0.13em] text-text-muted">4-week sessions</div>
-              <div className="mt-1 font-heading text-xl font-bold text-text-primary">{consistency.completedSessions}</div>
-              <div className="text-[10px] text-text-secondary">
-                {consistency.plannedSessions ? `${consistency.plannedSessions} planned` : "completed"}
-              </div>
-            </div>
-            <div className="app-inset rounded-2xl px-3 py-3">
-              <div className="text-[9px] font-bold uppercase tracking-[0.13em] text-text-muted">On plan</div>
-              <div className="mt-1 font-heading text-xl font-bold text-[#E040D0]">
-                {consistency.completionRate !== null ? `${consistency.completionRate}%` : "—"}
-              </div>
-              <div className="text-[10px] text-text-secondary">
-                {consistency.completionRate !== null ? "last 4 weeks" : "schedule needed"}
-              </div>
-            </div>
-            <div className="app-inset rounded-2xl px-3 py-3">
-              <div className="text-[9px] font-bold uppercase tracking-[0.13em] text-text-muted">Active streak</div>
-              <div className="mt-1 font-heading text-xl font-bold text-blue-500">{consistency.activeWeekStreak}</div>
-              <div className="text-[10px] text-text-secondary">{consistency.activeWeekStreak === 1 ? "week" : "weeks"}</div>
-            </div>
-          </div>
-
-          <div className="mt-4 grid grid-cols-4 gap-2" aria-label="Four-week training history">
-            {consistency.weeks.map((week) => {
-              const target = Math.max(week.planned, week.completed, 1);
-              const percentage = Math.min(100, Math.round((week.completed / target) * 100));
-              return (
-                <div key={week.weekStart} className="text-center">
-                  <div className="flex h-12 items-end overflow-hidden rounded-lg bg-[rgba(0,0,0,0.04)]">
-                    <div className="w-full rounded-lg bg-[#E040D0]/75 transition-all" style={{ height: `${Math.max(percentage, week.completed ? 16 : 4)}%` }} />
-                  </div>
-                  <div className="mt-1 text-[9px] font-semibold text-text-muted">{shortDate(week.weekStart)}</div>
-                  <div className="text-[9px] text-text-secondary">{week.completed}/{week.planned || "—"}</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+      <div className="app-card overflow-hidden rounded-[28px] border border-[#E040D0]/15 bg-[linear-gradient(135deg,rgba(224,64,208,0.16),rgba(59,130,246,0.06))] px-5 py-4">
+        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#E040D0]">Key movements</div>
+        <h2 className="mt-1 font-heading text-xl font-bold text-text-primary">Strength &amp; Performance</h2>
+        <p className="mt-1 text-sm leading-relaxed text-text-secondary">
+          Your important lifts update automatically from completed sessions—nothing extra to log.
+        </p>
       </div>
 
       {data.trackers.length === 0 ? (
@@ -181,6 +137,34 @@ export default function StrengthProgressPanel({
           </article>
         ))
       )}
+
+      <details className="group app-card-quiet rounded-[24px] p-4">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-text-muted">Training consistency</div>
+            <div className="mt-1 text-sm font-semibold text-text-primary">
+              {consistency.completedSessions} of {consistency.plannedSessions || "—"} planned sessions · {consistency.completionRate !== null ? `${consistency.completionRate}%` : "schedule needed"}
+            </div>
+          </div>
+          <svg className="h-4 w-4 shrink-0 text-text-muted transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+        </summary>
+        <div className="mt-3 grid grid-cols-4 gap-2 border-t border-[rgba(0,0,0,0.06)] pt-4" aria-label="Four-week training history">
+          {consistency.weeks.map((week) => {
+            const target = Math.max(week.planned, week.completed, 1);
+            const percentage = Math.min(100, Math.round((week.completed / target) * 100));
+            return (
+              <div key={week.weekStart} className="text-center">
+                <div className="flex h-12 items-end overflow-hidden rounded-lg bg-[rgba(0,0,0,0.04)]">
+                  <div className="w-full rounded-lg bg-[#E040D0]/75" style={{ height: `${Math.max(percentage, week.completed ? 16 : 4)}%` }} />
+                </div>
+                <div className="mt-1 text-[9px] font-semibold text-text-muted">{shortDate(week.weekStart)}</div>
+                <div className="text-[9px] text-text-secondary">{week.completed}/{week.planned || "—"}</div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-3 text-xs text-text-secondary">Active streak: {consistency.activeWeekStreak} {consistency.activeWeekStreak === 1 ? "week" : "weeks"}</div>
+      </details>
     </section>
   );
 }

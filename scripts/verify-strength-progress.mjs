@@ -211,7 +211,10 @@ try {
     }
     await page.getByRole("heading", { name: "Strength & Performance" }).waitFor();
     await page.getByText("Trap Bar Deadlift", { exact: true }).waitFor();
-    await page.getByText("82%", { exact: true }).waitFor();
+    const consistencyDetails = page.locator("#strength-performance details");
+    await consistencyDetails.locator("summary").click();
+    await consistencyDetails.locator("[aria-label='Four-week training history']").waitFor();
+    await page.getByText(/82%/).first().waitFor();
     await assertNoHorizontalOverflow(page, viewport.name);
 
     await page.locator("#strength-performance").screenshot({

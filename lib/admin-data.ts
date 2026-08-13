@@ -70,6 +70,17 @@ export interface AdminClient {
   wearable_summaries?: WearableDailySummary[];
   calendar_connections?: CalendarConnection[];
   calendar_events?: SyncedCalendarEvent[];
+  daily_metrics?: Array<{
+    id: string;
+    tracked_date: string;
+    sleep_hours: number | null;
+    water_liters: number | null;
+    energy_level: number | null;
+    stress_level: number | null;
+    nutrition_score: number | null;
+    training_completed: boolean;
+    notes: string | null;
+  }>;
   lifecycle_status: ClientLifecycleStatus;
   lifecycle_paused_at?: string | null;
   lifecycle_resumes_at?: string | null;
@@ -470,11 +481,11 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
       .limit(1),
     admin
       .from("client_daily_metrics")
-      .select("tracked_date")
+      .select("id, tracked_date, sleep_hours, water_liters, energy_level, stress_level, nutrition_score, training_completed, notes")
       .eq("client_id", id)
       .lte("tracked_date", new Date().toISOString().slice(0, 10))
       .order("tracked_date", { ascending: false })
-      .limit(1),
+      .limit(14),
     admin
       .from("client_meal_tracking")
       .select("tracked_date")
@@ -561,6 +572,7 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
     wearable_summaries: (wearableSummaries || []) as WearableDailySummary[],
     calendar_connections: (calendarConnections || []) as CalendarConnection[],
     calendar_events: (calendarEvents || []) as SyncedCalendarEvent[],
+    daily_metrics: latestDailyMetrics || [],
     lifecycle_status: lifecycleStatus,
     lifecycle_paused_at: p.lifecycle_paused_at || null,
     lifecycle_resumes_at: p.lifecycle_resumes_at || null,

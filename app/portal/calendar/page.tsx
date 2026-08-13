@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { CalendarEvent, RecurrenceType } from "@/lib/types";
 import CalendarConnections from "@/components/portal/CalendarConnections";
+import { getNextCalendarOccurrence } from "@/lib/calendar-occurrence";
 
 const recurrenceLabels: Record<RecurrenceType, { label: string; color: string }> = {
   none: { label: "One-off", color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
@@ -45,35 +46,6 @@ function getEventDates(event: CalendarEvent, year: number, month: number): Date[
     }
   }
   return dates;
-}
-
-function getNextOccurrence(event: CalendarEvent): Date | null {
-  const now = new Date();
-  const dateKey = event.event_date.slice(0, 10);
-  const baseDate = new Date(`${dateKey}T${event.all_day ? "12:00" : event.event_time || "00:00"}:00`);
-
-  if (event.recurrence === "none") {
-    if (event.all_day && dateKey === [
-      now.getFullYear(),
-      String(now.getMonth() + 1).padStart(2, "0"),
-      String(now.getDate()).padStart(2, "0"),
-    ].join("-")) return now;
-    return baseDate >= now ? baseDate : null;
-  }
-
-  for (let i = 0; i < 60; i++) {
-    const d = new Date(now);
-    d.setDate(d.getDate() + i);
-    const targetDay = event.recurrence_day ?? baseDate.getDay();
-
-    if (event.recurrence === "weekly" && d.getDay() === targetDay && d >= baseDate) return d;
-    if (event.recurrence === "biweekly" && d.getDay() === targetDay && d >= baseDate) {
-      const diffWeeks = Math.round((d.getTime() - baseDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
-      if (diffWeeks % 2 === 0) return d;
-    }
-    if (event.recurrence === "monthly" && d.getDate() === baseDate.getDate() && d >= baseDate) return d;
-  }
-  return null;
 }
 
 export default function PortalCalendarPage() {
@@ -129,7 +101,7 @@ export default function PortalCalendarPage() {
 
   // Up next
   const upNext = activeEvents
-    .map(e => ({ event: e, next: getNextOccurrence(e) }))
+    .map(e => ({ event: e, next: getNextCalendarOccurrence(e) }))
     .filter(x => x.next !== null)
     .sort((a, b) => a.next!.getTime() - b.next!.getTime())[0] || null;
 

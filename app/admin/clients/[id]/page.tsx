@@ -1052,6 +1052,9 @@ export default function ClientDetailPage() {
   const activeWearableConnections = (client.wearable_connections || []).filter((connection) => connection.status === "connected");
   const activeCalendarConnections = (client.calendar_connections || []).filter((connection) => connection.status === "connected");
   const upcomingCalendarEvents = client.calendar_events || [];
+  const priorityCheckin = client.checkins.find((checkin) => (
+    !checkin.admin_reply && (checkin.responses?.priority_message || checkin.responses?.support_ask)
+  ));
 
   function consultationUrl() {
     if (typeof window === "undefined") return "/portal/consultation?setup=true";
@@ -2214,6 +2217,26 @@ export default function ClientDetailPage() {
               )}
             </div>
 
+            {client.daily_metrics?.some((entry) => entry.notes) && (
+              <div className="mt-4 rounded-2xl border border-[#E040D0]/20 bg-bg-card p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-heading font-bold text-text-primary">Daily Tracker notes</h3>
+                  <span className="rounded-full bg-[#E040D0]/10 px-2.5 py-1 text-[10px] font-semibold text-[#E040D0]">Client shared</span>
+                </div>
+                <p className="mt-1 text-xs text-text-muted">Context the client added alongside their daily numbers.</p>
+                <div className="mt-3 space-y-2">
+                  {client.daily_metrics.filter((entry) => entry.notes).slice(0, 4).map((entry) => (
+                    <div key={entry.id} className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-3">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#E040D0]">
+                        {new Date(`${entry.tracked_date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
+                      </div>
+                      <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-text-secondary">{entry.notes}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Programme Timeline */}
             <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mt-4">
               <div className="flex items-center justify-between mb-3">
@@ -2279,6 +2302,24 @@ export default function ClientDetailPage() {
 
             {/* Latest Check-ins */}
             <h3 className="text-sm font-heading font-bold text-text-primary mb-3">Latest Check-ins</h3>
+            {priorityCheckin && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("checkins");
+                  setExpandedCheckins((previous) => new Set(previous).add(priorityCheckin.id));
+                }}
+                className="mb-3 w-full rounded-2xl border border-amber-500/30 bg-amber-500/8 px-4 py-3 text-left"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-amber-500">Needs Gordy&apos;s reply</span>
+                  <span className="text-xs font-semibold text-amber-500">Open →</span>
+                </div>
+                <p className="mt-1 line-clamp-2 text-xs leading-5 text-text-primary">
+                  {priorityCheckin.responses?.priority_message || priorityCheckin.responses?.support_ask}
+                </p>
+              </button>
+            )}
             {client.checkins.length === 0 ? (
               <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 text-center">
                 <p className="text-sm text-text-muted">No check-ins yet.</p>

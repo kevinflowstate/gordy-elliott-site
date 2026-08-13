@@ -378,7 +378,7 @@ function CapacityRing({
         aria-label={score === null ? "Capacity score unavailable" : `Capacity score ${score} out of 100`}
       >
         <div className="flex h-full w-full flex-col items-center justify-center rounded-full border border-white/[0.07] bg-[#0f0e12]/95 shadow-[inset_0_0_42px_rgba(255,255,255,0.022)] backdrop-blur-sm">
-          <div className="text-center text-[9px] font-semibold uppercase tracking-[0.18em] text-white/35">AT CAPACITY score</div>
+          <div className="text-center text-[9px] font-semibold uppercase tracking-[0.22em] text-white/40">Capacity</div>
           <div className="mt-1 font-heading text-[4.15rem] font-bold leading-none tracking-[-0.04em] text-white sm:text-[4.8rem]">{score ?? "—"}</div>
           <div className="mt-1 text-xs font-semibold text-white/42">{score === null ? "Collecting data" : status}</div>
         </div>
