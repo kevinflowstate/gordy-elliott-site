@@ -106,6 +106,95 @@ try {
     await authenticate(context, admin);
     const page = await context.newPage();
     page.setDefaultTimeout(15_000);
+    const qaDate = new Date();
+    const qaDateKey = [qaDate.getFullYear(), String(qaDate.getMonth() + 1).padStart(2, "0"), String(qaDate.getDate()).padStart(2, "0")].join("-");
+    const weekdayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const nextCheckinDay = weekdayNames[(qaDate.getDay() + 1) % 7];
+    const calendarEvents = Array.from({ length: 3 }, (_, index) => ({
+      id: `qa-event-${index}`,
+      title: `QA calendar event ${index + 1}`,
+      event_date: qaDateKey,
+      event_time: `${10 + index}:00`,
+      recurrence: "none",
+      is_active: true,
+      created_at: new Date().toISOString(),
+      source: "connected",
+    }));
+    await page.route("**/api/calendar", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ events: calendarEvents }),
+    }));
+    await page.route("**/api/portal/dashboard", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        profile: { tier: "coached", experience_mode: "default", start_date: "2026-07-01" },
+        userName: "QA Client",
+        checkins: [],
+        planPhases: [],
+        checkinDay: nextCheckinDay,
+        recentModules: [],
+      }),
+    }));
+    await page.route("**/api/portal/tasks", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ tasks: [] }),
+    }));
+    await page.route("**/api/portal/calendar-integrations", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        available: true,
+        providers: [
+          { provider: "google_calendar", label: "Google Calendar", configured: true },
+          { provider: "outlook_calendar", label: "Outlook Calendar", configured: true },
+        ],
+        connections: [{
+          id: "qa-calendar-connection",
+          provider: "google_calendar",
+          status: "connected",
+          last_sync_at: new Date().toISOString(),
+          connected_at: new Date().toISOString(),
+          disconnected_at: null,
+          consent_version: "calendar_connection_v1",
+          consented_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          event_count: calendarEvents.length,
+        }],
+      }),
+    }));
+    await page.route("**/api/portal/integrations", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        latestSummary: {
+          summary_date: qaDateKey,
+          providers: ["oura"],
+          sleep_minutes: 330,
+          sleep_score: 58,
+          hrv_ms: 31,
+          resting_hr_bpm: 69,
+          steps: 2400,
+          active_calories: null,
+          total_calories_burned: null,
+          training_load: null,
+          workout_count: null,
+          nutrition_calories: null,
+          protein_g: null,
+          carbs_g: null,
+          fat_g: null,
+          water_ml: null,
+          readiness_score: 54,
+          recovery_status: "reduce_intensity",
+          flags: ["poor_sleep", "low_hrv"],
+          insight: "Recovery is under pressure today.",
+        },
+        mockMode: false,
+      }),
+    }));
     const photo = (colour) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400"><rect width="300" height="400" fill="${colour}"/></svg>`)}`;
     await page.route("**/api/portal/gallery", (route) => route.fulfill({
       status: 200,
@@ -134,6 +223,10 @@ try {
         if (await calendarDetails.count() && !(await calendarDetails.evaluate((element) => element.open))) {
           await calendarDetails.locator("summary").click();
         }
+        await page.getByRole("button", { name: "Up to date" }).waitFor();
+      }
+      if (route.name === "home") {
+        await page.getByText("Give today some breathing room", { exact: true }).waitFor();
       }
       if (route.name === "gallery") {
         const compare = page.getByRole("button", { name: "Compare photos" });

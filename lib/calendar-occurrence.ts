@@ -8,6 +8,28 @@ function dateKey(date: Date) {
   ].join("-");
 }
 
+function civilDayNumber(date: Date) {
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000;
+}
+
+export function calendarEventOccursOnDate(event: CalendarEvent, date: Date): boolean {
+  if (!event.is_active) return false;
+  const eventDateKey = event.event_date.slice(0, 10);
+  const baseDate = new Date(`${eventDateKey}T12:00:00`);
+  if (!Number.isFinite(baseDate.getTime())) return false;
+  if (dateKey(date) < eventDateKey) return false;
+  if (event.recurrence === "none") return dateKey(date) === eventDateKey;
+
+  const targetDay = event.recurrence_day ?? baseDate.getDay();
+  if (event.recurrence === "weekly") return date.getDay() === targetDay;
+  if (event.recurrence === "biweekly") {
+    if (date.getDay() !== targetDay) return false;
+    const weeks = Math.floor((civilDayNumber(date) - civilDayNumber(baseDate)) / 7);
+    return weeks >= 0 && weeks % 2 === 0;
+  }
+  return date.getDate() === baseDate.getDate();
+}
+
 export function getNextCalendarOccurrence(event: CalendarEvent, now = new Date()): Date | null {
   const eventDateKey = event.event_date.slice(0, 10);
   const eventTime = event.all_day ? "12:00" : event.event_time || "00:00";

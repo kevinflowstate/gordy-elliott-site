@@ -11,6 +11,7 @@ import {
   type CalendarConnection,
   type CalendarProvider,
 } from "@/lib/composio/types";
+import { manualCalendarSyncRetryAfterSeconds } from "@/lib/composio/calendar-sync-cooldown";
 
 type ProviderOption = {
   provider: CalendarProvider;
@@ -58,6 +59,7 @@ export default function CalendarConnections({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [consentProvider, setConsentProvider] = useState<CalendarProvider | null>(null);
+  const [clockMs, setClockMs] = useState(() => Date.now());
   const browserFinishedListener = useRef<PluginListenerHandle | null>(null);
   const consentContinueRef = useRef<HTMLButtonElement | null>(null);
   const consentTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -97,8 +99,10 @@ export default function CalendarConnections({
 
   useEffect(() => {
     mounted.current = true;
+    const clock = window.setInterval(() => setClockMs(Date.now()), 30_000);
     return () => {
       mounted.current = false;
+      window.clearInterval(clock);
       void browserFinishedListener.current?.remove();
     };
   }, []);
@@ -288,6 +292,11 @@ export default function CalendarConnections({
           const connected = connection?.status === "connected";
           const canConnect = provider.configured && !connected;
           const providerAction = activeAction === `connect:${provider.provider}`;
+          const syncCoolingDown = Boolean(
+            connected
+            && connection
+            && manualCalendarSyncRetryAfterSeconds(connection.last_sync_at, clockMs) > 0,
+          );
           return (
             <div key={provider.provider} className="rounded-lg border border-[rgba(0,0,0,0.07)] bg-bg-card p-4">
               <div className="flex items-start gap-3">
@@ -331,10 +340,11 @@ export default function CalendarConnections({
                     <button
                       type="button"
                       onClick={() => sync(connection)}
-                      disabled={Boolean(activeAction)}
+                      disabled={Boolean(activeAction) || syncCoolingDown}
+                      title={syncCoolingDown ? "Automatic updates are on. Manual refresh is available ten minutes after the last sync." : undefined}
                       className="rounded-lg border border-accent/25 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent-bright disabled:opacity-50"
                     >
-                      {activeAction === `sync:${connection.id}` ? "Syncing..." : "Sync now"}
+                      {activeAction === `sync:${connection.id}` ? "Syncing..." : syncCoolingDown ? "Up to date" : "Sync now"}
                     </button>
                   </>
                 ) : (

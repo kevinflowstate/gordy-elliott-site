@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { getNextCalendarOccurrence } from "../lib/calendar-occurrence";
+import { calendarEventOccursOnDate, getNextCalendarOccurrence } from "../lib/calendar-occurrence";
+import { manualCalendarSyncRetryAfterSeconds } from "../lib/composio/calendar-sync-cooldown";
 import { getCoachNoteOfWeek } from "../lib/coach-quotes";
 import { getExerciseDemoUrl } from "../lib/exercise-demo";
 import type { CalendarEvent } from "../lib/types";
+import { getImmediateTodayPriority } from "../lib/today-priority";
+import type { WearableDailySummary } from "../lib/wearable-insights";
 
 function event(overrides: Partial<CalendarEvent>): CalendarEvent {
   return {
@@ -39,6 +42,61 @@ test("calendar occurrence handles monthly and all-day recurrence", () => {
     new Date(2026, 7, 13, 18, 0),
   );
   assert.equal(allDay?.getDate(), 13);
+});
+
+test("today priority reacts immediately to fresh wearable and calendar pressure", () => {
+  const today = new Date(2026, 7, 14, 9, 0);
+  const wearable = {
+    summary_date: "2026-08-14",
+    recovery_status: "reduce_intensity",
+  } as WearableDailySummary;
+  const calendarEvents = Array.from({ length: 3 }, (_, index) => event({
+    id: `event-${index}`,
+    event_date: "2026-08-14",
+    event_time: `${10 + index}:00`,
+  }));
+  const priority = getImmediateTodayPriority({ calendarEvents, wearableSummary: wearable, todayTraining: "Lower body", now: today });
+  assert.equal(priority?.label, "Give today some breathing room");
+  assert.equal(priority?.href, "/portal/exercise-plan");
+});
+
+test("today priority ignores stale recovery but recognises a genuinely busy calendar", () => {
+  const today = new Date(2026, 7, 14, 9, 0);
+  const staleWearable = {
+    summary_date: "2026-08-13",
+    recovery_status: "reduce_intensity",
+  } as WearableDailySummary;
+  const quiet = getImmediateTodayPriority({ calendarEvents: [], wearableSummary: staleWearable, todayTraining: null, now: today });
+  assert.equal(quiet, null);
+
+  const busyEvents = Array.from({ length: 5 }, (_, index) => event({
+    id: `busy-${index}`,
+    event_date: "2026-08-14",
+    event_time: `${9 + index}:00`,
+  }));
+  assert.equal(calendarEventOccursOnDate(busyEvents[0], today), true);
+  assert.equal(
+    getImmediateTodayPriority({ calendarEvents: busyEvents, wearableSummary: null, todayTraining: null, now: today })?.label,
+    "Busy day: protect the basics",
+  );
+});
+
+test("manual calendar sync cooldown is persisted from the last successful sync", () => {
+  const now = Date.parse("2026-08-14T12:00:00Z");
+  assert.equal(manualCalendarSyncRetryAfterSeconds("2026-08-14T11:55:00Z", now), 300);
+  assert.equal(manualCalendarSyncRetryAfterSeconds("2026-08-14T11:49:59Z", now), 0);
+  assert.equal(manualCalendarSyncRetryAfterSeconds(null, now), 0);
+});
+
+test("manual calendar refresh is enforced on both the server and the connection UI", async () => {
+  const route = await readFile(new URL("../app/api/portal/calendar-integrations/connections/[connectionId]/sync/route.ts", import.meta.url), "utf8");
+  const connections = await readFile(new URL("../components/portal/CalendarConnections.tsx", import.meta.url), "utf8");
+  assert.match(route, /manualCalendarSyncRetryAfterSeconds/);
+  assert.match(route, /status:\s*429/);
+  assert.match(route, /"Retry-After"/);
+  assert.match(route, /rateLimit/);
+  assert.match(connections, /syncCoolingDown/);
+  assert.match(connections, /Up to date/);
 });
 
 test("coach message stays stable throughout a week", () => {

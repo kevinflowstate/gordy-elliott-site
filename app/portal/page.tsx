@@ -12,6 +12,7 @@ import type { StormWarningClientState } from "@/lib/storm-warning";
 import type { EarlyWinView } from "@/lib/early-win";
 import type { WeeklyCapacityResult } from "@/lib/weekly-capacity";
 import { getNextCalendarOccurrence } from "@/lib/calendar-occurrence";
+import { getImmediateTodayPriority } from "@/lib/today-priority";
 
 type Tier = "coached" | "premium" | "vip" | "ai_only";
 type BaselineComparison = {
@@ -499,6 +500,11 @@ export default function PortalDashboard() {
   }, [checkins]);
 
   const coachNote = getCoachNoteOfWeek();
+  const immediateSignalPriority = useMemo(() => getImmediateTodayPriority({
+    calendarEvents,
+    wearableSummary,
+    todayTraining,
+  }), [calendarEvents, wearableSummary, todayTraining]);
 
   const weekNumber = getWeekNumber(profile?.start_date);
   const todayLabel = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
@@ -521,6 +527,7 @@ export default function PortalDashboard() {
         cta: "Open check-in",
       };
     }
+    if (immediateSignalPriority) return immediateSignalPriority;
     if (todayTraining) {
       return {
         label: "Today's training",
@@ -551,7 +558,7 @@ export default function PortalDashboard() {
       { label: "Quick daily check", body: "Log sleep, energy and stress so the trends Gordy sees stay accurate.", href: "/portal/daily-tracker", cta: "Open daily tracker" },
     ];
     return rotation[new Date().getDate() % rotation.length];
-  }, [submittedThisWeek, checkinToday, isAiOnly, todayTraining, weeklyCapacity, totalPlanItems, planPct]);
+  }, [submittedThisWeek, checkinToday, isAiOnly, immediateSignalPriority, todayTraining, weeklyCapacity, totalPlanItems, planPct]);
 
   if (loading) {
     return <DashboardSkeleton />;
