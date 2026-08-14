@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
-import { getCoachNoteOfDay } from "@/lib/coach-quotes";
+import { getCoachNoteOfWeek } from "@/lib/coach-quotes";
 import type { CalendarEvent, CheckIn, ClientProfile, ClientTask, TrainingPlanPhase } from "@/lib/types";
 import type { WearableDailySummary } from "@/lib/wearable-insights";
 import FounderDashboard from "@/components/portal/FounderDashboard";
@@ -11,6 +11,8 @@ import type { CapacityBaseline, CapacityMetrics } from "@/lib/capacity-baseline"
 import type { StormWarningClientState } from "@/lib/storm-warning";
 import type { EarlyWinView } from "@/lib/early-win";
 import type { WeeklyCapacityResult } from "@/lib/weekly-capacity";
+import { getNextCalendarOccurrence } from "@/lib/calendar-occurrence";
+import { getImmediateTodayPriority } from "@/lib/today-priority";
 
 type Tier = "coached" | "premium" | "vip" | "ai_only";
 type BaselineComparison = {
@@ -130,28 +132,6 @@ function MetricTile({ value, unit, label, hint }: { value: string; unit?: string
       <div className="mt-0.5 text-[10px] leading-4 text-white/50">{hint}</div>
     </div>
   );
-}
-
-function getNextOccurrence(event: CalendarEvent): Date | null {
-  const now = new Date();
-  if (event.recurrence === "none") {
-    const d = new Date(event.event_date);
-    return d > now ? d : null;
-  }
-  const [hours, minutes] = event.event_time.split(":").map(Number);
-  const targetDay = event.recurrence_day ?? 0;
-  const next = new Date(now);
-  next.setHours(hours, minutes, 0, 0);
-  const currentDay = next.getDay();
-  let daysUntil = targetDay - currentDay;
-  if (daysUntil < 0 || (daysUntil === 0 && next <= now)) daysUntil += 7;
-  next.setDate(next.getDate() + daysUntil);
-  if (event.recurrence === "biweekly") {
-    const start = new Date(event.event_date);
-    const weeksDiff = Math.floor((next.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
-    if (weeksDiff % 2 !== 0) next.setDate(next.getDate() + 7);
-  }
-  return next;
 }
 
 function getNextCheckinDate(checkinDay: string) {
@@ -368,7 +348,7 @@ export default function PortalDashboard() {
         if (active) setCalendarEvents(events);
         let earliest: { title: string; date: Date } | null = null;
         for (const candidate of events) {
-          const occurrence = getNextOccurrence(candidate);
+          const occurrence = getNextCalendarOccurrence(candidate);
           if (occurrence && (!earliest || occurrence < earliest.date)) {
             earliest = { title: candidate.title, date: occurrence };
           }
@@ -519,7 +499,12 @@ export default function PortalDashboard() {
     return checkins.some((c) => new Date(c.created_at).getTime() >= weekStart.getTime());
   }, [checkins]);
 
-  const coachNote = getCoachNoteOfDay();
+  const coachNote = getCoachNoteOfWeek();
+  const immediateSignalPriority = useMemo(() => getImmediateTodayPriority({
+    calendarEvents,
+    wearableSummary,
+    todayTraining,
+  }), [calendarEvents, wearableSummary, todayTraining]);
 
   const weekNumber = getWeekNumber(profile?.start_date);
   const todayLabel = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
@@ -534,14 +519,29 @@ export default function PortalDashboard() {
   // When Gordy has no open priority, never show a dead/empty state — surface a
   // useful, plan-aware fallback so the home always has a next action.
   const fallbackPriority = useMemo(() => {
-    if (!submittedThisWeek && (checkinToday || isAiOnly === false)) {
+    if (!submittedThisWeek && checkinToday && !isAiOnly) {
       return {
-        label: checkinToday ? "Check-in is due today" : "Weekly check-in",
-        body: checkinToday
-          ? "Take two minutes to log how the week went — it's what Gordy reviews."
-          : "Stay ahead of it. A quick check-in keeps your coaching on track.",
+        label: "Check-in is due today",
+        body: "Take two minutes to log how the week went — it's what Gordy reviews.",
         href: "/portal/checkin",
         cta: "Open check-in",
+      };
+    }
+    if (immediateSignalPriority) return immediateSignalPriority;
+    if (todayTraining) {
+      return {
+        label: "Today's training",
+        body: `${todayTraining} is ready when you are. Open it to review the session or start logging.`,
+        href: "/portal/exercise-plan",
+        cta: "Open session",
+      };
+    }
+    if (weeklyCapacity?.status === "ready" && weeklyCapacity.score !== null && weeklyCapacity.score < 50) {
+      return {
+        label: weeklyCapacity.label,
+        body: weeklyCapacity.message,
+        href: "/portal/connected-apps",
+        cta: "Review capacity",
       };
     }
     if (totalPlanItems > 0 && planPct < 100) {
@@ -558,7 +558,7 @@ export default function PortalDashboard() {
       { label: "Quick daily check", body: "Log sleep, energy and stress so the trends Gordy sees stay accurate.", href: "/portal/daily-tracker", cta: "Open daily tracker" },
     ];
     return rotation[new Date().getDate() % rotation.length];
-  }, [submittedThisWeek, checkinToday, isAiOnly, totalPlanItems, planPct]);
+  }, [submittedThisWeek, checkinToday, isAiOnly, immediateSignalPriority, todayTraining, weeklyCapacity, totalPlanItems, planPct]);
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -634,20 +634,20 @@ export default function PortalDashboard() {
           </div>
         </div>
 
-        {/* Coach note of the day */}
+        {/* Coach note of the week */}
         <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[#F060E0]/22 bg-[#E040D0]/10 px-4 py-3">
           <svg className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#F7A8EE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 8h10M7 12h6m-6 8l-3 1 1-4a8 8 0 1116 0 8 8 0 01-11 7.3" />
           </svg>
           <div className="min-w-0">
             <p className="text-[13.5px] font-medium leading-snug text-white/92">&ldquo;{coachNote.line}&rdquo;</p>
-            <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#F7A8EE]/80">{coachNote.tag} · note of the day</p>
+            <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#F7A8EE]/80">{coachNote.tag} · this week</p>
           </div>
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2.5">
           <Link
-            href="#priorities"
+            href={totalOutstandingTasks > 0 ? "#priorities" : fallbackPriority.href}
             className="app-hero-tile flex min-h-[78px] flex-col justify-between rounded-2xl px-3.5 py-3 no-underline"
           >
             <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">Today&apos;s Priority</div>
@@ -692,12 +692,25 @@ export default function PortalDashboard() {
             </div>
           </Link>
         </div>
+
+        {weeklyCapacity?.status === "ready" && weeklyCapacity.score !== null && (
+          <Link
+            href="/portal/connected-apps"
+            className="mt-3 flex min-h-11 items-center justify-between rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-2.5 no-underline"
+          >
+            <span className="text-xs font-semibold text-white/72">This week&apos;s capacity</span>
+            <span className="flex items-center gap-2 text-xs font-bold text-white">
+              {weeklyCapacity.score}% · {weeklyCapacity.label}
+              <svg className="h-3.5 w-3.5 text-white/45" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </span>
+          </Link>
+        )}
       </section>
 
       <div id="priorities" className="scroll-mt-4">
         <SectionCard
-          title="TODAY'S PRIORITY"
-          subtitle={isAiOnly ? "Keep the next action simple." : "The first thing to clear from Gordy's list."}
+          title="YOUR ACTIONS"
+          subtitle={isAiOnly ? "Keep the next action simple." : "Tasks and reminders that still need clearing."}
           right={isAiOnly ? (
             <Link href="/portal/ai" className="text-xs font-semibold text-accent-bright no-underline transition-colors hover:text-accent-light">
               AT CAPACITY AI
@@ -792,24 +805,7 @@ export default function PortalDashboard() {
                 ))}
               </div>
             </details>
-          ) : (
-            <Link
-              href={fallbackPriority.href}
-              className="app-tap block rounded-2xl border border-[#E040D0]/20 bg-[linear-gradient(135deg,rgba(224,64,208,0.12),rgba(245,158,11,0.05))] px-4 py-4 no-underline"
-            >
-              <div className="flex items-center gap-2">
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#E040D0]/20 text-[#F060E0]">
-                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                </span>
-                <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#F060E0]">{fallbackPriority.label}</span>
-              </div>
-              <p className="mt-2 text-sm leading-relaxed text-text-secondary">{fallbackPriority.body}</p>
-              <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#F060E0]">
-                {fallbackPriority.cta}
-                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-              </span>
-            </Link>
-          )}
+          ) : null}
           <details className="app-inset mt-3 rounded-2xl px-4 py-3">
             <summary className="cursor-pointer text-sm font-semibold text-text-secondary">Add reminder</summary>
             <form onSubmit={addPersonalTask} className="mt-3 flex flex-col gap-2 sm:flex-row">

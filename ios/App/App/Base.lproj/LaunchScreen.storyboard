@@ -16,30 +16,19 @@
                         <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
-                            <stackView opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="250" verticalHuggingPriority="250" axis="horizontal" spacing="10" translatesAutoresizingMaskIntoConstraints="NO" id="aTc-Pa-CiT">
-                                <rect key="frame" x="40" y="306" width="295" height="54"/>
-                                <subviews>
-                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="AT" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="YES" minimumScaleFactor="0.65" translatesAutoresizingMaskIntoConstraints="NO" id="atC-Pi-Nk1">
-                                        <rect key="frame" x="0.0" y="0.0" width="59" height="54"/>
-                                        <fontDescription key="fontDescription" type="system" weight="heavy" pointSize="45"/>
-                                        <color key="textColor" red="0.8784313725490196" green="0.25098039215686274" blue="0.8156862745098039" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                                        <nil key="highlightedColor"/>
-                                    </label>
-                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="CAPACITY" textAlignment="natural" lineBreakMode="clip" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="YES" minimumScaleFactor="0.65" translatesAutoresizingMaskIntoConstraints="NO" id="cap-Aci-Ty1">
-                                        <rect key="frame" x="69" y="0.0" width="226" height="54"/>
-                                        <fontDescription key="fontDescription" type="system" weight="heavy" pointSize="45"/>
-                                        <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                                        <nil key="highlightedColor"/>
-                                    </label>
-                                </subviews>
-                            </stackView>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="center" text="AT CAPACITY" textAlignment="center" lineBreakMode="clip" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="YES" minimumScaleFactor="0.75" translatesAutoresizingMaskIntoConstraints="NO" id="aTc-Pa-CiT">
+                                <rect key="frame" x="32" y="311" width="311" height="45"/>
+                                <fontDescription key="fontDescription" type="system" weight="heavy" pointSize="38"/>
+                                <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                <nil key="highlightedColor"/>
+                            </label>
                         </subviews>
                         <color key="backgroundColor" red="0.015686274509803921" green="0.015686274509803921" blue="0.019607843137254902" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
                             <constraint firstItem="aTc-Pa-CiT" firstAttribute="centerX" secondItem="snD-IY-ifK" secondAttribute="centerX" id="Mbk-yD-3oa"/>
                             <constraint firstItem="aTc-Pa-CiT" firstAttribute="centerY" secondItem="snD-IY-ifK" secondAttribute="centerY" id="Zia-Zx-qpQ"/>
-                            <constraint firstItem="aTc-Pa-CiT" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="snD-IY-ifK" secondAttribute="leading" constant="32" id="djg-Vz-3QB"/>
-                            <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="aTc-Pa-CiT" secondAttribute="trailing" constant="32" id="oMx-Ae-KXn"/>
+                            <constraint firstItem="aTc-Pa-CiT" firstAttribute="leading" secondItem="snD-IY-ifK" secondAttribute="leading" constant="32" id="djg-Vz-3QB"/>
+                            <constraint firstAttribute="trailing" secondItem="aTc-Pa-CiT" secondAttribute="trailing" constant="32" id="oMx-Ae-KXn"/>
                         </constraints>
                     </view>
                 </viewController>

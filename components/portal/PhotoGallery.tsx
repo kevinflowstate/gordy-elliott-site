@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 interface PhotoGroup {
   date: string;
@@ -28,12 +28,36 @@ export default function PhotoGallery({ groups, loading }: PhotoGalleryProps) {
   const [compareA, setCompareA] = useState<string>("");
   const [compareB, setCompareB] = useState<string>("");
   const [showCompare, setShowCompare] = useState(false);
+  const compareRef = useRef<HTMLDivElement>(null);
 
-  const dates = groups.map((g) => g.date);
   const groupByDate = Object.fromEntries(groups.map((g) => [g.date, g]));
 
   const compareGroupA = compareA ? groupByDate[compareA] : null;
   const compareGroupB = compareB ? groupByDate[compareB] : null;
+
+  function closeCompare() {
+    setShowCompare(false);
+    setCompareA("");
+    setCompareB("");
+  }
+
+  function selectComparisonDate(date: string) {
+    if (compareA === date) {
+      setCompareA(compareB);
+      setCompareB("");
+      return;
+    }
+    if (compareB === date) {
+      setCompareB("");
+      return;
+    }
+    if (!compareA) {
+      setCompareA(date);
+      return;
+    }
+    setCompareB(date);
+    window.requestAnimationFrame(() => compareRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
 
   if (loading) {
     return (
@@ -75,11 +99,8 @@ export default function PhotoGallery({ groups, loading }: PhotoGalleryProps) {
           <button
             type="button"
             onClick={() => {
-              setShowCompare(!showCompare);
-              if (!showCompare && dates.length >= 2) {
-                setCompareA(dates[0]);
-                setCompareB(dates[1]);
-              }
+              if (showCompare) closeCompare();
+              else setShowCompare(true);
             }}
             className={`px-4 py-2 rounded-xl text-sm font-medium border transition-all cursor-pointer ${
               showCompare
@@ -87,40 +108,30 @@ export default function PhotoGallery({ groups, loading }: PhotoGalleryProps) {
                 : "border-[rgba(0,0,0,0.08)] text-text-muted hover:border-[rgba(0,0,0,0.12)]"
             }`}
           >
-            Compare
+            {showCompare ? "Cancel" : "Compare photos"}
           </button>
         </div>
       )}
 
       {/* Compare panel */}
       {showCompare && (
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 space-y-4">
-          <h4 className="text-sm font-semibold text-text-primary">Side-by-Side Comparison</h4>
-          <div className="grid grid-cols-2 gap-4">
+        <div ref={compareRef} className="scroll-mt-4 bg-bg-card border border-[#E040D0]/20 rounded-2xl p-5 space-y-4">
+          <div className="flex items-start justify-between gap-3">
             <div>
-              <label className="block text-xs font-medium text-text-secondary mb-1.5">Date A</label>
-              <select
-                value={compareA}
-                onChange={(e) => setCompareA(e.target.value)}
-                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-[#E040D0]/40"
-              >
-                {dates.map((d) => (
-                  <option key={d} value={d}>{formatDate(d)}</option>
-                ))}
-              </select>
+              <h4 className="text-sm font-semibold text-text-primary">Choose two check-ins</h4>
+              <p className="mt-1 text-xs text-text-secondary">Tap Select on any two dates below. We&apos;ll line up matching angles.</p>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-text-secondary mb-1.5">Date B</label>
-              <select
-                value={compareB}
-                onChange={(e) => setCompareB(e.target.value)}
-                className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-[#E040D0]/40"
-              >
-                {dates.map((d) => (
-                  <option key={d} value={d}>{formatDate(d)}</option>
-                ))}
-              </select>
-            </div>
+            <button type="button" onClick={closeCompare} className="min-h-11 rounded-xl border border-[rgba(0,0,0,0.08)] px-3 text-xs font-semibold text-text-secondary">
+              Back to gallery
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[compareA, compareB].map((date, index) => (
+              <div key={index} className="rounded-xl border border-[rgba(0,0,0,0.07)] bg-bg-primary px-3 py-3">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[#E040D0]">Photo {index + 1}</div>
+                <div className="mt-1 text-xs font-semibold text-text-primary">{date ? formatDate(date) : "Not selected"}</div>
+              </div>
+            ))}
           </div>
 
           {compareGroupA && compareGroupB && (
@@ -176,12 +187,23 @@ export default function PhotoGallery({ groups, loading }: PhotoGalleryProps) {
 
       {/* Photo groups by date */}
       {groups.map((group) => (
-        <div key={group.date} className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <svg className="w-4 h-4 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <span className="text-sm font-semibold text-text-primary">{formatDate(group.date)}</span>
+        <div key={group.date} className={`bg-bg-card border rounded-2xl p-5 ${compareA === group.date || compareB === group.date ? "border-[#E040D0]/55" : "border-[rgba(0,0,0,0.06)]"}`}>
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 002 2v12a2 2 0 002 2z" />
+              </svg>
+              <span className="text-sm font-semibold text-text-primary">{formatDate(group.date)}</span>
+            </div>
+            {showCompare && (
+              <button
+                type="button"
+                onClick={() => selectComparisonDate(group.date)}
+                className={`min-h-11 rounded-xl border px-3 text-xs font-bold ${compareA === group.date || compareB === group.date ? "border-[#E040D0]/45 bg-[#E040D0]/10 text-[#E040D0]" : "border-[rgba(0,0,0,0.08)] text-text-secondary"}`}
+              >
+                {compareA === group.date ? "Selected 1" : compareB === group.date ? "Selected 2" : "Select"}
+              </button>
+            )}
           </div>
           <div className="grid grid-cols-3 gap-3">
             {angleLabels.map((angle) => {

@@ -18,6 +18,30 @@ type DailyMetric = {
   notes: string | null;
 };
 
+type SpeechRecognitionResultEvent = {
+  results: ArrayLike<{ 0: { transcript: string }; isFinal: boolean }>;
+};
+
+type SpeechRecognitionLike = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((event: SpeechRecognitionResultEvent) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
+
 const today = new Date();
 const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
@@ -112,6 +136,11 @@ export default function DailyTrackerPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [wearableSummary, setWearableSummary] = useState<WearableDailySummary | null>(null);
+  const [wearableSummaries, setWearableSummaries] = useState<WearableDailySummary[]>([]);
+  const [listening, setListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [syncedFields, setSyncedFields] = useState<string[]>([]);
+  const speechRef = useRef<SpeechRecognitionLike | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState({
     tracked_date: todayKey,
@@ -139,21 +168,43 @@ export default function DailyTrackerPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to load tracker");
       const nextEntries = (data.entries || []) as DailyMetric[];
+      const nextWearableSummaries = (data.wearableSummaries || []) as WearableDailySummary[];
       setEntries(nextEntries);
-      setWearableSummary(data.wearableSummary || null);
+      setWearableSummaries(nextWearableSummaries);
+      const selectedWearable = nextWearableSummaries.find((summary) => summary.summary_date === selectedDate)
+        || (selectedDate === todayKey ? data.wearableSummary : null)
+        || null;
+      setWearableSummary(selectedWearable);
       const selectedEntry = nextEntries.find((entry) => entry.tracked_date === selectedDate)
         || (selectedDate === todayKey ? data.today : null);
       if (selectedEntry) {
+        setSyncedFields([
+          selectedEntry.sleep_hours === null && selectedWearable?.sleep_minutes ? "sleep" : "",
+          selectedEntry.water_liters === null && selectedWearable?.water_ml ? "water" : "",
+        ].filter(Boolean));
         setForm({
           tracked_date: selectedEntry.tracked_date,
-          sleep_hours: selectedEntry.sleep_hours?.toString() || "",
-          water_liters: selectedEntry.water_liters?.toString() || "",
+          sleep_hours: selectedEntry.sleep_hours?.toString()
+            || (selectedWearable?.sleep_minutes ? (selectedWearable.sleep_minutes / 60).toFixed(1) : ""),
+          water_liters: selectedEntry.water_liters?.toString()
+            || (selectedWearable?.water_ml ? (selectedWearable.water_ml / 1000).toFixed(1) : ""),
           energy_level: selectedEntry.energy_level || "",
           stress_level: selectedEntry.stress_level || "",
           nutrition_score: selectedEntry.nutrition_score || "",
           training_completed: Boolean(selectedEntry.training_completed),
           notes: selectedEntry.notes || "",
         });
+      } else {
+        setSyncedFields([
+          selectedWearable?.sleep_minutes ? "sleep" : "",
+          selectedWearable?.water_ml ? "water" : "",
+        ].filter(Boolean));
+        setForm((previous) => ({
+          ...previous,
+          tracked_date: selectedDate,
+          sleep_hours: selectedWearable?.sleep_minutes ? (selectedWearable.sleep_minutes / 60).toFixed(1) : "",
+          water_liters: selectedWearable?.water_ml ? (selectedWearable.water_ml / 1000).toFixed(1) : "",
+        }));
       }
     } catch (err) {
       toast(err instanceof Error ? err.message : "Failed to load tracker", "error");
@@ -165,6 +216,11 @@ export default function DailyTrackerPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    setSpeechSupported(Boolean(window.SpeechRecognition || window.webkitSpeechRecognition));
+    return () => speechRef.current?.stop();
+  }, []);
 
   async function save() {
     setSaving(true);
@@ -186,10 +242,18 @@ export default function DailyTrackerPage() {
   }
 
   function selectEntry(entry: DailyMetric) {
+    const selectedWearable = wearableSummaries.find((summary) => summary.summary_date === entry.tracked_date) || null;
+    setWearableSummary(selectedWearable);
+    setSyncedFields([
+      entry.sleep_hours === null && selectedWearable?.sleep_minutes ? "sleep" : "",
+      entry.water_liters === null && selectedWearable?.water_ml ? "water" : "",
+    ].filter(Boolean));
     setForm({
       tracked_date: entry.tracked_date,
-      sleep_hours: entry.sleep_hours?.toString() || "",
-      water_liters: entry.water_liters?.toString() || "",
+      sleep_hours: entry.sleep_hours?.toString()
+        || (selectedWearable?.sleep_minutes ? (selectedWearable.sleep_minutes / 60).toFixed(1) : ""),
+      water_liters: entry.water_liters?.toString()
+        || (selectedWearable?.water_ml ? (selectedWearable.water_ml / 1000).toFixed(1) : ""),
       energy_level: entry.energy_level || "",
       stress_level: entry.stress_level || "",
       nutrition_score: entry.nutrition_score || "",
@@ -205,16 +269,52 @@ export default function DailyTrackerPage() {
       selectEntry(entry);
       return;
     }
+    const todayWearable = wearableSummaries.find((summary) => summary.summary_date === todayKey) || null;
+    setWearableSummary(todayWearable);
+    setSyncedFields([
+      todayWearable?.sleep_minutes ? "sleep" : "",
+      todayWearable?.water_ml ? "water" : "",
+    ].filter(Boolean));
     setForm({
       tracked_date: todayKey,
-      sleep_hours: "",
-      water_liters: "",
+      sleep_hours: todayWearable?.sleep_minutes ? (todayWearable.sleep_minutes / 60).toFixed(1) : "",
+      water_liters: todayWearable?.water_ml ? (todayWearable.water_ml / 1000).toFixed(1) : "",
       energy_level: "",
       stress_level: "",
       nutrition_score: "",
       training_completed: false,
       notes: "",
     });
+  }
+
+  function toggleDictation() {
+    if (listening) {
+      speechRef.current?.stop();
+      return;
+    }
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition) return;
+    const recognition = new Recognition();
+    recognition.lang = "en-GB";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map((result) => result[0]?.transcript || "")
+        .join(" ")
+        .trim();
+      if (transcript) {
+        setForm((previous) => ({
+          ...previous,
+          notes: `${previous.notes}${previous.notes.trim() ? " " : ""}${transcript}`,
+        }));
+      }
+    };
+    recognition.onend = () => setListening(false);
+    recognition.onerror = () => setListening(false);
+    speechRef.current = recognition;
+    setListening(true);
+    recognition.start();
   }
 
   return (
@@ -305,26 +405,42 @@ export default function DailyTrackerPage() {
             />
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-text-primary">Sleep hours</span>
-              <input
-                inputMode="decimal"
-                value={form.sleep_hours}
-                onChange={(e) => setForm((prev) => ({ ...prev, sleep_hours: e.target.value }))}
-                placeholder="e.g. 7.5"
-                className="w-full rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-text-primary outline-none placeholder:text-text-muted focus:border-accent/50"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-text-primary">Water litres</span>
-              <input
-                inputMode="decimal"
-                value={form.water_liters}
-                onChange={(e) => setForm((prev) => ({ ...prev, water_liters: e.target.value }))}
-                placeholder="e.g. 2.5"
-                className="w-full rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-text-primary outline-none placeholder:text-text-muted focus:border-accent/50"
-              />
-            </label>
+            {syncedFields.includes("sleep") && wearableSummary?.summary_date === form.tracked_date && wearableSummary.sleep_minutes ? (
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/8 px-4 py-3">
+                <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-500">Sleep synced</div>
+                <div className="mt-1 text-lg font-heading font-bold text-text-primary">{form.sleep_hours} hours</div>
+                <div className="mt-1 text-xs text-text-secondary">From {wearableSummary.providers.filter((provider) => provider !== "myfitnesspal").join(", ") || "your wearable"}</div>
+              </div>
+            ) : (
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-text-primary">Sleep hours</span>
+                <input
+                  inputMode="decimal"
+                  value={form.sleep_hours}
+                  onChange={(e) => setForm((prev) => ({ ...prev, sleep_hours: e.target.value }))}
+                  placeholder="e.g. 7.5"
+                  className="w-full rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-text-primary outline-none placeholder:text-text-muted focus:border-accent/50"
+                />
+              </label>
+            )}
+            {syncedFields.includes("water") && wearableSummary?.summary_date === form.tracked_date && wearableSummary.water_ml ? (
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/8 px-4 py-3">
+                <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-500">Water synced</div>
+                <div className="mt-1 text-lg font-heading font-bold text-text-primary">{form.water_liters} litres</div>
+                <div className="mt-1 text-xs text-text-secondary">From MyFitnessPal</div>
+              </div>
+            ) : (
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-text-primary">Water litres</span>
+                <input
+                  inputMode="decimal"
+                  value={form.water_liters}
+                  onChange={(e) => setForm((prev) => ({ ...prev, water_liters: e.target.value }))}
+                  placeholder="e.g. 2.5"
+                  className="w-full rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-text-primary outline-none placeholder:text-text-muted focus:border-accent/50"
+                />
+              </label>
+            )}
           </div>
         </div>
       </TrackerCard>
@@ -354,6 +470,16 @@ export default function DailyTrackerPage() {
       </TrackerCard>
 
       <TrackerCard title="Notes">
+        {speechSupported && (
+          <button
+            type="button"
+            onClick={toggleDictation}
+            className={`mb-3 inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-xs font-semibold ${listening ? "border-red-500/30 bg-red-500/10 text-red-400" : "border-[#E040D0]/25 bg-[#E040D0]/8 text-[#E040D0]"}`}
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3zM5 10v2a7 7 0 0014 0v-2M12 19v3m-4 0h8" /></svg>
+            {listening ? "Stop listening" : "Add by voice"}
+          </button>
+        )}
         <textarea
           rows={4}
           value={form.notes}
@@ -361,6 +487,7 @@ export default function DailyTrackerPage() {
           placeholder="Anything that explains the numbers?"
           className="w-full resize-none rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-text-primary outline-none placeholder:text-text-muted focus:border-accent/50"
         />
+        {speechSupported && <p className="mt-2 text-[11px] text-text-muted">Voice is turned into editable text; AT CAPACITY does not save the recording.</p>}
       </TrackerCard>
 
       <button

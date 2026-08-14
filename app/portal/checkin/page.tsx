@@ -6,6 +6,7 @@ import { useToast } from "@/components/ui/Toast";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import type { CheckinFormConfig, ClientTask, ProgressMetric } from "@/lib/types";
 import { buildFallbackCheckinConfig, normalizeCheckinConfig } from "@/lib/checkin-form";
+import type { WearableDailySummary } from "@/lib/wearable-insights";
 import PhotoUpload from "@/components/portal/PhotoUpload";
 
 const moodColorMap: Record<string, string> = {
@@ -138,6 +139,8 @@ export default function CheckInPage() {
   const [latestReply, setLatestReply] = useState<{ text: string; date: string | null } | null>(null);
   const [priorityMessage, setPriorityMessage] = useState("");
   const [supportAsk, setSupportAsk] = useState("");
+  const [syncedMetricIds, setSyncedMetricIds] = useState<string[]>([]);
+  const [syncedSummaryDate, setSyncedSummaryDate] = useState<string | null>(null);
   const tierCopy = {
     coached: {
       line: "Let Gordy know how you're getting on this week.",
@@ -213,7 +216,8 @@ export default function CheckInPage() {
         if (stateRes.ok) {
           const stateData = await stateRes.json();
           if (cancelled) return;
-          setConfig(normalizeCheckinConfig(stateData.config));
+          const normalizedConfig = normalizeCheckinConfig(stateData.config);
+          setConfig(normalizedConfig);
           setCheckinDay(stateData.checkinDay || null);
           setTemplateName(stateData.templateName || null);
           setLoadError("");
@@ -232,6 +236,26 @@ export default function CheckInPage() {
             setCurrentWeekSubmitted(true);
             setCurrentWeekSavedAt(existing.created_at || null);
             setCurrentWeekNumber(existing.week_number || null);
+          } else {
+            const integrationsRes = await fetch("/api/portal/integrations");
+            if (integrationsRes.ok && !cancelled) {
+              const integrationsData = await integrationsRes.json();
+              const summary = integrationsData.latestSummary as WearableDailySummary | null;
+              if (summary) {
+                const synced: Record<string, string> = {};
+                const enabledMetricIds = new Set(
+                  (normalizedConfig.progress_tracking || []).filter((metric) => metric.enabled).map((metric) => metric.id),
+                );
+                if (enabledMetricIds.has("hrv") && summary.hrv_ms !== null) synced.hrv = String(Math.round(summary.hrv_ms));
+                if (enabledMetricIds.has("steps") && summary.steps !== null) synced.steps = String(Math.round(summary.steps));
+                if (enabledMetricIds.has("sleep_hours") && summary.sleep_minutes !== null) synced.sleep_hours = (summary.sleep_minutes / 60).toFixed(1);
+                if (Object.keys(synced).length > 0) {
+                  setProgressData((previous) => ({ ...synced, ...previous }));
+                  setSyncedMetricIds(Object.keys(synced));
+                  setSyncedSummaryDate(summary.summary_date);
+                }
+              }
+            }
           }
         } else {
           if (cancelled) return;
@@ -586,6 +610,16 @@ export default function CheckInPage() {
         {enabledMetrics.length > 0 && (
           <section className="app-card rounded-[28px] p-5">
             <div className="mb-4 text-[13px] font-bold uppercase tracking-[0.16em] text-[#E040D0]">Progress Tracking</div>
+            {syncedMetricIds.length > 0 && (
+              <div className="mb-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/8 px-4 py-3">
+                <div className="text-xs font-semibold text-emerald-500">Connected health added the factual readings it has.</div>
+                <div className="mt-1 text-[11px] text-text-secondary">
+                  {syncedMetricIds.map((id) => enabledMetrics.find((metric) => metric.id === id)?.label || id).join(", ")}
+                  {syncedSummaryDate ? ` · ${new Date(`${syncedSummaryDate}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : ""}
+                  . You can edit them before sending.
+                </div>
+              </div>
+            )}
             <div className="space-y-3">
               {enabledMetrics.map((m) => (
                 <div key={m.id} className="rounded-2xl border border-[#E040D0]/15 bg-[linear-gradient(135deg,rgba(224,64,208,0.10),rgba(245,158,11,0.04))] px-3.5 py-3.5">
@@ -619,6 +653,9 @@ export default function CheckInPage() {
                       placeholder={m.unit ? `e.g. 75${m.unit}` : "Enter value"}
                       className="w-full bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40 transition-colors"
                     />
+                  )}
+                  {syncedMetricIds.includes(m.id) && (
+                    <div className="mt-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-500">Synced from connected health</div>
                   )}
                 </div>
               ))}

@@ -1,7 +1,7 @@
-// Coach-led "note of the day" lines in Gordy's SHIFT voice.
-// Direct, earned, no cheesy generic motivation. One is surfaced per day,
-// chosen by day-of-year so it stays stable through the day and a client
-// won't see the same line again for ~4 weeks (28 lines).
+// Coach-led weekly notes in Gordy's AT CAPACITY voice.
+// Direct, earned, no cheesy generic motivation. One is surfaced per week,
+// chosen by week-of-year so every client sees one consistent message for
+// the full coaching week.
 
 export interface CoachNote {
   line: string;
@@ -39,10 +39,11 @@ export const COACH_NOTES: CoachNote[] = [
   { line: "Trust the process you can see in your own logs. The numbers don't lie.", tag: "Gordy" },
 ];
 
-/** Stable day-of-year index so the note is the same all day and rotates daily. */
-export function getCoachNoteOfDay(date: Date = new Date()): CoachNote {
-  const start = new Date(date.getFullYear(), 0, 0);
-  const diff = date.getTime() - start.getTime();
-  const dayOfYear = Math.floor(diff / 86_400_000);
-  return COACH_NOTES[dayOfYear % COACH_NOTES.length];
+/** Stable week-of-year index so the note changes once each Monday. */
+export function getCoachNoteOfWeek(date: Date = new Date()): CoachNote {
+  const utcDate = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = new Date(utcDate).getUTCDay();
+  const monday = utcDate - (day === 0 ? 6 : day - 1) * 86_400_000;
+  const stableWeekIndex = Math.floor(monday / (7 * 86_400_000));
+  return COACH_NOTES[stableWeekIndex % COACH_NOTES.length];
 }

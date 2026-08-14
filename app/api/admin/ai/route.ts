@@ -116,9 +116,10 @@ export async function POST(req: NextRequest) {
   const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
   const { data: recentMetrics } = await admin
     .from("client_daily_metrics")
-    .select("client_id, tracked_date")
+    .select("client_id, tracked_date, notes")
     .gte("tracked_date", sevenDaysAgoIso)
-    .lte("tracked_date", todayIso);
+    .lte("tracked_date", todayIso)
+    .order("tracked_date", { ascending: false });
 
   const { data: wearableConnectionsData } = await admin
     .from("client_wearable_connections")
@@ -155,10 +156,18 @@ export async function POST(req: NextRequest) {
   }
 
   const metricsByClient = new Map<string, Set<string>>();
+  const dailyNotesByClient = new Map<string, Array<{ date: string; note: string }>>();
   for (const m of recentMetrics || []) {
     const days = metricsByClient.get(m.client_id) || new Set<string>();
     days.add(m.tracked_date);
     metricsByClient.set(m.client_id, days);
+    if (typeof m.notes === "string" && m.notes.trim()) {
+      const notes = dailyNotesByClient.get(m.client_id) || [];
+      if (notes.length < 3) {
+        notes.push({ date: m.tracked_date, note: m.notes.trim() });
+        dailyNotesByClient.set(m.client_id, notes);
+      }
+    }
   }
 
   const wearableConnectionsByClient = new Map<string, Array<Pick<WearableConnection, "provider" | "status" | "last_sync_at">>>();
@@ -298,6 +307,7 @@ export async function POST(req: NextRequest) {
         days_logged: metricDays?.size || 0,
         possible_days: 7,
       },
+      recent_daily_notes: dailyNotesByClient.get(p.id) || [],
       connected_apps: {
         providers: wearableConnections.map((connection) => connection.provider),
         last_sync_at: wearableConnections
@@ -436,7 +446,7 @@ ${priorityQueueText}
 ===========================
 ALL CLIENTS
 ===========================
-(each entry includes tier, primary goal, active training + nutrition plans, training_adherence_14d with has_active_plan flag, engagement_label (no_training_plan_assigned | ghosting | slipping | steady | strong), daily_metrics_7d, open_coach_tasks, latest_checkin (mood + priority_message + support_ask + replied + days_ago), recent_coaching_notes from saved calls/transcripts/manual notes, coaching-plan phase state, days_since_login, days_since_checkin, and status)
+(each entry includes tier, primary goal, active training + nutrition plans, training_adherence_14d with has_active_plan flag, engagement_label (no_training_plan_assigned | ghosting | slipping | steady | strong), daily_metrics_7d, recent_daily_notes shared by the client, open_coach_tasks, latest_checkin (mood + priority_message + support_ask + replied + days_ago), recent_coaching_notes from saved calls/transcripts/manual notes, coaching-plan phase state, days_since_login, days_since_checkin, and status)
 ${JSON.stringify(clientSummaries, null, 2)}
 
 ===========================

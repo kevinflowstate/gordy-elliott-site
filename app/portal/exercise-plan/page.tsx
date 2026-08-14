@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import AtCapacityWorkoutRunner, { type WorkoutRunnerMode } from "@/components/portal/AtCapacityWorkoutRunner";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import { formatExercisePrescription, shouldUseSetLogging } from "@/lib/exercise-prescriptions";
+import { getExerciseDemoUrl } from "@/lib/exercise-demo";
+import { openExerciseDemo } from "@/lib/exercise-demo-client";
 import { copyFirstWorkoutSetValues, type WorkoutSetData } from "@/lib/workout-runner";
 import type { ClientExercisePlan, ExerciseSession, WeeklyTrainingAssignment } from "@/lib/types";
 
@@ -1050,24 +1052,27 @@ export default function PortalExercisePlanPage() {
       </div>
 
       {/* ---- Weekly Planner ---- */}
-      <section className="app-card rounded-[28px] p-4 mb-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <details className="group app-card rounded-[28px] p-4 mb-5">
+        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
           <div>
-            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#E667D6]">Plan Your Week</div>
-            <h2 className="mt-1 text-lg font-heading font-bold text-text-primary">
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#E667D6]">Adjust this week</div>
+            <h2 className="mt-1 text-base font-heading font-bold text-text-primary">
               {placedSessionsCount}/{totalPlanSessions} sessions placed
             </h2>
           </div>
-          <div className={`rounded-xl border px-3 py-2 text-xs font-semibold ${
-            unassignedSessions.length > 0
-              ? "border-amber-500/25 bg-amber-500/10 text-amber-500"
-              : "border-emerald-500/25 bg-emerald-500/10 text-emerald-500"
-          }`}>
-            {unassignedSessions.length > 0
-              ? `${unassignedSessions.length} to schedule`
-              : "Week ready"}
+          <div className="flex items-center gap-2">
+            <div className={`rounded-xl border px-3 py-2 text-xs font-semibold ${
+              unassignedSessions.length > 0
+                ? "border-amber-500/25 bg-amber-500/10 text-amber-500"
+                : "border-emerald-500/25 bg-emerald-500/10 text-emerald-500"
+            }`}>
+              {unassignedSessions.length > 0
+                ? `${unassignedSessions.length} to schedule`
+                : "Week ready"}
+            </div>
+            <svg className="h-4 w-4 text-text-muted transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
           </div>
-        </div>
+        </summary>
 
         <div className="mt-4 grid gap-2 sm:grid-cols-7">
           {weekDays.map((day, i) => {
@@ -1201,7 +1206,7 @@ export default function PortalExercisePlanPage() {
             )}
           </div>
         )}
-      </section>
+      </details>
 
       {/* ---- Rest day: nothing scheduled on this date ---- */}
       {!activeSession && (
@@ -1498,13 +1503,10 @@ export default function PortalExercisePlanPage() {
                     </div>
 
                     {/* Demo link */}
-                    {item.exercise && (
+                    {item.exercise && getExerciseDemoUrl(item.exercise.video_url, item.exercise.name) && (
                       <button
                         onClick={() => {
-                          const url =
-                            item.exercise?.video_url ||
-                            `https://musclewiki.com/exercises?search=${encodeURIComponent(item.exercise?.name ?? "")}`;
-                          window.open(url, "_blank", "noopener");
+                          void openExerciseDemo(item.exercise?.video_url, item.exercise?.name);
                         }}
                         className="inline-flex items-center gap-1 text-xs text-[#E040D0] border border-[rgba(224,64,208,0.25)] px-2.5 py-1 rounded-lg hover:bg-[rgba(224,64,208,0.08)] transition-colors cursor-pointer mb-3"
                       >

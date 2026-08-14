@@ -11,6 +11,7 @@ import {
   type CalendarConnection,
   type CalendarProvider,
 } from "@/lib/composio/types";
+import { manualCalendarSyncRetryAfterSeconds } from "@/lib/composio/calendar-sync-cooldown";
 
 type ProviderOption = {
   provider: CalendarProvider;
@@ -58,6 +59,7 @@ export default function CalendarConnections({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [consentProvider, setConsentProvider] = useState<CalendarProvider | null>(null);
+  const [clockMs, setClockMs] = useState(() => Date.now());
   const browserFinishedListener = useRef<PluginListenerHandle | null>(null);
   const consentContinueRef = useRef<HTMLButtonElement | null>(null);
   const consentTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -97,8 +99,10 @@ export default function CalendarConnections({
 
   useEffect(() => {
     mounted.current = true;
+    const clock = window.setInterval(() => setClockMs(Date.now()), 30_000);
     return () => {
       mounted.current = false;
+      window.clearInterval(clock);
       void browserFinishedListener.current?.remove();
     };
   }, []);
@@ -246,16 +250,23 @@ export default function CalendarConnections({
     return <div className="mb-6 h-36 animate-pulse rounded-xl bg-[rgba(0,0,0,0.05)]" />;
   }
 
+  const connectedConnections = (data?.connections || []).filter((connection) => connection.status === "connected");
+  const hasConnectedCalendar = connectedConnections.length > 0;
+
   return (
-    <section className="mb-6 border-y border-[rgba(0,0,0,0.06)] py-5" aria-labelledby="connected-calendars-heading">
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <section className="mb-5 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-4 py-4" aria-labelledby="connected-calendars-heading">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-wider text-accent-bright">Connected calendars</div>
-          <h2 id="connected-calendars-heading" className="mt-1 text-lg font-heading font-bold text-text-primary">
-            Plan around real life
+          <h2 id="connected-calendars-heading" className="mt-1 text-base font-heading font-bold text-text-primary">
+            {hasConnectedCalendar
+              ? connectedConnections.map((connection) => calendarProviderLabel(connection.provider)).join(" + ")
+              : "Plan around real life"}
           </h2>
           <p className="mt-1 max-w-2xl text-xs leading-5 text-text-secondary">
-            Connect your calendar to sync AT CAPACITY with your week, helping you and Gordy plan training and nutrition around your busiest days.
+            {hasConnectedCalendar
+              ? `${connectedConnections.length} calendar${connectedConnections.length === 1 ? " is" : "s are"} connected and helping shape your week.`
+              : "Connect your calendar to sync AT CAPACITY with your week, helping you and Gordy plan training and nutrition around your busiest days."}
           </p>
         </div>
       </div>
@@ -270,12 +281,22 @@ export default function CalendarConnections({
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <details className="group mt-3" open={!hasConnectedCalendar}>
+        <summary className={`${hasConnectedCalendar ? "flex" : "sr-only"} min-h-11 cursor-pointer list-none items-center justify-between rounded-xl border border-[rgba(0,0,0,0.07)] px-3 text-xs font-semibold text-text-secondary [&::-webkit-details-marker]:hidden`}>
+          Manage calendar connections
+          <svg className="h-4 w-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+        </summary>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
         {(data?.providers || []).map((provider) => {
           const connection = data?.connections.find((item) => item.provider === provider.provider);
           const connected = connection?.status === "connected";
           const canConnect = provider.configured && !connected;
           const providerAction = activeAction === `connect:${provider.provider}`;
+          const syncCoolingDown = Boolean(
+            connected
+            && connection
+            && manualCalendarSyncRetryAfterSeconds(connection.last_sync_at, clockMs) > 0,
+          );
           return (
             <div key={provider.provider} className="rounded-lg border border-[rgba(0,0,0,0.07)] bg-bg-card p-4">
               <div className="flex items-start gap-3">
@@ -319,10 +340,11 @@ export default function CalendarConnections({
                     <button
                       type="button"
                       onClick={() => sync(connection)}
-                      disabled={Boolean(activeAction)}
+                      disabled={Boolean(activeAction) || syncCoolingDown}
+                      title={syncCoolingDown ? "Automatic updates are on. Manual refresh is available ten minutes after the last sync." : undefined}
                       className="rounded-lg border border-accent/25 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent-bright disabled:opacity-50"
                     >
-                      {activeAction === `sync:${connection.id}` ? "Syncing..." : "Sync now"}
+                      {activeAction === `sync:${connection.id}` ? "Syncing..." : syncCoolingDown ? "Up to date" : "Sync now"}
                     </button>
                   </>
                 ) : (
@@ -344,6 +366,7 @@ export default function CalendarConnections({
           );
         })}
       </div>
+      </details>
 
       {consentProvider && typeof document !== "undefined" && createPortal((
         <div

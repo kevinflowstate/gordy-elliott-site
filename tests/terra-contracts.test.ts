@@ -506,7 +506,7 @@ test("Terra connection consent names the processor and records the revised notic
   assert.match(connectedAppsPage, /Browser\.addListener\("browserFinished"/);
   assert.match(healthOverview, /connection\.provider === "myfitnesspal"/);
   assert.match(healthOverview, /summary\.providers\.includes\("myfitnesspal"\)/);
-  assert.match(healthOverview, /AT CAPACITY score/);
+  assert.match(healthOverview, /Capacity score/);
   assert.match(healthOverview, /label: "HRV"/);
   assert.match(globalStyles, /\.portal-main\s*\{[\s\S]*?env\(safe-area-inset-top/);
   assert.doesNotMatch(globalStyles, /\.native-app \.portal-main\s*\{[\s\S]*?padding-top:\s*1rem/);

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatExercisePrescription, shouldUseSetLogging } from "@/lib/exercise-prescriptions";
+import { getExerciseDemoUrl } from "@/lib/exercise-demo";
+import { openExerciseDemo } from "@/lib/exercise-demo-client";
 import {
   nextWorkoutExerciseIndex,
   workoutSetProgress,
@@ -378,19 +380,22 @@ export default function AtCapacityWorkoutRunner({
                 </div>
               )}
 
-              {current.item.exercise && (
+              {current.item.exercise && getExerciseDemoUrl(current.item.exercise.video_url, current.item.exercise.name) && (
                 <button
                   type="button"
                   onClick={() => {
-                    const url = current.item.exercise?.video_url
-                      || `https://musclewiki.com/exercises?search=${encodeURIComponent(current.item.exercise?.name ?? "")}`;
-                    window.open(url, "_blank", "noopener");
+                    void openExerciseDemo(current.item.exercise?.video_url, current.item.exercise?.name);
                   }}
                   className="mt-4 flex min-h-24 w-full items-center justify-center gap-2 rounded-2xl border border-[#E040D0]/20 bg-[linear-gradient(135deg,rgba(224,64,208,0.15),rgba(255,255,255,0.025))] text-sm font-bold text-[#F060E0]"
                 >
                   <span className="grid h-10 w-10 place-items-center rounded-full bg-[#E040D0] text-white"><Icon name="play" /></span>
                   Watch exercise demo
                 </button>
+              )}
+              {current.item.exercise && !getExerciseDemoUrl(current.item.exercise.video_url, current.item.exercise.name) && (
+                <div className="mt-4 rounded-2xl border border-white/8 bg-white/[0.035] px-4 py-3 text-center text-xs font-semibold text-white/45">
+                  Exercise demo not yet available
+                </div>
               )}
 
               <div className="mt-5">
