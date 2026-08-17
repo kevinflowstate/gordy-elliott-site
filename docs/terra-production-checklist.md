@@ -8,6 +8,7 @@
 - Point Terra to `https://<final-domain>/api/integrations/terra/webhook`.
 - Leave `TERRA_MOCK_MODE` unset in production. The application disables mock connections in production even if it is set accidentally.
 - Keep all Terra secrets server-only; none use a `NEXT_PUBLIC_` prefix.
+- Keep `TERRA_WHOOP_ENABLED` unset until WHOOP credentials are configured in Terra and the real account acceptance test passes. Set it to `true` only when that gate is cleared.
 
 ## Security contract
 
@@ -34,6 +35,7 @@ Official references:
 - Oura: authenticate, receive sleep/HRV/resting-heart-rate data and reconnect.
 - Fitbit: authenticate, receive daily/activity/sleep payloads, reconnect and disconnect.
 - MyFitnessPal: confirm it is enabled for Gordy's Terra account, then verify calories/macros/hydration payloads with a consenting test account.
+- WHOOP: register the Terra callback in the WHOOP developer app, configure its client ID and secret in Terra, then verify auth, sleep, recovery/HRV, strain, workouts, reconnect and disconnect with Gordy's live WHOOP membership.
 - Confirm provider names from real payloads match stored connection keys.
 - Replay the same signed payload and verify one raw event plus one set of daily summaries.
 - Send a valid multi-day array and verify every date is updated.
@@ -46,8 +48,9 @@ Official references:
 
 ## Launch provider boundary
 
-- The web launch allowlist is Garmin, Oura, Fitbit and MyFitnessPal. Each widget session is restricted to the app selected by the client.
-- WHOOP and Strava remain disabled until their provider credentials and account-level tests are complete.
+- The backend launch allowlist is Garmin, Oura, Fitbit, MyFitnessPal and WHOOP. Each widget session is restricted to the app selected by the client.
+- WHOOP remains hidden and its session route rejects connections until `TERRA_WHOOP_ENABLED=true`; enable it only after provider credentials and the account-level acceptance test are complete.
+- Strava remains disabled until its provider credentials and account-level tests are complete.
 - Apple Health requires the later native Terra/HealthKit SDK phase and is not included in version 1.
 - Flo is not treated as a supported provider without written confirmation and a successful Terra account-level test.
 - Terra-side deauthentication, revocation handling and local non-reconnection are implemented but still require a real testing-environment acceptance run.

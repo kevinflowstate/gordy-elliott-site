@@ -1,4 +1,4 @@
-import { generateTerraWidgetSession, getTerraReferenceId } from "@/lib/terra/client";
+import { generateTerraWidgetSession, getTerraConfig, getTerraReferenceId } from "@/lib/terra/client";
 import { normaliseTerraProvider, TERRA_CONSENT_VERSION } from "@/lib/terra/events";
 import { createMockWearableSummary } from "@/lib/wearable-mock";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -30,6 +30,9 @@ export async function POST(request: Request) {
   const provider = normaliseTerraProvider(body.provider);
   if (!provider) {
     return NextResponse.json({ error: "That connected app is not available." }, { status: 400 });
+  }
+  if (provider === "whoop" && !getTerraConfig().whoopEnabled) {
+    return NextResponse.json({ error: "WHOOP is awaiting final provider setup and testing." }, { status: 400 });
   }
   if (body.consent !== true) {
     return NextResponse.json(

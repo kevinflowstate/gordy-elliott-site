@@ -7,6 +7,7 @@ const REQUIRED_FIELDS = {
   source_title: "string",
   category: "string",
   provenance: "string",
+  audience: "string",
   text: "string",
   principles: "array",
   coaching_moves: "array",
@@ -15,6 +16,7 @@ const REQUIRED_FIELDS = {
 };
 const ALLOWED_CATEGORIES = new Set(["methodology", "build", "client_session", "other"]);
 const ALLOWED_PROVENANCE = new Set(["gordy_direct", "client_session_distilled"]);
+const ALLOWED_AUDIENCES = new Set(["client", "admin", "both"]);
 const CLIENT_SCOPE_CATEGORIES = new Set(["methodology", "client_session"]);
 
 const args = parseArgs(process.argv.slice(2));
@@ -59,6 +61,7 @@ for (const { lineNumber, value } of rows) {
     source_title: value.source_title,
     category: value.category,
     provenance: value.provenance,
+    audience: value.audience,
     text: value.text.trim(),
     principles: value.principles,
     coaching_moves: value.coaching_moves,
@@ -170,7 +173,9 @@ function exclusionReasons(row, review, selectedScope) {
   }
   if (typeof row.category === "string" && !ALLOWED_CATEGORIES.has(row.category)) reasons.push("unknown_category");
   if (typeof row.provenance === "string" && !ALLOWED_PROVENANCE.has(row.provenance)) reasons.push("unknown_provenance");
+  if (typeof row.audience === "string" && !ALLOWED_AUDIENCES.has(row.audience)) reasons.push("unknown_audience");
   if (selectedScope === "client" && typeof row.category === "string" && !CLIENT_SCOPE_CATEGORIES.has(row.category)) reasons.push("excluded_category_for_client_scope");
+  if (selectedScope === "client" && typeof row.audience === "string" && !["client", "both"].includes(row.audience)) reasons.push("excluded_audience_for_client_scope");
   if (!review) reasons.push("missing_review_csv_row");
   if (row.pii_risk !== "none") reasons.push("pii_risk_review");
   if (review && review.platform_flag !== "none") reasons.push("platform_flag_review");

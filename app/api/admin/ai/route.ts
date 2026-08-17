@@ -6,6 +6,7 @@ import { trackAIUsage } from "@/lib/ai-usage";
 import { rateLimit } from "@/lib/rate-limit";
 import type { WearableConnection, WearableDailySummary } from "@/lib/wearable-insights";
 import { resolveClientLifecycleStatus } from "@/lib/client-attention";
+import { getShiftBrainContextResult } from "@/lib/brain-retrieval";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
@@ -417,6 +418,19 @@ export async function POST(req: NextRequest) {
     ? prioritised.map((p, i) => `${i + 1}. ${p.client.name} (${p.client.tier}) — ${p.reasons.join(", ")}`).join("\n")
     : "No clients scored above the attention threshold — roster is quiet.";
 
+  const brainRetrieval = await getShiftBrainContextResult(admin, message, { audience: "admin" });
+  if (adminUser?.id && brainRetrieval.embeddingUsage) {
+    await trackAIUsage({
+      userId: adminUser.id,
+      model: brainRetrieval.embeddingUsage.model,
+      inputTokens: brainRetrieval.embeddingUsage.inputTokens,
+      outputTokens: brainRetrieval.embeddingUsage.outputTokens,
+      endpoint: "admin:/api/admin/ai:brain-embedding",
+    }).catch(() => {
+      // Admin usage is informational and must not block a response.
+    });
+  }
+
   const systemPrompt = `You are AT CAPACITY AI, Gordy Elliott's coaching operations assistant. You are a coaching COO for Gordy — you summarise state, flag risk, draft replies, and suggest coach actions grounded in the data below. You never hallucinate clients, plans, or adherence numbers.
 
 TODAY: ${new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short", year: "numeric" })}
@@ -459,6 +473,7 @@ RECENT CHECK-INS (last 30)
 ===========================
 (Premium/VIP entries include priority_message and support_ask. "replied" = Gordy has already responded.)
 ${JSON.stringify(checkinSummaries, null, 2)}
+${brainRetrieval.context}
 
 ===========================
 HOW TO ANSWER

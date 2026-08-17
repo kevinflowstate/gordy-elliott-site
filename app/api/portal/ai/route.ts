@@ -375,7 +375,7 @@ export async function POST(req: NextRequest) {
   // Search published training content and retrieved SHIFT brain context.
   const searchTerms = message.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3).slice(0, 6);
   let educationLibraryContext = "";
-  const brainRetrieval = await getShiftBrainContextResult(admin, message);
+  const brainRetrieval = await getShiftBrainContextResult(admin, message, { audience: "client" });
   const brainContext = brainRetrieval.context;
 
   if (brainRetrieval.embeddingUsage) {

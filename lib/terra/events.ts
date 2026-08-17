@@ -3,6 +3,7 @@ export const TERRA_LAUNCH_PROVIDERS = [
   "oura",
   "fitbit",
   "myfitnesspal",
+  "whoop",
 ] as const;
 
 export const TERRA_CONSENT_VERSION = "wearable_connection_v2";

@@ -44,10 +44,18 @@ export const wearableProviders: WearableProvider[] = [
   },
   {
     id: "whoop",
-    name: "WHOOP and Strava",
-    description: "Available after provider credentials and final account-level testing.",
+    name: "WHOOP",
+    description: "Recovery, sleep, strain and workouts.",
     mark: "W",
     markClass: "bg-[#f5f5f5] text-black",
+    disabled: true,
+  },
+  {
+    id: "strava",
+    name: "Strava",
+    description: "Planned after provider credentials and account-level testing.",
+    mark: "S",
+    markClass: "bg-[#fc4c02] text-white",
     disabled: true,
   },
   {
@@ -65,6 +73,7 @@ export default function WearableConnectionsPanel({
   consentAccepted,
   available,
   mockMode,
+  whoopAvailable,
   connecting,
   disconnecting,
   onConsentChange,
@@ -76,6 +85,7 @@ export default function WearableConnectionsPanel({
   consentAccepted: boolean;
   available: boolean;
   mockMode: boolean;
+  whoopAvailable: boolean;
   connecting: string | null;
   disconnecting: string | null;
   onConsentChange: (accepted: boolean) => void;
@@ -83,13 +93,16 @@ export default function WearableConnectionsPanel({
   onDisconnect: (connection: WearableConnection) => void;
   onBack: () => void;
 }) {
+  const providers = wearableProviders.map((provider) => (
+    provider.id === "whoop" ? { ...provider, disabled: !whoopAvailable } : provider
+  ));
   const connectionByProvider = new Map<string, WearableConnection>();
   for (const connection of connections) connectionByProvider.set(connection.provider, connection);
-  const activeProviders = wearableProviders.filter((provider) => !provider.disabled);
-  const laterProviders = wearableProviders.filter((provider) => provider.disabled);
+  const activeProviders = providers.filter((provider) => !provider.disabled);
+  const laterProviders = providers.filter((provider) => provider.disabled);
   const connectedConnections = connections.filter((connection) => connection.status === "connected");
   const connectedProviderDetails = connectedConnections
-    .map((connection) => wearableProviders.find((provider) => provider.id === connection.provider))
+    .map((connection) => providers.find((provider) => provider.id === connection.provider))
     .filter((provider): provider is WearableProvider => Boolean(provider));
   const mostRecentSync = connectedConnections
     .map((connection) => connection.last_sync_at)

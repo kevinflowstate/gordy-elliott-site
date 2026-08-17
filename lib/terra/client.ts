@@ -28,6 +28,7 @@ export function getTerraConfig() {
   const mockMode = process.env.NODE_ENV !== "production" && (
     process.env.TERRA_MOCK_MODE === "true" || (!devId && !apiKey)
   );
+  const available = configured || mockMode;
 
   return {
     devId,
@@ -35,7 +36,8 @@ export function getTerraConfig() {
     configured,
     mockMode,
     partialCredentials,
-    available: configured || mockMode,
+    available,
+    whoopEnabled: available && process.env.TERRA_WHOOP_ENABLED === "true",
     webhookSigningSecret: process.env.TERRA_WEBHOOK_SIGNING_SECRET || process.env.TERRA_WEBHOOK_SECRET || "",
   };
 }

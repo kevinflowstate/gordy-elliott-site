@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { dateKeyInTimeZone } from "@/lib/founder-dashboard";
 import {
+  buildSessionPerformance,
   buildStrengthTrackerProgress,
   buildTrainingConsistency,
   type StrengthLogInput,
@@ -85,7 +86,7 @@ export async function loadClientStrengthProgress(
 ) {
   const todayKey = dateKeyInTimeZone(now, "Europe/London");
   const logCutoff = addDaysToKey(todayKey, -365);
-  const [trackersResult, plansResult, logsResult] = await Promise.all([
+  const [trackersResult, plansResult, logsResult, summariesResult] = await Promise.all([
     admin
       .from("client_strength_trackers")
       .select("*")
@@ -105,11 +106,19 @@ export async function loadClientStrengthProgress(
       .gte("log_date", logCutoff)
       .lte("log_date", todayKey)
       .order("log_date", { ascending: true }),
+    admin
+      .from("client_exercise_session_summaries")
+      .select("session_id, log_date, duration_seconds")
+      .eq("client_id", clientId)
+      .gte("log_date", logCutoff)
+      .lte("log_date", todayKey)
+      .order("log_date", { ascending: true }),
   ]);
 
   if (trackersResult.error) throw new Error(trackersResult.error.message);
   if (plansResult.error) throw new Error(plansResult.error.message);
   if (logsResult.error) throw new Error(logsResult.error.message);
+  if (summariesResult.error) throw new Error(summariesResult.error.message);
 
   const trackers = (trackersResult.data || []) as TrackerRow[];
   const plans = plansResult.data || [];
@@ -119,7 +128,7 @@ export async function loadClientStrengthProgress(
   const { data: sessions, error: sessionError } = planIds.length
     ? await admin
         .from("client_exercise_sessions")
-        .select("id, plan_id")
+        .select("id, plan_id, name")
         .in("plan_id", planIds)
     : { data: [], error: null };
   if (sessionError) throw new Error(sessionError.message);
@@ -134,7 +143,10 @@ export async function loadClientStrengthProgress(
   if (itemError) throw new Error(itemError.message);
   const itemExercise = new Map((items || []).map((item) => [item.id, item.exercise_id]));
 
-  const exerciseIds = trackers.map((tracker) => tracker.exercise_id);
+  const exerciseIds = [...new Set([
+    ...trackers.map((tracker) => tracker.exercise_id),
+    ...(items || []).map((item) => item.exercise_id),
+  ])];
   const { data: exercises, error: exerciseError } = exerciseIds.length
     ? await admin
         .from("exercises")
@@ -145,18 +157,19 @@ export async function loadClientStrengthProgress(
   const exerciseNames = new Map((exercises || []).map((exercise) => [exercise.id, exercise.name]));
 
   const strengthLogs: StrengthLogInput[] = (logsResult.data || [])
-    .map((log) => {
+    .flatMap((log): StrengthLogInput[] => {
       const exerciseId = itemExercise.get(log.exercise_item_id);
-      if (!exerciseId) return null;
-      return {
+      if (!exerciseId) return [];
+      return [{
+        exercise_item_id: log.exercise_item_id,
         exercise_id: exerciseId,
+        exercise_name: exerciseNames.get(exerciseId) || "Exercise",
         session_id: log.session_id,
         log_date: log.log_date,
         completed: Boolean(log.completed),
         sets_data: Array.isArray(log.sets_data) ? log.sets_data : [],
-      };
-    })
-    .filter((log): log is StrengthLogInput => Boolean(log));
+      }];
+    });
 
   const activeSessionIds = activePlan
     ? (sessions || []).filter((session) => session.plan_id === activePlan.id).map((session) => session.id)
@@ -187,6 +200,15 @@ export async function loadClientStrengthProgress(
         completed: Boolean(log.completed),
       })),
       todayKey,
+    }),
+    sessions: buildSessionPerformance({
+      logs: strengthLogs,
+      sessions: (sessions || []).map((session) => ({ id: session.id, name: session.name || "Training session" })),
+      summaries: (summariesResult.data || []).map((summary) => ({
+        session_id: summary.session_id,
+        log_date: summary.log_date,
+        duration_seconds: summary.duration_seconds === null ? null : Number(summary.duration_seconds),
+      })),
     }),
     trackers: trackers.map((tracker) => buildStrengthTrackerProgress({
       id: tracker.id,

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
+import { calculateSessionTotals } from "@/lib/strength-progress";
 
 function boundedText(value: unknown, maxLength: number) {
   if (value === null || value === undefined) return "";
@@ -87,6 +88,7 @@ export async function POST(request: Request) {
   const rawEntries = Array.isArray(body.entries) ? body.entries : [body];
   const sessionId = typeof body.session_id === "string" ? body.session_id : "";
   const date = body.date;
+  const rawStartedAt = body.session_started_at;
 
   if (!sessionId) return NextResponse.json({ error: "session_id is required" }, { status: 400 });
   if (rawEntries.length === 0 || rawEntries.length > 50) {
@@ -94,6 +96,17 @@ export async function POST(request: Request) {
   }
   if (date !== undefined && (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date))) {
     return NextResponse.json({ error: "date must be YYYY-MM-DD" }, { status: 400 });
+  }
+  let startedAt: Date | null = null;
+  if (rawStartedAt !== undefined && rawStartedAt !== null) {
+    if (typeof rawStartedAt !== "string") {
+      return NextResponse.json({ error: "session_started_at must be an ISO date" }, { status: 400 });
+    }
+    startedAt = new Date(rawStartedAt);
+    const now = Date.now();
+    if (Number.isNaN(startedAt.getTime()) || startedAt.getTime() > now + 5 * 60_000 || now - startedAt.getTime() > 6 * 60 * 60_000) {
+      return NextResponse.json({ error: "session_started_at is outside the allowed workout window" }, { status: 400 });
+    }
   }
 
   const entries = rawEntries.map((rawEntry) => {
@@ -169,5 +182,49 @@ export async function POST(request: Request) {
     .select();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ logs: data || [], log: data?.[0] || null });
+
+  const totals = entries.reduce((result, entry) => {
+    const entryTotals = calculateSessionTotals(entry.safeSets || []);
+    return {
+      totalTonnageKg: Math.round((result.totalTonnageKg + entryTotals.totalTonnageKg) * 100) / 100,
+      completedSets: result.completedSets + entryTotals.completedSets,
+      totalReps: result.totalReps + entryTotals.totalReps,
+    };
+  }, { totalTonnageKg: 0, completedSets: 0, totalReps: 0 });
+
+  const completedAt = new Date();
+  const { data: existingSummary } = await admin
+    .from("client_exercise_session_summaries")
+    .select("started_at, duration_seconds")
+    .eq("client_id", profile.id)
+    .eq("session_id", session.id)
+    .eq("log_date", logDate)
+    .maybeSingle();
+  const effectiveStartedAt = startedAt?.toISOString() || existingSummary?.started_at || null;
+  const durationSeconds = startedAt
+    ? Math.max(0, Math.min(21_600, Math.round((completedAt.getTime() - startedAt.getTime()) / 1000)))
+    : existingSummary?.duration_seconds ?? null;
+  const { data: summary, error: summaryError } = await admin
+    .from("client_exercise_session_summaries")
+    .upsert({
+      client_id: profile.id,
+      session_id: session.id,
+      log_date: logDate,
+      started_at: effectiveStartedAt,
+      completed_at: completedAt.toISOString(),
+      duration_seconds: durationSeconds,
+      total_tonnage_kg: totals.totalTonnageKg,
+      completed_sets: totals.completedSets,
+      total_reps: totals.totalReps,
+      updated_at: completedAt.toISOString(),
+    }, { onConflict: "client_id,session_id,log_date" })
+    .select()
+    .single();
+
+  if (summaryError) {
+    console.error("Failed to save exercise session summary:", summaryError.message);
+    return NextResponse.json({ error: "Your sets were saved, but the session summary could not be updated. Please tap save again." }, { status: 500 });
+  }
+
+  return NextResponse.json({ logs: data || [], log: data?.[0] || null, summary });
 }

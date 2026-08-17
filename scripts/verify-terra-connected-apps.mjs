@@ -69,6 +69,7 @@ function buildVisualFixture() {
   return {
     mockMode: false,
     available: true,
+    providerAvailability: { whoop: false },
     consentAccepted: true,
     connections: [
       {
@@ -244,6 +245,7 @@ try {
 
   for (const viewport of [
     { name: "iphone", width: 390, height: 844 },
+    { name: "iphone-large", width: 430, height: 932 },
     { name: "desktop", width: 1440, height: 1000 },
   ]) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
@@ -283,8 +285,8 @@ try {
       await checkbox.check();
       if (await garminButton.isDisabled()) throw new Error(`${viewport.name}: provider button stayed disabled after consent`);
     }
-    if (await page.getByText("WHOOP and Strava", { exact: true }).count() !== 1) {
-      throw new Error(`${viewport.name}: WHOOP/Strava roadmap state is missing`);
+    if (await page.getByText("WHOOP", { exact: true }).count() !== 1 || await page.getByText("Strava", { exact: true }).count() !== 1) {
+      throw new Error(`${viewport.name}: WHOOP and Strava roadmap states are missing`);
     }
     await page.screenshot({
       path: path.join(outputDir, `${viewport.name}-connections.png`),
@@ -297,7 +299,7 @@ try {
 
   if (serverErrors.length) throw new Error(`Server errors: ${serverErrors.join(", ")}`);
   if (consoleErrors.length) throw new Error(`Console errors: ${[...new Set(consoleErrors)].join(" | ")}`);
-  console.log("Terra Connected Apps visual QA passed at 390x844 and 1440x1000.");
+  console.log("Terra Connected Apps visual QA passed at 390x844, 430x932 and 1440x1000.");
 } finally {
   await browser?.close();
   server.kill("SIGTERM");

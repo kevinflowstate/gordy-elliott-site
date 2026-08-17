@@ -57,6 +57,7 @@ export async function GET() {
   return NextResponse.json({
     mockMode: terra.mockMode,
     available: terra.available,
+    providerAvailability: { whoop: terra.whoopEnabled },
     consentAccepted: connections.some((connection) =>
       connection.consent_version === TERRA_CONSENT_VERSION && Boolean(connection.consented_at)
     ),

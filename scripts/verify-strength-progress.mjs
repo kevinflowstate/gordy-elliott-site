@@ -22,6 +22,49 @@ if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
 
 const strengthFixture = {
   today: "2026-08-04",
+  sessions: [
+    {
+      sessionId: "lower-a",
+      sessionName: "Lower Body A",
+      date: "2026-08-03",
+      durationSeconds: 2520,
+      totalTonnageKg: 3240,
+      completedSets: 9,
+      totalReps: 78,
+      comparison: {
+        previousDate: "2026-07-27",
+        tonnageChangeKg: 180,
+        durationChangeSeconds: -150,
+        repsChange: 2,
+      },
+      exercises: [
+        {
+          exerciseId: "exercise-trap-bar",
+          exerciseName: "Trap Bar Deadlift",
+          completedSets: 3,
+          totalReps: 18,
+          totalTonnageKg: 1890,
+          sets: [
+            { setNumber: 1, displayValue: "105kg × 6", weightKg: 105, reps: 6, tonnageKg: 630 },
+            { setNumber: 2, displayValue: "105kg × 6", weightKg: 105, reps: 6, tonnageKg: 630 },
+            { setNumber: 3, displayValue: "105kg × 6", weightKg: 105, reps: 6, tonnageKg: 630 },
+          ],
+        },
+        {
+          exerciseId: "exercise-split-squat",
+          exerciseName: "Rear Foot Elevated Split Squat",
+          completedSets: 3,
+          totalReps: 30,
+          totalTonnageKg: 900,
+          sets: [
+            { setNumber: 1, displayValue: "30kg × 10", weightKg: 30, reps: 10, tonnageKg: 300 },
+            { setNumber: 2, displayValue: "30kg × 10", weightKg: 30, reps: 10, tonnageKg: 300 },
+            { setNumber: 3, displayValue: "30kg × 10", weightKg: 30, reps: 10, tonnageKg: 300 },
+          ],
+        },
+      ],
+    },
+  ],
   consistency: {
     completedSessions: 9,
     plannedSessions: 11,
@@ -210,8 +253,10 @@ try {
       throw new Error(`${viewport.name}: QA sign-in landed on ${new URL(page.url()).pathname}.`);
     }
     await page.getByRole("heading", { name: "Strength & Performance" }).waitFor();
-    await page.getByText("Trap Bar Deadlift", { exact: true }).waitFor();
-    const consistencyDetails = page.locator("#strength-performance details");
+    await page.getByRole("heading", { name: "Trap Bar Deadlift", exact: true }).waitFor();
+    await page.getByText("Lower Body A", { exact: true }).waitFor();
+    await page.getByText("3,240kg", { exact: true }).waitFor();
+    const consistencyDetails = page.locator("#strength-performance details").filter({ hasText: "Training consistency" });
     await consistencyDetails.locator("summary").click();
     await consistencyDetails.locator("[aria-label='Four-week training history']").waitFor();
     await page.getByText(/82%/).first().waitFor();
@@ -253,11 +298,12 @@ try {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ ...strengthFixture, trackers: [] }),
+        body: JSON.stringify({ ...strengthFixture, sessions: [], trackers: [] }),
       });
     });
     await page.goto(`${baseUrl}/portal/progress`, { waitUntil: "networkidle", timeout: 30_000 });
     if (state === "empty") {
+      await page.getByText("Your session progress will appear here", { exact: true }).waitFor();
       await page.getByText("Key movements coming soon", { exact: true }).waitFor();
     } else {
       await page.getByText("We couldn't load training progress. Try refreshing the page.", { exact: true }).waitFor();

@@ -11,6 +11,7 @@ import type { WearableConnection, WearableDailySummary } from "@/lib/wearable-in
 type IntegrationsPayload = {
   mockMode: boolean;
   available: boolean;
+  providerAvailability: { whoop: boolean };
   consentAccepted: boolean;
   connections: WearableConnection[];
   latestSummary: WearableDailySummary | null;
@@ -296,6 +297,7 @@ export default function ConnectedAppsPage() {
         consentAccepted={consentAccepted}
         available={data?.available !== false}
         mockMode={Boolean(data?.mockMode)}
+        whoopAvailable={Boolean(data?.providerAvailability?.whoop)}
         connecting={connecting}
         disconnecting={disconnecting}
         onConsentChange={setConsentAccepted}
