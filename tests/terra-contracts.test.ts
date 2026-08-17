@@ -6,6 +6,7 @@ import test from "node:test";
 import {
   deauthenticateTerraUser,
   generateTerraWidgetSession,
+  getTerraConfig,
   getTerraUsersByReferenceId,
   requestTerraNutritionData,
   verifyTerraWebhookSignature,
@@ -279,11 +280,56 @@ test("a disconnected connection stays terminal until the client starts a new con
   assert.equal(canApplyTerraEvent("data", "connected"), true);
 });
 
-test("limits the web widget to the approved launch provider", () => {
+test("limits the web widget to approved providers and recognises WHOOP", () => {
   assert.equal(normaliseTerraProvider("GARMIN"), "garmin");
   assert.equal(normaliseTerraProvider("My_Fitness_Pal"), "myfitnesspal");
-  assert.equal(normaliseTerraProvider("WHOOP"), null);
+  assert.equal(normaliseTerraProvider("WHOOP"), "whoop");
   assert.equal(getTerraWidgetProvider("fitbit"), "FITBIT");
+  assert.equal(getTerraWidgetProvider("whoop"), "WHOOP");
+});
+
+test("keeps WHOOP hidden until the explicit provider gate is enabled", () => {
+  const original = process.env.TERRA_WHOOP_ENABLED;
+  const originalDevId = process.env.TERRA_DEV_ID;
+  const originalApiKey = process.env.TERRA_API_KEY;
+  try {
+    process.env.TERRA_DEV_ID = "test-dev";
+    process.env.TERRA_API_KEY = "test-key";
+    delete process.env.TERRA_WHOOP_ENABLED;
+    assert.equal(getTerraConfig().whoopEnabled, false);
+    process.env.TERRA_WHOOP_ENABLED = "true";
+    assert.equal(getTerraConfig().whoopEnabled, true);
+  } finally {
+    if (original === undefined) delete process.env.TERRA_WHOOP_ENABLED; else process.env.TERRA_WHOOP_ENABLED = original;
+    if (originalDevId === undefined) delete process.env.TERRA_DEV_ID; else process.env.TERRA_DEV_ID = originalDevId;
+    if (originalApiKey === undefined) delete process.env.TERRA_API_KEY; else process.env.TERRA_API_KEY = originalApiKey;
+  }
+});
+
+test("normalises WHOOP sleep and strain through the shared Terra contract", () => {
+  const sleep = normaliseTerraPayloads({
+    type: "sleep",
+    user: { provider: "WHOOP" },
+    data: [{
+      metadata: { start_time: "2026-08-15T23:00:00Z", end_time: "2026-08-16T07:00:00Z" },
+      scores: { sleep: 82 },
+      sleep_durations_data: { asleep: { duration_asleep_state_seconds: 25_200 } },
+      heart_rate_data: { summary: { resting_hr_bpm: 55, avg_hrv_rmssd: 48 } },
+    }],
+  })[0];
+  const daily = normaliseTerraPayloads({
+    type: "daily",
+    user: { provider: "WHOOP" },
+    data: [{
+      metadata: { start_time: "2026-08-16T00:00:00Z" },
+      strain_data: { strain_level: 11.4 },
+    }],
+  })[0];
+
+  assert.deepEqual(sleep.providers, ["whoop"]);
+  assert.equal(sleep.sleep_minutes, 420);
+  assert.equal(sleep.hrv_ms, 48);
+  assert.equal(daily.training_load, 11.4);
 });
 
 test("uses the new Terra user when a provider account is reauthenticated", () => {

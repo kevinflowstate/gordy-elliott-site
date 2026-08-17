@@ -7,6 +7,7 @@ const DEFAULT_MATCH_COUNT = 8;
 const DEFAULT_SIMILARITY_THRESHOLD = 0.2;
 const EXPECTED_DIMENSIONS = 1536;
 type EmbeddingProvider = "openai" | "openrouter";
+export type BrainAudience = "client" | "admin";
 
 interface BrainMatchRow {
   chunk_id: string;
@@ -42,6 +43,7 @@ export async function getShiftBrainContext(
   options: {
     matchCount?: number;
     similarityThreshold?: number;
+    audience?: BrainAudience;
   } = {},
 ): Promise<string> {
   const result = await getShiftBrainContextResult(admin, query, options);
@@ -54,6 +56,7 @@ export async function getShiftBrainContextResult(
   options: {
     matchCount?: number;
     similarityThreshold?: number;
+    audience?: BrainAudience;
   } = {},
 ): Promise<ShiftBrainRetrievalResult> {
   const trimmed = query.trim();
@@ -64,14 +67,15 @@ export async function getShiftBrainContextResult(
     const { embedding, usage } = await createQueryEmbedding(trimmed, provider);
     if (embedding.length !== EXPECTED_DIMENSIONS) return { context: "", embeddingUsage: usage };
 
-    const { data, error } = await admin.rpc("match_brain_chunks", {
+    const { data, error } = await admin.rpc("match_brain_chunks_v2", {
       query_embedding: toVectorLiteral(embedding),
+      query_audience: options.audience || "client",
       match_count: options.matchCount ?? DEFAULT_MATCH_COUNT,
       similarity_threshold: options.similarityThreshold ?? DEFAULT_SIMILARITY_THRESHOLD,
     });
 
     if (error || !data?.length) {
-      if (error) console.error("SHIFT brain retrieval failed:", error.message);
+      if (error) console.error("AT CAPACITY brain retrieval failed:", error.message);
       return { context: "", embeddingUsage: usage };
     }
 
@@ -80,7 +84,7 @@ export async function getShiftBrainContextResult(
       embeddingUsage: usage,
     };
   } catch (error) {
-    console.error("SHIFT brain retrieval failed:", error);
+    console.error("AT CAPACITY brain retrieval failed:", error);
     return emptyResult();
   }
 }
@@ -175,7 +179,7 @@ async function formatBrainContext(admin: SupabaseClient, matches: BrainMatchRow[
     .in("id", matchedIds);
 
   if (error || !data?.length) {
-    if (error) console.error("SHIFT brain guidance lookup failed:", error.message);
+    if (error) console.error("AT CAPACITY brain guidance lookup failed:", error.message);
     return "";
   }
 

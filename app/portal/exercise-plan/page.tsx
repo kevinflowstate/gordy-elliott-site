@@ -456,6 +456,7 @@ export default function PortalExercisePlanPage() {
         body: JSON.stringify({
           session_id: activeSession.id,
           date: dateStr,
+          session_started_at: sessionStartedAt ? new Date(sessionStartedAt).toISOString() : undefined,
           entries: exercises.map((item) => ({
               exercise_item_id: item.id,
               sets_data: draftSets[item.id] || [],

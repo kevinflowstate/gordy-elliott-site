@@ -670,20 +670,16 @@ export default function CheckInPage() {
               <div className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${
                 tier === "vip" ? "text-amber-500" : "text-sky-500"
               }`}>
-                {tier === "vip" ? "Priority message for Gordy" : "Message for Gordy"}
+                Your main priority
               </div>
               <label className="mt-2 block text-sm font-medium text-text-primary">
-                {tier === "vip"
-                  ? "What's the one thing Gordy should see first this week?"
-                  : "What do you most want Gordy to weigh in on?"}
+                What&apos;s the main thing you want Gordy to understand this week?
               </label>
               <textarea
                 value={priorityMessage}
                 onChange={(e) => setPriorityMessage(e.target.value)}
                 rows={3}
-                placeholder={tier === "vip"
-                  ? "Top-priority win, friction, or decision you need Gordy's eyes on."
-                  : "A specific moment or situation you want his input on."}
+                placeholder="A win, challenge or decision you want Gordy to see first."
                 className="app-inset mt-2 w-full rounded-2xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/45 transition-colors resize-none"
               />
             </div>
@@ -691,19 +687,22 @@ export default function CheckInPage() {
               <div className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${
                 tier === "vip" ? "text-amber-500" : "text-sky-500"
               }`}>
-                Support ask
+                Support from Gordy
               </div>
               <label className="mt-2 block text-sm font-medium text-text-primary">
-                Where do you need closer support this coming week?
+                What would be most useful from Gordy next?
               </label>
               <textarea
                 value={supportAsk}
                 onChange={(e) => setSupportAsk(e.target.value)}
                 rows={3}
-                placeholder="Training, nutrition, habits, mindset, accountability..."
+                placeholder="A review, answer, adjustment or accountability check..."
                 className="app-inset mt-2 w-full rounded-2xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/45 transition-colors resize-none"
               />
             </div>
+            <p className="text-xs leading-relaxed text-text-muted">
+              These answers are included with your weekly check-in so Gordy can quickly see what matters. They are not sent as a separate DM.
+            </p>
           </div>
         )}
 

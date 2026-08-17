@@ -2359,14 +2359,14 @@ export default function ClientDetailPage() {
                               <span className={`text-[10px] font-semibold uppercase tracking-wider ${
                                 client.tier === "vip" ? "text-amber-400" : "text-sky-400"
                               }`}>
-                                {client.tier === "vip" ? "Priority message" : "Message for Gordy"}
+                                Client&apos;s main priority
                               </span>
                               <p className="text-xs text-text-primary mt-0.5 leading-relaxed">{c.responses.priority_message}</p>
                             </div>
                           )}
                           {c.responses?.support_ask && (
                             <div className="rounded-lg border border-[#E040D0]/30 bg-[#E040D0]/5 px-3 py-2">
-                              <span className="text-[10px] font-semibold uppercase tracking-wider text-[#E040D0]">Support ask</span>
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-[#E040D0]">Support requested</span>
                               <p className="text-xs text-text-primary mt-0.5 leading-relaxed">{c.responses.support_ask}</p>
                             </div>
                           )}
@@ -2548,14 +2548,14 @@ export default function ClientDetailPage() {
                         <span className={`text-[10px] font-semibold uppercase tracking-wider ${
                           client.tier === "vip" ? "text-amber-400" : "text-sky-400"
                         }`}>
-                          {client.tier === "vip" ? "Priority message" : "Message for Gordy"}
+                          Client&apos;s main priority
                         </span>
                         <p className="text-xs text-text-primary mt-0.5 leading-relaxed">{c.responses.priority_message}</p>
                       </div>
                     )}
                     {c.responses?.support_ask && (
                       <div className="mb-3 rounded-lg border border-[#E040D0]/30 bg-[#E040D0]/5 px-3 py-2">
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-[#E040D0]">Support ask</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-[#E040D0]">Support requested</span>
                         <p className="text-xs text-text-primary mt-0.5 leading-relaxed">{c.responses.support_ask}</p>
                       </div>
                     )}

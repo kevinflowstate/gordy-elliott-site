@@ -83,6 +83,7 @@ const docsForDb = docs.map((doc) => ({
   source_title: doc.source_title,
   category: doc.category,
   provenance: doc.provenance,
+  audience: doc.audience,
   text: doc.text,
   principles: doc.principles,
   coaching_moves: doc.coaching_moves,

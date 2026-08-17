@@ -10,6 +10,7 @@ import {
 } from "recharts";
 import {
   formatDuration,
+  type SessionPerformance,
   type StrengthProgressPayload,
   type StrengthTrackerProgress,
 } from "@/lib/strength-progress";
@@ -31,6 +32,24 @@ function formatChange(tracker: StrengthTrackerProgress) {
 
 function shortDate(value: string) {
   return new Date(`${value}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+function formatKg(value: number) {
+  return `${Math.round(value).toLocaleString("en-GB")}kg`;
+}
+
+function sessionTrend(session: SessionPerformance) {
+  if (!session.comparison) return "First recorded session";
+  const tonnage = session.comparison.tonnageChangeKg;
+  if (Math.abs(tonnage) >= 1) {
+    return `${tonnage > 0 ? "+" : ""}${formatKg(tonnage)} vs last ${session.sessionName}`;
+  }
+  if (session.comparison.durationChangeSeconds !== null) {
+    const seconds = session.comparison.durationChangeSeconds;
+    if (seconds === 0) return "Same time as last session";
+    return `${formatDuration(Math.abs(seconds))} ${seconds < 0 ? "quicker" : "longer"} than last time`;
+  }
+  return "Level with the last session";
 }
 
 export default function StrengthProgressPanel({
@@ -64,12 +83,72 @@ export default function StrengthProgressPanel({
   return (
     <section id="strength-performance" className="mb-6 scroll-mt-4 space-y-4">
       <div className="app-card overflow-hidden rounded-[28px] border border-[#E040D0]/15 bg-[linear-gradient(135deg,rgba(224,64,208,0.16),rgba(59,130,246,0.06))] px-5 py-4">
-        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#E040D0]">Key movements</div>
+        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#E040D0]">Training progress</div>
         <h2 className="mt-1 font-heading text-xl font-bold text-text-primary">Strength &amp; Performance</h2>
         <p className="mt-1 text-sm leading-relaxed text-text-secondary">
-          Your important lifts update automatically from completed sessions—nothing extra to log.
+          See the work completed in each session, then follow the movements that matter for your plan.
         </p>
       </div>
+
+      {(data.sessions || []).length > 0 ? (
+        <div className="space-y-3">
+          <div className="px-1 text-[11px] font-bold uppercase tracking-[0.16em] text-text-muted">Recent sessions</div>
+          {(data.sessions || []).slice(0, 6).map((session, index) => (
+            <details key={`${session.sessionId}:${session.date}`} className="group app-card rounded-[24px] p-4" open={index === 0}>
+              <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#E040D0]">{shortDate(session.date)}</div>
+                    <h3 className="mt-1 truncate font-heading text-lg font-bold text-text-primary">{session.sessionName}</h3>
+                    <p className={`mt-1 text-xs ${session.comparison?.tonnageChangeKg && session.comparison.tonnageChangeKg > 0 ? "text-emerald-500" : "text-text-secondary"}`}>
+                      {sessionTrend(session)}
+                    </p>
+                  </div>
+                  <svg className="mt-2 h-4 w-4 shrink-0 text-text-muted transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  <div className="app-inset rounded-2xl px-3 py-3">
+                    <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-text-muted">Tonnage</div>
+                    <div className="mt-1 text-sm font-bold text-text-primary">{session.totalTonnageKg > 0 ? formatKg(session.totalTonnageKg) : "—"}</div>
+                  </div>
+                  <div className="app-inset rounded-2xl px-3 py-3">
+                    <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-text-muted">Time</div>
+                    <div className="mt-1 text-sm font-bold text-text-primary">{session.durationSeconds !== null ? formatDuration(session.durationSeconds) : "—"}</div>
+                  </div>
+                  <div className="app-inset rounded-2xl px-3 py-3">
+                    <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-text-muted">Sets</div>
+                    <div className="mt-1 text-sm font-bold text-text-primary">{session.completedSets}</div>
+                  </div>
+                </div>
+              </summary>
+              <div className="mt-4 space-y-3 border-t border-[rgba(0,0,0,0.06)] pt-4">
+                {session.exercises.map((exercise) => (
+                  <div key={exercise.exerciseId}>
+                    <div className="flex items-baseline justify-between gap-3">
+                      <div className="truncate text-xs font-semibold text-text-primary">{exercise.exerciseName}</div>
+                      <div className="shrink-0 text-[10px] text-text-muted">{exercise.totalTonnageKg > 0 ? formatKg(exercise.totalTonnageKg) : `${exercise.totalReps} reps`}</div>
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {exercise.sets.map((set, setIndex) => (
+                        <span key={`${exercise.exerciseId}:${setIndex}`} className="rounded-full bg-[rgba(0,0,0,0.04)] px-2.5 py-1 text-[10px] text-text-secondary">
+                          Set {set.setNumber}: {set.displayValue}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </details>
+          ))}
+        </div>
+      ) : (
+        <div className="app-card-quiet rounded-[24px] border border-dashed border-[#E040D0]/20 px-5 py-6 text-center">
+          <div className="font-semibold text-text-primary">Your session progress will appear here</div>
+          <p className="mt-1 text-sm leading-relaxed text-text-secondary">Complete a workout to see total work, time and how it compares with the previous session.</p>
+        </div>
+      )}
+
+      <div className="px-1 pt-1 text-[11px] font-bold uppercase tracking-[0.16em] text-text-muted">Key movements</div>
 
       {data.trackers.length === 0 ? (
         <div className="app-card-quiet rounded-[24px] border border-dashed border-[#E040D0]/20 px-5 py-7 text-center">
