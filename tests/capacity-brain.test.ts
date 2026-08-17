@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { getStaticCapacityBrainContext } from "@/lib/brain-retrieval";
 
 const root = process.cwd();
 
@@ -46,4 +47,14 @@ test("brain preparation and ingestion preserve the reviewed audience", () => {
   assert.match(prepare, /audience: value\.audience/);
   assert.match(prepare, /excluded_audience_for_client_scope/);
   assert.match(ingest, /audience: doc\.audience/);
+});
+
+test("reviewed guidance remains available without an embedding credential", () => {
+  const client = getStaticCapacityBrainContext("client");
+  const admin = getStaticCapacityBrainContext("admin");
+  assert.match(client, /Never pretend to be Gordy/i);
+  assert.doesNotMatch(client, /replies Gordy owes/i);
+  assert.match(admin, /replies Gordy owes/i);
+  assert.match(admin, /private tracker notes private/i);
+  assert.doesNotMatch(`${client}\n${admin}`, /Kahunas|Skool|Read\.ai|pricing|revenue|baby/i);
 });
