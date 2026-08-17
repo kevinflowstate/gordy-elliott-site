@@ -1,6 +1,6 @@
 # AT CAPACITY - Release Documentation (v1)
 
-Prepared 24 July 2026 and updated 6 August 2026 from the code on this branch, the implementation checklist and the App Store worksheets. This is the release-readiness summary; the canonical detail lives in the linked documents.
+Prepared 24 July 2026 and updated 17 August 2026 from the code on this branch, the implementation checklist and the App Store worksheets. This is the release-readiness summary; the canonical detail lives in the linked documents.
 
 ## 1. What v1 ships
 
@@ -17,7 +17,7 @@ Also built as of 24 July 2026 (merged the same day, covered by an independent se
 - Storm Warning: deterministic calendar-pressure warnings with a capped, deduplicated audit log (rule IDs, per-day meeting counts and times only - no event content) and server-validated client dismissals.
 - Founder compliance and Month 4: call-attendance records, weekly WhatsApp-help records (metadata only, admin-only), frozen immutable Month 4 review snapshots visible to the client once completed, and programme-level guarantee configuration that evaluates nothing until Gordy defines the thresholds.
 
-Built with production credentials: Terra wearable connections. Oura completed a real TestFlight connection and readiness/recovery ingestion pass; MyFitnessPal still needs a successful retest after an upstream Terra timeout. Google and Outlook calendar connections via Composio remain gated by the provider contract tests, and Google additionally remains under verification review.
+Terra production is prepared for Garmin, Oura, Fitbit and MyFitnessPal, with WHOOP disabled pending Terra's TLS/domain approval. Oura and MyFitnessPal have stored production data, but both need a fresh exact-build pass after the production cutover. Google OAuth is approved and production contains connected Google and Outlook calendars with real synced events; exact Build 7 native return remains to be tested.
 
 Still open (per the implementation checklist): guarantee threshold values themselves (blocked on Gordy's commercial definition - the configuration ships empty and shows clients nothing until set).
 
@@ -25,12 +25,12 @@ Explicitly out of scope for v1: Apple Health/HealthKit, Android Health Connect, 
 
 ## 2. External gates
 
-| Gate | Status (6 August 2026) | What it blocks |
+| Gate | Status (17 August 2026) | What it blocks |
 | --- | --- | --- |
-| Google branding + Calendar data-access verification (project `at-capacity-503314`) | Submitted 24 July 2026, UNDER REVIEW. Initial Trust & Safety contact expected in roughly 3-5 business days; full verification may take 4-6 weeks. Scopes are sensitive, not restricted. Do not describe approval as complete. | Normal client Google Calendar connections. Test users can connect during review. |
-| Real production calendar contract tests | Outstanding for both Google and Outlook. Outlook is implemented and ready to test; it does not depend on the Google review. | Advertising calendar connections; Founder pilot calendar onboarding. |
-| Terra production acceptance | Credentials are configured and Oura passed a real TestFlight connection/data run. MyFitnessPal hit an upstream login timeout and needs a successful retest; disconnect/revocation evidence remains required. | Advertising MyFitnessPal support and closing the provider acceptance record. |
-| Apple exact-candidate gates | Build 5 passed Organizer validation, uploaded and completed processing in the internal TestFlight group. The saved review credential is rejected, and physical TestFlight/accessibility/APNs/DSA checks remain. See `docs/app-store-release-audit.md`. | Final App Store submission. |
+| Google branding + Calendar data-access verification (project `at-capacity-503314`) | Approved. | Complete; exact Build 7 native-return QA remains a release gate. |
+| Real production calendar contract tests | Google and Outlook both show connected with 68 stored events. Exact Build 7 return/disconnect tests remain. | Final physical-device acceptance. |
+| Terra production acceptance | Production credentials and webhook are prepared. Three stored wearable connections are healthy, but current-day Oura/MyFitnessPal evidence after cutover remains outstanding. WHOOP is disabled pending Terra approval. | Advertising current provider support and closing provider acceptance. |
+| Apple exact-candidate gates | Build 7 has a signed archive and passes Apple server validation. TestFlight upload/processing, physical QA, accessibility, APNs and DSA checks remain. See `docs/app-store-release-audit.md`. | Final App Store submission. |
 | Supabase leaked-password protection | Enabled; live security advisor clear on 6 August 2026 | Complete. |
 
 ## 3. Privacy and consent position
@@ -73,8 +73,8 @@ Also awaiting Gordy: approval of listing copy/screenshots/content rights/review 
 
 ## 7. Release sequence (summary)
 
-1. Restore the fictional review credential and complete the exact-build reviewer, accessibility, APNs, provider-return and crash passes on internal TestFlight Build 5.
-2. Run the remaining provider contracts: MyFitnessPal, Outlook and Google when its review gate allows the final production test.
+1. Upload validated Build 7 to the internal TestFlight group and complete the exact-build reviewer, accessibility, APNs, provider-return and crash passes.
+2. After the Terra production deployment cutover, run fresh MyFitnessPal, Oura, Outlook and Google physical-device tests.
 3. Complete the DSA legal declaration, DPIA/controller sign-off and truthful App Accessibility declarations.
 4. The Early Win, Storm Warning, Founder compliance and Month 4 migrations are applied and recorded in production as `20260728122140`, `20260728122215`, `20260728122252` and `20260728122318`. Do not rerun them; verify schema/history alignment before future deploys.
-5. Reconcile Build 5 and the final review notes in App Store Connect, then stop in **Prepare for Submission** until Kevin authorises **Add for Review**.
+5. Reconcile Build 7 and the final review notes in App Store Connect, then stop in **Prepare for Submission** until Kevin authorises **Add for Review**.

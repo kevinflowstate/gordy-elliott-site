@@ -20,7 +20,7 @@ Prepare these declarations before submission, but publish only claims supported 
 
 For each run, record:
 
-- Build: AT CAPACITY 1.0 (5)
+- Build: AT CAPACITY 1.0 (7)
 - Device model and iOS version
 - Tester and date/time
 - Accessibility setting/category

@@ -4,7 +4,7 @@ This is the exact reviewer simulation for the final TestFlight candidate. It con
 
 ## Preflight
 
-- Install AT CAPACITY 1.0 (5) from TestFlight, not a local or development build.
+- Install AT CAPACITY 1.0 (7) from TestFlight, not a local or development build.
 - Start from a terminated app with network access.
 - Confirm the fictional Demo Client signs in and contains only representative non-personal data.
 - Confirm the version remains **Prepare for Submission** while this walkthrough is executed.
@@ -56,7 +56,7 @@ Capture a short recording or screenshots for each passed behaviour:
 - Offline recovery screen and successful retry without browser chrome.
 - Session persistence across termination and relaunch.
 
-Do not claim a behaviour in review notes until it passes on exact TestFlight Build 5.
+Do not claim a behaviour in review notes until it passes on exact TestFlight Build 7.
 
 ## Guideline 4.2 position
 
