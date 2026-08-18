@@ -8,6 +8,7 @@ import {
   generateTerraWidgetSession,
   getTerraConfig,
   getTerraUsersByReferenceId,
+  requestTerraData,
   requestTerraNutritionData,
   verifyTerraWebhookSignature,
 } from "@/lib/terra/client";
@@ -18,7 +19,7 @@ import {
   normaliseTerraProvider,
 } from "@/lib/terra/events";
 import { extractTerraUser, mergeDailySummary, normaliseTerraPayloads } from "@/lib/terra/normalise";
-import { buildWearableInsight } from "@/lib/wearable-insights";
+import { buildWearableInsight, hasWearableHealthSignals } from "@/lib/wearable-insights";
 
 test("verifies Terra's timestamped HMAC signature against the raw body", () => {
   const rawBody = JSON.stringify({ type: "daily", data: [] });
@@ -252,6 +253,97 @@ test("requests MyFitnessPal nutrition data through Terra's webhook delivery", as
     if (originalEnv.apiKey === undefined) delete process.env.TERRA_API_KEY;
     else process.env.TERRA_API_KEY = originalEnv.apiKey;
   }
+});
+
+test("requests Oura daily, sleep and activity backfill through Terra's webhook delivery", async () => {
+  const originalEnv = {
+    devId: process.env.TERRA_DEV_ID,
+    apiKey: process.env.TERRA_API_KEY,
+  };
+  process.env.TERRA_DEV_ID = "testing-dev";
+  process.env.TERRA_API_KEY = "testing-key";
+  const requestedUrls: string[] = [];
+
+  try {
+    const fetchImpl = async (input: string | URL | Request) => {
+      requestedUrls.push(String(input));
+      return new Response(JSON.stringify({ status: "success" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+    for (const dataType of ["daily", "sleep", "activity"] as const) {
+      await requestTerraData(
+        dataType,
+        "00000000-0000-4000-8000-000000000001",
+        "2026-08-12",
+        "2026-08-18",
+        fetchImpl,
+      );
+    }
+
+    assert.deepEqual(requestedUrls.map((value) => new URL(value).pathname), [
+      "/v2/daily",
+      "/v2/sleep",
+      "/v2/activity",
+    ]);
+    for (const value of requestedUrls) {
+      const url = new URL(value);
+      assert.equal(url.searchParams.get("start_date"), "2026-08-12");
+      assert.equal(url.searchParams.get("end_date"), "2026-08-18");
+      assert.equal(url.searchParams.get("to_webhook"), "true");
+    }
+  } finally {
+    if (originalEnv.devId === undefined) delete process.env.TERRA_DEV_ID;
+    else process.env.TERRA_DEV_ID = originalEnv.devId;
+    if (originalEnv.apiKey === undefined) delete process.env.TERRA_API_KEY;
+    else process.env.TERRA_API_KEY = originalEnv.apiKey;
+  }
+});
+
+test("does not treat a nutrition-only summary as a current Capacity signal", () => {
+  const base = {
+    summary_date: "2026-08-18",
+    providers: ["myfitnesspal"],
+    sleep_minutes: null,
+    sleep_score: null,
+    hrv_ms: null,
+    resting_hr_bpm: null,
+    steps: null,
+    active_calories: null,
+    total_calories_burned: null,
+    training_load: null,
+    workout_count: null,
+    nutrition_calories: 1_800,
+    protein_g: 120,
+    carbs_g: 180,
+    fat_g: 60,
+    water_ml: null,
+    readiness_score: 82,
+    recovery_status: "good" as const,
+    flags: [],
+    insight: null,
+  };
+
+  assert.equal(hasWearableHealthSignals(base), false);
+  assert.equal(hasWearableHealthSignals({ ...base, providers: ["oura"], steps: 4_000 }), true);
+});
+
+test("the client refresh route requests all connected Oura health signal types", () => {
+  const syncRoute = fs.readFileSync(
+    path.join(process.cwd(), "app/api/portal/integrations/terra/sync/route.ts"),
+    "utf8",
+  );
+  const connectedAppsPage = fs.readFileSync(
+    path.join(process.cwd(), "app/portal/connected-apps/page.tsx"),
+    "utf8",
+  );
+
+  assert.match(syncRoute, /oura:\s*\["daily", "sleep", "activity"\]/);
+  assert.match(syncRoute, /myfitnesspal:\s*\["nutrition"\]/);
+  assert.match(syncRoute, /Promise\.allSettled/);
+  assert.doesNotMatch(syncRoute, /\.eq\("provider", "myfitnesspal"\)/);
+  assert.match(connectedAppsPage, /Health refresh started\. New data can take a moment to appear/);
 });
 
 test("classifies Terra lifecycle events without treating revocations as active data", () => {
@@ -554,6 +646,8 @@ test("Terra connection consent names the processor and records the revised notic
   assert.match(healthOverview, /summary\.providers\.includes\("myfitnesspal"\)/);
   assert.match(healthOverview, /Capacity score/);
   assert.match(healthOverview, /label: "HRV"/);
+  assert.match(healthOverview, /Waiting for today&apos;s data/);
+  assert.match(healthOverview, /An older score will never be presented as today&apos;s result/);
   assert.match(globalStyles, /\.portal-main\s*\{[\s\S]*?env\(safe-area-inset-top/);
   assert.doesNotMatch(globalStyles, /\.native-app \.portal-main\s*\{[\s\S]*?padding-top:\s*1rem/);
   assert.match(sessionRoute, /TERRA_CONSENT_VERSION/);

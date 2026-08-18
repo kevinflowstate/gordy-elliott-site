@@ -18,6 +18,13 @@ type IntegrationsPayload = {
   summaries: WearableDailySummary[];
 };
 
+type HealthSyncPayload = {
+  accepted?: boolean;
+  partial?: boolean;
+  error?: string;
+  results?: Array<{ provider: string; dataType: string; accepted: boolean }>;
+};
+
 export default function ConnectedAppsPage() {
   const { toast } = useToast();
   const [data, setData] = useState<IntegrationsPayload | null>(null);
@@ -31,11 +38,12 @@ export default function ConnectedAppsPage() {
   const handledReturn = useRef(false);
   const browserFinishedListener = useRef<PluginListenerHandle | null>(null);
 
-  const requestNutritionSync = useCallback(async () => {
+  const requestHealthSync = useCallback(async () => {
     const response = await fetch("/api/portal/integrations/terra/sync", { method: "POST" });
-    if (!response.ok && response.status !== 409) {
-      throw new Error("MyFitnessPal data could not be refreshed yet.");
-    }
+    const payload = await response.json().catch(() => ({})) as HealthSyncPayload;
+    if (response.status === 409) return { requested: false, partial: false };
+    if (!response.ok) throw new Error(payload.error || "Connected health data could not be refreshed yet.");
+    return { requested: Boolean(payload.accepted), partial: Boolean(payload.partial) };
   }, []);
 
   const load = useCallback(async (showLoading = true): Promise<IntegrationsPayload | null> => {
@@ -116,11 +124,9 @@ export default function ConnectedAppsPage() {
       if (cancelled || !refreshed) return;
       const connection = refreshed.connections.find((item) => item.provider === provider);
       if (connection?.status === "connected") {
-        if (provider === "myfitnesspal") {
-          await requestNutritionSync().catch(() => null);
-          await new Promise((resolve) => setTimeout(resolve, 1_500));
-          await load(false);
-        }
+        await requestHealthSync().catch(() => null);
+        await new Promise((resolve) => setTimeout(resolve, 1_500));
+        await load(false);
         toast(`${wearableProviders.find((item) => item.id === provider)?.name || "App"} connected`);
         window.history.replaceState({}, "", window.location.pathname);
         return;
@@ -144,7 +150,7 @@ export default function ConnectedAppsPage() {
       cancelled = true;
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [load, requestNutritionSync, toast]);
+  }, [load, requestHealthSync, toast]);
 
   async function connect(provider: string) {
     setConnecting(provider);
@@ -186,8 +192,8 @@ export default function ConnectedAppsPage() {
 
             const refreshed = await load(false);
             const connection = refreshed?.connections.find((item) => item.provider === provider);
-            if (connection?.status === "connected" && provider === "myfitnesspal") {
-              await requestNutritionSync().catch(() => null);
+            if (connection?.status === "connected") {
+              await requestHealthSync().catch(() => null);
               await new Promise((resolve) => setTimeout(resolve, 1_500));
               await load(false);
             }
@@ -230,22 +236,16 @@ export default function ConnectedAppsPage() {
   async function refresh() {
     setRefreshing(true);
     try {
-      const hasMyFitnessPal = data?.connections.some(
-        (connection) => connection.provider === "myfitnesspal" && connection.status === "connected",
-      );
-      let nutritionSyncRequested = false;
-      if (hasMyFitnessPal) {
-        try {
-          await requestNutritionSync();
-          nutritionSyncRequested = true;
-          await new Promise((resolve) => setTimeout(resolve, 1_500));
-        } catch (error) {
-          toast(error instanceof Error ? error.message : "MyFitnessPal data could not be refreshed yet.", "error");
-        }
-      }
+      const sync = await requestHealthSync();
+      if (sync.requested) await new Promise((resolve) => setTimeout(resolve, 1_500));
       await load(false);
-      if (nutritionSyncRequested) {
-        toast("MyFitnessPal sync requested. New totals can take a moment to appear.", "info");
+      if (sync.requested) {
+        toast(
+          sync.partial
+            ? "Health refresh started. One connected source may take a little longer."
+            : "Health refresh started. New data can take a moment to appear.",
+          "info",
+        );
       }
     } catch (error) {
       toast(error instanceof Error ? error.message : "Health data could not be refreshed yet.", "error");

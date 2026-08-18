@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { dateKeyInTimeZone } from "@/lib/founder-dashboard";
 import type { WearableConnection, WearableDailySummary } from "@/lib/wearable-insights";
-import { titleCaseProvider } from "@/lib/wearable-insights";
+import { hasWearableHealthSignals, titleCaseProvider } from "@/lib/wearable-insights";
 
 type SignalCategory = "overview" | "sleep" | "activity" | "heart" | "nutrition";
 type MetricKey =
@@ -96,9 +96,14 @@ export default function HealthCapacityOverview({
     () => [...summaries].sort((a, b) => b.summary_date.localeCompare(a.summary_date)),
     [summaries],
   );
+  const healthSummaries = useMemo(
+    () => orderedSummaries.filter(hasWearableHealthSignals),
+    [orderedSummaries],
+  );
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [category, setCategory] = useState<SignalCategory>("overview");
-  const selected = orderedSummaries[Math.min(selectedIndex, Math.max(orderedSummaries.length - 1, 0))] || null;
+  const [showHistoricalLatest, setShowHistoricalLatest] = useState(false);
+  const selected = healthSummaries[Math.min(selectedIndex, Math.max(healthSummaries.length - 1, 0))] || null;
   const hasNutrition = connections.some(
     (connection) => connection.provider === "myfitnesspal" && connection.status === "connected",
   ) || orderedSummaries.some((summary) => summary.providers.includes("myfitnesspal"));
@@ -161,6 +166,49 @@ export default function HealthCapacityOverview({
   const dateLabel = formatSummaryDate(selected.summary_date);
   const isToday = selected.summary_date === dateKeyInTimeZone(new Date(), "Europe/London");
 
+  if (selectedIndex === 0 && !isToday && !showHistoricalLatest) {
+    return (
+      <div className="mx-auto w-full max-w-6xl pb-28 sm:pb-8">
+        <HealthHeader
+          connectedProviders={connectedProviders}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          onManageConnections={onManageConnections}
+        />
+        <section className="relative mt-8 overflow-hidden rounded-[32px] border border-[#f2b968]/20 bg-[#141217] px-6 py-10 text-center shadow-[0_30px_90px_-54px_rgba(242,185,104,0.55)] sm:px-10 sm:py-12">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(242,185,104,0.13),transparent_52%)]" />
+          <div className="relative">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[#f2b968]/20 bg-[#f2b968]/[0.08] text-[#f2b968]">
+              <RefreshIcon spinning={refreshing} />
+            </div>
+            <div className="mt-5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#f2b968]">Waiting for today&apos;s data</div>
+            <h2 className="mt-2 font-heading text-[2rem] font-bold tracking-tight text-white sm:text-[2.45rem]">Your latest complete health picture is from {dateLabel}</h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-white/55">
+              We will show today&apos;s Capacity score as soon as fresh sleep and activity data arrives. An older score will never be presented as today&apos;s result.
+            </p>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={onRefresh}
+                disabled={refreshing}
+                className="min-h-12 rounded-full bg-[#f7f4f7] px-6 text-sm font-bold text-[#171419] disabled:opacity-55"
+              >
+                {refreshing ? "Requesting fresh data…" : "Refresh health data"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowHistoricalLatest(true)}
+                className="min-h-12 rounded-full border border-white/12 px-6 text-sm font-semibold text-white/70 transition hover:bg-white/[0.05]"
+              >
+                View {dateLabel}
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto w-full max-w-6xl pb-28 sm:pb-8">
       <HealthHeader
@@ -174,8 +222,8 @@ export default function HealthCapacityOverview({
         <button
           type="button"
           aria-label="View an older day"
-          disabled={selectedIndex >= orderedSummaries.length - 1}
-          onClick={() => setSelectedIndex((index) => Math.min(orderedSummaries.length - 1, index + 1))}
+          disabled={selectedIndex >= healthSummaries.length - 1}
+          onClick={() => setSelectedIndex((index) => Math.min(healthSummaries.length - 1, index + 1))}
           className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.035] text-white/65 transition disabled:opacity-25"
         >
           <Chevron direction="left" />
@@ -230,37 +278,39 @@ export default function HealthCapacityOverview({
       </nav>
 
       <section className="relative mt-4 overflow-hidden rounded-[32px] border border-white/[0.09] bg-[#121116] shadow-[0_34px_90px_-52px_rgba(224,64,208,0.52)]">
-        <CapacityTrendBackdrop summaries={orderedSummaries} />
+        <CapacityTrendBackdrop summaries={healthSummaries} />
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(224,64,208,0.09),transparent_38%),linear-gradient(180deg,transparent_46%,rgba(9,8,11,0.78)_82%)]" />
         <div className="absolute left-5 top-5 z-10 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/38 sm:left-7 sm:top-6">
           <span className="h-1.5 w-1.5 rounded-full bg-[#58d6b0] shadow-[0_0_12px_rgba(88,214,176,0.75)]" />
-          Today&apos;s coaching signal
+          {isToday ? "Today’s coaching signal" : "Historical coaching signal"}
         </div>
         <div className="absolute right-5 top-5 z-10 text-right sm:right-7 sm:top-6">
           <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-white/28">7 day average</div>
-          <div className="metric-num mt-0.5 text-lg font-semibold leading-none text-white/68">{readinessAverage(orderedSummaries)}</div>
+          <div className="metric-num mt-0.5 text-lg font-semibold leading-none text-white/68">{readinessAverage(healthSummaries)}</div>
         </div>
         <div className="relative grid items-center gap-5 px-5 pb-6 pt-16 sm:grid-cols-[240px_1fr] sm:gap-8 sm:px-9 sm:pb-9 sm:pt-16">
           <CapacityRing score={score} status={status.shortLabel} />
           <div className="text-center sm:text-left">
             <div className={`text-[11px] font-bold uppercase tracking-[0.2em] ${status.tone}`}>{status.label}</div>
             <h2 className="mt-2 font-heading text-[2.35rem] font-bold leading-[0.98] tracking-[-0.025em] text-white sm:text-[3rem]">
-              {status.headline}
+              {isToday ? status.headline : historicalRecoveryHeadline(selected.recovery_status)}
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-[14px] leading-[1.65] text-white/58 sm:mx-0 sm:text-[15px]">
-              {selected.insight || status.fallbackInsight}
+              {isToday
+                ? selected.insight || status.fallbackInsight
+                : `This is the coaching signal calculated from the complete data received for ${dateLabel}.`}
             </p>
             <div className="mt-5 flex flex-wrap items-center justify-center gap-3 sm:justify-start">
               <Link
                 href="/portal/exercise-plan"
                 className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#f7f4f7] px-5 text-sm font-bold text-[#171419] no-underline transition hover:bg-[#ffffff]"
               >
-                View today&apos;s training
+                {isToday ? "View today’s training" : "View training plan"}
               </Link>
               {sourceLabel && (
                 <div className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/15 px-4 text-xs font-semibold text-white/50">
                   <span className="h-1.5 w-1.5 rounded-full bg-[#58d6b0]" />
-                  Today&apos;s {sourceLabel} signals
+                  {isToday ? `Today’s ${sourceLabel} signals` : `${dateLabel} · ${sourceLabel}`}
                 </div>
               )}
             </div>
@@ -273,7 +323,9 @@ export default function HealthCapacityOverview({
           <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#ef68db]">
             {CATEGORY_COPY[category].label}
           </div>
-          <h2 className="mt-1 font-heading text-[1.6rem] font-bold leading-none tracking-tight text-white">{CATEGORY_COPY[category].heading}</h2>
+          <h2 className="mt-1 font-heading text-[1.6rem] font-bold leading-none tracking-tight text-white">
+            {category === "overview" && !isToday ? `${dateLabel} at a glance` : CATEGORY_COPY[category].heading}
+          </h2>
         </div>
         <div className="hidden text-xs text-white/35 sm:block">Compared with the latest seven synced days</div>
       </div>
@@ -284,7 +336,7 @@ export default function HealthCapacityOverview({
             key={metric.key}
             metric={metric}
             summary={selected}
-            summaries={orderedSummaries}
+            summaries={healthSummaries}
             connectedProviders={connectedProviders}
           />
         ))}
@@ -573,6 +625,12 @@ function recoveryPresentation(status: WearableDailySummary["recovery_status"]) {
     tone: "text-[#58d6b0]",
     fallbackInsight: "Your connected signals look steady. There is no recovery reason to change today’s plan.",
   };
+}
+
+function historicalRecoveryHeadline(status: WearableDailySummary["recovery_status"]) {
+  if (status === "reduce_intensity") return "Recovery was under pressure";
+  if (status === "watch") return "Some signals needed care";
+  return "Recovery looked steady";
 }
 
 function metricValue(summary: WearableDailySummary, key: MetricKey) {

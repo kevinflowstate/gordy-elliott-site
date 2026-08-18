@@ -55,6 +55,21 @@ export function titleCaseProvider(provider: string | null | undefined) {
   return normalized.replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+export function hasWearableHealthSignals(summary: WearableDailySummary) {
+  const hasWearableProvider = summary.providers.some((provider) => provider !== "myfitnesspal");
+  const healthValues = [
+    summary.sleep_minutes,
+    summary.sleep_score,
+    summary.hrv_ms,
+    summary.resting_hr_bpm,
+    summary.steps,
+    summary.active_calories,
+    summary.training_load,
+    summary.workout_count,
+  ];
+  return hasWearableProvider && healthValues.some((value) => typeof value === "number" && Number.isFinite(value));
+}
+
 function roundScore(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
