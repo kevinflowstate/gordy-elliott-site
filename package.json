@@ -31,6 +31,7 @@
     "verify:app-store-metadata": "node scripts/check-app-store-metadata.mjs",
     "verify:review-fixture": "node scripts/check-app-review-fixture.mjs",
     "refresh:review-fixture": "node scripts/refresh-app-review-fixture.mjs",
+    "provision:review-fixture": "node scripts/provision-app-review-fixture.mjs",
     "verify:portal": "npm run lint && npm run build && npm run check:shift-ai-inputs",
     "ios:prepare": "node scripts/prepare-native-shell.mjs",
     "ios:sync": "node scripts/sync-ios.mjs",
@@ -78,8 +79,9 @@
     "typescript": "^5"
   },
   "overrides": {
+    "nanoid": "3.3.18",
     "ws": "8.21.0",
-    "postcss": "8.5.18",
+    "postcss": "8.5.26",
     "sharp": "0.35.3"
   }
 }

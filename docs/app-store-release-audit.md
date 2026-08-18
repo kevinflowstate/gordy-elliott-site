@@ -1,97 +1,71 @@
 # App Store Release Audit
 
-Date: 7 August 2026
+Date: 17 August 2026
 
-Candidate: AT CAPACITY 1.0 (Build 5)
+Candidate: AT CAPACITY 1.0 (Build 7)
 
-Verdict: **not ready to submit**. The code-controlled preparation is substantially complete, but exact-build Apple validation, reviewer access, physical-device QA and account-owner declarations remain open.
+Verdict: **NOT READY** for App Store submission. The code, signed archive, Apple validation and browser-level release contracts are in strong condition, but exact-build TestFlight and physical-device evidence are still required. Version 1.0 must remain in **Prepare for Submission**.
 
 ## Exact candidate
 
-- Source branch: `codex/app-store-readiness-2026-08-06`.
-- Local signed archive: `/Volumes/XCode/Storage-Quarantine-2026-07-15/AT-CAPACITY-Releases/AT-CAPACITY-1.0-5.xcarchive`.
+- Source baseline: `origin/main` at `2d1c197` plus the preparation-only changes recorded in this audit branch.
+- Signed archive: `/Volumes/XCode/Storage-Quarantine-2026-07-15/AT-CAPACITY-Releases/AT-CAPACITY-1.0-7.xcarchive`.
 - Bundle ID: `com.gordyelliott.shift`.
-- Marketing/build version: `1.0 (5)`.
+- Version/build: `1.0 (7)`.
 - Minimum iOS: 15.0.
 - Device family: iPhone only.
 - Production origin: `https://app.onlinegordy.com`.
 - Apple team: `H4J3XX8R8M`.
 
-Build 5 is processed, available to the `SHIFT Internal` TestFlight group and attached to App Store version 1.0. Version 1.0 remains in **Prepare for Submission** and has not been added for review.
+Xcode confirmed that Build 6 has already been uploaded to App Store Connect. Build 7 is the next valid source/Xcode candidate and has not been uploaded or submitted during this preparation pass. The App Store Connect browser session had expired, so Build 6's TestFlight group/status and the version attachment still need a live dashboard check.
 
-## Passed engineering evidence
+## Passed evidence
 
-- `npm run ios:preflight`: passed for the expected identity, production origin, team, version and build.
-- `npm run ios:archive`: passed with Xcode 26.3. The archive is production signed.
-- Xcode Organizer **Validate App**: passed all App Store Connect validation checks.
-- App Store Connect upload: complete. Build 5 finished Apple processing, shows **Ready to Submit**, expires in 90 days and is available to the existing internal group.
-- `codesign --verify --deep --strict`: passed.
-- Archived entitlements: correct application identifier; `aps-environment = production`; `get-task-allow = false`; beta reports enabled.
-- Archive contents: Capacitor and Cordova privacy manifests are present and valid; no unexpected embedded frameworks were found; the embedded public-shell hashes match the source shell.
-- Release contract tests: 168/168 passed.
-- Strict TypeScript: passed.
-- ESLint: zero errors and 45 pre-existing application warnings.
-- Production Next.js build: passed, 141 routes. The only framework warning is the existing Next.js middleware-convention deprecation.
-- App Store metadata verifier: passed the name, subtitle, promotional text, keyword and iPhone-only checks.
-- Public production App Store contract: 19 checks passed for privacy/support/auth boundaries, Google disclosures, security headers and unauthenticated native-push rejection.
-- Supabase leaked-password protection is enabled. The live Supabase security advisor returned no findings after the change.
-- Live App Store Connect draft: metadata, privacy answers, 16+ age override, manual release, six replacement screenshots and Build 5 were verified; **Add for Review** was not selected. The Calendar review note was updated after production OAuth QA and the draft remains **Prepare for Submission**.
+- `npm run ios:preflight`: passed for Build 7 identity, signing team, production origin and Xcode 26.3.
+- `npm run ios:build`: passed for the generic simulator.
+- `npm run ios:archive`: passed; `** ARCHIVE SUCCEEDED **` with an Apple Distribution signature and the `AT CAPACITY App Store` profile.
+- Xcode's archive-time store validation (`builtin-validationUtility -validate-for-store`) passed.
+- Xcode Organizer's network-backed **Validate App** passed for exact Build 7 with no errors.
+- `codesign --verify --deep --strict`: passed for the archived app.
+- Archived entitlements: production APNs, `applinks:app.onlinegordy.com`, beta reports enabled and `get-task-allow = false`.
+- Archived bundle: `1.0 (7)`, `com.gordyelliott.shift`, iPhone-only; only the expected Capacitor and Cordova frameworks are embedded and both privacy manifests are present.
+- Embedded native shell is byte-for-byte identical to the prepared source shell.
+- `npm run test:release-contracts`: 193/193 passed.
+- Focused Composio, Terra and Universal Link suites: 10/10, 24/24 and 6/6 passed.
+- Strict TypeScript and ESLint with zero errors: passed.
+- Production Next.js build: passed with 144 routes. The only framework warning is the non-blocking Next.js middleware-convention deprecation.
+- `npm audit --omit=dev`: zero known production dependency vulnerabilities after pinning patched Nano ID and PostCSS versions.
+- App Store metadata verifier: passed the listing-length and iPhone-only constraints.
+- Authenticated production reviewer contract: 84 assertions passed across sign-in, training selection/editing, tracker, nutrition, DM, AI, settings, native push APIs, public policies, offline shell and accessibility affordances.
+- Responsive browser QA passed for workout, connected health, MyFitnessPal, strength progress and Gordy-feedback journeys at small/large iPhone and desktop widths, including key empty and error states.
+- The isolated fictional App Review fixture now passes its production checker with representative training, nutrition, workout history, tracker entries, check-ins and two-way DM data. Its provisioning command is explicitly guarded and fixed to `demo@flowstatesystems.ai`.
 
-The complete authenticated production contract previously passed 85/85 on 6 August. It could not be independently rerun from the release shell during this pass because the temporary QA storage state/service-role environment was not present.
+## Live integration evidence
 
-## Xcode and TestFlight status
+Read-only production inspection on 17 August found:
 
-The Apple account for team `H4J3XX8R8M` was restored in Xcode. Organizer validated Build 5 successfully, uploaded it to App Store Connect and recorded the archive status as **Uploaded**. App Store Connect completed processing at 16:18 BST on 6 August 2026. No validation or processing warning was shown.
+- Wearables: four stored connections across Oura, MyFitnessPal and Garmin; three connected and one error. Twenty-four normalized summaries exist, with sleep in 21, HRV in 20, readiness in 24 and nutrition in two. The newest summary is dated 15 August, so a fresh physical-device sync must still be demonstrated.
+- Calendar: Google and Outlook both show connected; 68 events are stored (14 Google and 54 Outlook), with upcoming events through 24 August.
+- Push: one active production APNs device record exists. This proves registration, not notification delivery or deep-link opening.
+- Production Supabase migration history matches the repository through `20260817113000`.
 
-Build 5 is in the existing internal TestFlight group only and is selected for App Store version 1.0. Its TestFlight **What to Test** field contains the exact launch, workout, tracker, connected-health, native-return, APNs, photo, offline and accessibility focus for this candidate. It has not been added to the external `Gordy Preview` group or added for App Review.
+Terra production is prepared with Garmin, Oura, Fitbit and MyFitnessPal plus the production webhook destination. WHOOP remains disabled pending Terra's TLS/domain approval. Production Terra credentials are stored in Vercel's Production environment, but no deployment was triggered; the next deployment is the cutover point and will require provider reconnection/smoke testing.
 
-## Reviewer access
+## Submission blockers
 
-The fictional Demo Client credential stored in App Store Connect now signs in successfully to production and remains isolated as a client account. Do not put the password in source control. The exact TestFlight Build 5 reviewer walkthrough is still required on physical devices.
+1. **Build 7 is not in TestFlight.** It therefore has no exact-build physical walkthrough, crash/launch record or reviewer simulation.
+2. **Physical-device journeys remain unproven on Build 7:** APNs receipt and deep-link opening; password reset and Universal Link return; Google/Outlook native OAuth return; MyFitnessPal nutrition ingestion; Oura current-day freshness; camera/photo; offline/recovery; small/large iPhone accessibility.
+3. **App Store Connect declarations are unverified:** DSA trader status, Accessibility declarations, final metadata/review credential/build attachment and crash data need an authenticated account-owner pass.
+4. **Guideline 4.2 risk remains.** The app has real native push, haptics, Universal Links, camera/photo, OAuth hand-off and offline behaviour, but most product UI is still a hosted portal. Apple acceptance cannot be guaranteed by automated checks.
 
-## Security and privacy scan
+WHOOP is not a submission blocker provided it remains disabled and is not advertised in version 1.
 
-Passed:
+## Exact remaining sequence
 
-- The native archive has production APNs and no debug entitlement.
-- Authenticated portal/admin routes enforce server-side user/role checks. Founder-restricted routes and client APIs fail closed.
-- Auth callbacks use a local-path redirect validator. Native deep links constrain schemes, host and route families.
-- The Terra callback path verifies connection state before storing a connected account.
-- The only `dangerouslySetInnerHTML` use found is a constant service-worker bootstrap string, not user-derived content.
-- Browser storage findings are limited to UI preferences, workout-resume state, a handled deep-link marker and the native APNs device token; no password, Supabase session or OAuth token is explicitly written by application code.
-- Production sends HTTPS/HSTS, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: strict-origin-when-cross-origin`.
-
-Open hardening item:
-
-- **SEC-CSP-001 — Medium, non-Apple-specific:** `next.config.ts` and the live production response do not send a Content Security Policy or Permissions Policy. No exploitable HTML injection path was established in this focused scan, so this is defense-in-depth rather than evidence of an active vulnerability. The smallest safe remediation is to introduce a report-only CSP, inventory required Next.js/Supabase/Terra/Composio origins, then enforce a nonce-based policy after violation-free QA. Do not add `unsafe-eval` or a broad wildcard policy merely to make the build pass.
-
-Dependency note:
-
-- `npm audit --omit=dev --audit-level=high` exits successfully because there are no high/critical findings. It currently reports two moderate PostCSS findings through Next.js. The suggested forced remediation moves Next outside the declared range, so it must be handled as a separately tested framework update rather than an audit-force change immediately before submission.
-
-## Guideline 4.2 assessment
-
-The app has genuine native behaviour: production APNs registration/deep-link routing, haptics, native status/splash treatment, camera/photo permission paths, secure external OAuth browser hand-off and return, safe native deep links and offline recovery. The client also includes materially interactive coaching workflows rather than a brochure website.
-
-Residual risk remains significant because the core signed app loads the hosted portal and most product UI/business logic is shared with the web/PWA. This is not proven safe against Apple's “repackaged website” interpretation. Complete the exact reviewer walkthrough and preserve evidence of the native behaviours in `docs/app-store-reviewer-walkthrough.md`; if a stronger mitigation is required, the smallest product-level addition is a clearly native, client-useful surface rather than more reviewer-note copy.
-
-## App Store Connect and external gates
-
-- Digital Services Act status is incomplete. App Store Connect still shows **Complete Compliance Requirements**. Trader/non-trader status and any displayed contact details require the account owner's legal decision.
-- App Accessibility declarations are unconfigured. Publish only after the evidence matrix in `docs/app-store-accessibility.md` is completed on physical devices.
-- Google Calendar OAuth branding and data-access verification is approved. Production browser QA passed the verified consent screen, the two read-only permissions, return to AT CAPACITY, sync, refresh, disconnect/reconnect and cancelled-permission handling without an unverified-app warning. The connected QA calendar contained no events in the seven-day window, so real event ingestion and capacity impact were not observed. Exact TestFlight native-return QA remains required.
-- Outlook needs its production connect/sync/disconnect/native-return contract.
-- MyFitnessPal needs a successful retest after the observed Terra upstream login timeout.
-- Oura has completed a real TestFlight connection and returned recovery/readiness data.
-- Gordy must approve listing copy, content rights, screenshots and the fictional review fixture.
-
-## Exact remaining pre-submission sequence
-
-1. Install exact Build 5 from the `SHIFT Internal` TestFlight group.
-2. Run `docs/testflight-checklist.md` and `docs/app-store-reviewer-walkthrough.md` on a small and a current large iPhone.
-3. Prove APNs delivery/deep-link opening, password reset/native return, Google Calendar event ingestion, backgrounding, offline recovery, photo permissions and account separation.
-4. Retest MyFitnessPal and complete the Outlook production contract or present it as unavailable for launch.
-5. Complete the accessibility evidence matrix and publish only declarations that passed.
-6. Complete the DSA legal declaration with the account owner.
-7. Review TestFlight crash data and the final App Store metadata/build attachment.
-8. Stop with version 1.0 still in **Prepare for Submission** until Kevin gives separate submission authorization.
+1. Commit and merge only the reviewed preparation changes; deploy the Terra production environment cutover separately with a rollback-ready Vercel deployment.
+2. Smoke-test production sign-in, Oura, MyFitnessPal, Google and Outlook after that deployment. Confirm current-day data and disconnect/reconnect behaviour. Keep WHOOP disabled.
+3. Upload Build 7 to the internal TestFlight group only. Do not click **Add for Review**.
+4. Execute `docs/testflight-checklist.md`, `docs/app-store-reviewer-walkthrough.md` and `docs/app-store-accessibility.md` on a small and current large iPhone. Record APNs, provider return, offline, camera/photo and crash evidence.
+5. Recheck the fictional review login and complete DSA/accessibility declarations and final listing approval in App Store Connect.
+6. Reassess Guideline 4.2 using the exact TestFlight evidence.
+7. Stop with version 1.0 in **Prepare for Submission** and wait for Kevin's explicit authorization before **Add for Review**.

@@ -90,7 +90,7 @@ Notification permission is requested only after the client selects Enable. DMs, 
 
 Account deletion is available after sign-in under Settings > Delete account and requires explicit confirmation. The privacy policy and support page are also available publicly at the URLs supplied in App Store Connect.
 
-Before final submission, append the native-behaviour paragraph prepared in `docs/app-store-reviewer-walkthrough.md` only after every named behaviour has passed on exact TestFlight Build 5. Reviewer-note copy must not overstate an unverified APNs, external-provider, camera/photo or offline-return path.
+Before final submission, append the native-behaviour paragraph prepared in `docs/app-store-reviewer-walkthrough.md` only after every named behaviour has passed on exact TestFlight Build 7. Reviewer-note copy must not overstate an unverified APNs, external-provider, camera/photo or offline-return path.
 
 ## Other submission answers
 

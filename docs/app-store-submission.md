@@ -20,7 +20,7 @@ This is the operational index for submission. Use the linked worksheets as the c
 | Bundle ID | `com.gordyelliott.shift` |
 | Apple team | `H4J3XX8R8M` |
 | Marketing version | `1.0` |
-| Current candidate | Build `5` (pre-submission validation candidate; not submitted for review) |
+| Current candidate | Build `7` (signed local pre-submission candidate; not uploaded or submitted for review) |
 | Business model | Existing clients sign up/pay on the web, then sign in to the app |
 
 ## Build commands
@@ -44,10 +44,10 @@ The canonical review notes and contact details are in `docs/app-store-metadata.m
 ## Submission blockers
 
 - Gordy's approval of the listing copy, content-rights answer and representative review fixture.
-- Google Calendar branding/data-access verification is approved and its production browser connect, sync, refresh, disconnect/reconnect and cancellation paths pass. Keep it in version 1 only after exact TestFlight native return and real event ingestion also pass. Outlook still needs its production contract test.
-- Complete the physical-device TestFlight pass and crash review on that exact Build 5.
+- Google Calendar branding/data-access verification is approved. Production now contains synced Google and Outlook events, but both providers still need exact Build 7 native-return and disconnect/reconnect checks.
+- Complete the physical-device TestFlight pass and crash review on exact Build 7.
 - Run the exact TestFlight reviewer walkthrough with the now-verified fictional Demo Client credential saved in App Store Connect.
-- Retest MyFitnessPal after the observed Terra upstream login timeout. Oura has connected and returned recovery/readiness data in TestFlight.
+- Retest MyFitnessPal nutrition ingestion and Oura current-day freshness after the Terra production cutover.
 - Pass a real-device APNs delivery and deep-link opening test.
 - Complete Digital Services Act trader/business details with the account owner's legal information.
 - Complete and publish truthful App Accessibility declarations after physical-device accessibility QA.
@@ -56,14 +56,14 @@ The canonical review notes and contact details are in `docs/app-store-metadata.m
 ## Closed pre-submission controls
 
 - Supabase leaked-password protection is enabled. The live Supabase security advisor returned no findings on 6 August.
-- Build 5 has a production-signed local archive with a valid distribution signature, production APNs entitlement, `get-task-allow = false`, iPhone-only device family and valid Capacitor/Cordova privacy manifests.
-- Build 5 passed Organizer validation, uploaded successfully, completed Apple processing and is available to the `SHIFT Internal` TestFlight group as **Ready to Submit**.
-- Build 5 is attached to App Store version 1.0. The live version remains **Prepare for Submission**, uses manual release and has not been added for review.
+- Build 7 has a production-signed local archive with a valid distribution signature, production APNs and Universal Link entitlements, `get-task-allow = false`, iPhone-only device family and valid Capacitor/Cordova privacy manifests.
+- Build 7 passed Xcode's archive-time local store validation and Organizer's network-backed **Validate App**. Upload, processing and TestFlight selection remain outstanding.
+- Xcode confirms Build 6 was previously uploaded. App Store version 1.0 has not been submitted for review.
 - The fictional Demo Client credential stored in App Store Connect signs in successfully to production.
 
 ## Submission hold
 
-Preparation may include archiving, validating and uploading Build 5 to TestFlight. Do not click **Add for Review**, submit version 1.0 to App Review, accept new legal terms or enable automatic release until Kevin gives separate submission authorization.
+Preparation may include archiving, validating and uploading Build 7 to the internal TestFlight group. Do not click **Add for Review**, submit version 1.0 to App Review, accept new legal terms or enable automatic release until Kevin gives separate submission authorization.
 
 ## Google approval trigger
 
@@ -74,7 +74,7 @@ Completed on 7 August 2026:
 1. Google approved AT CAPACITY branding and data access.
 2. Production browser QA showed no unverified-app warning and passed connect, return, sync, refresh, disconnect/reconnect and cancellation handling.
 3. Calendar-to-AI isolation remains covered by the release-contract suite.
-4. App Store Connect review notes were updated and Build 5 was selected.
+4. App Store Connect review notes were updated for the previously processed candidate. Build 7 still needs upload and selection.
 
 Still required:
 
