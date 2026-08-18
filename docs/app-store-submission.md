@@ -44,8 +44,8 @@ The canonical review notes and contact details are in `docs/app-store-metadata.m
 ## Submission blockers
 
 - Gordy's approval of the listing copy, content-rights answer and representative review fixture.
-- Google Calendar branding/data-access verification is approved. Production now contains synced Google and Outlook events, but both providers still need exact Build 7 native-return and disconnect/reconnect checks.
-- Complete the physical-device TestFlight pass and crash review on exact Build 7.
+- Google Calendar branding/data-access verification is approved. Production now contains synced Google and Outlook events, but both providers still need exact Build 8 native-return and disconnect/reconnect checks.
+- Complete the physical-device TestFlight pass and crash review on exact Build 8.
 - Run the exact TestFlight reviewer walkthrough with the now-verified fictional Demo Client credential saved in App Store Connect.
 - Retest MyFitnessPal nutrition ingestion and Oura current-day freshness after the Terra production cutover.
 - Pass a real-device APNs delivery and deep-link opening test.
@@ -56,14 +56,14 @@ The canonical review notes and contact details are in `docs/app-store-metadata.m
 ## Closed pre-submission controls
 
 - Supabase leaked-password protection is enabled. The live Supabase security advisor returned no findings on 6 August.
-- Build 7 has a production-signed local archive with a valid distribution signature, production APNs and Universal Link entitlements, `get-task-allow = false`, iPhone-only device family and valid Capacitor/Cordova privacy manifests.
-- Build 7 passed Xcode's archive-time local store validation and Organizer's network-backed **Validate App**. Upload, processing and TestFlight selection remain outstanding.
+- Build 8 has a production-signed local archive with a valid distribution signature, production APNs and Universal Link entitlements, `get-task-allow = false`, iPhone-only device family and valid Capacitor/Cordova privacy manifests.
+- Build 8 passed Xcode's archive-time local store validation and Organizer's network-backed **Validate App**. Upload, processing and TestFlight selection remain outstanding.
 - Xcode confirms Build 6 was previously uploaded. App Store version 1.0 has not been submitted for review.
 - The fictional Demo Client credential stored in App Store Connect signs in successfully to production.
 
 ## Submission hold
 
-Preparation may include archiving, validating and uploading Build 7 to the internal TestFlight group. Do not click **Add for Review**, submit version 1.0 to App Review, accept new legal terms or enable automatic release until Kevin gives separate submission authorization.
+Preparation may include archiving, validating and uploading Build 8 to the internal TestFlight group. Do not click **Add for Review**, submit version 1.0 to App Review, accept new legal terms or enable automatic release until Kevin gives separate submission authorization.
 
 ## Google approval trigger
 
@@ -74,7 +74,7 @@ Completed on 7 August 2026:
 1. Google approved AT CAPACITY branding and data access.
 2. Production browser QA showed no unverified-app warning and passed connect, return, sync, refresh, disconnect/reconnect and cancellation handling.
 3. Calendar-to-AI isolation remains covered by the release-contract suite.
-4. App Store Connect review notes were updated for the previously processed candidate. Build 7 still needs upload and selection.
+4. App Store Connect review notes were updated for the previously processed candidate. Build 8 still needs upload and selection.
 
 Still required:
 

@@ -1,15 +1,15 @@
 # AT CAPACITY iOS Roadmap
 
-## Current position - 17 August 2026
+## Current position - 18 August 2026
 
 - App Store Connect record `6792719833` is named **AT CAPACITY by Gordy**.
 - Registered bundle ID: `com.gordyelliott.shift` on Apple team `H4J3XX8R8M`. Bundle IDs cannot be changed after registration; the `shift` segment is a permanent historical artefact and does not appear to clients.
 - Build 1 uploaded successfully and available to the `SHIFT Internal` TestFlight group (historical group name; rename alongside the record if desired).
-- Build 2 was the hardening candidate for the 21 July audit. Build 5 passed Organizer validation and Apple processing on 6 August. Xcode confirms Build 6 was subsequently uploaded. Build 7 is now the candidate recorded in `config/app-identity.json` and Xcode.
-- Build 7 archived successfully on 17 August and passed the local signature, entitlement, privacy-manifest, embedded-shell, archive-time store and Organizer server-validation checks. It has not been uploaded or submitted for review.
+- Build 2 was the hardening candidate for the 21 July audit. Build 5 passed Organizer validation and Apple processing on 6 August. Xcode confirms Builds 6 and 7 were subsequently uploaded. Build 8 is now the candidate recorded in `config/app-identity.json` and Xcode.
+- Build 8 archived successfully on 18 August and passed the local signature, entitlement, privacy-manifest, embedded-shell, archive-time store and Organizer server-validation checks. It has not been uploaded or submitted for review.
 - The production database now has a locked-down native device-token store. A live authenticated register/read/remove round trip passes without exposing tokens to browser roles.
 - The App Store metadata, privacy answers, 16+ age override, review notes, current screenshots and Build 4 were reconciled against the live App Store Connect draft on 6 August. The version remains in Prepare for Submission and has not been added for review.
-- Google OAuth verification is approved. Production contains connected Google and Outlook accounts with real synced events; exact Build 7 native-return testing remains.
+- Google OAuth verification is approved. Production contains connected Google and Outlook accounts with real synced events; exact Build 8 native-return testing remains.
 - The web/PWA remains the source application. The iOS target is an additional signed client, not a replacement repository or separate product database.
 
 ## Product shape
@@ -72,8 +72,8 @@ The initial native shell uses the existing hosted portal so training, nutrition,
 - [x] Enable Supabase leaked-password protection and clear the live security-advisor warning.
 - [x] Prepare the App Accessibility evidence matrix and reviewer/Guideline 4.2 walkthrough.
 - [x] Restore the fictional Demo Client review fixture and prove the authenticated production reviewer contract.
-- [x] Archive and validate Build 7 with Organizer without uploading or adding version 1.0 for review.
-- [ ] Upload Build 7 to the internal TestFlight group and confirm processing.
+- [x] Archive and validate Build 8 with Organizer without uploading or adding version 1.0 for review.
+- [ ] Upload Build 8 to the internal TestFlight group and confirm processing.
 - [ ] Test pause/freeze states, DM, training, nutrition, cycle tracking and Terra fallback on physical devices.
 - [ ] Complete internal/external TestFlight, accessibility, crash review and final submission.
 
@@ -89,9 +89,9 @@ The initial native shell uses the existing hosted portal so training, nutrition,
 
 ## Inputs still required
 
-- Universal Link authentication callback validation on exact TestFlight Build 7.
+- Universal Link authentication callback validation on exact TestFlight Build 8.
 - A successful MyFitnessPal nutrition-ingestion retest, Oura current-day freshness test and the final list of connected-health providers advertised at launch.
 - Gordy's approval of the drafted listing copy, content-rights answer and fictional review fixture.
 - A verified Demo Client password held only in App Store Connect.
 - The account owner's Digital Services Act trader/non-trader decision and any legally required contact details.
-- Completed physical-device TestFlight, APNs, accessibility and crash evidence for Build 7.
+- Completed physical-device TestFlight, APNs, accessibility and crash evidence for Build 8.
