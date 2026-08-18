@@ -18,9 +18,18 @@ import {
 import { rememberNativePushToken } from "@/lib/native-push-client";
 import { safeLocalRedirect } from "@/lib/safe-redirect";
 import { isNativeAppRoute, resolveNativeAppLink } from "@/lib/native-app-links";
+import {
+  NATIVE_WORKOUT_PENDING_EVENT,
+  NATIVE_WORKOUT_SYNCED_EVENT,
+  acknowledgePendingNativeWorkout,
+  prepareNativeWorkoutSyncPayload,
+  requestPendingNativeWorkouts,
+  type PendingNativeWorkout,
+} from "@/lib/native-workout";
 
 const HANDLED_LAUNCH_URL_KEY = "shift-native-launch-url";
 let pendingNativePushToken: string | null = null;
+const syncingNativeWorkouts = new Set<string>();
 
 function publishNativePushStatus(status: NativePushStatus) {
   document.documentElement.dataset.nativePushStatus = status;
@@ -44,6 +53,32 @@ async function syncNativePushToken(token: string) {
     if (response.ok) pendingNativePushToken = null;
   } catch {
     // Keep the token in memory and retry after the next authenticated navigation.
+  }
+}
+
+async function syncPendingNativeWorkout(pending: PendingNativeWorkout) {
+  if (!pending?.id || !pending.payload?.session_id || syncingNativeWorkouts.has(pending.id)) return;
+  syncingNativeWorkouts.add(pending.id);
+  try {
+    const response = await fetch("/api/portal/exercise-log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(prepareNativeWorkoutSyncPayload(pending.payload)),
+    });
+    if (!response.ok) return;
+
+    acknowledgePendingNativeWorkout(pending.id);
+    window.dispatchEvent(new CustomEvent(NATIVE_WORKOUT_SYNCED_EVENT, {
+      detail: {
+        id: pending.id,
+        sessionId: pending.payload.session_id,
+        date: pending.payload.date,
+      },
+    }));
+  } catch {
+    // The native draft stays queued and will retry after the next authenticated navigation.
+  } finally {
+    syncingNativeWorkouts.delete(pending.id);
   }
 }
 
@@ -144,6 +179,10 @@ export default function NativeAppBridge() {
     const requestNativePush = () => {
       void registerForNativePush(true);
     };
+    const handlePendingNativeWorkout = (event: Event) => {
+      const pending = (event as CustomEvent<PendingNativeWorkout>).detail;
+      void syncPendingNativeWorkout(pending);
+    };
 
     if (Capacitor.isPluginAvailable("PushNotifications")) {
       trackPushListener(PushNotifications.addListener("registration", ({ value }) => {
@@ -163,6 +202,7 @@ export default function NativeAppBridge() {
       publishNativePushStatus("error");
     }
     window.addEventListener(NATIVE_PUSH_REQUEST_EVENT, requestNativePush);
+    window.addEventListener(NATIVE_WORKOUT_PENDING_EVENT, handlePendingNativeWorkout);
 
     const openExternalLinks = (event: MouseEvent) => {
       const target = event.target;
@@ -199,6 +239,7 @@ export default function NativeAppBridge() {
       document.removeEventListener("click", openExternalLinks);
       document.removeEventListener("click", provideHapticFeedback);
       window.removeEventListener(NATIVE_PUSH_REQUEST_EVENT, requestNativePush);
+      window.removeEventListener(NATIVE_WORKOUT_PENDING_EVENT, handlePendingNativeWorkout);
       void removeDeepLinkListener?.();
       for (const remove of removePushListeners) void remove();
     };
@@ -207,6 +248,7 @@ export default function NativeAppBridge() {
   useEffect(() => {
     if (!Capacitor.isNativePlatform() || !pathname.startsWith("/portal")) return;
     if (pendingNativePushToken) void syncNativePushToken(pendingNativePushToken);
+    requestPendingNativeWorkouts();
   }, [pathname]);
 
   return null;

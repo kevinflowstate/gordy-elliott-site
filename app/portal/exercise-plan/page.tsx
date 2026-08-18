@@ -3,11 +3,13 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import AtCapacityWorkoutRunner, { type WorkoutRunnerMode } from "@/components/portal/AtCapacityWorkoutRunner";
+import NativeWorkoutLauncher from "@/components/native/NativeWorkoutLauncher";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import { formatExercisePrescription, shouldUseSetLogging } from "@/lib/exercise-prescriptions";
 import { getExerciseDemoUrl } from "@/lib/exercise-demo";
 import { openExerciseDemo } from "@/lib/exercise-demo-client";
 import { copyFirstWorkoutSetValues, type WorkoutSetData } from "@/lib/workout-runner";
+import { NATIVE_WORKOUT_SYNCED_EVENT } from "@/lib/native-workout";
 import type { ClientExercisePlan, ExerciseSession, WeeklyTrainingAssignment } from "@/lib/types";
 
 type SetData = WorkoutSetData;
@@ -264,6 +266,33 @@ export default function PortalExercisePlanPage() {
   useEffect(() => {
     void fetchWeekLogs(weekStart);
   }, [weekStart, fetchWeekLogs]);
+
+  useEffect(() => {
+    const handleNativeWorkoutSynced = (event: Event) => {
+      const detail = (event as CustomEvent<{ sessionId?: string; date?: string }>).detail;
+      if (!detail?.sessionId || !detail.date) return;
+
+      void fetchWeekLogs(weekStart);
+      if (detail.sessionId !== activeSession?.id || detail.date !== formatDate(selectedDate)) return;
+
+      setSessionStartedAt(null);
+      setRunnerOpen(false);
+      setSessionOpen(false);
+      setViewMode("readonly");
+      setSavedToast(true);
+      window.setTimeout(() => setSavedToast(false), 2500);
+      if (plan?.id) {
+        try {
+          window.localStorage.removeItem(sessionTimerKey(plan.id, detail.sessionId, detail.date));
+          window.localStorage.removeItem(activeSessionPointerKey(plan.id));
+        } catch {
+          // Native persistence remains the source of truth when browser storage is unavailable.
+        }
+      }
+    };
+    window.addEventListener(NATIVE_WORKOUT_SYNCED_EVENT, handleNativeWorkoutSynced);
+    return () => window.removeEventListener(NATIVE_WORKOUT_SYNCED_EVENT, handleNativeWorkoutSynced);
+  }, [activeSession?.id, fetchWeekLogs, plan?.id, selectedDate, weekStart]);
 
   const fetchWeekPlanner = useCallback(
     (ws: Date) => {
@@ -1715,24 +1744,37 @@ export default function PortalExercisePlanPage() {
       )}
 
       {runnerOpen && activeSession && typeof document !== "undefined" && createPortal((
-        <AtCapacityWorkoutRunner
-          key={`${activeSession.id}:${selectedDateStr}:${runnerMode}`}
+        <NativeWorkoutLauncher
+          key={`native:${activeSession.id}:${selectedDateStr}:${runnerMode}`}
           session={activeSession}
           mode={runnerMode}
+          date={selectedDateStr}
           dateLabel={isToday(selectedDate)
             ? "Today"
             : selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}
           sets={draftSets}
           startedAt={sessionStartedAt}
-          saving={saving}
-          saveError={saveError}
           onClose={() => setRunnerOpen(false)}
-          onStart={() => startSessionTimer(activeSession)}
-          onUpdateSet={updateSet}
-          onToggleSet={toggleSet}
-          onAddSet={addSet}
-          onApplyFirstSetToAll={applyFirstSetToAll}
-          onFinish={saveSession}
+          fallback={(
+            <AtCapacityWorkoutRunner
+              session={activeSession}
+              mode={runnerMode}
+              dateLabel={isToday(selectedDate)
+                ? "Today"
+                : selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}
+              sets={draftSets}
+              startedAt={sessionStartedAt}
+              saving={saving}
+              saveError={saveError}
+              onClose={() => setRunnerOpen(false)}
+              onStart={() => startSessionTimer(activeSession)}
+              onUpdateSet={updateSet}
+              onToggleSet={toggleSet}
+              onAddSet={addSet}
+              onApplyFirstSetToAll={applyFirstSetToAll}
+              onFinish={saveSession}
+            />
+          )}
         />
       ), document.body)}
     </div>

@@ -4,7 +4,7 @@ This is the exact reviewer simulation for the final TestFlight candidate. It con
 
 ## Preflight
 
-- Install AT CAPACITY 1.0 (7) from TestFlight, not a local or development build.
+- Install AT CAPACITY 1.0 (8) from TestFlight, not a local or development build.
 - Start from a terminated app with network access.
 - Confirm the fictional Demo Client signs in and contains only representative non-personal data.
 - Confirm the version remains **Prepare for Submission** while this walkthrough is executed.
@@ -22,7 +22,7 @@ This is the exact reviewer simulation for the final TestFlight candidate. It con
 
 3. **Training**
    - Open Training and choose the next assigned session.
-   - Start the session, open **Session overview**, inspect what is coming next and jump to another exercise.
+   - Start the native session, open **Session overview**, inspect what is coming next and jump to another exercise.
    - Log set values, use **Apply set 1 to all**, move between exercises and finish the session.
    - Reopen the completed session and confirm the saved values can be reviewed/edited.
 
@@ -48,27 +48,28 @@ This is the exact reviewer simulation for the final TestFlight candidate. It con
 Capture a short recording or screenshots for each passed behaviour:
 
 - Native AT CAPACITY launch and status-bar treatment.
+- Native SwiftUI workout execution, haptics, rest timer and local draft recovery after termination.
 - Haptic feedback on marked primary interactions.
 - Native camera/photo permission sheets from a progress-photo flow.
 - External Terra/OAuth provider hand-off in a secure browser and return through the installed app's deep link.
 - Native APNs permission after explicit opt-in, notification receipt and deep-link opening.
 - Custom-scheme or verified app URL opening the intended in-app route while rejecting unrelated routes/origins.
 - Offline recovery screen and successful retry without browser chrome.
-- Session persistence across termination and relaunch.
+- Session persistence across termination and relaunch, plus queued completion after losing connectivity.
 
-Do not claim a behaviour in review notes until it passes on exact TestFlight Build 7.
+Do not claim a behaviour in review notes until it passes on exact TestFlight Build 8.
 
 ## Guideline 4.2 position
 
 The strongest truthful case is that AT CAPACITY is an authenticated coaching product with interactive training logging, progress tracking, private coach messaging, connected-health ingestion and native device integrations. It is not a marketing site, catalogue or collection of links.
 
-The risk is not eliminated: Capacitor loads the hosted portal, so the majority of UI and business logic is shared with the web/PWA. Reviewer notes cannot cure a thin-wrapper rejection. If Apple requires more app-specific value, prioritise one clearly native, client-useful surface—such as an offline-capable native workout session with local persistence and native Live Activity/notification integration—rather than cosmetic native chrome.
+The risk is reduced, not eliminated: Capacitor still loads the hosted portal for the wider coaching product, but the app's most repeated client workflow is now a SwiftUI-native, offline-capable workout runner with local persistence, haptics and queued authenticated sync. Reviewer notes cannot guarantee Apple acceptance, so the exact TestFlight evidence must show this is a functional native capability rather than cosmetic chrome.
 
 ## Prepared review-note appendix
 
 Copy this appendix into App Store Connect only after every named item has passed:
 
-> AT CAPACITY uses a native iOS shell for explicit APNs opt-in and notification deep links, haptic feedback, camera/photo access, secure external provider authorisation and return, safe app deep links, session persistence and offline recovery. The signed-in product is an interactive coaching service: reviewers can log and edit a prescribed workout, inspect the full session overview, complete a Daily Tracker entry, review progress, use private coach messaging and inspect connected-health summaries. Connected signals are informational only and never diagnose conditions or alter a programme automatically.
+> AT CAPACITY uses a SwiftUI-native workout runner with local draft persistence, haptic set completion, rest timing, session overview/jump navigation and offline-safe queued sync. The wider iOS app provides explicit APNs opt-in and notification deep links, camera/photo access, secure external provider authorisation and return, safe Universal Links and offline recovery. The signed-in product is an interactive coaching service: reviewers can log and edit a prescribed workout, complete a Daily Tracker entry, review progress, use private coach messaging and inspect connected-health summaries. Connected signals are informational only and never diagnose conditions or alter a programme automatically.
 
 ## Stop condition
 

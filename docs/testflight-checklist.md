@@ -4,7 +4,7 @@ Record device model, iOS version, build number, tester and result for every run.
 
 ## Install and account
 
-- Run this checklist against AT CAPACITY 1.0 (7), uploaded from the signed archive recorded in `docs/app-store-release-audit.md`.
+- Run this checklist against AT CAPACITY 1.0 (8), uploaded from the signed archive recorded in `docs/app-store-release-audit.md`.
 - Install cleanly from TestFlight and launch from a terminated state.
 - Confirm the splash/offline states fit the screen and no website browser chrome appears.
 - Sign in, terminate, relaunch and confirm the session persists.
@@ -15,7 +15,7 @@ Record device model, iOS version, build number, tester and result for every run.
 ## Client journeys
 
 - Dashboard: tasks, attention state and all cards fit without sideways scrolling.
-- Training: choose a session without the picker being obscured by navigation; start it; open Session overview; jump to an exercise; inspect Up next; record sets; use Apply set 1 to all; finish; reopen and edit the completed session; confirm history persists.
+- Training: choose a session without the picker being obscured by navigation; start the native workout; open Session overview; jump to an exercise; inspect Up next; record sets; use Apply set 1 to all; background and terminate the app; confirm the exact draft resumes; finish offline; reconnect; confirm the queued result syncs; reopen and edit the completed session; confirm history persists.
 - Nutrition: assigned plan, totals and food interactions remain usable with the keyboard open.
 - DM: send/receive, unread badge, keyboard, background/foreground and external links.
 - Check-in and Daily Tracker: save, reload and edit without duplicate submissions.
