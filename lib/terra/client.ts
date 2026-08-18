@@ -54,6 +54,8 @@ export function parseTerraReferenceId(referenceId: unknown) {
 
 type TerraFetch = typeof fetch;
 
+export type TerraDataType = "activity" | "daily" | "nutrition" | "sleep";
+
 type TerraWidgetSessionOptions = {
   fetchImpl?: TerraFetch;
   nativeReturn?: boolean;
@@ -185,7 +187,8 @@ export async function getTerraUsersByReferenceId(
   ));
 }
 
-export async function requestTerraNutritionData(
+export async function requestTerraData(
+  dataType: TerraDataType,
   terraUserId: string,
   startDate: string,
   endDate: string,
@@ -199,10 +202,10 @@ export async function requestTerraNutritionData(
     throw new Error("The stored Terra user ID is invalid.");
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || startDate > endDate) {
-    throw new Error("The requested nutrition date range is invalid.");
+    throw new Error("The requested Terra date range is invalid.");
   }
 
-  const url = new URL("https://api.tryterra.co/v2/nutrition");
+  const url = new URL(`https://api.tryterra.co/v2/${dataType}`);
   url.searchParams.set("user_id", terraUserId);
   url.searchParams.set("start_date", startDate);
   url.searchParams.set("end_date", endDate);
@@ -217,9 +220,18 @@ export async function requestTerraNutritionData(
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(data?.message || data?.error || "Terra could not request nutrition data.");
+    throw new Error(data?.message || data?.error || `Terra could not request ${dataType} data.`);
   }
   return data;
+}
+
+export async function requestTerraNutritionData(
+  terraUserId: string,
+  startDate: string,
+  endDate: string,
+  fetchImpl: TerraFetch = fetch,
+) {
+  return requestTerraData("nutrition", terraUserId, startDate, endDate, fetchImpl);
 }
 
 export function verifyTerraWebhookSignature(
