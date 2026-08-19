@@ -601,7 +601,7 @@ export default function PortalDashboard() {
       )}
       <section className="app-hero app-rise app-rise-1 flex flex-col overflow-hidden rounded-[24px] px-4 py-4 text-white sm:rounded-[30px] sm:px-6 sm:py-5">
         <div className="min-w-0">
-          <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#F7A8EE]">AT CAPACITY Today</div>
+          <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#F7A8EE]">Today</div>
           <h1 className="mt-1 text-2xl font-heading font-bold leading-none text-white sm:text-3xl">
             {`${getGreeting()}${userName ? `, ${userName.split(" ")[0]}` : ""}`}
           </h1>

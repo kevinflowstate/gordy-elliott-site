@@ -1104,7 +1104,7 @@ export default function PortalExercisePlanPage() {
           </div>
         </summary>
 
-        <div className="mt-4 grid gap-2 sm:grid-cols-7">
+        <div className="-mx-1 mt-4 flex snap-x gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:grid sm:grid-cols-7 sm:overflow-visible sm:px-0">
           {weekDays.map((day, i) => {
             const dayStr = formatDate(day);
             const planned = plannedSessionsByDate.get(dayStr) || [];
@@ -1113,7 +1113,7 @@ export default function PortalExercisePlanPage() {
                 key={dayStr}
                 type="button"
                 onClick={() => selectDay(day)}
-                className={`min-h-[92px] rounded-2xl border p-3 text-left transition-colors cursor-pointer ${
+                className={`min-h-[92px] w-[8.25rem] shrink-0 snap-start rounded-2xl border p-3 text-left transition-colors cursor-pointer sm:w-auto sm:shrink ${
                   selectedDateStr === dayStr
                     ? "border-[#E040D0] bg-[#E040D0]/8"
                     : "border-[rgba(0,0,0,0.06)] bg-[rgba(0,0,0,0.015)] hover:border-[#E040D0]/30"
@@ -1125,7 +1125,7 @@ export default function PortalExercisePlanPage() {
                 </div>
                 <div className="mt-2 space-y-1">
                   {planned.length > 0 ? planned.map((session) => (
-                    <div key={session.id} className="truncate rounded-lg bg-[#E040D0]/10 px-2 py-1 text-[11px] font-semibold text-[#E040D0]">
+                    <div key={session.id} className="line-clamp-2 rounded-lg bg-[#E040D0]/10 px-2 py-1 text-[11px] font-semibold leading-4 text-[#E040D0]">
                       {session.name}
                     </div>
                   )) : (
@@ -1187,10 +1187,10 @@ export default function PortalExercisePlanPage() {
                     });
                     const saving = plannerSavingSessionId === session.id;
                     return (
-                      <div key={session.id} className="rounded-2xl border border-[rgba(0,0,0,0.06)] px-4 py-3">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <details key={session.id} className="group/session rounded-2xl border border-[rgba(0,0,0,0.06)] bg-[rgba(0,0,0,0.012)]">
+                        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
                           <div className="min-w-0">
-                            <div className="text-sm font-bold text-text-primary">{session.name}</div>
+                            <div className="truncate text-sm font-bold text-text-primary">{session.name}</div>
                             <div className="mt-1 flex flex-wrap gap-1.5">
                               <span className="rounded-full bg-[#E040D0]/10 px-2.5 py-1 text-[11px] font-semibold text-[#E040D0]">
                                 {plannedLabel}
@@ -1200,14 +1200,18 @@ export default function PortalExercisePlanPage() {
                                   Weekly
                                 </span>
                               )}
-                              {assignment.source === "recurring" && (
-                                <span className="rounded-full bg-[rgba(0,0,0,0.04)] px-2.5 py-1 text-[11px] font-semibold text-text-muted">
-                                  Recurring plan
-                                </span>
-                              )}
                             </div>
                           </div>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex shrink-0 items-center gap-2">
+                            {saving && <span className="text-[11px] font-semibold text-text-muted">Saving...</span>}
+                            <span className="text-[11px] font-semibold text-text-muted">Change</span>
+                            <svg className="h-4 w-4 text-text-muted transition-transform group-open/session:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                          </div>
+                        </summary>
+                        <div className="border-t border-[rgba(0,0,0,0.05)] px-4 pb-4 pt-3">
+                          <p className="text-[11px] text-text-muted">Move this workout to another day:</p>
+                          {renderPlannerDayChips(session, "Move")}
+                          <div className="mt-3 flex flex-wrap gap-2">
                             <button
                               type="button"
                               disabled={saving}
@@ -1225,10 +1229,11 @@ export default function PortalExercisePlanPage() {
                               Remove from this week
                             </button>
                           </div>
+                          {assignment.source === "recurring" && (
+                            <p className="mt-3 text-[11px] text-text-muted">This session was placed by your recurring weekly plan.</p>
+                          )}
                         </div>
-                        <p className="mt-3 text-[11px] text-text-muted">Move this workout to another day:</p>
-                        {renderPlannerDayChips(session, "Move")}
-                      </div>
+                      </details>
                     );
                   })}
                 </div>

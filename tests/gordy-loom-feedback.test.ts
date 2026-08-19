@@ -125,3 +125,32 @@ test("photo comparison starts with an explicit two-photo selection", async () =>
   assert.match(gallery, /Back to gallery/);
   assert.doesNotMatch(gallery, /setCompareA\(dates\[0\]\)/);
 });
+
+test("latest Gordy UI wording and mobile containment are wired into the real portal", async () => {
+  const home = await readFile(new URL("../app/portal/page.tsx", import.meta.url), "utf8");
+  const clientDm = await readFile(new URL("../components/inbox/ClientInboxClient.tsx", import.meta.url), "utf8");
+  const inboxThread = await readFile(new URL("../components/inbox/InboxThread.tsx", import.meta.url), "utf8");
+  const globals = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  assert.match(home, />Today<\/div>/);
+  assert.doesNotMatch(home, /AT CAPACITY Today/);
+  assert.match(clientDm, /portal-dm-active/);
+  assert.match(clientDm, /portal-dm-page/);
+  assert.match(inboxThread, /overscroll-contain/);
+  assert.match(globals, /html\.portal-dm-active body/);
+  assert.match(globals, /overflow:\s*hidden/);
+});
+
+test("weekly adjustments stay compact and Gordy's briefing leads with actionable live signals", async () => {
+  const planner = await readFile(new URL("../app/portal/exercise-plan/page.tsx", import.meta.url), "utf8");
+  const admin = await readFile(new URL("../app/admin/page.tsx", import.meta.url), "utf8");
+
+  assert.match(planner, /Adjust this week/);
+  assert.match(planner, /snap-x/);
+  assert.match(planner, /group\/session/);
+  assert.match(admin, /Today&apos;s attention list/);
+  assert.match(admin, /fetch\("\/api\/inbox"\)/);
+  assert.match(admin, /fetch\("\/api\/admin\/capacity-scan"\)/);
+  assert.match(admin, /Snooze 7d/);
+  assert.ok(admin.indexOf("<ShiftOverview") < admin.indexOf("{/* Stats */}"));
+});

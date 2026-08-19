@@ -1,10 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
 import type { AdminClient } from "@/lib/admin-data";
-import type { ClientExperienceMode, TrafficLight, CheckInMood, CheckIn } from "@/lib/types";
+import type { ClientExperienceMode, TrafficLight, CheckInMood, CheckIn, InboxConversation } from "@/lib/types";
+
+interface CapacityScanClient {
+  id: string;
+  name: string;
+  status: "red" | "amber" | "green" | "paused";
+  flags: Array<{ severity: "red" | "amber"; label: string }>;
+}
 
 const statusLabel: Record<TrafficLight, { text: string; dotClass: string; bgClass: string; textClass: string }> = {
   red: { text: "Needs Attention", dotClass: "bg-red-500", bgClass: "bg-red-500/10", textClass: "text-red-400" },
@@ -39,9 +46,46 @@ function formatDate(date: Date): string {
   return `${days[date.getDay()]} ${d}${suffix} ${months[date.getMonth()]} ${date.getFullYear()}`;
 }
 
+const BRIEFING_SNOOZE_KEY = "at-capacity:admin-briefing-snoozes";
+const briefingStorageListeners = new Set<() => void>();
+let briefingSnoozeFallback = "{}";
+
+function readBriefingSnoozes() {
+  if (typeof window === "undefined") return "{}";
+  try {
+    return window.localStorage.getItem(BRIEFING_SNOOZE_KEY) || briefingSnoozeFallback;
+  } catch {
+    return briefingSnoozeFallback;
+  }
+}
+
+function subscribeToBriefingSnoozes(listener: () => void) {
+  briefingStorageListeners.add(listener);
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === BRIEFING_SNOOZE_KEY) listener();
+  };
+  window.addEventListener("storage", handleStorage);
+  return () => {
+    briefingStorageListeners.delete(listener);
+    window.removeEventListener("storage", handleStorage);
+  };
+}
+
+function writeBriefingSnoozes(value: Record<string, string>) {
+  briefingSnoozeFallback = JSON.stringify(value);
+  try {
+    window.localStorage.setItem(BRIEFING_SNOOZE_KEY, briefingSnoozeFallback);
+  } catch {
+    // The in-memory fallback still keeps the current admin session usable.
+  }
+  briefingStorageListeners.forEach((listener) => listener());
+}
+
 export default function AdminDashboard() {
   const [clients, setClients] = useState<AdminClient[]>([]);
   const [recentCheckins, setRecentCheckins] = useState<EnrichedCheckin[]>([]);
+  const [inboxConversations, setInboxConversations] = useState<InboxConversation[]>([]);
+  const [capacityScanClients, setCapacityScanClients] = useState<CapacityScanClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedClient, setExpandedClient] = useState<string | null>(null);
   const [adminName, setAdminName] = useState("");
@@ -89,7 +133,28 @@ export default function AdminDashboard() {
         setLoading(false);
       }
     }
-    load();
+
+    async function loadBriefingSignals() {
+      try {
+        const [inboxRes, capacityRes] = await Promise.all([
+          fetch("/api/inbox"),
+          fetch("/api/admin/capacity-scan"),
+        ]);
+        if (inboxRes.ok) {
+          const inboxData = await inboxRes.json();
+          setInboxConversations(inboxData.conversations || []);
+        }
+        if (capacityRes.ok) {
+          const capacityData = await capacityRes.json();
+          setCapacityScanClients(capacityData.clients || []);
+        }
+      } catch {
+        // Core dashboard data still renders when supplementary live signals are unavailable.
+      }
+    }
+
+    void load();
+    void loadBriefingSignals();
   }, []);
 
   if (loading) {
@@ -151,6 +216,13 @@ export default function AdminDashboard() {
         </h1>
         <p className="text-text-secondary mt-1">{formatDate(new Date())}</p>
       </div>
+
+      <ShiftOverview
+        clients={clients}
+        recentCheckins={recentCheckins}
+        inboxConversations={inboxConversations}
+        capacityScanClients={capacityScanClients}
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -222,9 +294,6 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
-
-      {/* SHIFT AI Overview */}
-      <ShiftOverview clients={clients} recentCheckins={recentCheckins} />
 
       {todaysKeyDates.length > 0 && (
         <div className="mb-8 rounded-2xl border border-[#E040D0]/20 bg-[#E040D0]/8 px-5 py-4">
@@ -537,13 +606,36 @@ interface BriefingInsight {
   id: string;
   icon: string;
   text: string;
+  category: "Reply" | "Capacity" | "Consistency" | "Plan";
+  severity: "red" | "amber" | "neutral";
   action?: { type: "nudge"; clientName: string; userId: string; clientId: string }
-    | { type: "reply"; clientId: string }
-    | { type: "view-plan"; clientId: string };
+    | { type: "reply-checkin"; clientId: string }
+    | { type: "reply-dm"; clientId: string }
+    | { type: "view-plan"; clientId: string }
+    | { type: "view-client"; clientId: string };
 }
 
-function ShiftOverview({ clients, recentCheckins }: { clients: AdminClient[]; recentCheckins: EnrichedCheckin[] }) {
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+function ShiftOverview({
+  clients,
+  recentCheckins,
+  inboxConversations,
+  capacityScanClients,
+}: {
+  clients: AdminClient[];
+  recentCheckins: EnrichedCheckin[];
+  inboxConversations: InboxConversation[];
+  capacityScanClients: CapacityScanClient[];
+}) {
+  const dismissalSnapshot = useSyncExternalStore(subscribeToBriefingSnoozes, readBriefingSnoozes, () => "{}");
+  let dismissedUntil: Record<string, string> = {};
+  try {
+    const parsed = JSON.parse(dismissalSnapshot) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      dismissedUntil = parsed as Record<string, string>;
+    }
+  } catch {
+    dismissedUntil = {};
+  }
   const [nudgeTarget, setNudgeTarget] = useState<{ name: string; userId: string; clientId: string } | null>(null);
   const [nudgeMessage, setNudgeMessage] = useState("");
   const [nudgeSending, setNudgeSending] = useState(false);
@@ -573,7 +665,20 @@ function ShiftOverview({ clients, recentCheckins }: { clients: AdminClient[]; re
       id: `${reason.signal}-${c.id}`,
       icon: reason.severity === "red" ? "alert" : "clock",
       text: `${c.name}: ${reason.detail}`,
+      category: "Consistency",
+      severity: reason.severity,
       action: { type: "nudge", clientName: c.name, userId: c.user_id, clientId: c.id },
+    });
+  }
+
+  for (const conversation of inboxConversations.filter((item) => item.unread_count > 0)) {
+    insights.push({
+      id: `dm-${conversation.client_id}`,
+      icon: "message",
+      text: `${conversation.client_name}: ${conversation.unread_count} unread message${conversation.unread_count === 1 ? "" : "s"}`,
+      category: "Reply",
+      severity: "red",
+      action: { type: "reply-dm", clientId: conversation.client_id },
     });
   }
 
@@ -586,30 +691,61 @@ function ShiftOverview({ clients, recentCheckins }: { clients: AdminClient[]; re
     }
     for (const [clientId, cks] of byClient) {
       const name = cks[0].client_name;
-      insights.push({ id: `reply-${clientId}`, icon: "reply", text: `${cks.length} unreplied check-in${cks.length > 1 ? "s" : ""} from ${name}`, action: { type: "reply", clientId } });
+      insights.push({
+        id: `reply-${clientId}`,
+        icon: "reply",
+        text: `${cks.length} unreplied check-in${cks.length > 1 ? "s" : ""} from ${name}`,
+        category: "Reply",
+        severity: "red",
+        action: { type: "reply-checkin", clientId },
+      });
     }
+  }
+
+  for (const scanClient of capacityScanClients) {
+    const flag = scanClient.flags[0];
+    if (!flag) continue;
+    insights.push({
+      id: `capacity-${scanClient.id}-${flag.label}`,
+      icon: "capacity",
+      text: `${scanClient.name}: ${flag.label}`,
+      category: "Capacity",
+      severity: flag.severity,
+      action: { type: "view-client", clientId: scanClient.id },
+    });
   }
 
   for (const c of stalledClients) {
     const activePlan = c.training_plan.find(p => p.status === "active");
     const items = activePlan!.phases.flatMap(ph => ph.items);
     const pct = Math.round((items.filter(i => i.completed).length / items.length) * 100);
-    insights.push({ id: `plan-${c.id}`, icon: "plan", text: `${c.name}'s plan is only ${pct}% complete at week ${c.current_week}`, action: { type: "view-plan", clientId: c.id } });
+    insights.push({
+      id: `plan-${c.id}`,
+      icon: "plan",
+      text: `${c.name}'s plan is only ${pct}% complete at week ${c.current_week}`,
+      category: "Plan",
+      severity: "amber",
+      action: { type: "view-plan", clientId: c.id },
+    });
   }
 
-  const visibleInsights = insights.filter(i => !dismissed.has(i.id));
-
-  if (visibleInsights.length === 0 && insights.length > 0) {
-    // All dismissed
-    visibleInsights.push({ id: "all-clear", icon: "check", text: "All caught up - no actions remaining" });
-  } else if (insights.length === 0) {
-    visibleInsights.push({ id: "on-track", icon: "check", text: "All active clients are up to date - no immediate actions needed" });
-  }
+  const severityOrder = { red: 0, amber: 1, neutral: 2 } as const;
+  insights.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+  const now = Date.now();
+  const visibleInsights = insights.filter((insight) => {
+    const until = dismissedUntil[insight.id];
+    return !until || new Date(until).getTime() <= now;
+  });
+  const replyCount = visibleInsights.filter((insight) => insight.category === "Reply").length;
+  const signalCount = visibleInsights.filter((insight) => insight.category === "Capacity" || insight.category === "Consistency").length;
+  const planCount = visibleInsights.filter((insight) => insight.category === "Plan").length;
 
   const iconMap: Record<string, React.ReactNode> = {
     alert: <svg className="w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>,
     clock: <svg className="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
     reply: <svg className="w-4 h-4 text-accent-bright flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>,
+    message: <svg className="w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h8m-8 4h5m-7 6h12a2 2 0 002-2V8a2 2 0 00-.586-1.414l-4-4A2 2 0 0014 2H6a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>,
+    capacity: <svg className="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v3m6.364-.364-2.122 2.122M21 12h-3m.364 6.364-2.122-2.122M12 21v-3m-6.364.364 2.122-2.122M3 12h3m-.364-6.364 2.122 2.122M12 9a3 3 0 100 6 3 3 0 000-6z" /></svg>,
     plan: <svg className="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>,
     check: <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>,
   };
@@ -621,6 +757,13 @@ function ShiftOverview({ clients, recentCheckins }: { clients: AdminClient[]; re
     setNudgeMessage(`Hey ${firstName}, just checking in - haven't seen you in the portal for a bit. Everything OK? Jump back in when you're ready, your plan is waiting.`);
     setNudgeSent(false);
     setNudgeDelivery("");
+  }
+
+  function snoozeInsight(insightId: string, days: number) {
+    writeBriefingSnoozes({
+      ...dismissedUntil,
+      [insightId]: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString(),
+    });
   }
 
   async function sendNudge(insightId: string) {
@@ -644,7 +787,7 @@ function ShiftOverview({ clients, recentCheckins }: { clients: AdminClient[]; re
           : notification.sent > 0
             ? "DM saved and device notification delivered."
             : "DM saved. No device notification is currently enabled.");
-        setDismissed(prev => new Set([...prev, insightId]));
+        snoozeInsight(insightId, 1);
       } else {
         alert(result.error || "The DM could not be sent.");
       }
@@ -655,26 +798,62 @@ function ShiftOverview({ clients, recentCheckins }: { clients: AdminClient[]; re
 
   return (
     <>
-      <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mb-8">
-        <div className="flex items-center gap-2.5 mb-4">
-          <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
+      <section className="relative mb-8 overflow-hidden rounded-[26px] border border-accent/20 bg-bg-card/90 shadow-[0_18px_55px_rgba(31,18,29,0.08)]">
+        <div className="h-1 bg-accent" />
+        <div className="p-5 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/20 bg-accent/10">
             <svg className="w-4 h-4 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
           </div>
           <div>
-            <h2 className="text-sm font-heading font-bold text-text-primary">AT CAPACITY AI</h2>
-            <p className="text-[10px] text-text-muted">Your daily briefing</p>
+                <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent-bright">AT CAPACITY AI</div>
+                <h2 className="mt-1 text-xl font-heading font-bold text-text-primary">Today&apos;s attention list</h2>
+                <p className="mt-1 text-sm text-text-secondary">Who needs you, why, and the quickest useful next action.</p>
+              </div>
+            </div>
+            <div className={`w-fit rounded-full border px-3 py-1.5 text-xs font-bold ${
+              visibleInsights.length > 0
+                ? "border-amber-500/25 bg-amber-500/10 text-amber-500"
+                : "border-emerald-500/25 bg-emerald-500/10 text-emerald-500"
+            }`}>
+              {visibleInsights.length > 0 ? `${visibleInsights.length} to review` : "All clear"}
+            </div>
           </div>
-        </div>
-        <div className="space-y-2">
-          {visibleInsights.map((insight) => (
-            <div key={insight.id} className="flex items-start gap-3 group/insight">
-              <div className="pt-0.5">{iconMap[insight.icon]}</div>
-              <div className="flex-1 min-w-0">
-                <span className="text-sm text-text-secondary">{insight.text}</span>
+
+          <div className="mt-5 grid grid-cols-3 gap-2 rounded-2xl border border-[rgba(0,0,0,0.05)] bg-bg-primary/60 p-2">
+            {[["Replies", replyCount], ["Signals", signalCount], ["Plans", planCount]].map(([label, count]) => (
+              <div key={label} className="rounded-xl px-3 py-2 text-center">
+                <div className="text-lg font-heading font-bold text-text-primary">{count}</div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">{label}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 divide-y divide-[rgba(0,0,0,0.055)]">
+            {visibleInsights.length === 0 ? (
+              <div className="flex items-center gap-3 py-5">
+                {iconMap.check}
+                <div>
+                  <div className="text-sm font-semibold text-text-primary">No immediate actions</div>
+                  <div className="mt-0.5 text-xs text-text-muted">Snoozed items return automatically when their timer ends.</div>
+                </div>
+              </div>
+            ) : visibleInsights.map((insight) => (
+              <div key={insight.id} className="grid gap-3 py-4 sm:grid-cols-[1fr_auto] sm:items-center">
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                    insight.severity === "red" ? "bg-red-500/10" : insight.severity === "amber" ? "bg-amber-500/10" : "bg-accent/10"
+                  }`}>{iconMap[insight.icon]}</div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-muted">{insight.category}</div>
+                    <p className="mt-1 text-sm leading-5 text-text-primary">{insight.text}</p>
+                  </div>
+                </div>
                 {insight.action && (
-                  <div className="flex items-center gap-2 mt-1.5">
+                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                     {insight.action.type === "nudge" && (
                       <button
                         onClick={() => handleNudge(insight)}
@@ -684,13 +863,21 @@ function ShiftOverview({ clients, recentCheckins }: { clients: AdminClient[]; re
                         Send Nudge
                       </button>
                     )}
-                    {insight.action.type === "reply" && (
+                    {insight.action.type === "reply-checkin" && (
                       <Link
                         href={`/admin/clients/${insight.action.clientId}`}
                         className="text-[11px] px-3 py-1 rounded-lg font-semibold text-accent-bright bg-accent/10 border border-accent/20 hover:bg-accent/20 transition-colors no-underline inline-flex items-center gap-1.5"
                       >
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
-                        Reply Now
+                        Open Check-in
+                      </Link>
+                    )}
+                    {insight.action.type === "reply-dm" && (
+                      <Link
+                        href={`/admin/inbox?client=${encodeURIComponent(insight.action.clientId)}`}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-accent/20 bg-accent/10 px-3 py-1 text-[11px] font-semibold text-accent-bright no-underline transition-colors hover:bg-accent/20"
+                      >
+                        Open DM
                       </Link>
                     )}
                     {insight.action.type === "view-plan" && (
@@ -702,19 +889,33 @@ function ShiftOverview({ clients, recentCheckins }: { clients: AdminClient[]; re
                         View Plan
                       </Link>
                     )}
+                    {insight.action.type === "view-client" && (
+                      <Link
+                        href={`/admin/clients/${insight.action.clientId}`}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-accent/20 bg-accent/10 px-3 py-1 text-[11px] font-semibold text-accent-bright no-underline transition-colors hover:bg-accent/20"
+                      >
+                        View Client
+                      </Link>
+                    )}
                     <button
-                      onClick={() => setDismissed(prev => new Set([...prev, insight.id]))}
+                      onClick={() => snoozeInsight(insight.id, 1)}
                       className="text-[11px] px-2 py-1 rounded-lg text-text-muted hover:text-text-secondary hover:bg-[rgba(0,0,0,0.05)] transition-colors cursor-pointer"
                     >
-                      Dismiss
+                      Done today
+                    </button>
+                    <button
+                      onClick={() => snoozeInsight(insight.id, 7)}
+                      className="text-[11px] px-2 py-1 rounded-lg text-text-muted hover:text-text-secondary hover:bg-[rgba(0,0,0,0.05)] transition-colors cursor-pointer"
+                    >
+                      Snooze 7d
                     </button>
                   </div>
                 )}
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* Nudge Modal */}
       {nudgeTarget && (

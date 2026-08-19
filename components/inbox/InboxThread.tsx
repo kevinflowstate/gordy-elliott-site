@@ -70,7 +70,7 @@ export default function InboxThread({
   }
 
   return (
-    <div className="portal-dm-thread flex min-h-[min(72dvh,48rem)] flex-col overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.025)]">
+    <div className="portal-dm-thread flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.025)] md:min-h-[min(72dvh,48rem)]">
       {(threadLabel || threadMeta) && (
         <div className="border-b border-[rgba(255,255,255,0.06)] px-5 py-4">
           {threadLabel && <div className="text-sm font-semibold text-text-primary">{threadLabel}</div>}
@@ -78,7 +78,7 @@ export default function InboxThread({
         </div>
       )}
 
-      <div className="flex-1 space-y-3 overflow-y-auto px-4 py-5 sm:px-5">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-5 sm:px-5">
         {groupedMessages.length === 0 ? (
           <div className="portal-dm-empty flex min-h-80 flex-col items-center justify-center text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent-bright">

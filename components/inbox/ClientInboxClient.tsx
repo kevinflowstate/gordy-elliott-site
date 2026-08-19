@@ -67,6 +67,11 @@ export default function ClientInboxClient() {
     };
   }, [loadThread]);
 
+  useEffect(() => {
+    document.documentElement.classList.add("portal-dm-active");
+    return () => document.documentElement.classList.remove("portal-dm-active");
+  }, []);
+
   async function handleSend(message: string) {
     setSending(true);
     setError(null);
@@ -99,15 +104,15 @@ export default function ClientInboxClient() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-0 py-1 sm:py-0">
-      <div className="mb-5">
+    <div className="portal-dm-page mx-auto flex h-full min-h-0 w-full max-w-4xl flex-col overflow-hidden px-0 py-1 sm:py-0">
+      <div className="portal-dm-page-header mb-4 shrink-0 sm:mb-5">
         <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-bright">Direct Messages</div>
         <h1 className="mt-2 text-2xl font-heading font-extrabold text-text-primary">DM</h1>
         <p className="mt-1 text-sm text-text-secondary">Message Gordy directly from your AT CAPACITY portal.</p>
       </div>
 
       {loading ? (
-        <div className="flex min-h-[min(72dvh,48rem)] animate-pulse flex-col overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.025)]">
+        <div className="flex min-h-0 flex-1 animate-pulse flex-col overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.025)]">
           <div className="border-b border-white/[0.06] px-5 py-4">
             <div className="h-4 w-28 rounded bg-white/[0.08]" />
             <div className="mt-2 h-3 w-20 rounded bg-white/[0.05]" />

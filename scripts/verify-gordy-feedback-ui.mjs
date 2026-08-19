@@ -27,6 +27,7 @@ const routes = [
   { name: "checkin", path: "/portal/checkin" },
   { name: "gallery", path: "/portal/gallery" },
   { name: "training-plan", path: "/portal/exercise-plan" },
+  { name: "dm", path: "/portal/inbox" },
 ];
 
 async function waitForServer(server, getOutput) {
@@ -43,8 +44,8 @@ async function waitForServer(server, getOutput) {
   throw new Error(`QA server did not start: ${getOutput()}`);
 }
 
-async function authenticate(context, admin) {
-  const { data: link, error: linkError } = await admin.auth.admin.generateLink({ type: "magiclink", email: reviewEmail });
+async function authenticate(context, admin, email = reviewEmail) {
+  const { data: link, error: linkError } = await admin.auth.admin.generateLink({ type: "magiclink", email });
   if (linkError || !link.properties?.hashed_token) throw new Error(linkError?.message || "Could not create QA sign-in.");
 
   const cookies = [];
@@ -244,6 +245,23 @@ try {
         const adjust = page.getByText("Adjust this week", { exact: true });
         if (await adjust.count()) await adjust.click();
       }
+      if (route.name === "dm") {
+        await page.getByPlaceholder("Message Gordy...").waitFor();
+        const containment = await page.evaluate(() => {
+          const thread = document.querySelector(".portal-dm-thread");
+          const messageScroller = thread?.children[1];
+          return {
+            routeClassActive: document.documentElement.classList.contains("portal-dm-active"),
+            pageLocked: document.documentElement.scrollHeight <= document.documentElement.clientHeight + 1,
+            threadContained: Boolean(thread && thread.getBoundingClientRect().bottom <= window.innerHeight + 1),
+            messageScrollerOwnsOverflow: messageScroller instanceof HTMLElement
+              && ["auto", "scroll"].includes(getComputedStyle(messageScroller).overflowY),
+          };
+        });
+        if (Object.values(containment).some((value) => !value)) {
+          throw new Error(`${viewport.name} ${route.path}: DM viewport containment failed: ${JSON.stringify(containment)}`);
+        }
+      }
 
       const layout = await inspectLayout(page);
       if (layout.documentWidth > layout.viewportWidth + 1) {
@@ -264,6 +282,142 @@ try {
     }
     await context.close();
   }
+
+  const { data: adminUsers, error: adminUsersError } = await admin
+    .from("users")
+    .select("email")
+    .eq("role", "admin")
+    .order("created_at", { ascending: true })
+    .limit(1);
+  if (adminUsersError || !adminUsers?.[0]?.email) {
+    throw new Error(adminUsersError?.message || "No admin QA identity is available.");
+  }
+
+  const adminContext = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers: "block" });
+  await authenticate(adminContext, admin, adminUsers[0].email);
+  const adminPage = await adminContext.newPage();
+  await adminPage.addInitScript(() => {
+    if (window.sessionStorage.getItem("at-capacity:qa-briefing-initialised")) return;
+    window.localStorage.removeItem("at-capacity:admin-briefing-snoozes");
+    window.sessionStorage.setItem("at-capacity:qa-briefing-initialised", "true");
+  });
+  const now = new Date().toISOString();
+  const qaClient = {
+    id: "qa-briefing-client",
+    user_id: "qa-briefing-user",
+    name: "Alex QA",
+    email: "alex.qa@example.com",
+    phone: "",
+    business_name: "Example Studio",
+    business_type: "",
+    goals: "",
+    start_date: "2026-06-01",
+    status: "amber",
+    current_week: 8,
+    last_login: "2026-08-14T08:00:00.000Z",
+    last_checkin: now,
+    checkins: [{
+      id: "qa-checkin",
+      client_id: "qa-briefing-client",
+      week_number: 8,
+      mood: "okay",
+      created_at: now,
+    }],
+    training_plan: [{
+      id: "qa-plan",
+      client_id: "qa-briefing-client",
+      summary: "QA plan",
+      status: "active",
+      created_at: now,
+      phases: [{
+        id: "qa-phase",
+        name: "Build",
+        notes: "",
+        order_index: 0,
+        linked_trainings: [],
+        items: Array.from({ length: 5 }, (_, index) => ({
+          id: `qa-item-${index}`,
+          category: "",
+          title: `Action ${index + 1}`,
+          completed: index === 0,
+        })),
+      }],
+    }],
+    tier: "coached",
+    experience_mode: "ai_coaching",
+    key_dates: [],
+    lifecycle_status: "active",
+    monitoring_preferences: {
+      monitor_login: true,
+      monitor_checkins: true,
+      monitor_training: true,
+      monitor_daily_metrics: true,
+      monitor_nutrition: true,
+      monitor_wearables: true,
+    },
+    attention_snoozes: [],
+    attention_reasons: [{
+      signal: "wearables",
+      label: "Wearable sync",
+      detail: "4 days since last wearable sync",
+      severity: "amber",
+      days_since: 4,
+    }],
+  };
+  await adminPage.route("**/api/admin/clients", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ clients: [qaClient] }),
+  }));
+  await adminPage.route("**/api/portal/me", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ fullName: "Gordy Elliott" }),
+  }));
+  await adminPage.route("**/api/inbox", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ conversations: [{
+      client_id: qaClient.id,
+      client_name: qaClient.name,
+      client_email: qaClient.email,
+      latest_message: "Can you check this week?",
+      latest_message_at: now,
+      latest_sender_role: "client",
+      unread_count: 2,
+    }] }),
+  }));
+  await adminPage.route("**/api/admin/capacity-scan", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ clients: [{
+      id: qaClient.id,
+      name: qaClient.name,
+      status: "amber",
+      flags: [{ severity: "amber", label: "Recovery and calendar load need watching today." }],
+    }] }),
+  }));
+
+  await adminPage.goto(`${baseUrl}/admin`, { waitUntil: "networkidle", timeout: 30_000 });
+  await adminPage.getByRole("heading", { name: "Today's attention list" }).waitFor();
+  await adminPage.getByText("Alex QA: 2 unread messages", { exact: true }).waitFor();
+  const adminLayout = await inspectLayout(adminPage);
+  if (adminLayout.documentWidth > adminLayout.viewportWidth + 1) {
+    throw new Error(`desktop /admin: horizontal overflow ${adminLayout.documentWidth}px > ${adminLayout.viewportWidth}px.`);
+  }
+  await adminPage.screenshot({
+    path: path.join(outputDir, "desktop-admin-briefing.png"),
+    fullPage: false,
+    animations: "disabled",
+  });
+  await adminPage.getByRole("button", { name: "Done today" }).first().click();
+  await adminPage.getByText("Alex QA: 2 unread messages", { exact: true }).waitFor({ state: "detached" });
+  await adminPage.reload({ waitUntil: "networkidle" });
+  if (await adminPage.getByText("Alex QA: 2 unread messages", { exact: true }).count()) {
+    throw new Error("desktop /admin: a completed briefing item returned after refresh.");
+  }
+  console.log("PASS desktop /admin briefing and persistent Done today state");
+  await adminContext.close();
   console.log("Gordy feedback visual QA passed at 390px, 430px and 1440px.");
 } finally {
   await browser?.close();
