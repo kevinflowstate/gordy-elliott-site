@@ -3,7 +3,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { resolveNativeAppLink } from "../lib/native-app-links";
 
-const APP_ID = "H4J3XX8R8M.com.gordyelliott.shift";
+const LEGACY_APP_ID = "H4J3XX8R8M.com.gordyelliott.shift";
+const APP_ID = "5NU9323724.com.gordyelliott.atcapacity";
 const DOMAIN = "applinks:app.onlinegordy.com";
 
 test("the website and signed iOS target declare the same recovery universal link", async () => {
@@ -20,7 +21,10 @@ test("the website and signed iOS target declare the same recovery universal link
   const details = association.applinks?.details;
 
   assert.ok(Array.isArray(details));
-  assert.deepEqual(details, [{ appID: APP_ID, paths: ["/auth/callback"] }]);
+  assert.deepEqual(details, [
+    { appID: LEGACY_APP_ID, paths: ["/auth/callback"] },
+    { appID: APP_ID, paths: ["/auth/callback"] },
+  ]);
   assert.match(entitlements, new RegExp(DOMAIN.replaceAll(".", "\\.")));
   assert.match(project, /com\.apple\.AssociatedDomains/);
   assert.match(appDelegate, /continue userActivity: NSUserActivity/);
@@ -50,6 +54,7 @@ test("the native router rejects hostile origins, schemes and unrecognised custom
   );
   assert.equal(resolveNativeAppLink("javascript:alert(1)", "app.onlinegordy.com"), null);
   assert.equal(resolveNativeAppLink("shiftcoaching://delete-account", "app.onlinegordy.com"), null);
+  assert.equal(resolveNativeAppLink("atcapacity://delete-account", "app.onlinegordy.com"), null);
 });
 
 test("legacy app links remain bounded to login and portal routes", () => {
@@ -61,6 +66,13 @@ test("legacy app links remain bounded to login and portal routes", () => {
     resolveNativeAppLink("shiftcoaching://login?redirect=https%3A%2F%2Fevil.example", "app.onlinegordy.com"),
     { action: "navigate", href: "/login?redirect=%2Fportal" },
   );
+});
+
+test("AT CAPACITY app links route through the Gordy-owned custom scheme", () => {
+  assert.deepEqual(resolveNativeAppLink("atcapacity://portal/training?session=1", "app.onlinegordy.com"), {
+    action: "navigate",
+    href: "/portal/training?session=1",
+  });
 });
 
 test("account recovery links retain the bearer token on the verified HTTPS callback", async () => {
@@ -76,7 +88,7 @@ test("account recovery links retain the bearer token on the verified HTTPS callb
   assert.match(callback, /\/portal\/settings\?reset=true/);
 });
 
-test("Build 9 is the only configured native candidate", async () => {
+test("Build 10 is the only configured native candidate", async () => {
   const [identitySource, project] = await Promise.all([
     readFile("config/app-identity.json", "utf8"),
     readFile("ios/App/App.xcodeproj/project.pbxproj", "utf8"),
@@ -85,7 +97,7 @@ test("Build 9 is the only configured native candidate", async () => {
 
   const configuredBuilds = [...project.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map((match) => match[1]);
 
-  assert.equal(identity.build, "9");
+  assert.equal(identity.build, "10");
   assert.equal(configuredBuilds.length, 2);
   assert.deepEqual([...new Set(configuredBuilds)], [identity.build]);
 });

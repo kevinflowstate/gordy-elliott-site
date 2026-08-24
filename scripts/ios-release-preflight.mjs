@@ -67,7 +67,7 @@ const xcode = run("xcodebuild", ["-version"]);
 if (xcode.status !== 0) throw new Error(xcode.stderr.trim() || "Xcode is not available.");
 
 const identities = run("security", ["find-identity", "-v", "-p", "codesigning"]);
-if (identities.status !== 0 || !identities.stdout.includes(`Apple Distribution: Kevin Harkin (${expected.teamId})`)) {
+if (identities.status !== 0 || !identities.stdout.includes("Apple Distribution:") || !identities.stdout.includes(`(${expected.teamId})`)) {
   throw new Error("The AT CAPACITY Apple Distribution signing identity is not available in the keychain.");
 }
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const supportedProviders = new Set(["garmin", "oura", "fitbit", "myfitnesspal"]);
+const supportedProviders = new Set(["garmin", "oura", "fitbit", "myfitnesspal", "whoop"]);
 
 export default function ConnectedAppReturnPage() {
   const [showFallback, setShowFallback] = useState(false);
@@ -14,10 +14,17 @@ export default function ConnectedAppReturnPage() {
     const provider = supportedProviders.has(requestedProvider) ? requestedProvider : "";
     const appParams = new URLSearchParams({ terra: status });
     if (provider) appParams.set("provider", provider);
-    window.location.replace(`shiftcoaching://portal/connected-apps?${appParams}`);
+    window.location.replace(`atcapacity://portal/connected-apps?${appParams}`);
+
+    const legacyTimeout = window.setTimeout(() => {
+      window.location.replace(`shiftcoaching://portal/connected-apps?${appParams}`);
+    }, 600);
 
     const timeout = window.setTimeout(() => setShowFallback(true), 1_500);
-    return () => window.clearTimeout(timeout);
+    return () => {
+      window.clearTimeout(legacyTimeout);
+      window.clearTimeout(timeout);
+    };
   }, []);
 
   return (

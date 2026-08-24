@@ -7,6 +7,12 @@
         "paths": [
           "/auth/callback"
         ]
+      },
+      {
+        "appID": "5NU9323724.com.gordyelliott.atcapacity",
+        "paths": [
+          "/auth/callback"
+        ]
       }
     ]
   }

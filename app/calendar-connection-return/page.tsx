@@ -18,13 +18,20 @@ export default function CalendarConnectionReturnPage() {
 
     const portalPath = `/portal/calendar?${appParams}`;
     const nextFallbackHref = `/login?${new URLSearchParams({ redirect: portalPath })}`;
-    window.location.replace(`shiftcoaching://portal/calendar?${appParams}`);
+    window.location.replace(`atcapacity://portal/calendar?${appParams}`);
+
+    const legacyTimeout = window.setTimeout(() => {
+      window.location.replace(`shiftcoaching://portal/calendar?${appParams}`);
+    }, 600);
 
     const timeout = window.setTimeout(() => {
       setFallbackHref(nextFallbackHref);
       setShowFallback(true);
     }, 1_500);
-    return () => window.clearTimeout(timeout);
+    return () => {
+      window.clearTimeout(legacyTimeout);
+      window.clearTimeout(timeout);
+    };
   }, []);
 
   return (

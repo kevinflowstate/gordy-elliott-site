@@ -1,8 +1,8 @@
 {
   "appName": "AT CAPACITY",
-  "bundleId": "com.gordyelliott.shift",
+  "bundleId": "com.gordyelliott.atcapacity",
   "productionUrl": "https://app.onlinegordy.com",
-  "appleTeamId": "H4J3XX8R8M",
+  "appleTeamId": "5NU9323724",
   "version": "1.0",
-  "build": "9"
+  "build": "10"
 }

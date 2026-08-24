@@ -17,7 +17,7 @@ export function resolveNativeAppLink(value: string, appHost: string): NativeAppL
   try {
     const destination = new URL(value);
 
-    if (destination.protocol === "shiftcoaching:") {
+    if (["atcapacity:", "shiftcoaching:"].includes(destination.protocol)) {
       const path = `/${destination.host}${destination.pathname}`.replace(/\/{2,}/g, "/");
       if (!isNativeAppRoute(path)) return null;
 
