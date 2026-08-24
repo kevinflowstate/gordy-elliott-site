@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { MINIMUM_NATIVE_VOICE_BUILD, nativeBuildSupportsVoiceNotes } from "../lib/native-voice";
 import { isProgrammeType, legacyProfileForProgramme, monthStartKey, normalizeProgrammeType, parseProgrammeAudiences, programmeConfig } from "../lib/programmes";
 
 const programmeMigrationUrl = new URL("../supabase/migrations/20260824100000_programme_journey.sql", import.meta.url);
@@ -59,6 +60,15 @@ test("voice notes are private, bounded and content-valid", async () => {
   assert.match(migration, /audio_duration_seconds BETWEEN 1 AND 180/);
   assert.doesNotMatch(migration, /CREATE POLICY "Clients can (?:upload|read) own inbox audio"/);
   assert.doesNotMatch(migration, /public\s*=\s*true/i);
+});
+
+test("voice recording is gated to native builds containing the microphone permission", () => {
+  assert.equal(MINIMUM_NATIVE_VOICE_BUILD, 9);
+  assert.equal(nativeBuildSupportsVoiceNotes("8"), false);
+  assert.equal(nativeBuildSupportsVoiceNotes("9"), true);
+  assert.equal(nativeBuildSupportsVoiceNotes(10), true);
+  assert.equal(nativeBuildSupportsVoiceNotes(undefined), false);
+  assert.equal(nativeBuildSupportsVoiceNotes("invalid"), false);
 });
 
 test("client activation is ordered, audited and idempotent", async () => {

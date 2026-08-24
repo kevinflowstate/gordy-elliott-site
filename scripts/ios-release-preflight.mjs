@@ -36,6 +36,7 @@ await Promise.all([
 ]);
 
 const project = await readFile(projectPath, "utf8");
+const info = await readFile(infoPath, "utf8");
 const capacitorConfig = JSON.parse(await readFile(capacitorConfigPath, "utf8"));
 const entitlements = await readFile(entitlementsPath, "utf8");
 const association = JSON.parse(await readFile(associationPath, "utf8"));
@@ -50,6 +51,7 @@ const checks = [
   [project.includes("CODE_SIGN_STYLE = Manual;"), "manual App Store release signing"],
   [project.includes(`PROVISIONING_PROFILE_SPECIFIER = "${appIdentity.appName} App Store";`), `${appIdentity.appName} App Store provisioning profile`],
   [project.includes("APS_ENVIRONMENT = production;"), "production APNs entitlement"],
+  [info.includes("<key>NSMicrophoneUsageDescription</key>") && /<key>NSMicrophoneUsageDescription<\/key>\s*<string>[^<]+<\/string>/.test(info), "microphone usage description"],
   [project.includes("com.apple.AssociatedDomains"), "Associated Domains target capability"],
   [entitlements.includes("applinks:app.onlinegordy.com"), "app.onlinegordy.com associated-domain entitlement"],
   [associatedApp?.paths?.includes("/auth/callback"), `AASA recovery callback for ${expectedAppId}`],

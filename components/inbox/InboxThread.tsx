@@ -1,6 +1,9 @@
 "use client";
 
+import { App } from "@capacitor/app";
+import { Capacitor } from "@capacitor/core";
 import { useEffect, useRef, useState } from "react";
+import { nativeBuildSupportsVoiceNotes } from "@/lib/native-voice";
 import type { InboxMessage, UserRole } from "@/lib/types";
 
 interface InboxThreadProps {
@@ -52,6 +55,7 @@ export default function InboxThread({
   const [recording, setRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [audioDraft, setAudioDraft] = useState<{ blob: Blob; url: string; duration: number } | null>(null);
+  const [voiceAvailability, setVoiceAvailability] = useState<"checking" | "ready" | "update-required">("checking");
 
   const canSend = draft.trim().length > 0 && !sending;
   const latestMessageId = messages.at(-1)?.id;
@@ -84,6 +88,24 @@ export default function InboxThread({
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    if (!Capacitor.isNativePlatform()) {
+      setVoiceAvailability("ready");
+      return () => { active = false; };
+    }
+
+    void App.getInfo()
+      .then((info) => {
+        if (active) setVoiceAvailability(nativeBuildSupportsVoiceNotes(info.build) ? "ready" : "update-required");
+      })
+      .catch(() => {
+        if (active) setVoiceAvailability("update-required");
+      });
+
+    return () => { active = false; };
+  }, []);
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     const message = draft.trim();
@@ -103,6 +125,10 @@ export default function InboxThread({
 
   async function startRecording() {
     setLocalError(null);
+    if (voiceAvailability !== "ready") {
+      setLocalError("Update AT CAPACITY from TestFlight to record voice notes.");
+      return;
+    }
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
       setLocalError("Voice notes aren't supported on this device.");
       return;
@@ -235,13 +261,13 @@ export default function InboxThread({
             <button
               type="button"
               onClick={() => recording ? recorderRef.current?.stop() : void startRecording()}
-              disabled={sending || Boolean(audioDraft)}
+              disabled={sending || Boolean(audioDraft) || voiceAvailability !== "ready"}
               aria-label={recording ? "Stop recording" : "Record voice note"}
-              title={recording ? "Stop recording" : "Record voice note"}
+              title={voiceAvailability === "update-required" ? "Update AT CAPACITY from TestFlight to record voice notes" : recording ? "Stop recording" : "Record voice note"}
               className={`flex h-11 shrink-0 items-center gap-2 rounded-full border px-3 text-xs font-bold transition-colors disabled:opacity-35 ${recording ? "border-red-400/40 bg-red-500/15 text-red-400" : "border-white/10 bg-white/[0.04] text-text-secondary"}`}
             >
               <span className={`h-2.5 w-2.5 ${recording ? "rounded-sm bg-red-400" : "rounded-full bg-accent-bright"}`} />
-              {recording ? `${recordingSeconds}s` : "Voice"}
+              {recording ? `${recordingSeconds}s` : voiceAvailability === "update-required" ? "Update required" : "Voice"}
             </button>
           )}
           <textarea
