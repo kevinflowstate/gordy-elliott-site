@@ -8,6 +8,8 @@ const programmeMigrationUrl = new URL("../supabase/migrations/20260824100000_pro
 const audioMigrationUrl = new URL("../supabase/migrations/20260824101000_inbox_voice_notes.sql", import.meta.url);
 const adminClientRouteUrl = new URL("../app/api/admin/clients/[id]/route.ts", import.meta.url);
 const portalAIRouteUrl = new URL("../app/api/portal/ai/route.ts", import.meta.url);
+const inboxThreadUrl = new URL("../components/inbox/InboxThread.tsx", import.meta.url);
+const monthlyCallPromptUrl = new URL("../components/portal/MonthlyCallPrompt.tsx", import.meta.url);
 
 test("only the three coaching programmes are accepted", () => {
   assert.equal(isProgrammeType("capacity"), true);
@@ -69,6 +71,18 @@ test("voice recording is gated to native builds containing the microphone permis
   assert.equal(nativeBuildSupportsVoiceNotes(10), true);
   assert.equal(nativeBuildSupportsVoiceNotes(undefined), false);
   assert.equal(nativeBuildSupportsVoiceNotes("invalid"), false);
+});
+
+test("older native builds get honest voice messaging and booking links look actionable", async () => {
+  const [inboxThread, monthlyCallPrompt] = await Promise.all([
+    readFile(inboxThreadUrl, "utf8"),
+    readFile(monthlyCallPromptUrl, "utf8"),
+  ]);
+
+  assert.match(inboxThread, /Voice notes are coming in the next TestFlight update\./);
+  assert.doesNotMatch(inboxThread, />Update required</);
+  assert.match(monthlyCallPrompt, /data-testid="monthly-call-booking-link"/);
+  assert.match(monthlyCallPrompt, /bg-accent-bright/);
 });
 
 test("client activation is ordered, audited and idempotent", async () => {

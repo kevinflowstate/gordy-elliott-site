@@ -249,6 +249,12 @@ export default function InboxThread({
       )}
 
       <form onSubmit={handleSubmit} className="portal-dm-composer border-t border-[rgba(255,255,255,0.06)] p-3 sm:p-4">
+        {onSendAudio && voiceAvailability === "update-required" && (
+          <div data-testid="voice-update-notice" role="status" className="mb-3 flex items-start gap-2.5 rounded-xl border border-accent/20 bg-accent/8 px-3 py-2.5 text-xs leading-relaxed text-text-secondary">
+            <span aria-hidden="true" className="mt-1 h-2 w-2 shrink-0 rounded-full bg-accent-bright" />
+            <span><strong className="font-bold text-text-primary">Voice notes are coming in the next TestFlight update.</strong> Use text messages for now.</span>
+          </div>
+        )}
         {audioDraft && (
           <div className="mb-3 flex items-center gap-3 rounded-2xl border border-accent/20 bg-accent/8 p-3">
             <audio controls preload="metadata" src={audioDraft.url} className="h-10 min-w-0 flex-1" />
@@ -257,17 +263,17 @@ export default function InboxThread({
           </div>
         )}
         <div className="flex items-end gap-2">
-          {onSendAudio && (
+          {onSendAudio && voiceAvailability === "ready" && (
             <button
               type="button"
               onClick={() => recording ? recorderRef.current?.stop() : void startRecording()}
-              disabled={sending || Boolean(audioDraft) || voiceAvailability !== "ready"}
+              disabled={sending || Boolean(audioDraft)}
               aria-label={recording ? "Stop recording" : "Record voice note"}
-              title={voiceAvailability === "update-required" ? "Update AT CAPACITY from TestFlight to record voice notes" : recording ? "Stop recording" : "Record voice note"}
+              title={recording ? "Stop recording" : "Record voice note"}
               className={`flex h-11 shrink-0 items-center gap-2 rounded-full border px-3 text-xs font-bold transition-colors disabled:opacity-35 ${recording ? "border-red-400/40 bg-red-500/15 text-red-400" : "border-white/10 bg-white/[0.04] text-text-secondary"}`}
             >
               <span className={`h-2.5 w-2.5 ${recording ? "rounded-sm bg-red-400" : "rounded-full bg-accent-bright"}`} />
-              {recording ? `${recordingSeconds}s` : voiceAvailability === "update-required" ? "Update required" : "Voice"}
+              {recording ? `${recordingSeconds}s` : "Voice"}
             </button>
           )}
           <textarea

@@ -65,7 +65,18 @@ export default function MonthlyCallPrompt() {
               ) : (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {state.config.bookingUrl && (
-                    <a href={state.config.bookingUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center rounded-xl bg-white px-3 py-2 text-xs font-bold text-black no-underline">{state.config.callLabel}</a>
+                    <a
+                      href={state.config.bookingUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      data-testid="monthly-call-booking-link"
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-accent-bright bg-accent-bright px-4 py-2.5 text-sm font-extrabold text-black no-underline shadow-[0_8px_24px_rgba(224,64,208,0.24)] transition hover:-translate-y-0.5 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-bright focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary active:translate-y-0"
+                    >
+                      {state.config.callLabel}
+                      <svg aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.25} d="M5 12h14m-5-5 5 5-5 5" />
+                      </svg>
+                    </a>
                   )}
                   <button type="button" onClick={() => void confirm(slot)} disabled={savingSlot === slot} className="min-h-10 rounded-xl border border-accent/30 bg-accent/10 px-3 py-2 text-xs font-bold text-accent-bright disabled:opacity-50">
                     {savingSlot === slot ? "Saving…" : state.programme === "in_person" ? "It’s booked" : "I’ve booked this"}
