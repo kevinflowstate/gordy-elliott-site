@@ -40,6 +40,10 @@ export default function AdminInboxClient() {
   const [loadingThread, setLoadingThread] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkAudience, setBulkAudience] = useState<"all" | "capacity" | "shift" | "in_person">("all");
+  const [bulkMessage, setBulkMessage] = useState("");
+  const [bulkSending, setBulkSending] = useState(false);
   const conversationsRequestInFlight = useRef(false);
   const threadAbortController = useRef<AbortController | null>(null);
 
@@ -56,6 +60,7 @@ export default function AdminInboxClient() {
   }, [conversations, query]);
 
   const selectedConversation = conversations.find((conversation) => conversation.client_id === selectedClientId) ?? null;
+  const bulkRecipientCount = conversations.filter((conversation) => conversation.bulk_eligible && (bulkAudience === "all" || conversation.programme_type === bulkAudience)).length;
 
   const loadConversations = useCallback(async () => {
     if (conversationsRequestInFlight.current) return;
@@ -173,13 +178,77 @@ export default function AdminInboxClient() {
     }
   }
 
+  async function handleSendAudio(audio: Blob, durationSeconds: number) {
+    if (!selectedClientId) return;
+    setSending(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.set("audio", new File([audio], "voice-note", { type: audio.type }));
+      form.set("duration_seconds", String(durationSeconds));
+      form.set("client_id", selectedClientId);
+      const res = await fetch("/api/inbox/audio", { method: "POST", body: form });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Voice note could not be sent.");
+      toast("Voice note sent");
+      await Promise.all([loadConversations(), loadThread(selectedClientId)]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Voice note could not be sent.";
+      setError(message);
+      toast(message, "error");
+      throw err;
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function handleBulkSend() {
+    if (!bulkMessage.trim() || bulkRecipientCount === 0 || bulkSending) return;
+    setBulkSending(true);
+    try {
+      const res = await fetch("/api/admin/inbox/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audience: bulkAudience, message: bulkMessage }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Bulk message failed");
+      toast(`Message sent to ${data.sent} client${data.sent === 1 ? "" : "s"}`);
+      setBulkMessage("");
+      setBulkOpen(false);
+      await loadConversations();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Bulk message failed", "error");
+    } finally {
+      setBulkSending(false);
+    }
+  }
+
   return (
     <div className="space-y-5">
-      <div>
-        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-bright">Direct Messages</div>
-        <h1 className="mt-2 text-2xl font-heading font-bold text-text-primary">DM</h1>
-        <p className="mt-1 text-sm text-text-secondary">Message clients directly and keep replies in one place.</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-bright">Direct Messages</div>
+          <h1 className="mt-2 text-2xl font-heading font-bold text-text-primary">DM</h1>
+          <p className="mt-1 text-sm text-text-secondary">Message clients directly and keep replies in one place.</p>
+        </div>
+        <button type="button" onClick={() => setBulkOpen((open) => !open)} className="min-h-11 rounded-xl border border-accent/25 bg-accent/10 px-4 py-2.5 text-sm font-bold text-accent-bright">Message a group</button>
       </div>
+
+      {bulkOpen && (
+        <section className="rounded-2xl border border-accent/20 bg-[linear-gradient(135deg,rgba(224,64,208,0.08),rgba(255,255,255,0.02))] p-5">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <select value={bulkAudience} onChange={(event) => setBulkAudience(event.target.value as typeof bulkAudience)} className="min-h-11 rounded-xl border border-white/10 bg-bg-primary px-3 text-sm font-semibold text-text-primary">
+              <option value="all">Everyone</option><option value="capacity">CAPACITY</option><option value="shift">SHIFT</option><option value="in_person">IN PERSON</option>
+            </select>
+            <textarea value={bulkMessage} onChange={(event) => setBulkMessage(event.target.value)} rows={2} maxLength={4000} placeholder="Write one message for this group…" className="min-h-11 flex-1 resize-none rounded-xl border border-white/10 bg-bg-primary px-4 py-3 text-sm text-text-primary placeholder:text-text-muted" />
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <div className="text-xs text-text-muted">This creates a private DM for {bulkRecipientCount} client{bulkRecipientCount === 1 ? "" : "s"}. Replies stay individual.</div>
+            <button type="button" onClick={() => void handleBulkSend()} disabled={!bulkMessage.trim() || !bulkRecipientCount || bulkSending} className="min-h-11 shrink-0 rounded-xl bg-accent-bright px-4 py-2 text-sm font-bold text-black disabled:opacity-40">{bulkSending ? "Sending…" : `Send to ${bulkRecipientCount}`}</button>
+          </div>
+        </section>
+      )}
 
       <div className="grid min-h-[min(76dvh,52rem)] overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.025)] lg:grid-cols-[21rem_1fr]">
         <aside className="border-b border-[rgba(255,255,255,0.08)] lg:border-b-0 lg:border-r">
@@ -240,6 +309,7 @@ export default function AdminInboxClient() {
                 messages={thread?.messages ?? []}
                 currentRole="admin"
                 onSend={handleSend}
+                onSendAudio={handleSendAudio}
                 sending={sending}
                 error={error}
                 emptyTitle="No messages yet"

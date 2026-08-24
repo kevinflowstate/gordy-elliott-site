@@ -64,6 +64,7 @@ export default function ShiftAIPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [tier, setTier] = useState<string>("coached");
+  const [usage, setUsage] = useState<{ limited: boolean; used: number; limit: number | null; remaining: number | null } | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -79,6 +80,13 @@ export default function ShiftAIPage() {
     if (window.matchMedia("(min-width: 768px)").matches) {
       inputRef.current?.focus();
     }
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/portal/ai/usage")
+      .then((r) => r.ok ? r.json() : null)
+      .then(setUsage)
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -137,11 +145,14 @@ export default function ShiftAIPage() {
       });
 
       if (!res.ok) {
-        setMessages([...updated, { role: "assistant", content: "Sorry, something went wrong. Please try again." }]);
+        const data = await res.json().catch(() => ({}));
+        if (data.usage) setUsage(data.usage);
+        setMessages([...updated, { role: "assistant", content: data.error || "Sorry, something went wrong. Please try again." }]);
         return;
       }
 
       const data = await res.json();
+      if (data.usage) setUsage(data.usage);
       setMessages([...updated, { role: "assistant", content: data.reply, action: data.action }]);
     } catch {
       setMessages([...updated, { role: "assistant", content: "Sorry, something went wrong. Please try again." }]);
@@ -164,6 +175,11 @@ export default function ShiftAIPage() {
         <p className="text-sm text-text-secondary mt-1">
           Your personal coaching assistant - ask about training, your plan, or next steps.
         </p>
+        {usage?.limited && usage.limit !== null && (
+          <div className="mt-3 inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-text-secondary">
+            {usage.remaining} of {usage.limit} replies left this month
+          </div>
+        )}
       </div>
 
       <div ref={threadRef} className="shift-ai-thread app-card-quiet flex-1 min-h-0 overflow-y-auto p-4 space-y-4 mb-3 rounded-[20px] sm:mb-4 sm:rounded-[24px] flex flex-col">

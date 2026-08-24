@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
 import ModuleCover from "@/components/training/ModuleCover";
 import type { TrainingModule } from "@/lib/types";
+import type { ProgrammeType } from "@/lib/types";
+import { PROGRAMME_TYPES, programmeConfig } from "@/lib/programmes";
 
 interface ClientOption {
   id: string;
@@ -37,6 +39,8 @@ export default function TrainingManagerPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
+  const [newSection, setNewSection] = useState<"library" | "current_coaching">("library");
+  const [newAudiences, setNewAudiences] = useState<ProgrammeType[]>([...PROGRAMME_TYPES]);
 
   // Bulk assign state
   const [bulkMode, setBulkMode] = useState(false);
@@ -217,6 +221,26 @@ export default function TrainingManagerPage() {
                 className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/40"
               />
             </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">Section</label>
+                <select value={newSection} onChange={(e) => setNewSection(e.target.value as "library" | "current_coaching")} className="w-full rounded-xl border border-black/10 bg-bg-primary px-4 py-3 text-sm text-text-primary">
+                  <option value="library">Education Library</option>
+                  <option value="current_coaching">Current Coaching</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">Who should see it?</label>
+                <div className="flex min-h-12 flex-wrap items-center gap-2 rounded-xl border border-black/10 bg-bg-primary px-3 py-2">
+                  {PROGRAMME_TYPES.map((audience) => (
+                    <label key={audience} className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary">
+                      <input type="checkbox" checked={newAudiences.includes(audience)} onChange={() => setNewAudiences((current) => current.includes(audience) ? current.filter((item) => item !== audience) : [...current, audience])} />
+                      {programmeConfig[audience].label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
             <div>
               <label className="block text-sm font-medium text-text-primary mb-2">Description</label>
               <textarea
@@ -235,12 +259,12 @@ export default function TrainingManagerPage() {
                     const res = await fetch("/api/admin/training/modules", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ title: newTitle, description: newDesc }),
+                      body: JSON.stringify({ title: newTitle, description: newDesc, hub_section: newSection, programme_audiences: newAudiences }),
                     });
                     if (res.ok) {
                       const data = await res.json();
                       toast("Module created");
-                      setNewTitle(""); setNewDesc(""); setShowAdd(false);
+                      setNewTitle(""); setNewDesc(""); setNewSection("library"); setNewAudiences([...PROGRAMME_TYPES]); setShowAdd(false);
                       // Reload modules
                       const listRes = await fetch("/api/admin/training");
                       if (listRes.ok) {
@@ -258,7 +282,8 @@ export default function TrainingManagerPage() {
                     toast("Failed to create module", "error");
                   }
                 }}
-                className="px-5 py-2 gradient-accent text-white rounded-xl text-sm font-medium cursor-pointer"
+                disabled={!newTitle.trim() || newAudiences.length === 0}
+                className="px-5 py-2 gradient-accent text-white rounded-xl text-sm font-medium cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Create
               </button>

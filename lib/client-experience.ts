@@ -19,12 +19,3 @@ export function normalizeClientExperienceMode(value: unknown): ClientExperienceM
 export function isFounderExperience(value: unknown): boolean {
   return normalizeClientExperienceMode(value) === "founder_dashboard";
 }
-
-export function isFounderRestrictedPath(pathname: string): boolean {
-  return [
-    "/portal/ai",
-    "/portal/inbox",
-    "/api/portal/ai",
-    "/api/inbox",
-  ].some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-}

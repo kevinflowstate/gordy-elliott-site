@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeProgrammeType } from "@/lib/programmes";
 import { NextResponse } from "next/server";
 
 // Used by sidebar and settings to get current user info
@@ -22,7 +23,7 @@ export async function GET() {
 
   const { data: profile } = await admin
     .from("client_profiles")
-    .select("id, tier, experience_mode, start_date, date_of_birth, sex, cycle_tracking_enabled")
+    .select("id, tier, experience_mode, programme_type, onboarding_status, activated_at, start_date, date_of_birth, sex, cycle_tracking_enabled")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -43,5 +44,7 @@ export async function GET() {
     keyDates: keyDates || [],
     tier: (profile?.tier as string) || "coached",
     experienceMode: profile?.experience_mode || "ai_coaching",
+    programmeType: normalizeProgrammeType(profile?.programme_type),
+    onboardingStatus: profile?.onboarding_status || "active",
   });
 }

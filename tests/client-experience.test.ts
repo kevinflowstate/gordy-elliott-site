@@ -4,7 +4,6 @@ import {
   DEFAULT_CLIENT_EXPERIENCE,
   isClientExperienceMode,
   isFounderExperience,
-  isFounderRestrictedPath,
   normalizeClientExperienceMode,
 } from "../lib/client-experience";
 
@@ -25,15 +24,4 @@ test("founder mode is explicit and never inferred from tier", () => {
   assert.equal(isFounderExperience("founder_dashboard"), true);
   assert.equal(isFounderExperience("ai_coaching"), false);
   assert.equal(isFounderExperience("vip"), false);
-});
-
-test("founder mode restricts client AI and DM routes only", () => {
-  assert.equal(isFounderRestrictedPath("/portal/ai"), true);
-  assert.equal(isFounderRestrictedPath("/portal/ai/history"), true);
-  assert.equal(isFounderRestrictedPath("/portal/inbox"), true);
-  assert.equal(isFounderRestrictedPath("/api/portal/ai"), true);
-  assert.equal(isFounderRestrictedPath("/api/inbox/send"), true);
-  assert.equal(isFounderRestrictedPath("/portal/daily-tracker"), false);
-  assert.equal(isFounderRestrictedPath("/admin/ai"), false);
-  assert.equal(isFounderRestrictedPath("/api/admin/inbox"), false);
 });

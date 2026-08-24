@@ -18,6 +18,7 @@ export default function PortalDocumentsPage() {
   const [notes, setNotes] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [upgradeRequired, setUpgradeRequired] = useState(false);
 
   async function load() {
     setError("");
@@ -25,7 +26,7 @@ export default function PortalDocumentsPage() {
       const res = await fetch("/api/portal/documents");
       const data = await res.json().catch(() => ({}));
       if (res.status === 403) {
-        setError("Document vault is only available for VIP clients.");
+        setUpgradeRequired(Boolean(data.upgradeRequired));
         return;
       }
       if (!res.ok) {
@@ -87,9 +88,19 @@ export default function PortalDocumentsPage() {
   return (
     <div className="mx-auto w-full max-w-4xl pb-28 sm:pb-0">
       <div className="mb-6">
-        <h1 className="text-3xl font-heading font-bold text-text-primary">Document Vault</h1>
-        <p className="mt-1 text-sm text-text-secondary">Private VIP storage for bloodwork and health documents.</p>
+        <h1 className="text-3xl font-heading font-bold text-text-primary">Private Documents</h1>
+        <p className="mt-1 text-sm text-text-secondary">A secure place for coaching, progress and health-related files shared with Gordy.</p>
       </div>
+
+      {upgradeRequired && (
+        <div className="mb-6 rounded-[28px] border border-accent/25 bg-[linear-gradient(135deg,rgba(224,64,208,0.12),rgba(255,255,255,0.025))] p-7 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/15 text-accent-bright">
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+          </div>
+          <h2 className="mt-4 text-xl font-heading font-bold text-text-primary">Upgrade to Access</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-text-secondary">Private document sharing is included with CAPACITY and IN PERSON coaching. Message Gordy if you want to discuss upgrading.</p>
+        </div>
+      )}
 
       {error && (
         <div className="mb-6 rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-400">
@@ -97,7 +108,7 @@ export default function PortalDocumentsPage() {
         </div>
       )}
 
-      {!error.includes("VIP") && (
+      {!upgradeRequired && (
         <div className="mb-6 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-5">
           <h2 className="mb-4 text-sm font-heading font-bold text-text-primary">Upload Document</h2>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -155,7 +166,7 @@ export default function PortalDocumentsPage() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card overflow-hidden">
+      {!upgradeRequired && <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card overflow-hidden">
         {loading ? (
           <div className="p-6 text-sm text-text-secondary">Loading...</div>
         ) : documents.length === 0 ? (
@@ -199,7 +210,7 @@ export default function PortalDocumentsPage() {
             ))}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

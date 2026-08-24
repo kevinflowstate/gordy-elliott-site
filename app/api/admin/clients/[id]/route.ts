@@ -2,10 +2,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
 import { dbError } from "@/lib/api-errors";
 import { getClientById } from "@/lib/admin-data";
-import { isClientExperienceMode } from "@/lib/client-experience";
+import { isProgrammeType, legacyProfileForProgramme } from "@/lib/programmes";
 import { NextResponse } from "next/server";
+import { notifyClientUser } from "@/lib/client-notifications";
 
-const VALID_TIERS = ["coached", "premium", "vip", "ai_only"];
 const VALID_SEX_VALUES = ["female", "male", "prefer_not_to_say"];
 
 export async function GET(
@@ -34,40 +34,47 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await request.json();
+  const admin = createAdminClient();
+  const { data: currentProfile, error: currentProfileError } = await admin
+    .from("client_profiles")
+    .select("user_id, onboarding_status, activated_at, sex")
+    .eq("id", id)
+    .maybeSingle();
+  if (currentProfileError) return dbError(currentProfileError, "Couldn't load that client. Try again.");
+  if (!currentProfile) return NextResponse.json({ error: "Client not found" }, { status: 404 });
 
   // Only allow safe profile fields to be patched
-  const allowed = ["checkin_day", "checkin_form_id", "coach_notes", "start_weight", "tier", "experience_mode", "date_of_birth", "sex", "cycle_tracking_enabled"];
+  const allowed = ["checkin_day", "checkin_form_id", "coach_notes", "start_weight", "programme_type", "onboarding_status", "date_of_birth", "sex", "cycle_tracking_enabled"];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in body) updates[key] = body[key];
   }
 
-  // Validate tier value if present
-  if ("tier" in updates && !VALID_TIERS.includes(String(updates.tier))) {
-    return NextResponse.json({ error: "Invalid tier value" }, { status: 400 });
+  if ("programme_type" in updates) {
+    if (!isProgrammeType(updates.programme_type)) {
+      return NextResponse.json({ error: "Invalid programme" }, { status: 400 });
+    }
+    Object.assign(updates, legacyProfileForProgramme(updates.programme_type));
   }
 
-  if ("experience_mode" in updates && !isClientExperienceMode(updates.experience_mode)) {
-    return NextResponse.json({ error: "Invalid client experience" }, { status: 400 });
-  }
-
-  if ("tier" in updates || "experience_mode" in updates) {
-    const admin = createAdminClient();
-    const { data: currentProfile, error: currentProfileError } = await admin
-      .from("client_profiles")
-      .select("tier, experience_mode")
-      .eq("id", id)
-      .maybeSingle();
-    if (currentProfileError) return dbError(currentProfileError, "Couldn't verify that client.");
-    if (!currentProfile) return NextResponse.json({ error: "Client not found" }, { status: 404 });
-
-    const nextTier = String(updates.tier ?? currentProfile.tier);
-    const nextExperience = String(updates.experience_mode ?? currentProfile.experience_mode);
-    if (nextExperience === "founder_dashboard" && nextTier === "ai_only") {
-      return NextResponse.json(
-        { error: "Founder Dashboard cannot be combined with the AI-only tier" },
-        { status: 400 },
-      );
+  if ("onboarding_status" in updates) {
+    if (!['invited', 'consultation_complete', 'active', 'paused'].includes(String(updates.onboarding_status))) {
+      return NextResponse.json({ error: "Invalid onboarding status" }, { status: 400 });
+    }
+    const requestedStatus = String(updates.onboarding_status);
+    const currentStatus = currentProfile.onboarding_status || "active";
+    if (requestedStatus === "active" && !["consultation_complete", "paused", "active"].includes(currentStatus)) {
+      return NextResponse.json({ error: "The consultation must be completed before this client can go live" }, { status: 409 });
+    }
+    if (requestedStatus === "consultation_complete" && !["invited", "consultation_complete"].includes(currentStatus)) {
+      return NextResponse.json({ error: "That onboarding step has already been completed" }, { status: 409 });
+    }
+    if (requestedStatus === "invited" && currentStatus !== "invited") {
+      return NextResponse.json({ error: "Onboarding cannot be moved back to invited" }, { status: 409 });
+    }
+    if (requestedStatus === "active" && currentStatus !== "active") {
+      updates.activated_at = currentProfile.activated_at || new Date().toISOString();
+      updates.activated_by = auth.userId;
     }
   }
 
@@ -80,12 +87,7 @@ export async function PATCH(
 
   if ("cycle_tracking_enabled" in updates) {
     const sexForEligibility = updates.sex === undefined
-      ? await createAdminClient()
-          .from("client_profiles")
-          .select("sex")
-          .eq("id", id)
-          .maybeSingle()
-          .then(({ data }) => data?.sex || null)
+      ? currentProfile.sex
       : updates.sex;
 
     updates.cycle_tracking_enabled = sexForEligibility === "female"
@@ -97,17 +99,28 @@ export async function PATCH(
     return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
-  const { error } = await admin
+  const becameActive = updates.onboarding_status === "active" && currentProfile.onboarding_status !== "active";
+  const { data: updatedProfile, error } = await admin
     .from("client_profiles")
     .update(updates)
-    .eq("id", id);
+    .eq("id", id)
+    .select("user_id, onboarding_status, activated_at")
+    .maybeSingle();
 
   if (error) {
     return dbError(error, "Couldn't update that client. Try again.");
   }
 
-  return NextResponse.json({ success: true });
+  if (becameActive && updatedProfile?.user_id) {
+      await notifyClientUser(updatedProfile.user_id, {
+        title: "Your AT CAPACITY plan is live",
+        message: "Gordy has finished your setup. Open the app to get started.",
+        link: "/portal",
+        tag: `onboarding-live-${id}`,
+      });
+  }
+
+  return NextResponse.json({ success: true, client: updatedProfile });
 }
 
 export async function DELETE(

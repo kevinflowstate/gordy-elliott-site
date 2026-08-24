@@ -7,6 +7,8 @@ import { getCyclePhase, isCycleEligible, toDateKey, type CycleSettings } from "@
 import { formatExercisePrescription } from "@/lib/exercise-prescriptions";
 import { formatWearableSummaryForPrompt, type WearableConnection, type WearableDailySummary } from "@/lib/wearable-insights";
 import { getPortalAIAction } from "@/lib/portal-ai-action";
+import { claimProgrammeAIInteraction, getShiftAILimit, releaseProgrammeAIInteraction } from "@/lib/programme-ai";
+import { monthStartKey, normalizeProgrammeType } from "@/lib/programmes";
 import {
   formatPlannerDate,
   getPlannerWeekStart,
@@ -116,9 +118,16 @@ export async function POST(req: NextRequest) {
   // Get client profile — only fitness-coaching-relevant fields
   const { data: profile } = await admin
     .from("client_profiles")
-    .select("id, goals, primary_goal, target_date, tier, checkin_day, consultation_data, sex, cycle_tracking_enabled")
+    .select("id, goals, primary_goal, target_date, tier, programme_type, checkin_day, consultation_data, sex, cycle_tracking_enabled")
     .eq("user_id", userId)
     .single();
+
+  if (!profile) return NextResponse.json({ error: "Client profile not found" }, { status: 404 });
+  const programme = normalizeProgrammeType(profile.programme_type);
+  const shiftLimit = programme === "shift" ? await getShiftAILimit(admin) : null;
+  const programmeUsage = shiftLimit === null
+    ? { limited: false, used: 0, limit: null, remaining: null }
+    : { limited: true, used: 0, limit: shiftLimit, remaining: shiftLimit, monthStart: monthStartKey() };
 
   // Get user name
   const { data: userData } = await admin
@@ -139,6 +148,7 @@ export async function POST(req: NextRequest) {
     .from("training_modules")
     .select("id, title, description, is_published, content:module_content(id, title, content_type, duration_minutes, content_text, content_url, order_index)")
     .eq("is_published", true)
+    .contains("programme_audiences", [programme])
     .order("order_index", { ascending: true });
 
   // Get training plan phases (legacy table name: business_plans; these are Gordy's training plans)
@@ -670,6 +680,24 @@ Always confirm the action in your reply after using a tool.`;
     { role: "user", content: message },
   ];
 
+  let usageClaim: { monthStart: string; used: number } | null = null;
+  if (programmeUsage.limited && programmeUsage.limit !== null) {
+    try {
+      const claim = await claimProgrammeAIInteraction(admin, profile.id, programmeUsage.limit);
+      if (!claim.claimed) {
+        return NextResponse.json({
+          error: "You’ve used this month’s AT CAPACITY AI allowance. Your replies reset automatically next month, or message Gordy if you need help now.",
+          code: "MONTHLY_AI_LIMIT",
+          usage: { ...programmeUsage, used: programmeUsage.limit, remaining: 0 },
+        }, { status: 429 });
+      }
+      usageClaim = { monthStart: claim.monthStart, used: claim.used };
+    } catch (error) {
+      console.error("AI allowance reservation error:", error);
+      return NextResponse.json({ error: "The AI assistant is temporarily unavailable. Please try again." }, { status: 503 });
+    }
+  }
+
   try {
     let response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -690,6 +718,7 @@ Always confirm the action in your reply after using a tool.`;
     if (!response.ok) {
       const err = await response.text();
       console.error("Anthropic API error:", err);
+      if (usageClaim) await releaseProgrammeAIInteraction(admin, profile.id, usageClaim.monthStart);
       return NextResponse.json({ error: "AI request failed" }, { status: 502 });
     }
 
@@ -740,6 +769,7 @@ Always confirm the action in your reply after using a tool.`;
       if (!response.ok) {
         const err = await response.text();
         console.error("Anthropic API error on follow-up:", err);
+        if (usageClaim) await releaseProgrammeAIInteraction(admin, profile.id, usageClaim.monthStart);
         return NextResponse.json({ error: "AI request failed" }, { status: 502 });
       }
 
@@ -762,8 +792,15 @@ Always confirm the action in your reply after using a tool.`;
 
     const action = getPortalAIAction(message, reply);
 
-    return NextResponse.json({ reply, action });
+    return NextResponse.json({
+      reply,
+      action,
+      usage: programmeUsage.limited && programmeUsage.limit !== null
+        ? { ...programmeUsage, used: usageClaim?.used || programmeUsage.used, remaining: Math.max(0, programmeUsage.limit - (usageClaim?.used || programmeUsage.used)) }
+        : programmeUsage,
+    });
   } catch (err) {
+    if (usageClaim) await releaseProgrammeAIInteraction(admin, profile.id, usageClaim.monthStart);
     console.error("AI route error:", err);
     return NextResponse.json({ error: "AI request failed" }, { status: 500 });
   }

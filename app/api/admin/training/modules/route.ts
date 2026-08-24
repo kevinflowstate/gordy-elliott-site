@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
+import { parseProgrammeAudiences } from "@/lib/programmes";
 import { NextRequest, NextResponse } from "next/server";
 
 // POST - Create a new training module
@@ -7,10 +8,14 @@ export async function POST(req: NextRequest) {
   const auth = await requireAdmin();
   if (!auth.authorized) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { title, description } = await req.json();
+  const { title, description, hub_section, programme_audiences } = await req.json();
 
   if (!title) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
+  }
+  const audiences = parseProgrammeAudiences(programme_audiences);
+  if (!audiences) {
+    return NextResponse.json({ error: "Choose at least one valid programme audience" }, { status: 400 });
   }
 
   const admin = createAdminClient();
@@ -32,6 +37,8 @@ export async function POST(req: NextRequest) {
       description: description || "",
       order_index: nextIndex,
       is_published: false,
+      hub_section: hub_section === "current_coaching" ? "current_coaching" : "library",
+      programme_audiences: audiences,
     })
     .select()
     .single();
@@ -46,7 +53,7 @@ export async function PUT(req: NextRequest) {
   const auth = await requireAdmin();
   if (!auth.authorized) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { id, title, description, thumbnail_url, is_published, order_index } = await req.json();
+  const { id, title, description, thumbnail_url, is_published, order_index, hub_section, programme_audiences } = await req.json();
 
   if (!id) {
     return NextResponse.json({ error: "Module ID is required" }, { status: 400 });
@@ -60,6 +67,12 @@ export async function PUT(req: NextRequest) {
   if (thumbnail_url !== undefined) updates.thumbnail_url = thumbnail_url;
   if (is_published !== undefined) updates.is_published = is_published;
   if (order_index !== undefined) updates.order_index = order_index;
+  if (hub_section !== undefined) updates.hub_section = hub_section === "current_coaching" ? "current_coaching" : "library";
+  if (programme_audiences !== undefined) {
+    const audiences = parseProgrammeAudiences(programme_audiences);
+    if (!audiences) return NextResponse.json({ error: "Choose at least one valid programme audience" }, { status: 400 });
+    updates.programme_audiences = audiences;
+  }
 
   const { data: mod, error } = await admin
     .from("training_modules")

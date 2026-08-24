@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeProgrammeType } from "@/lib/programmes";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -11,12 +12,19 @@ export async function GET() {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  // Return all published modules for any authenticated user
+  const { data: profile } = await admin
+    .from("client_profiles")
+    .select("programme_type")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const programme = normalizeProgrammeType(profile?.programme_type);
+
   const { data: modules } = await admin
     .from("training_modules")
     .select("*, content:module_content(*)")
     .eq("is_published", true)
+    .contains("programme_audiences", [programme])
     .order("order_index");
 
-  return NextResponse.json({ modules: modules || [] });
+  return NextResponse.json({ modules: modules || [], programme });
 }

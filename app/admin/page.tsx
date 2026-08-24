@@ -4,7 +4,7 @@ import { useState, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
 import type { AdminClient } from "@/lib/admin-data";
-import type { ClientExperienceMode, TrafficLight, CheckInMood, CheckIn, InboxConversation } from "@/lib/types";
+import type { ProgrammeType, TrafficLight, CheckInMood, CheckIn, InboxConversation } from "@/lib/types";
 
 interface CapacityScanClient {
   id: string;
@@ -94,8 +94,8 @@ export default function AdminDashboard() {
     firstName: string;
     lastName: string;
     email: string;
-    experienceMode: ClientExperienceMode;
-  }>({ firstName: "", lastName: "", email: "", experienceMode: "ai_coaching" });
+    programmeType: ProgrammeType;
+  }>({ firstName: "", lastName: "", email: "", programmeType: "capacity" });
   const [inviteSending, setInviteSending] = useState(false);
   const [inviteError, setInviteError] = useState("");
   const [inviteResult, setInviteResult] = useState<{ emailSent: boolean; setupUrl: string | null } | null>(null);
@@ -495,7 +495,7 @@ export default function AdminDashboard() {
                   </button>
                 )}
                 <button
-                  onClick={() => { setInviteOpen(false); setInviteResult(null); setInviteForm({ firstName: "", lastName: "", email: "", experienceMode: "ai_coaching" }); }}
+                  onClick={() => { setInviteOpen(false); setInviteResult(null); setInviteForm({ firstName: "", lastName: "", email: "", programmeType: "capacity" }); }}
                   className="mt-4 px-6 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold cursor-pointer"
                 >
                   Done
@@ -513,7 +513,7 @@ export default function AdminDashboard() {
                     body: JSON.stringify({
                       email: inviteForm.email,
                       name: `${inviteForm.firstName} ${inviteForm.lastName}`.trim(),
-                      experience_mode: inviteForm.experienceMode,
+                      programme_type: inviteForm.programmeType,
                     }),
                   });
                   const data = await res.json().catch(() => ({}));
@@ -570,16 +570,17 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-text-primary mb-1.5">Client Experience</label>
+                  <label className="block text-sm font-medium text-text-primary mb-1.5">Programme</label>
                   <select
-                    value={inviteForm.experienceMode}
-                    onChange={(e) => setInviteForm(prev => ({ ...prev, experienceMode: e.target.value as ClientExperienceMode }))}
+                    value={inviteForm.programmeType}
+                    onChange={(e) => setInviteForm(prev => ({ ...prev, programmeType: e.target.value as ProgrammeType }))}
                     className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3.5 py-2.5 text-sm text-text-primary focus:outline-none focus:border-accent/40 transition-colors"
                   >
-                    <option value="ai_coaching">AI Coaching</option>
-                    <option value="founder_dashboard">Founder Dashboard</option>
+                    <option value="capacity">CAPACITY</option>
+                    <option value="shift">SHIFT</option>
+                    <option value="in_person">IN PERSON</option>
                   </select>
-                  <p className="mt-1.5 text-xs text-text-muted">Founder clients use WhatsApp instead of portal DM and AI.</p>
+                  <p className="mt-1.5 text-xs text-text-muted">Controls calls, documents, education and AI allowance.</p>
                 </div>
                 {inviteError && (
                   <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs">{inviteError}</div>

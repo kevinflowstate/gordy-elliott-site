@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
-import type { TrainingModule, ModuleContent, Attachment, ContentType } from "@/lib/types";
+import type { TrainingModule, ModuleContent, Attachment, ContentType, ProgrammeType } from "@/lib/types";
 import { getLessonDisplayType } from "@/lib/training-content";
 import ModuleCover from "@/components/training/ModuleCover";
 import ValuesExercise from "@/components/portal/ValuesExercise";
+import { PROGRAMME_TYPES, programmeConfig } from "@/lib/programmes";
 
 const attachmentIcons: Record<string, { icon: string; color: string }> = {
   pdf: { icon: "M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z", color: "text-red-400 bg-red-500/10" },
@@ -59,6 +60,8 @@ export default function ModuleEditorPage() {
   const [expandedLesson, setExpandedLesson] = useState<string | null>(null);
   const [showAddLesson, setShowAddLesson] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
+  const [hubSection, setHubSection] = useState<"library" | "current_coaching">("library");
+  const [audiences, setAudiences] = useState<ProgrammeType[]>([...PROGRAMME_TYPES]);
 
   // New lesson form state
   const [newTitle, setNewTitle] = useState("");
@@ -79,6 +82,8 @@ export default function ModuleEditorPage() {
           setModuleDesc(found.description);
           setCoverUrl(found.thumbnail_url || "");
           setIsPublished(found.is_published);
+          setHubSection(found.hub_section || "library");
+          setAudiences(found.programme_audiences || [...PROGRAMME_TYPES]);
         }
       }
     } finally {
@@ -97,8 +102,9 @@ export default function ModuleEditorPage() {
         body: JSON.stringify({ id, ...updates }),
       });
       if (res.ok) {
+        const data = await res.json();
+        setModule((current) => current ? { ...current, ...data.module } : current);
         toast("Saved");
-        await loadModule();
       } else {
         toast("Failed to save", "error");
       }
@@ -336,6 +342,31 @@ export default function ModuleEditorPage() {
               </button>
             </div>
           )}
+
+          <div className="mb-5 grid gap-3 rounded-2xl border border-black/10 bg-black/[0.025] p-4 sm:grid-cols-2">
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Hub section</label>
+              <select value={hubSection} onChange={(event) => { const value = event.target.value as "library" | "current_coaching"; setHubSection(value); void saveModule({ hub_section: value }); }} className="mt-2 w-full rounded-xl border border-black/10 bg-bg-primary px-3 py-2.5 text-sm font-semibold text-text-primary">
+                <option value="library">Education Library</option>
+                <option value="current_coaching">Current Coaching</option>
+              </select>
+            </div>
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Programme audience</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {PROGRAMME_TYPES.map((audience) => (
+                  <button key={audience} type="button" disabled={saving} onClick={() => {
+                    const next = audiences.includes(audience) ? audiences.filter((item) => item !== audience) : [...audiences, audience];
+                    if (!next.length) return;
+                    setAudiences(next);
+                    void saveModule({ programme_audiences: next });
+                  }} className={`rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider disabled:cursor-wait disabled:opacity-50 ${audiences.includes(audience) ? "border-accent/30 bg-accent/10 text-accent-bright" : "border-black/10 text-text-muted"}`}>
+                    {programmeConfig[audience].label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
 
           {/* Stats */}
           <div className="flex items-center gap-5 text-xs text-text-muted">

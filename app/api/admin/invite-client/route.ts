@@ -2,10 +2,8 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { buildAccountRecoveryUrl } from "@/lib/account-links";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendWelcomeEmail } from "@/lib/email-templates";
-import { DEFAULT_CLIENT_EXPERIENCE, isClientExperienceMode } from "@/lib/client-experience";
+import { isProgrammeType, legacyProfileForProgramme } from "@/lib/programmes";
 import { NextResponse } from "next/server";
-
-const VALID_TIERS = ["coached", "premium", "vip", "ai_only"];
 
 function generateTemporaryPassword(): string {
   const entropy = `${crypto.randomUUID()}${crypto.randomUUID()}`.replace(/-/g, "");
@@ -16,7 +14,7 @@ export async function POST(request: Request) {
   const auth = await requireAdmin();
   if (!auth.authorized) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { name, email, password, tier, experience_mode } = await request.json();
+  const { name, email, password, programme_type } = await request.json();
   const normalizedName = name?.trim();
   const normalizedEmail = email?.trim()?.toLowerCase();
   const providedPassword = typeof password === "string" ? password.trim() : "";
@@ -30,16 +28,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
   }
 
-  if (experience_mode !== undefined && !isClientExperienceMode(experience_mode)) {
-    return NextResponse.json({ error: "Invalid client experience" }, { status: 400 });
+  if (!isProgrammeType(programme_type)) {
+    return NextResponse.json({ error: "Choose CAPACITY, SHIFT or IN PERSON" }, { status: 400 });
   }
-  const resolvedExperience = experience_mode || DEFAULT_CLIENT_EXPERIENCE;
-  if (resolvedExperience === "founder_dashboard" && tier === "ai_only") {
-    return NextResponse.json(
-      { error: "Founder Dashboard cannot be combined with the AI-only tier" },
-      { status: 400 },
-    );
-  }
+
+  const legacyProgramme = legacyProfileForProgramme(programme_type);
 
   const admin = createAdminClient();
 
@@ -87,11 +80,11 @@ export async function POST(request: Request) {
   }
 
   const profileUpdates: Record<string, string> = {
-    experience_mode: resolvedExperience,
+    experience_mode: legacyProgramme.experience_mode,
+    programme_type,
+    onboarding_status: "invited",
+    tier: legacyProgramme.tier,
   };
-  if (tier && VALID_TIERS.includes(tier)) {
-    profileUpdates.tier = tier;
-  }
   const { error: profileUpdateError } = await admin
     .from("client_profiles")
     .update(profileUpdates)
@@ -106,7 +99,8 @@ export async function POST(request: Request) {
   const { data: modules } = await admin
     .from("training_modules")
     .select("id")
-    .eq("is_published", true);
+    .eq("is_published", true)
+    .contains("programme_audiences", [programme_type]);
 
   if (modules && modules.length > 0) {
     await admin.from("client_modules").insert(
@@ -122,8 +116,8 @@ export async function POST(request: Request) {
   await admin.from("notifications").insert({
     user_id: newUser.user.id,
     title: "Welcome to AT CAPACITY",
-    message: `Welcome ${normalizedName.split(" ")[0]}! Your portal is set up and ready. Start by exploring your training modules and completing your first check-in.`,
-    link: "/portal",
+    message: `Welcome ${normalizedName.split(" ")[0]}! Set your password and complete the consultation so Gordy can prepare your coaching plan.`,
+    link: "/portal/consultation",
   });
 
   // Generate password setup link

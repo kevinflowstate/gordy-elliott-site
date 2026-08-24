@@ -33,7 +33,7 @@ Storage is the production Supabase project unless stated. "Account deletion" mea
 | Daily tracker and check-ins (sleep, energy, stress, hydration, wellbeing, weekly check-ins) | Client entry | Coaching and adherence | `client_daily_metrics`, `checkins` | Life of account | Account deletion | Supabase; sent to Anthropic as AI context |
 | Body measurements and progress photos | Client entry and uploads | Progress tracking | Measurement tables; private Storage buckets `progress-photos`, `avatars` | Life of account | Account deletion removes rows and storage objects | Supabase |
 | Documents | Client or Gordy upload | Coaching materials | `client_documents` plus the bucket recorded per file | Life of account | Account deletion removes rows and storage objects | Supabase |
-| Direct messages (AI Coaching mode clients and Gordy) | Client and coach | Coaching communication | `inbox_messages` | Life of account | Account deletion | Supabase |
+| Direct messages, including optional voice notes | Client and coach | Coaching communication | `inbox_messages`; private `inbox-audio` storage bucket for recordings | Life of account | Account deletion removes the message rows and client-folder audio objects | Supabase |
 | Coaching notes ingested from calls, Zoom, Loom, Fathom, WhatsApp, email and voice-note transcripts | Pasted or uploaded by Gordy | Coaching continuity; a client-visible summary and coach-only notes | `client_coaching_notes` | Life of account | Account deletion | Supabase; transcript text sent to Anthropic once for extraction (`app/api/admin/client-coaching-notes/extract/route.ts`) |
 | Wearable connection records (provider, Terra user ID, reference ID, scopes, raw Terra user object) | Terra auth webhook after client connects a provider | Manage the connection | `client_wearable_connections` | Life of account | Local disconnect marks the row disconnected; account deletion removes it (see DPIA risk R8 - Terra-side deauthentication is not yet called) | Supabase, Terra |
 | Wearable raw webhook events (full provider payload plus idempotency hash) | Terra webhooks | Idempotency, audit, re-normalisation | `client_wearable_events` | Life of account; no automated purge | Account deletion | Supabase, Terra |
@@ -74,7 +74,7 @@ Programme-level guarantee configuration (`guarantee_settings`) holds no client p
 - Data is used to provide coaching and app functionality; it is not sold and is not used for third-party advertising or cross-company tracking.
 - Calendar connections are optional, client-initiated, read-only, and disclosed in the privacy policy with Google Limited Use wording and Composio named as processor.
 - Wearable connections are optional and client-initiated through the Terra widget. Production credentials are configured; Oura has completed a real TestFlight connection/data pass, while MyFitnessPal still needs a successful retest after an observed upstream provider timeout. Production never substitutes mock data.
-- Camera and photo library access are used only when the client chooses to upload an image.
+- Camera and photo library access are used only when the client chooses to upload an image. Microphone access is requested only when a client or Gordy chooses to record a private DM voice note; recordings are limited to three minutes and stored privately.
 - Clients can disconnect providers and permanently delete their account from Settings.
 
 ## Before App Store submission

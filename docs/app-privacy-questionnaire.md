@@ -24,6 +24,7 @@ All declared types below are **linked to the user's identity** because AT CAPACI
 | Health & Fitness - Fitness | Programmes, sessions, exercise logs, activity and body measurements | App Functionality; Product Personalization |
 | Sensitive Info | Optional cycle and other sensitive consultation information | App Functionality; Product Personalization |
 | User Content - Emails or Text Messages | Private client/coach DMs | App Functionality |
+| User Content - Audio Data | Optional private voice notes recorded and sent in client/coach DMs | App Functionality |
 | User Content - Photos or Videos | Progress, check-in and profile photos | App Functionality |
 | User Content - Other User Content | Check-ins, tracker notes, consultations, documents, saved responses, and synced read-only calendar events (identifiers, masked-where-private titles, times, busy status, meeting links) for clients who connect Google Calendar or Outlook Calendar | App Functionality; Product Personalization |
 | Identifiers - User ID | Supabase account/client IDs, Terra reference IDs and Composio connected-account identifiers | App Functionality |
@@ -35,7 +36,7 @@ All declared types below are **linked to the user's identity** because AT CAPACI
 
 - Financial information or purchase history: payment does not occur in the app and AT CAPACITY does not receive payment details.
 - Precise or coarse location: the app does not request location or use IP addresses to determine location.
-- Contacts, browsing history, search history, audio, advertising data, crash data or performance data: no current app feature or embedded native SDK collects these for Gordy.
+- Contacts, browsing history, search history, advertising data, crash data or performance data: no current app feature or embedded native SDK collects these for Gordy.
 - Tracking: Meta Pixel is confined to the public marketing layout. The native shell opens non-portal marketing links externally and must pass the release network audit before this answer is published.
 
 ## Providers represented by the answers
@@ -60,3 +61,4 @@ Apple has no calendar-specific data type, so synced calendar events sit under Us
 4. Confirm Gordy's final privacy/support contact and retention wording.
 5. Confirm the final advertised Terra provider list and complete the outstanding MyFitnessPal production retest.
 6. Confirm the calendar launch decision (Google verification is under review; Outlook needs its production contract test) and that the review build's Connected Calendar screen behaves as described in the review notes.
+7. Declare Audio Data in App Store Connect before the voice-note build is submitted; it is linked to the user, used for App Functionality, and not used for tracking.

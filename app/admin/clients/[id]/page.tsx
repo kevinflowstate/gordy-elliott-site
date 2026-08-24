@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { AdminClient } from "@/lib/admin-data";
-import type { TrafficLight, CheckInMood, TrainingPlan, TrainingPlanPhase, CheckinFormConfig, CheckinFormTemplate, FormQuestion, ClientExercisePlan, ClientNutritionPlan, ProgressMetric, ClientTask, ClientTier, ClientExperienceMode, ClientKeyDate, NutritionTemplate, WeeklyTrainingAssignment } from "@/lib/types";
+import type { TrafficLight, CheckInMood, TrainingPlan, TrainingPlanPhase, CheckinFormConfig, CheckinFormTemplate, FormQuestion, ClientExercisePlan, ClientNutritionPlan, ProgressMetric, ClientTask, ProgrammeType, ClientKeyDate, NutritionTemplate, WeeklyTrainingAssignment } from "@/lib/types";
 import TrainingPlanBuilder from "@/components/admin/TrainingPlanBuilder";
 import AssignActionChooser from "@/components/admin/AssignActionChooser";
 import ExerciseTemplateBuilder from "@/components/admin/ExerciseTemplateBuilder";
@@ -17,6 +17,7 @@ import { normalizeCheckinConfig } from "@/lib/checkin-form";
 import { formatExercisePrescription } from "@/lib/exercise-prescriptions";
 import { useToast } from "@/components/ui/Toast";
 import { titleCaseProvider } from "@/lib/wearable-insights";
+import { legacyProfileForProgramme, PROGRAMME_TYPES, programmeConfig } from "@/lib/programmes";
 import CapacityBaselinePanel from "@/components/admin/CapacityBaselinePanel";
 import CompliancePanel from "@/components/admin/CompliancePanel";
 import EarlyWinPanel from "@/components/admin/EarlyWinPanel";
@@ -91,17 +92,10 @@ const categoryIcons: Record<string, string> = {
   "Standards & Quality": "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z",
 };
 
-const tierOptions: Array<{ value: ClientTier; label: string }> = [
-  { value: "coached", label: "Coached" },
-  { value: "premium", label: "Premium" },
-  { value: "vip", label: "VIP" },
-  { value: "ai_only", label: "AI Only" },
-];
-
-const experienceOptions: Array<{ value: ClientExperienceMode; label: string }> = [
-  { value: "founder_dashboard", label: "Founder Dashboard" },
-  { value: "ai_coaching", label: "AI Coaching" },
-];
+const programmeOptions: Array<{ value: ProgrammeType; label: string }> = PROGRAMME_TYPES.map((value) => ({
+  value,
+  label: programmeConfig[value].label,
+}));
 
 const coachingNoteSourceOptions: Array<{ value: CoachingNoteSourceType; label: string }> = [
   { value: "call", label: "Call" },
@@ -281,10 +275,8 @@ export default function ClientDetailPage() {
   const [checkinTemplates, setCheckinTemplates] = useState<CheckinFormTemplate[]>([]);
   const [checkinTemplateId, setCheckinTemplateId] = useState<string>("");
   const [checkinTemplateSaving, setCheckinTemplateSaving] = useState(false);
-  const [clientTier, setClientTier] = useState<string>("coached");
-  const [tierSaving, setTierSaving] = useState(false);
-  const [experienceMode, setExperienceMode] = useState<ClientExperienceMode>("ai_coaching");
-  const [experienceSaving, setExperienceSaving] = useState(false);
+  const [programmeType, setProgrammeType] = useState<ProgrammeType>("capacity");
+  const [programmeSaving, setProgrammeSaving] = useState(false);
   const [goalsModalOpen, setGoalsModalOpen] = useState(false);
   const [goalPrimary, setGoalPrimary] = useState("");
   const [goalTargetDate, setGoalTargetDate] = useState("");
@@ -340,8 +332,7 @@ export default function ClientDetailPage() {
         setCoachNotes(data.client?.coach_notes || "");
         setCheckinDay(data.client?.checkin_day || "");
         setCheckinTemplateId(data.client?.checkin_form_id || "");
-        setClientTier(data.client?.tier || "coached");
-        setExperienceMode(data.client?.experience_mode || "ai_coaching");
+        setProgrammeType(data.client?.programme_type || "capacity");
         setGoalPrimary(data.client?.primary_goal || "");
         setGoalTargetDate(data.client?.target_date || "");
         setGoalNotes(data.client?.goal_notes || "");
@@ -891,52 +882,36 @@ export default function ClientDetailPage() {
     await saveKeyDates(next);
   }
 
-  async function saveTier(tier: string) {
+  async function saveProgramme(nextProgramme: ProgrammeType) {
     if (!client) return;
-    setTierSaving(true);
+    const previous = programmeType;
+    setProgrammeType(nextProgramme);
+    setProgrammeSaving(true);
     try {
       const res = await fetch(`/api/admin/clients/${client.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tier }),
+        body: JSON.stringify({ programme_type: nextProgramme }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        toast(data.error || "Couldn't save the client tier. Try again.", "error");
+        setProgrammeType(previous);
+        toast(data.error || "Couldn't save the programme. Try again.", "error");
         return;
       }
-      toast("Client tier saved");
+      const legacyProfile = legacyProfileForProgramme(nextProgramme);
+      setClient((current) => current ? {
+        ...current,
+        programme_type: nextProgramme,
+        tier: legacyProfile.tier,
+        experience_mode: legacyProfile.experience_mode,
+      } : current);
+      toast("Programme saved");
     } catch {
+      setProgrammeType(previous);
       toast("Couldn't reach the client settings API. Try again.", "error");
     } finally {
-      setTierSaving(false);
-    }
-  }
-
-  async function saveExperienceMode(nextMode: ClientExperienceMode) {
-    if (!client) return;
-    const previousMode = experienceMode;
-    setExperienceMode(nextMode);
-    setExperienceSaving(true);
-    try {
-      const res = await fetch(`/api/admin/clients/${client.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ experience_mode: nextMode }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setExperienceMode(previousMode);
-        toast(data.error || "Couldn't save the client experience. Try again.", "error");
-        return;
-      }
-      setClient((current) => current ? { ...current, experience_mode: nextMode } : current);
-      toast("Client experience saved");
-    } catch {
-      setExperienceMode(previousMode);
-      toast("Couldn't reach the client settings API. Try again.", "error");
-    } finally {
-      setExperienceSaving(false);
+      setProgrammeSaving(false);
     }
   }
 
@@ -1407,20 +1382,14 @@ export default function ClientDetailPage() {
                 <span className={`w-2 h-2 rounded-full ${isClientPaused ? (client.lifecycle_status === "access_frozen" ? "bg-red-500" : "bg-amber-500") : sc.dotClass}`} />
                 {isClientPaused ? lifecycleLabel : sc.label}
               </span>
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-[0.12em] border ${
-                client.tier === "vip"
-                  ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-                  : client.tier === "premium"
-                    ? "bg-sky-500/10 text-sky-500 border-sky-500/30"
-                    : client.tier === "ai_only"
-                      ? "bg-[#E040D0]/10 text-[#E040D0] border-[#E040D0]/30"
-                      : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-              }`}>
-                {client.tier === "ai_only" ? "AI Only" : client.tier.charAt(0).toUpperCase() + client.tier.slice(1)}
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#E040D0]/25 bg-[#E040D0]/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-[#E040D0]">
+                {(client.programme_type || "capacity").replace("_", " ")}
               </span>
-              <span className="inline-flex items-center rounded-full border border-[rgba(0,0,0,0.08)] bg-[rgba(0,0,0,0.04)] px-3 py-1.5 text-xs font-semibold text-text-secondary">
-                {client.experience_mode === "founder_dashboard" ? "Founder Dashboard" : "AI Coaching"}
-              </span>
+              {client.onboarding_status !== "active" && (
+                <span className="inline-flex items-center rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-500">
+                  {client.onboarding_status === "consultation_complete" ? "Ready for setup" : "Onboarding"}
+                </span>
+              )}
               <span className="text-xs text-text-muted bg-[rgba(0,0,0,0.04)] px-2.5 py-1.5 rounded-full">
                 Last active: {timeAgoDetailed(client.last_login)}
               </span>
@@ -1613,47 +1582,52 @@ export default function ClientDetailPage() {
           )}
         </div>
 
-        {/* Tier */}
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-4">
-          <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1.5">Tier</div>
-          <div className="flex items-center gap-1.5">
-            <select
-              value={clientTier}
-              onChange={async (e) => {
-                const t = e.target.value;
-                setClientTier(t);
-                await saveTier(t);
-              }}
-              className="text-sm font-bold text-text-primary bg-transparent border-none outline-none cursor-pointer w-full"
-            >
-              {tierOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </div>
-          {tierSaving && <div className="text-[10px] text-text-muted mt-1">Saving...</div>}
-        </div>
-
-        {/* Experience */}
+        {/* Programme */}
         <div className="bg-bg-card border border-[#E040D0]/20 rounded-xl p-4">
-          <div className="text-[10px] text-[#E040D0] font-semibold uppercase tracking-wider mb-1.5">Experience</div>
+          <div className="text-[10px] text-[#E040D0] font-semibold uppercase tracking-wider mb-1.5">Programme</div>
           <select
-            value={experienceMode}
-            onChange={(event) => void saveExperienceMode(event.target.value as ClientExperienceMode)}
-            disabled={experienceSaving}
+            value={programmeType}
+            onChange={(event) => void saveProgramme(event.target.value as ProgrammeType)}
+            disabled={programmeSaving}
             className="w-full cursor-pointer border-none bg-transparent text-sm font-bold text-text-primary outline-none disabled:opacity-50"
           >
-            {experienceOptions.map((option) => (
+            {programmeOptions.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
           <div className="mt-1 text-[10px] text-text-muted">
-            {experienceSaving
-              ? "Saving..."
-              : experienceMode === "founder_dashboard"
-                ? "WhatsApp, no portal AI or DM"
-                : "Portal AI and DM enabled"}
+            {programmeSaving ? "Saving..." : "Controls calls, documents, education and AI allowance."}
           </div>
+        </div>
+
+        {/* Onboarding */}
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-4">
+          <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1.5">Client Journey</div>
+          <div className="text-sm font-bold text-text-primary">
+            {client.onboarding_status === "active" ? "Live" : client.onboarding_status === "paused" ? "Paused" : client.onboarding_status === "consultation_complete" ? "Consultation complete" : "Awaiting consultation"}
+          </div>
+          {["consultation_complete", "paused"].includes(client.onboarding_status || "active") && (
+            <button
+              type="button"
+              onClick={async () => {
+                const res = await fetch(`/api/admin/clients/${client.id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ onboarding_status: "active" }),
+                });
+                if (res.ok) {
+                  setClient((current) => current ? { ...current, onboarding_status: "active", activated_at: new Date().toISOString() } : current);
+                  toast("Client is now live");
+                } else {
+                  const payload = await res.json().catch(() => ({}));
+                  toast(payload.error || "Couldn't activate the client", "error");
+                }
+              }}
+              className="mt-3 min-h-10 w-full rounded-xl bg-accent-bright px-3 py-2 text-xs font-bold text-black"
+            >
+              {client.onboarding_status === "paused" ? "Resume Access" : "Go Live"}
+            </button>
+          )}
         </div>
 
         {/* Total Weeks */}

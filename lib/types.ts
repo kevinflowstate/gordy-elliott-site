@@ -1,3 +1,7 @@
+import type { OnboardingStatus, ProgrammeType } from "./programmes";
+
+export type { OnboardingStatus, ProgrammeType } from "./programmes";
+
 export type UserRole = 'client' | 'admin';
 export type TrafficLight = 'green' | 'amber' | 'red';
 export type ModuleStatus = 'locked' | 'in_progress' | 'completed';
@@ -35,6 +39,9 @@ export interface ClientProfile {
   user?: User;
   tier?: ClientTier;
   experience_mode?: ClientExperienceMode;
+  programme_type?: ProgrammeType;
+  onboarding_status?: OnboardingStatus;
+  activated_at?: string | null;
   consultation_data?: Record<string, unknown>;
   consultation_summary?: Record<string, unknown>;
   profile_setup_data?: Record<string, unknown>;
@@ -66,6 +73,8 @@ export interface TrainingModule {
   slug?: string;
   thumbnail_url?: string;
   is_published: boolean;
+  hub_section?: 'library' | 'current_coaching';
+  programme_audiences?: ProgrammeType[];
   created_at: string;
   content?: ModuleContent[];
 }
@@ -188,7 +197,14 @@ export interface InboxMessage {
   client_id: string;
   sender_user_id: string;
   sender_role: UserRole;
-  message: string;
+  message: string | null;
+  message_type?: 'text' | 'audio';
+  audio_url?: string | null;
+  audio_bucket?: string | null;
+  audio_path?: string | null;
+  audio_mime_type?: string | null;
+  audio_size_bytes?: number | null;
+  audio_duration_seconds?: number | null;
   read_by_admin: boolean;
   read_by_client: boolean;
   created_at: string;
@@ -203,6 +219,8 @@ export interface InboxConversation {
   latest_message_at: string | null;
   latest_sender_role: UserRole | null;
   unread_count: number;
+  programme_type?: ProgrammeType;
+  bulk_eligible?: boolean;
 }
 
 export type RecurrenceType = 'none' | 'weekly' | 'biweekly' | 'monthly';

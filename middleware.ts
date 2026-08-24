@@ -1,7 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { resolveClientLifecycleStatus } from '@/lib/client-attention';
-import { isFounderExperience, isFounderRestrictedPath } from '@/lib/client-experience';
 import { withTimeout } from '@/lib/operation-timeout';
 
 const SUPABASE_OPERATION_TIMEOUT_MS = 3_000;
@@ -165,7 +164,7 @@ export async function middleware(request: NextRequest) {
         const result = await withTimeout(
           adminSupabase
             .from('client_profiles')
-            .select('id, lifecycle_status, lifecycle_resumes_at, experience_mode')
+            .select('id, lifecycle_status, lifecycle_resumes_at, onboarding_status')
             .eq('user_id', user.id)
             .maybeSingle(),
           SUPABASE_OPERATION_TIMEOUT_MS,
@@ -253,17 +252,29 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(url);
       }
 
-      if (isFounderExperience(clientProfile.experience_mode) && isFounderRestrictedPath(path)) {
-        if (path.startsWith('/api/')) {
+      if (clientProfile.onboarding_status !== 'active' && !requiresPasswordSetup) {
+        const allowedPage = path.startsWith('/portal/consultation')
+          || path.startsWith('/portal/settings')
+          || path.startsWith('/portal/onboarding');
+        const allowedApi = path.startsWith('/api/portal/consultation')
+          || path.startsWith('/api/portal/me')
+          || path.startsWith('/api/portal/account')
+          || path.startsWith('/api/portal/settings')
+          || path.startsWith('/api/portal/avatar');
+        if (isClientAppApi && !allowedApi) {
           return NextResponse.json(
-            { error: 'This feature is not included in the Founder Dashboard experience' },
-            { status: 403 },
+            { error: 'Your coaching plan is being prepared', code: 'ONBOARDING_PENDING' },
+            { status: 423 },
           );
         }
-        const url = request.nextUrl.clone();
-        url.pathname = '/portal';
-        url.search = '';
-        return NextResponse.redirect(url);
+        if (path.startsWith('/portal') && !allowedPage) {
+          const url = request.nextUrl.clone();
+          url.pathname = clientProfile.onboarding_status === 'invited'
+            ? '/portal/consultation'
+            : '/portal/onboarding';
+          url.search = '';
+          return NextResponse.redirect(url);
+        }
       }
     }
 

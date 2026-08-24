@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { AdminClient } from "@/lib/admin-data";
-import type { ClientExperienceMode, ClientTier, TrafficLight } from "@/lib/types";
+import type { ProgrammeType, TrafficLight } from "@/lib/types";
+import { PROGRAMME_TYPES, programmeConfig } from "@/lib/programmes";
 
 const glowClass: Record<TrafficLight, string> = {
   green: "glow-green",
@@ -17,46 +18,22 @@ const statusConfig: Record<TrafficLight, { label: string; dotClass: string; bgCl
   green: { label: "Up to Date", dotClass: "bg-emerald-500", bgClass: "bg-emerald-500/10", textClass: "text-emerald-400" },
 };
 
-const tierOptions: Array<{
-  value: ClientTier;
+const programmeOptions: Array<{
+  value: ProgrammeType;
   label: string;
   description: string;
-  activeClass: string;
-}> = [
-  { value: "coached", label: "Coached", description: "Core coaching access", activeClass: "bg-emerald-500/10 border-emerald-500/30 text-emerald-600" },
-  { value: "premium", label: "Premium", description: "Extra support and oversight", activeClass: "bg-sky-500/10 border-sky-500/30 text-sky-500" },
-  { value: "vip", label: "VIP", description: "Highest-touch experience", activeClass: "bg-amber-500/10 border-amber-500/30 text-amber-500" },
-  { value: "ai_only", label: "AI Only", description: "Self-serve AI support", activeClass: "bg-[#E040D0]/10 border-[#E040D0]/30 text-[#E040D0]" },
-];
+}> = PROGRAMME_TYPES.map((value) => ({
+  value,
+  label: programmeConfig[value].label,
+  description: value === "capacity"
+    ? "Two monthly calls, full documents and full AI access."
+    : value === "shift"
+      ? `One monthly call and ${programmeConfig.shift.aiMonthlyLimit} AI replies each month.`
+      : "Monthly 1:1 confirmation with full documents and AI.",
+}));
 
-const experienceOptions: Array<{
-  value: ClientExperienceMode;
-  label: string;
-  description: string;
-}> = [
-  {
-    value: "founder_dashboard",
-    label: "Founder Dashboard",
-    description: "High-touch 1:1 coaching. WhatsApp replaces portal DM and AI.",
-  },
-  {
-    value: "ai_coaching",
-    label: "AI Coaching",
-    description: "Current portal experience with DM and AT CAPACITY AI.",
-  },
-];
-
-function renderTierBadge(tier: ClientTier) {
-  switch (tier) {
-    case "premium":
-      return <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-500">Premium</span>;
-    case "vip":
-      return <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500">VIP</span>;
-    case "ai_only":
-      return <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#E040D0]/10 text-[#E040D0]">AI Only</span>;
-    default:
-      return <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">Coached</span>;
-  }
+function renderProgrammeBadge(programme: ProgrammeType) {
+  return <span className="rounded-full bg-[#E040D0]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#E040D0]">{programme.replace("_", " ")}</span>;
 }
 
 function timeAgo(dateStr: string): string {
@@ -71,43 +48,33 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(diffDays / 7)} weeks ago`;
 }
 
-type TierFilter = ClientTier | "all";
+type ProgrammeFilter = ProgrammeType | "all";
 type ClientFilter = "all" | "attention" | "green" | "paused";
 
-const TIER_PRIORITY: Record<ClientTier, number> = {
-  vip: 0,
-  premium: 1,
-  coached: 2,
-  ai_only: 3,
+const PROGRAMME_PRIORITY: Record<ProgrammeType, number> = {
+  capacity: 0,
+  in_person: 1,
+  shift: 2,
 };
 
 const STATUS_PRIORITY: Record<TrafficLight, number> = { red: 0, amber: 1, green: 2 };
 
-const tierRowAccent: Record<ClientTier, string> = {
-  vip: "border-l-4 border-l-amber-500/60",
-  premium: "border-l-4 border-l-sky-500/60",
-  coached: "border-l-4 border-l-emerald-500/40",
-  ai_only: "border-l-4 border-l-[#E040D0]/40",
-};
-
-const tierCountLabel: Record<ClientTier, string> = {
-  coached: "Coached",
-  premium: "Premium",
-  vip: "VIP",
-  ai_only: "AI Only",
+const programmeRowAccent: Record<ProgrammeType, string> = {
+  capacity: "border-l-4 border-l-[#E040D0]/60",
+  shift: "border-l-4 border-l-sky-500/50",
+  in_person: "border-l-4 border-l-amber-500/55",
 };
 
 export default function ClientsPage() {
   const [allClients, setAllClients] = useState<AdminClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<ClientFilter>("all");
-  const [tierFilter, setTierFilter] = useState<TierFilter>("all");
+  const [programmeFilter, setProgrammeFilter] = useState<ProgrammeFilter>("all");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [invitePassword, setInvitePassword] = useState("");
-  const [inviteTier, setInviteTier] = useState<ClientTier>("coached");
-  const [inviteExperience, setInviteExperience] = useState<ClientExperienceMode>("ai_coaching");
+  const [inviteProgramme, setInviteProgramme] = useState<ProgrammeType>("capacity");
   const [inviteSending, setInviteSending] = useState(false);
   const [inviteResult, setInviteResult] = useState<{ success: boolean; emailSent?: boolean; passwordSet?: boolean; setupUrl?: string; error?: string } | null>(null);
 
@@ -162,19 +129,19 @@ export default function ClientsPage() {
     if (filter === "attention") return client.lifecycle_status === "active" && client.status !== "green";
     return client.lifecycle_status === "active" && client.status === "green";
   });
-  const filtered = tierFilter === "all" ? statusFiltered : statusFiltered.filter((c) => c.tier === tierFilter);
+  const filtered = programmeFilter === "all" ? statusFiltered : statusFiltered.filter((c) => c.programme_type === programmeFilter);
   const sortedFiltered = [...filtered].sort((a, b) => {
     const statusDiff = STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status];
     if (statusDiff !== 0) return statusDiff;
-    return TIER_PRIORITY[a.tier] - TIER_PRIORITY[b.tier];
+    return PROGRAMME_PRIORITY[a.programme_type] - PROGRAMME_PRIORITY[b.programme_type];
   });
 
-  const tierCounts: Record<ClientTier, number> = { coached: 0, premium: 0, vip: 0, ai_only: 0 };
-  for (const c of allClients) tierCounts[c.tier]++;
-  const vipPremiumAtRisk = allClients.filter(
-    (c) => c.lifecycle_status === "active" && (c.tier === "vip" || c.tier === "premium") && (c.status === "amber" || c.status === "red"),
+  const programmeCounts: Record<ProgrammeType, number> = { capacity: 0, shift: 0, in_person: 0 };
+  for (const c of allClients) programmeCounts[c.programme_type]++;
+  const highTouchAtRisk = allClients.filter(
+    (c) => c.lifecycle_status === "active" && (c.programme_type === "capacity" || c.programme_type === "in_person") && (c.status === "amber" || c.status === "red"),
   );
-  const highTouchTotal = tierCounts.vip + tierCounts.premium;
+  const highTouchTotal = programmeCounts.capacity + programmeCounts.in_person;
 
   return (
     <>
@@ -184,7 +151,7 @@ export default function ClientsPage() {
           <p className="text-text-secondary mt-1">{allClients.length} total clients</p>
         </div>
         <button
-          onClick={() => { setInviteOpen(true); setInviteResult(null); setInviteName(""); setInviteEmail(""); setInvitePassword(""); setInviteExperience("ai_coaching"); }}
+          onClick={() => { setInviteOpen(true); setInviteResult(null); setInviteName(""); setInviteEmail(""); setInvitePassword(""); setInviteProgramme("capacity"); }}
           className="px-4 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -271,26 +238,6 @@ export default function ClientsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-text-secondary mb-1.5">Client Tier</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {tierOptions.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => setInviteTier(option.value)}
-                          className={`rounded-xl px-3 py-3 text-left transition-all cursor-pointer border ${
-                            inviteTier === option.value
-                              ? option.activeClass
-                              : "bg-bg-primary border-[rgba(0,0,0,0.08)] text-text-muted hover:border-[rgba(0,0,0,0.15)]"
-                          }`}
-                        >
-                          <div className="text-sm font-semibold">{option.label}</div>
-                          <div className="mt-1 text-[11px] leading-relaxed opacity-80">{option.description}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
                     <label className="block text-xs font-medium text-text-secondary mb-1.5">Set Password <span className="text-text-muted font-normal">(optional - or they set via email)</span></label>
                     <input
                       type="password"
@@ -301,15 +248,15 @@ export default function ClientsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-text-secondary mb-1.5">Client Experience</label>
+                    <label className="block text-xs font-medium text-text-secondary mb-1.5">Programme</label>
                     <div className="space-y-2">
-                      {experienceOptions.map((option) => (
+                      {programmeOptions.map((option) => (
                         <button
                           key={option.value}
                           type="button"
-                          onClick={() => setInviteExperience(option.value)}
+                          onClick={() => setInviteProgramme(option.value)}
                           className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
-                            inviteExperience === option.value
+                            inviteProgramme === option.value
                               ? "border-[#E040D0]/40 bg-[#E040D0]/10 text-text-primary"
                               : "border-[rgba(0,0,0,0.08)] bg-bg-primary text-text-muted"
                           }`}
@@ -340,8 +287,7 @@ export default function ClientsPage() {
                           body: JSON.stringify({
                             name: inviteName,
                             email: inviteEmail,
-                            tier: inviteTier,
-                            experience_mode: inviteExperience,
+                            programme_type: inviteProgramme,
                             ...(invitePassword.trim() ? { password: invitePassword.trim() } : {}),
                           }),
                         });
@@ -383,21 +329,21 @@ export default function ClientsPage() {
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-500">High-touch clients</div>
               <div className="mt-1 text-sm text-text-primary">
-                <span className="font-semibold">{tierCounts.vip}</span> VIP ·{" "}
-                <span className="font-semibold">{tierCounts.premium}</span> Premium ·{" "}
-                {vipPremiumAtRisk.length > 0 ? (
-                  <span className="text-amber-500 font-semibold">{vipPremiumAtRisk.length} need{vipPremiumAtRisk.length === 1 ? "s" : ""} attention</span>
+                <span className="font-semibold">{programmeCounts.capacity}</span> CAPACITY ·{" "}
+                <span className="font-semibold">{programmeCounts.in_person}</span> IN PERSON ·{" "}
+                {highTouchAtRisk.length > 0 ? (
+                  <span className="text-amber-500 font-semibold">{highTouchAtRisk.length} need{highTouchAtRisk.length === 1 ? "s" : ""} attention</span>
                 ) : (
                   <span className="text-emerald-400 font-semibold">all up to date</span>
                 )}
               </div>
             </div>
-            {vipPremiumAtRisk.length > 0 && (
+            {highTouchAtRisk.length > 0 && (
               <button
-                onClick={() => { setTierFilter("vip"); setFilter("all"); }}
+                onClick={() => { setProgrammeFilter("capacity"); setFilter("all"); }}
                 className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-500 cursor-pointer hover:bg-amber-500/15"
               >
-                Focus VIP list
+                Focus CAPACITY list
               </button>
             )}
           </div>
@@ -425,30 +371,21 @@ export default function ClientsPage() {
         ))}
       </div>
 
-      {/* Tier filters */}
+      {/* Programme filters */}
       <div className="flex gap-2 mb-6 flex-wrap items-center">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted mr-1">Tier</div>
-        {(["all", "vip", "premium", "coached", "ai_only"] as const).map((t) => {
-          const count = t === "all" ? allClients.length : tierCounts[t];
-          const active = tierFilter === t;
-          const tierActiveClass = t === "vip"
-            ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-            : t === "premium"
-              ? "bg-sky-500/10 text-sky-500 border-sky-500/30"
-              : t === "ai_only"
-                ? "bg-[#E040D0]/10 text-[#E040D0] border-[#E040D0]/30"
-                : t === "coached"
-                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                  : "bg-[rgba(224,64,208,0.1)] text-accent-bright border-[rgba(224,64,208,0.2)]";
+        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted mr-1">Programme</div>
+        {(["all", "capacity", "shift", "in_person"] as const).map((t) => {
+          const count = t === "all" ? allClients.length : programmeCounts[t];
+          const active = programmeFilter === t;
           return (
             <button
               key={t}
-              onClick={() => setTierFilter(t)}
+              onClick={() => setProgrammeFilter(t)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-[0.12em] transition-all cursor-pointer border ${
-                active ? tierActiveClass : "text-text-muted hover:text-text-secondary border-[rgba(0,0,0,0.08)]"
+                active ? "bg-[rgba(224,64,208,0.1)] text-accent-bright border-[rgba(224,64,208,0.2)]" : "text-text-muted hover:text-text-secondary border-[rgba(0,0,0,0.08)]"
               }`}
             >
-              {t === "all" ? "All tiers" : tierCountLabel[t]} ({count})
+              {t === "all" ? "All programmes" : t.replace("_", " ")} ({count})
             </button>
           );
         })}
@@ -463,7 +400,7 @@ export default function ClientsPage() {
               Clear a filter to widen the view, or add a new client from the Add Client button above.
             </div>
             <button
-              onClick={() => { setFilter("all"); setTierFilter("all"); }}
+              onClick={() => { setFilter("all"); setProgrammeFilter("all"); }}
               className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[rgba(0,0,0,0.08)] px-3 py-2 text-xs font-semibold text-text-secondary hover:text-text-primary hover:border-[rgba(0,0,0,0.15)] cursor-pointer"
             >
               Reset filters
@@ -485,7 +422,7 @@ export default function ClientsPage() {
               <Link
                 key={client.id}
                 href={`/admin/clients/${client.id}`}
-                className={`group relative block bg-bg-card/80 backdrop-blur-sm border rounded-2xl p-5 overflow-hidden transition-all duration-300 no-underline hover:-translate-y-0.5 cursor-pointer ${isPaused ? "border-[rgba(0,0,0,0.12)]" : glowClass[client.status]} ${tierRowAccent[client.tier]}`}
+                className={`group relative block bg-bg-card/80 backdrop-blur-sm border rounded-2xl p-5 overflow-hidden transition-all duration-300 no-underline hover:-translate-y-0.5 cursor-pointer ${isPaused ? "border-[rgba(0,0,0,0.12)]" : glowClass[client.status]} ${programmeRowAccent[client.programme_type]}`}
               >
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px] pointer-events-none" />
                 <div className="flex items-center justify-between relative">
@@ -498,10 +435,8 @@ export default function ClientsPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-text-primary">{client.name}</span>
-                        {renderTierBadge(client.tier)}
-                        <span className="rounded-full bg-[rgba(0,0,0,0.05)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
-                          {client.experience_mode === "founder_dashboard" ? "Founder" : "AI Coaching"}
-                        </span>
+                        {renderProgrammeBadge(client.programme_type)}
+                        {client.onboarding_status !== "active" && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-500">Onboarding</span>}
                       </div>
                       {(client.business_name || client.business_type) && <div className="text-xs text-text-muted">{[client.business_name, client.business_type].filter(Boolean).join(" - ")}</div>}
                       {!isPaused && client.attention_reasons[0] && (

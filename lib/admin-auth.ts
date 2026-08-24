@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Requests without a session are rejected with 401 in every environment.
  */
 export async function requireAdmin(): Promise<
-  { authorized: true } | { authorized: false; status: number; error: string }
+  { authorized: true; userId: string } | { authorized: false; status: number; error: string }
 > {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -29,5 +29,5 @@ export async function requireAdmin(): Promise<
     return { authorized: false, status: 403, error: "Not authorized" };
   }
 
-  return { authorized: true };
+  return { authorized: true, userId: user.id };
 }

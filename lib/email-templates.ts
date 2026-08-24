@@ -34,11 +34,11 @@ export async function sendWelcomeEmail(to: string, name: string, setupUrl: strin
   const resend = await getResend(); return resend.emails.send({
     from: FROM,
     to,
-    subject: "Your AT CAPACITY portal is ready",
+    subject: "Start your AT CAPACITY setup",
     html: wrap(`
       <h2 style="margin: 0 0 8px; font-size: 20px; color: #111;">Welcome ${escapeHtml(firstName)},</h2>
       <p style="color: #555; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
-        Your client portal is set up and ready to go. Click below to set your password and complete your onboarding.
+        Your AT CAPACITY account is ready to set up. Choose your password and complete the consultation; Gordy will then prepare your coaching plan and switch on full access.
       </p>
       ${button(setupUrl, "Set Up Your Account")}
     `),

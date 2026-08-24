@@ -3,7 +3,6 @@ import { notifyClientUser } from "@/lib/client-notifications";
 import { sendPushToUser } from "@/lib/push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
-import { isFounderExperience } from "@/lib/client-experience";
 
 interface ClientRecord {
   id: string;
@@ -38,12 +37,6 @@ export async function POST(request: Request) {
     .maybeSingle<ClientRecord>();
 
   if (!clientProfile) return NextResponse.json({ error: "Client conversation not found" }, { status: 404 });
-  if (isFounderExperience(clientProfile.experience_mode)) {
-    return NextResponse.json(
-      { error: "Founder Dashboard clients use WhatsApp rather than portal DMs" },
-      { status: 409 },
-    );
-  }
   if (viewer.role === "client" && clientProfile.id !== viewer.clientProfileId) {
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }

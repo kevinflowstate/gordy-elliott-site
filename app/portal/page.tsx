@@ -13,6 +13,7 @@ import type { EarlyWinView } from "@/lib/early-win";
 import type { WeeklyCapacityResult } from "@/lib/weekly-capacity";
 import { getNextCalendarOccurrence } from "@/lib/calendar-occurrence";
 import { getImmediateTodayPriority } from "@/lib/today-priority";
+import MonthlyCallPrompt from "@/components/portal/MonthlyCallPrompt";
 
 type Tier = "coached" | "premium" | "vip" | "ai_only";
 type BaselineComparison = {
@@ -566,27 +567,31 @@ export default function PortalDashboard() {
 
   if (profile?.experience_mode === "founder_dashboard") {
     return (
-      <FounderDashboard
-        profile={profile}
-        userName={userName}
-        tasks={tasks}
-        calendarEvents={calendarEvents}
-        wearableSummary={wearableSummary}
-        wearableMockMode={wearableMockMode}
-        todayTraining={todayTraining}
-        activeTrainingPlan={activeTrainingPlan}
-        baselineComparison={baselineComparison}
-        stormWarning={stormWarning}
-        earlyWin={earlyWinView}
-        weeklyCapacity={weeklyCapacity}
-        onToggleTask={(taskId, completed) => void toggleTask(taskId, completed)}
-        onDismissStormWarning={() => void dismissStormWarning()}
-      />
+      <div className="space-y-5">
+        <MonthlyCallPrompt />
+        <FounderDashboard
+          profile={profile}
+          userName={userName}
+          tasks={tasks}
+          calendarEvents={calendarEvents}
+          wearableSummary={wearableSummary}
+          wearableMockMode={wearableMockMode}
+          todayTraining={todayTraining}
+          activeTrainingPlan={activeTrainingPlan}
+          baselineComparison={baselineComparison}
+          stormWarning={stormWarning}
+          earlyWin={earlyWinView}
+          weeklyCapacity={weeklyCapacity}
+          onToggleTask={(taskId, completed) => void toggleTask(taskId, completed)}
+          onDismissStormWarning={() => void dismissStormWarning()}
+        />
+      </div>
     );
   }
 
   return (
     <div className="mx-auto w-full max-w-xl space-y-5 pb-8 pt-1 sm:max-w-2xl">
+      <MonthlyCallPrompt />
       {loadError && (
         <div className="flex flex-col gap-3 rounded-3xl border border-amber-500/25 bg-amber-500/8 px-5 py-4 text-sm text-amber-500 sm:flex-row sm:items-center sm:justify-between">
           <div>{loadError}</div>

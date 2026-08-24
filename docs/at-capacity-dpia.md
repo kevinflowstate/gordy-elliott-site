@@ -21,7 +21,7 @@ Personal data processed:
 - Account and contact details, consultation answers, goals, date of birth and sex.
 - Health data (special category): injuries, health context, daily wellbeing metrics, body measurements, progress photos, optional cycle tracking (settings and daily entries), and, once Terra is live, wearable summaries (sleep, HRV, resting heart rate, activity, nutrition).
 - Calendar data (optional, Founder-focused): read-only synced copies of events for today plus seven days - event identifiers, title (private/confidential titles stored as "Busy"), start/end times, all-day and busy status, and a meeting link. No descriptions, attendees or locations are stored (`lib/composio/normalise.ts`).
-- Communications: in-app DMs, check-ins, and coaching notes ingested by Gordy from call/Zoom/Loom/Fathom/WhatsApp/email/voice-note transcripts.
+- Communications: in-app text and optional audio DMs, check-ins, and coaching notes ingested by Gordy from call/Zoom/Loom/Fathom/WhatsApp/email/voice-note transcripts. DM recordings are private, limited to three minutes and delivered through short-lived signed URLs.
 - Operational data: push identifiers, AI usage metering, logins and server logs.
 - Early-win goals (added revision 2): an admin-set priority metric per Founder client (wearable HRV/resting heart rate/sleep, body-measurement weight/waist, or manual), dated value entries and a 14-day review, with completed wins made immutable (`supabase/migrations/20260728122140_add_early_win.sql`).
 - Storm-warning records (added revision 2): a deterministic, append-only audit log of calendar-pressure warnings storing rule IDs, per-day meeting counts and earliest start times, thresholds and an input hash - never event titles, descriptions, attendees or links - plus client dismissals per warning window (`supabase/migrations/20260728122215_add_storm_warnings.sql`, `lib/storm-warning.ts`).
@@ -48,7 +48,7 @@ Retention: account and coaching data is retained for the life of the account; cl
 
 | Processing | Article 6 basis | Article 9 condition (where special category) |
 | --- | --- | --- |
-| Core coaching (plans, logs, check-ins, DMs, coaching notes) | Contract (6(1)(b)) | Explicit consent (9(2)(a)) for the health content, captured at consultation |
+| Core coaching (plans, logs, text/audio DMs, coaching notes) | Contract (6(1)(b)) | Explicit consent (9(2)(a)) for the health content, captured at consultation |
 | Optional cycle tracking | Consent (6(1)(a)) - feature is off unless enabled | Explicit consent (9(2)(a)) |
 | Optional wearable connection (Terra) | Consent (6(1)(a)) - client initiates the provider OAuth | Explicit consent (9(2)(a)) |
 | Optional calendar connection (Composio) | Consent (6(1)(a)) - client initiates the OAuth | Not special category by design (titles masked, no attendees); residual sensitive content addressed at R3 |

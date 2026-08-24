@@ -103,6 +103,28 @@ export default function ClientInboxClient() {
     }
   }
 
+  async function handleSendAudio(audio: Blob, durationSeconds: number) {
+    setSending(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.set("audio", new File([audio], "voice-note", { type: audio.type }));
+      form.set("duration_seconds", String(durationSeconds));
+      const res = await fetch("/api/inbox/audio", { method: "POST", body: form });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Voice note could not be sent.");
+      setThread((current) => current && data.message ? { ...current, messages: [...current.messages, data.message] } : current);
+      toast("Voice note sent");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Voice note could not be sent.";
+      setError(message);
+      toast(message, "error");
+      throw err;
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
     <div className="portal-dm-page mx-auto flex h-full min-h-0 w-full max-w-4xl flex-col overflow-hidden px-0 py-1 sm:py-0">
       <div className="portal-dm-page-header mb-4 shrink-0 sm:mb-5">
@@ -131,6 +153,7 @@ export default function ClientInboxClient() {
           messages={thread?.messages ?? []}
           currentRole="client"
           onSend={handleSend}
+          onSendAudio={handleSendAudio}
           sending={sending}
           error={error}
           emptyTitle="Start the conversation"

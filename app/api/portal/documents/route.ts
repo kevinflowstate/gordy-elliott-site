@@ -1,12 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { programmeAllowsDocuments } from "@/lib/programmes";
 import { NextResponse } from "next/server";
 
 const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
 const ALLOWED_CATEGORIES = new Set(["bloodwork", "scan", "medical", "progress", "other"]);
 
-async function getVipClientContext() {
+async function getDocumentClientContext() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: NextResponse.json({ error: "Not authenticated" }, { status: 401 }) };
@@ -14,17 +15,19 @@ async function getVipClientContext() {
   const admin = createAdminClient();
   const { data: profile } = await admin
     .from("client_profiles")
-    .select("id, tier")
+    .select("id, programme_type")
     .eq("user_id", user.id)
     .maybeSingle();
 
   if (!profile) return { error: NextResponse.json({ error: "Client profile not found" }, { status: 404 }) };
-  if (profile.tier !== "vip") return { error: NextResponse.json({ error: "Document vault is VIP only" }, { status: 403 }) };
+  if (!programmeAllowsDocuments(profile.programme_type)) {
+    return { error: NextResponse.json({ error: "Upgrade to Access", upgradeRequired: true }, { status: 403 }) };
+  }
   return { admin, user, profile };
 }
 
 export async function GET() {
-  const ctx = await getVipClientContext();
+  const ctx = await getDocumentClientContext();
   if (ctx.error) return ctx.error;
   const { admin, profile } = ctx;
 
@@ -48,7 +51,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const ctx = await getVipClientContext();
+  const ctx = await getDocumentClientContext();
   if (ctx.error) return ctx.error;
   const { admin, user, profile } = ctx;
 
@@ -100,7 +103,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const ctx = await getVipClientContext();
+  const ctx = await getDocumentClientContext();
   if (ctx.error) return ctx.error;
   const { admin, profile } = ctx;
 

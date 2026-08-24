@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { TrainingModule, ModuleContent } from "@/lib/types";
 import ModuleCover from "@/components/training/ModuleCover";
@@ -26,6 +26,11 @@ const moduleIcons = [
 export default function TrainingLibrary() {
   const [modules, setModules] = useState<TrainingModule[]>([]);
   const [loading, setLoading] = useState(true);
+  const orderedModules = useMemo(() => [...modules].sort((a, b) => {
+    const sectionA = a.hub_section === "current_coaching" ? 0 : 1;
+    const sectionB = b.hub_section === "current_coaching" ? 0 : 1;
+    return sectionA - sectionB || a.order_index - b.order_index;
+  }), [modules]);
 
   useEffect(() => {
     async function load() {
@@ -45,8 +50,8 @@ export default function TrainingLibrary() {
   return (
     <div className="mx-auto w-full max-w-5xl pb-28 sm:pb-0">
       <div className="mb-8">
-        <h1 className="text-center text-3xl font-heading font-bold text-text-primary sm:text-left">Training Library</h1>
-        <p className="mt-1 text-center text-text-secondary sm:text-left">Work through each module at your own pace.</p>
+        <h1 className="text-center text-3xl font-heading font-bold text-text-primary sm:text-left">Education Hub</h1>
+        <p className="mt-1 text-center text-text-secondary sm:text-left">This week’s coaching first, then your full learning library.</p>
       </div>
 
       {loading ? (
@@ -69,15 +74,23 @@ export default function TrainingLibrary() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {modules.map((mod, i) => {
+          {orderedModules.map((mod, i) => {
             const lessonCount = mod.content?.length || 0;
             const totalDuration = mod.content?.reduce((sum: number, c: ModuleContent) => sum + (c.duration_minutes || 0), 0) || 0;
             const isInteractive = mod.slug === "values-determination";
             const moduleHref = `/portal/training/${mod.id}`;
 
+            const previous = orderedModules[i - 1];
+            const startsSection = i === 0 || previous?.hub_section !== mod.hub_section;
             return (
+              <Fragment key={mod.id}>
+              {startsSection && (
+                <div className="col-span-full mt-2 border-b border-white/8 pb-3 first:mt-0">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent-bright">{mod.hub_section === "current_coaching" ? "Current Coaching" : "Education Library"}</div>
+                  <h2 className="mt-1 text-xl font-heading font-bold text-text-primary">{mod.hub_section === "current_coaching" ? "From Gordy this week" : "Build your foundations"}</h2>
+                </div>
+              )}
               <Link
-                key={mod.id}
                 href={moduleHref}
                 className="group relative block bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden transition-all duration-300 no-underline hover:-translate-y-1 hover:border-[rgba(224,64,208,0.2)] hover:shadow-[0_15px_40px_rgba(0,0,0,0.3),0_0_40px_rgba(224,64,208,0.06)] will-change-transform cursor-pointer"
               >
@@ -128,6 +141,7 @@ export default function TrainingLibrary() {
                   </div>
                 </div>
               </Link>
+              </Fragment>
             );
           })}
         </div>

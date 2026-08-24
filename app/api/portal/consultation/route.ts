@@ -171,6 +171,14 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient();
+  const { data: currentProfile, error: currentProfileError } = await admin
+    .from("client_profiles")
+    .select("id, onboarding_status")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (currentProfileError) return dbError(currentProfileError, "Couldn't load your consultation. Try again.");
+  if (!currentProfile) return NextResponse.json({ error: "Client profile not found" }, { status: 404 });
+  const shouldAdvanceOnboarding = currentProfile.onboarding_status === "invited";
   const config = await loadConsultationConfig(admin);
   const enabledQuestions = config.questions.filter((question) => question.enabled !== false);
   const enabledIds = new Set(enabledQuestions.map((question) => question.id));
@@ -219,6 +227,7 @@ export async function POST(req: NextRequest) {
   }
 
   updates.consultation_summary = await extractConsultationSummary(consultationData);
+  if (shouldAdvanceOnboarding) updates.onboarding_status = "consultation_complete";
 
   const { error } = await admin
     .from("client_profiles")
@@ -227,6 +236,17 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     return dbError(error, "Couldn't save your consultation. Try again.");
+  }
+
+  const { data: admins } = await admin.from("users").select("id").eq("role", "admin");
+  if (shouldAdvanceOnboarding && admins?.length) {
+    await admin.from("notifications").insert(admins.map((adminUser) => ({
+      user_id: adminUser.id,
+      title: "Consultation ready for setup",
+      message: "A client has completed their consultation. Review their answers and activate access when their plan is ready.",
+      link: `/admin/clients/${currentProfile.id}`,
+      tag: `consultation-ready-${currentProfile.id}`,
+    })));
   }
 
   return NextResponse.json({ success: true });

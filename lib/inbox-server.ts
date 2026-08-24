@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { InboxConversation, InboxMessage, UserRole } from "@/lib/types";
-import { isFounderExperience } from "@/lib/client-experience";
+import { normalizeProgrammeType } from "@/lib/programmes";
 
 export interface InboxViewer {
   userId: string;
@@ -16,6 +16,9 @@ interface ClientRecord {
   user_id: string;
   business_name: string | null;
   experience_mode?: string | null;
+  programme_type?: string | null;
+  onboarding_status?: string | null;
+  lifecycle_status?: string | null;
 }
 
 interface UserRecord {
@@ -67,7 +70,7 @@ export async function listInboxConversations(viewer: InboxViewer): Promise<Inbox
 
   const clientsQuery = admin
     .from("client_profiles")
-    .select("id, user_id, business_name, experience_mode")
+    .select("id, user_id, business_name, experience_mode, programme_type, onboarding_status, lifecycle_status")
     .order("created_at", { ascending: true });
 
   const [clientsRes, usersRes, messagesRes] = await Promise.all([
@@ -109,12 +112,11 @@ export async function getInboxThread(
 
   const { data: clientProfile } = await admin
     .from("client_profiles")
-    .select("id, user_id, business_name, experience_mode")
+    .select("id, user_id, business_name, experience_mode, programme_type, onboarding_status, lifecycle_status")
     .eq("id", clientId)
     .maybeSingle<ClientRecord>();
 
   if (!clientProfile) return null;
-  if (isFounderExperience(clientProfile.experience_mode)) return null;
   if (viewer.role === "client" && clientProfile.id !== viewer.clientProfileId) return null;
 
   const [userRes, messagesRes, sendersRes] = await Promise.all([
@@ -132,19 +134,35 @@ export async function getInboxThread(
   ]);
 
   const senderMap = new Map((sendersRes.data ?? []).map((user) => [user.id, user as UserRecord]));
+  const rawMessages = (messagesRes.data ?? []) as InboxMessage[];
+  const audioPaths = [...new Set(rawMessages
+    .filter((message) => message.message_type === "audio" && message.audio_path)
+    .map((message) => message.audio_path!))];
+  const signedUrlMap = new Map<string, string>();
+  if (audioPaths.length > 0) {
+    const { data: signedRows } = await admin.storage.from("inbox-audio").createSignedUrls(audioPaths, 60 * 10);
+    for (const row of signedRows || []) {
+      if (row.path && row.signedUrl) signedUrlMap.set(row.path, row.signedUrl);
+    }
+  }
+
+  const messages = rawMessages.map((message) => {
+    return {
+      ...message,
+      audio_url: message.audio_path ? signedUrlMap.get(message.audio_path) || null : null,
+      sender_name:
+        viewer.role === "client" && message.sender_role === "admin"
+          ? "Gordy"
+          : senderMap.get(message.sender_user_id)?.full_name || (message.sender_role === "admin" ? "Gordy" : "Client"),
+    };
+  });
 
   return {
     clientId: clientProfile.id,
     clientName: clientProfile.business_name || userRes.data?.full_name || "Client",
     clientEmail: userRes.data?.email || "",
     viewerUserId: viewer.userId,
-    messages: ((messagesRes.data ?? []) as InboxMessage[]).map((message) => ({
-      ...message,
-      sender_name:
-        viewer.role === "client" && message.sender_role === "admin"
-          ? "Gordy"
-          : senderMap.get(message.sender_user_id)?.full_name || (message.sender_role === "admin" ? "Gordy" : "Client"),
-    })),
+    messages,
   };
 }
 
@@ -165,8 +183,7 @@ export async function getInboxUnreadCount(viewer: InboxViewer): Promise<number> 
 
   const { data: messageEnabledClients, error: clientsError } = await admin
     .from("client_profiles")
-    .select("id")
-    .neq("experience_mode", "founder_dashboard");
+    .select("id");
   if (clientsError) throw clientsError;
 
   const clientIds = (messageEnabledClients || []).map((client) => client.id);
@@ -198,7 +215,6 @@ function buildConversations(
   }
 
   return clients
-    .filter((client) => !isFounderExperience(client.experience_mode))
     .map((client) => {
       const thread = messageMap.get(client.id) ?? [];
       const latest = thread[0] ?? null;
@@ -213,10 +229,12 @@ function buildConversations(
         client_id: client.id,
         client_name: client.business_name || user?.full_name || "Client",
         client_email: user?.email || "",
-        latest_message: latest?.message?.trim() || null,
+        latest_message: latest?.message_type === "audio" ? "Voice note" : latest?.message?.trim() || null,
         latest_message_at: latest?.created_at ?? null,
         latest_sender_role: latest?.sender_role ?? null,
         unread_count: unreadCount,
+        programme_type: normalizeProgrammeType(client.programme_type),
+        bulk_eligible: client.onboarding_status === "active" && client.lifecycle_status === "active",
       };
     })
     .sort((a, b) => {
