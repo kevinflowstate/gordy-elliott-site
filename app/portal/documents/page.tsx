@@ -92,7 +92,13 @@ export default function PortalDocumentsPage() {
         <p className="mt-1 text-sm text-text-secondary">A secure place for coaching, progress and health-related files shared with Gordy.</p>
       </div>
 
-      {upgradeRequired && (
+      {loading && (
+        <div className="mb-6 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-6 text-sm text-text-secondary">
+          Checking document access...
+        </div>
+      )}
+
+      {!loading && upgradeRequired && (
         <div className="mb-6 rounded-[28px] border border-accent/25 bg-[linear-gradient(135deg,rgba(224,64,208,0.12),rgba(255,255,255,0.025))] p-7 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/15 text-accent-bright">
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
@@ -108,7 +114,7 @@ export default function PortalDocumentsPage() {
         </div>
       )}
 
-      {!upgradeRequired && (
+      {!loading && !upgradeRequired && (
         <div className="mb-6 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-5">
           <h2 className="mb-4 text-sm font-heading font-bold text-text-primary">Upload Document</h2>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -166,10 +172,8 @@ export default function PortalDocumentsPage() {
         </div>
       )}
 
-      {!upgradeRequired && <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card overflow-hidden">
-        {loading ? (
-          <div className="p-6 text-sm text-text-secondary">Loading...</div>
-        ) : documents.length === 0 ? (
+      {!loading && !upgradeRequired && <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card overflow-hidden">
+        {documents.length === 0 ? (
           <div className="p-8 text-center">
             <p className="text-sm font-semibold text-text-primary">No documents yet.</p>
             <p className="mt-1 text-xs text-text-muted">Uploaded PDFs and images will appear here.</p>
