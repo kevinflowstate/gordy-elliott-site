@@ -57,12 +57,30 @@ if (convert.status !== 0) {
 }
 
 console.log(`Uploading ${identity.appName} ${identity.version} (${identity.build}) to App Store Connect`);
+const apiKeyPath = process.env.IOS_API_KEY_PATH;
+const apiKeyId = process.env.IOS_API_KEY_ID;
+const apiIssuerId = process.env.IOS_API_ISSUER_ID;
+const configuredApiValues = [apiKeyPath, apiKeyId, apiIssuerId].filter(Boolean).length;
+
+if (configuredApiValues !== 0 && configuredApiValues !== 3) {
+  throw new Error("Set IOS_API_KEY_PATH, IOS_API_KEY_ID and IOS_API_ISSUER_ID together.");
+}
+
+const authenticationArgs = configuredApiValues === 3
+  ? [
+      "-authenticationKeyPath", apiKeyPath,
+      "-authenticationKeyID", apiKeyId,
+      "-authenticationKeyIssuerID", apiIssuerId,
+    ]
+  : [];
+
 const upload = spawnSync("xcodebuild", [
   "-exportArchive",
   "-archivePath", archivePath,
   "-exportPath", exportRoot,
   "-exportOptionsPlist", exportOptionsPlist,
   "-allowProvisioningUpdates",
+  ...authenticationArgs,
 ], { stdio: "inherit" });
 
 if (upload.status !== 0) process.exit(upload.status || 1);
