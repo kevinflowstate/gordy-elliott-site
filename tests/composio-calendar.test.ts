@@ -158,6 +158,7 @@ test("calendar OAuth uses a signed native return and the installed app browser",
   assert.match(connectionsPanel, /role="dialog"/);
   assert.match(connectionsPanel, /consent_version === CALENDAR_CONSENT_VERSION/);
   assert.doesNotMatch(connectionsPanel, /Before you connect Google Calendar/);
+  assert.match(returnPage, /atcapacity:\/\/portal\/calendar/);
   assert.match(returnPage, /shiftcoaching:\/\/portal\/calendar/);
   assert.match(middleware, /isSignedCalendarOAuthCallback/);
   assert.match(middleware, /!isSignedCalendarOAuthCallback && path\.startsWith\('\/api\/portal'\)/);

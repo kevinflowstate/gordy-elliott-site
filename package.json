@@ -29,6 +29,7 @@
     "verify:myfitnesspal-ui": "node scripts/verify-myfitnesspal-nutrition.mjs",
     "verify:strength-progress": "node scripts/verify-strength-progress.mjs",
     "verify:gordy-feedback-ui": "node scripts/verify-gordy-feedback-ui.mjs",
+    "verify:inbox-photo-ui": "node scripts/verify-inbox-photo-ui.mjs",
     "verify:app-store-metadata": "node scripts/check-app-store-metadata.mjs",
     "verify:review-fixture": "node scripts/check-app-review-fixture.mjs",
     "refresh:review-fixture": "node scripts/refresh-app-review-fixture.mjs",

@@ -56,9 +56,9 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
   }, [toast.id, onDismiss]);
 
   const colorMap = {
-    success: "border-emerald-500/20 bg-emerald-500/10",
-    error: "border-red-500/20 bg-red-500/10",
-    info: "border-accent/20 bg-accent/10",
+    success: "border-emerald-300/25 bg-[#123f35]/95",
+    error: "border-red-300/25 bg-[#4a1f27]/95",
+    info: "border-fuchsia-300/25 bg-[#3d1d3a]/95",
   };
 
   const iconMap = {
@@ -82,10 +82,11 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
       <svg className={`w-4 h-4 flex-shrink-0 ${iconColor[toast.type]}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={iconMap[toast.type]} />
       </svg>
-      <span className="text-sm text-text-primary">{toast.message}</span>
+      <span className="text-sm font-medium text-white">{toast.message}</span>
       <button
         onClick={() => { setExiting(true); setTimeout(() => onDismiss(toast.id), 300); }}
-        className="ml-2 text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+        aria-label="Dismiss notification"
+        className="ml-2 cursor-pointer text-white/55 transition-colors hover:text-white"
       >
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

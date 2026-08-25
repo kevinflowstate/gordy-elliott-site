@@ -6,10 +6,14 @@ import { isProgrammeType, legacyProfileForProgramme, monthStartKey, normalizePro
 
 const programmeMigrationUrl = new URL("../supabase/migrations/20260824100000_programme_journey.sql", import.meta.url);
 const audioMigrationUrl = new URL("../supabase/migrations/20260824101000_inbox_voice_notes.sql", import.meta.url);
+const photoMigrationUrl = new URL("../supabase/migrations/20260825143000_inbox_photo_messages.sql", import.meta.url);
+const photoRouteUrl = new URL("../app/api/inbox/image/route.ts", import.meta.url);
+const accountDeletionUrl = new URL("../app/api/portal/account/route.ts", import.meta.url);
 const adminClientRouteUrl = new URL("../app/api/admin/clients/[id]/route.ts", import.meta.url);
 const portalAIRouteUrl = new URL("../app/api/portal/ai/route.ts", import.meta.url);
 const inboxThreadUrl = new URL("../components/inbox/InboxThread.tsx", import.meta.url);
 const monthlyCallPromptUrl = new URL("../components/portal/MonthlyCallPrompt.tsx", import.meta.url);
+const toastUrl = new URL("../components/ui/Toast.tsx", import.meta.url);
 
 test("only the three coaching programmes are accepted", () => {
   assert.equal(isProgrammeType("capacity"), true);
@@ -64,6 +68,29 @@ test("voice notes are private, bounded and content-valid", async () => {
   assert.doesNotMatch(migration, /public\s*=\s*true/i);
 });
 
+test("DM photos use private bounded storage and server-authorized signed links", async () => {
+  const [migration, route, inboxThread, accountDeletion] = await Promise.all([
+    readFile(photoMigrationUrl, "utf8"),
+    readFile(photoRouteUrl, "utf8"),
+    readFile(inboxThreadUrl, "utf8"),
+    readFile(accountDeletionUrl, "utf8"),
+  ]);
+
+  assert.match(migration.replace(/\n/g, " "), /'inbox-images'.*false/);
+  assert.match(migration, /image_size_bytes BETWEEN 1 AND 10485760/);
+  assert.match(migration, /message_type IN \('text', 'audio', 'image'\)/);
+  assert.doesNotMatch(migration, /CREATE POLICY "Clients can (?:upload|read) own inbox images"/);
+  assert.doesNotMatch(migration, /public\s*=\s*true/i);
+  assert.match(route, /viewer\.role === "client" \? viewer\.clientProfileId : requestedClientId/);
+  assert.match(route, /readImageSize\(contentType, bytes\)/);
+  assert.match(route, /crypto\.randomUUID\(\)/);
+  assert.match(route, /createSignedUrl\(path, 60 \* 10\)/);
+  assert.match(route, /admin\.storage\.from\("inbox-images"\)\.remove\(\[path\]\)/);
+  assert.match(inboxThread, /prepareInboxImage/);
+  assert.match(inboxThread, /Send this photo\?/);
+  assert.match(accountDeletion, /listStoragePaths\(admin, "inbox-images", profile\.id\)/);
+});
+
 test("voice recording is gated to native builds containing the microphone permission", () => {
   assert.equal(MINIMUM_NATIVE_VOICE_BUILD, 9);
   assert.equal(nativeBuildSupportsVoiceNotes("8"), false);
@@ -74,15 +101,18 @@ test("voice recording is gated to native builds containing the microphone permis
 });
 
 test("older native builds get honest voice messaging and booking links look actionable", async () => {
-  const [inboxThread, monthlyCallPrompt] = await Promise.all([
+  const [inboxThread, monthlyCallPrompt, toast] = await Promise.all([
     readFile(inboxThreadUrl, "utf8"),
     readFile(monthlyCallPromptUrl, "utf8"),
+    readFile(toastUrl, "utf8"),
   ]);
 
   assert.match(inboxThread, /Voice notes are coming in the next TestFlight update\./);
   assert.doesNotMatch(inboxThread, />Update required</);
   assert.match(monthlyCallPrompt, /data-testid="monthly-call-booking-link"/);
   assert.match(monthlyCallPrompt, /bg-accent-bright/);
+  assert.match(toast, /font-medium text-white/);
+  assert.match(toast, /aria-label="Dismiss notification"/);
 });
 
 test("client activation is ordered, audited and idempotent", async () => {

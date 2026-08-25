@@ -145,11 +145,22 @@ export async function getInboxThread(
       if (row.path && row.signedUrl) signedUrlMap.set(row.path, row.signedUrl);
     }
   }
+  const imagePaths = [...new Set(rawMessages
+    .filter((message) => message.message_type === "image" && message.image_path)
+    .map((message) => message.image_path!))];
+  const signedImageUrlMap = new Map<string, string>();
+  if (imagePaths.length > 0) {
+    const { data: signedRows } = await admin.storage.from("inbox-images").createSignedUrls(imagePaths, 60 * 10);
+    for (const row of signedRows || []) {
+      if (row.path && row.signedUrl) signedImageUrlMap.set(row.path, row.signedUrl);
+    }
+  }
 
   const messages = rawMessages.map((message) => {
     return {
       ...message,
       audio_url: message.audio_path ? signedUrlMap.get(message.audio_path) || null : null,
+      image_url: message.image_path ? signedImageUrlMap.get(message.image_path) || null : null,
       sender_name:
         viewer.role === "client" && message.sender_role === "admin"
           ? "Gordy"
@@ -229,7 +240,12 @@ function buildConversations(
         client_id: client.id,
         client_name: client.business_name || user?.full_name || "Client",
         client_email: user?.email || "",
-        latest_message: latest?.message_type === "audio" ? "Voice note" : latest?.message?.trim() || null,
+        latest_message:
+          latest?.message_type === "audio"
+            ? "Voice note"
+            : latest?.message_type === "image"
+              ? "Photo"
+              : latest?.message?.trim() || null,
         latest_message_at: latest?.created_at ?? null,
         latest_sender_role: latest?.sender_role ?? null,
         unread_count: unreadCount,
