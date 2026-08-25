@@ -10,6 +10,7 @@ const adminClientRouteUrl = new URL("../app/api/admin/clients/[id]/route.ts", im
 const portalAIRouteUrl = new URL("../app/api/portal/ai/route.ts", import.meta.url);
 const inboxThreadUrl = new URL("../components/inbox/InboxThread.tsx", import.meta.url);
 const monthlyCallPromptUrl = new URL("../components/portal/MonthlyCallPrompt.tsx", import.meta.url);
+const toastUrl = new URL("../components/ui/Toast.tsx", import.meta.url);
 
 test("only the three coaching programmes are accepted", () => {
   assert.equal(isProgrammeType("capacity"), true);
@@ -74,15 +75,18 @@ test("voice recording is gated to native builds containing the microphone permis
 });
 
 test("older native builds get honest voice messaging and booking links look actionable", async () => {
-  const [inboxThread, monthlyCallPrompt] = await Promise.all([
+  const [inboxThread, monthlyCallPrompt, toast] = await Promise.all([
     readFile(inboxThreadUrl, "utf8"),
     readFile(monthlyCallPromptUrl, "utf8"),
+    readFile(toastUrl, "utf8"),
   ]);
 
   assert.match(inboxThread, /Voice notes are coming in the next TestFlight update\./);
   assert.doesNotMatch(inboxThread, />Update required</);
   assert.match(monthlyCallPrompt, /data-testid="monthly-call-booking-link"/);
   assert.match(monthlyCallPrompt, /bg-accent-bright/);
+  assert.match(toast, /font-medium text-white/);
+  assert.match(toast, /aria-label="Dismiss notification"/);
 });
 
 test("client activation is ordered, audited and idempotent", async () => {

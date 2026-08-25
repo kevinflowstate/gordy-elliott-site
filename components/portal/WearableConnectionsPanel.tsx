@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import type { WearableConnection } from "@/lib/wearable-insights";
@@ -8,8 +9,10 @@ export type WearableProvider = {
   id: string;
   name: string;
   description: string;
-  mark: string;
-  markClass: string;
+  logoSrc?: string;
+  logoClass?: string;
+  wordmark?: string;
+  tileClass: string;
   disabled?: boolean;
 };
 
@@ -18,52 +21,49 @@ export const wearableProviders: WearableProvider[] = [
     id: "garmin",
     name: "Garmin",
     description: "Training load, workouts, steps, heart rate and sleep.",
-    mark: "G",
-    markClass: "bg-[#0b2232] text-[#66c8ff]",
+    logoSrc: "/images/providers/garmin.svg",
+    logoClass: "h-auto w-8",
+    tileClass: "bg-[#0b2232]",
   },
   {
     id: "oura",
     name: "Oura",
     description: "Sleep, recovery, HRV and resting heart rate.",
-    mark: "Ō",
-    markClass: "bg-[#26242a] text-white",
+    logoSrc: "/images/providers/oura.svg",
+    logoClass: "h-auto w-9",
+    tileClass: "bg-[#26242a]",
   },
   {
     id: "myfitnesspal",
     name: "MyFitnessPal",
     description: "Calories, protein, carbohydrates, fats and hydration.",
-    mark: "M",
-    markClass: "bg-[#112a46] text-[#6ab8ff]",
+    logoSrc: "/images/providers/myfitnesspal.svg",
+    logoClass: "h-7 w-7",
+    tileClass: "bg-[#0066ee]",
   },
   {
     id: "fitbit",
     name: "Fitbit",
     description: "Daily activity, sleep and heart-rate data.",
-    mark: "F",
-    markClass: "bg-[#0e2b2d] text-[#55d7d0]",
+    logoSrc: "/images/providers/fitbit.svg",
+    logoClass: "h-7 w-7",
+    tileClass: "bg-[#0e2b2d]",
   },
   {
     id: "whoop",
     name: "WHOOP",
     description: "Recovery, sleep, strain and workouts.",
-    mark: "W",
-    markClass: "bg-[#f5f5f5] text-black",
+    wordmark: "WHOOP",
+    tileClass: "bg-[#f5f5f5] text-black",
     disabled: true,
   },
   {
     id: "strava",
     name: "Strava",
-    description: "Planned after provider credentials and account-level testing.",
-    mark: "S",
-    markClass: "bg-[#fc4c02] text-white",
-    disabled: true,
-  },
-  {
-    id: "apple_health",
-    name: "Apple Health",
-    description: "Planned for the native HealthKit phase after the first App Store release.",
-    mark: "A",
-    markClass: "bg-[#2c2225] text-[#ff8694]",
+    description: "Runs, rides and training activity.",
+    logoSrc: "/images/providers/strava.svg",
+    logoClass: "h-6 w-6",
+    tileClass: "bg-[#fc4c02]",
     disabled: true,
   },
 ];
@@ -147,13 +147,7 @@ export default function WearableConnectionsPanel({
         {connectedProviderDetails.length > 0 && (
           <div className="flex shrink-0 -space-x-2" aria-label={`${connectedProviderDetails.length} connected health services`}>
             {connectedProviderDetails.map((provider) => (
-              <div
-                key={provider.id}
-                title={provider.name}
-                className={`flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#0a090c] text-sm font-bold shadow-lg ${provider.markClass}`}
-              >
-                {provider.mark}
-              </div>
+              <ProviderMark key={provider.id} provider={provider} compact />
             ))}
           </div>
         )}
@@ -246,16 +240,20 @@ export default function WearableConnectionsPanel({
       </section>
 
       <section className="mt-8">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/35">On the roadmap</div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/35">Coming soon</div>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           {laterProviders.map((provider) => (
-            <div key={provider.id} className="flex min-h-[88px] items-center gap-3 rounded-[22px] border border-white/[0.06] bg-white/[0.025] p-4 opacity-65">
+            <div
+              key={provider.id}
+              data-provider-id={provider.id}
+              className="flex min-h-[88px] items-center gap-3 rounded-[22px] border border-white/[0.06] bg-white/[0.025] p-4 opacity-65"
+            >
               <ProviderMark provider={provider} />
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <div className="truncate text-sm font-semibold text-white">{provider.name}</div>
                   <span className="rounded-full border border-white/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-white/35">
-                    Later
+                    Soon
                   </span>
                 </div>
                 <p className="mt-1 line-clamp-2 text-xs leading-5 text-white/38">{provider.description}</p>
@@ -346,10 +344,26 @@ function ProviderRow({
   );
 }
 
-function ProviderMark({ provider }: { provider: WearableProvider }) {
+function ProviderMark({ provider, compact = false }: { provider: WearableProvider; compact?: boolean }) {
   return (
-    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] text-lg font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${provider.markClass}`}>
-      {provider.mark}
+    <div
+      title={provider.name}
+      className={`flex shrink-0 items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${compact ? "h-10 w-10 rounded-full border-2 border-[#0a090c]" : "h-12 w-12 rounded-[16px]"} ${provider.tileClass}`}
+    >
+      {provider.logoSrc ? (
+        <Image
+          src={provider.logoSrc}
+          alt=""
+          aria-hidden="true"
+          width={48}
+          height={48}
+          loading="eager"
+          unoptimized
+          className={`object-contain ${provider.logoClass || "h-7 w-7"}`}
+        />
+      ) : (
+        <span className="text-[9px] font-black tracking-[-0.04em]">{provider.wordmark}</span>
+      )}
     </div>
   );
 }

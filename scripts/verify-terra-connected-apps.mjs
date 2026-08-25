@@ -278,6 +278,7 @@ try {
 
     await page.getByRole("button", { name: "Manage health data connections" }).click();
     await page.getByRole("heading", { name: "Connections", exact: true }).waitFor();
+    await page.waitForFunction(() => Array.from(document.querySelectorAll('img[src*="/images/providers/"]')).every((image) => image.complete && image.naturalWidth > 0));
     const checkbox = page.getByRole("checkbox");
     const garminButton = page.getByRole("button", { name: /^connect$/i }).first();
     if (await checkbox.count()) {
@@ -285,8 +286,8 @@ try {
       await checkbox.check();
       if (await garminButton.isDisabled()) throw new Error(`${viewport.name}: provider button stayed disabled after consent`);
     }
-    if (await page.getByText("WHOOP", { exact: true }).count() !== 1 || await page.getByText("Strava", { exact: true }).count() !== 1) {
-      throw new Error(`${viewport.name}: WHOOP and Strava roadmap states are missing`);
+    if (await page.locator('[data-provider-id="whoop"]').count() !== 1 || await page.locator('[data-provider-id="strava"]').count() !== 1) {
+      throw new Error(`${viewport.name}: WHOOP and Strava coming-soon states are missing`);
     }
     await page.screenshot({
       path: path.join(outputDir, `${viewport.name}-connections.png`),

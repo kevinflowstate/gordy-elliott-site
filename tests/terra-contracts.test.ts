@@ -641,6 +641,14 @@ test("Terra connection consent names the processor and records the revised notic
   assert.match(connectionsPanel, /https:\/\/tryterra\.co\/end-user-privacy/);
   assert.match(connectionsPanel, /I consent to AT CAPACITY receiving health data/);
   assert.match(connectionsPanel, /!consentAccepted/);
+  assert.match(connectionsPanel, /\/images\/providers\/myfitnesspal\.svg/);
+  assert.match(connectionsPanel, /\/images\/providers\/fitbit\.svg/);
+  assert.match(connectionsPanel, /\/images\/providers\/oura\.svg/);
+  assert.match(connectionsPanel, /\/images\/providers\/garmin\.svg/);
+  assert.match(connectionsPanel, />Coming soon</);
+  assert.doesNotMatch(connectionsPanel, /Planned after provider credentials/);
+  assert.doesNotMatch(connectionsPanel, /Apple Health/);
+  assert.doesNotMatch(connectionsPanel, /App Store release/);
   assert.match(connectedAppsPage, /Browser\.addListener\("browserFinished"/);
   assert.match(healthOverview, /connection\.provider === "myfitnesspal"/);
   assert.match(healthOverview, /summary\.providers\.includes\("myfitnesspal"\)/);
