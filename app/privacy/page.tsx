@@ -14,7 +14,7 @@ const sections: Array<{
 }> = [
   {
     title: "Information AT CAPACITY handles",
-    body: "AT CAPACITY stores account and contact details, coaching plans, text messages and any private voice notes you choose to record, check-ins, progress photos, training and nutrition logs, consultation answers, and any health, injury or cycle information you choose to provide. Voice notes are stored privately and the microphone is used only while you choose to record one. If you connect a supported app through Terra, AT CAPACITY may also receive sleep, recovery, activity and nutrition summaries from that provider. If you connect Google Calendar or Outlook Calendar, AT CAPACITY reads the calendar and event information described below. For coached clients, AT CAPACITY also keeps coaching-administration records, such as call attendance, weekly notes of coaching support provided over WhatsApp, periodic review summaries, and an audited record of any correction to locked baseline figures.",
+    body: "AT CAPACITY stores account and contact details, coaching plans, text messages and any private voice notes or photos you choose to send, check-ins, progress photos, training and nutrition logs, consultation answers, and any health, injury or cycle information you choose to provide. DM voice notes and photos are stored privately. The microphone, camera and photo library are used only when you choose to record or select something to send. If you connect a supported app through Terra, AT CAPACITY may also receive sleep, recovery, activity and nutrition summaries from that provider. If you connect Google Calendar or Outlook Calendar, AT CAPACITY reads the calendar and event information described below. For coached clients, AT CAPACITY also keeps coaching-administration records, such as call attendance, weekly notes of coaching support provided over WhatsApp, periodic review summaries, and an audited record of any correction to locked baseline figures.",
   },
   {
     title: "Google Calendar data AT CAPACITY accesses",
@@ -115,7 +115,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="font-heading text-xl font-bold">Contact</h2>
             <p className="mt-3 text-[15px] leading-7 text-[#c3c4cd]">
-              Coaching clients can contact Gordy through private text or voice-note DMs in AT CAPACITY. For account-access help, visit the <Link href="/support" className="text-[#f06be3]">support page</Link>.
+              Coaching clients can contact Gordy through private text, voice-note or photo DMs in AT CAPACITY. For account-access help, visit the <Link href="/support" className="text-[#f06be3]">support page</Link>.
             </p>
           </section>
         </div>

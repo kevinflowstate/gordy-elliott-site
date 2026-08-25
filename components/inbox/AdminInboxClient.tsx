@@ -202,6 +202,29 @@ export default function AdminInboxClient() {
     }
   }
 
+  async function handleSendImage(image: File) {
+    if (!selectedClientId) return;
+    setSending(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.set("image", image);
+      form.set("client_id", selectedClientId);
+      const res = await fetch("/api/inbox/image", { method: "POST", body: form });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Photo could not be sent.");
+      toast("Photo sent");
+      await Promise.all([loadConversations(), loadThread(selectedClientId)]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Photo could not be sent.";
+      setError(message);
+      toast(message, "error");
+      throw err;
+    } finally {
+      setSending(false);
+    }
+  }
+
   async function handleBulkSend() {
     if (!bulkMessage.trim() || bulkRecipientCount === 0 || bulkSending) return;
     setBulkSending(true);
@@ -310,6 +333,7 @@ export default function AdminInboxClient() {
                 currentRole="admin"
                 onSend={handleSend}
                 onSendAudio={handleSendAudio}
+                onSendImage={handleSendImage}
                 sending={sending}
                 error={error}
                 emptyTitle="No messages yet"

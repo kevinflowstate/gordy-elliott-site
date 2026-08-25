@@ -66,13 +66,14 @@ export async function DELETE(request: Request) {
     await removeStoragePaths(admin, "avatars", avatarPaths);
 
     if (profile) {
-      const [{ data: documents, error: documentsError }, progressPaths, inboxAudioPaths] = await Promise.all([
+      const [{ data: documents, error: documentsError }, progressPaths, inboxAudioPaths, inboxImagePaths] = await Promise.all([
         admin
           .from("client_documents")
           .select("storage_bucket, storage_path")
           .eq("client_id", profile.id),
         listStoragePaths(admin, "progress-photos", profile.id),
         listStoragePaths(admin, "inbox-audio", profile.id),
+        listStoragePaths(admin, "inbox-images", profile.id),
       ]);
       if (documentsError) throw documentsError;
 
@@ -86,6 +87,7 @@ export async function DELETE(request: Request) {
       await Promise.all([
         removeStoragePaths(admin, "progress-photos", progressPaths),
         removeStoragePaths(admin, "inbox-audio", inboxAudioPaths),
+        removeStoragePaths(admin, "inbox-images", inboxImagePaths),
         ...Array.from(documentsByBucket, ([bucket, paths]) => removeStoragePaths(admin, bucket, paths)),
       ]);
     }

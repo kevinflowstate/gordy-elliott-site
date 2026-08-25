@@ -125,6 +125,27 @@ export default function ClientInboxClient() {
     }
   }
 
+  async function handleSendImage(image: File) {
+    setSending(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.set("image", image);
+      const res = await fetch("/api/inbox/image", { method: "POST", body: form });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Photo could not be sent.");
+      setThread((current) => current && data.message ? { ...current, messages: [...current.messages, data.message] } : current);
+      toast("Photo sent");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Photo could not be sent.";
+      setError(message);
+      toast(message, "error");
+      throw err;
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
     <div className="portal-dm-page mx-auto flex h-full min-h-0 w-full max-w-4xl flex-col overflow-hidden px-0 py-1 sm:py-0">
       <div className="portal-dm-page-header mb-4 shrink-0 sm:mb-5">
@@ -154,6 +175,7 @@ export default function ClientInboxClient() {
           currentRole="client"
           onSend={handleSend}
           onSendAudio={handleSendAudio}
+          onSendImage={handleSendImage}
           sending={sending}
           error={error}
           emptyTitle="Start the conversation"
