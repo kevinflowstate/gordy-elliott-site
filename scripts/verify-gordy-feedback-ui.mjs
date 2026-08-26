@@ -60,7 +60,7 @@ async function authenticate(context, admin, email = reviewEmail) {
     value,
     url: baseUrl,
     httpOnly: options?.httpOnly,
-    secure: false,
+    secure: new URL(baseUrl).protocol === "https:" || options?.secure,
     sameSite: options?.sameSite === "strict" ? "Strict" : options?.sameSite === "none" ? "None" : "Lax",
   })));
 }
@@ -196,6 +196,26 @@ try {
         mockMode: false,
       }),
     }));
+    await page.route("**/api/portal/storm-warning", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ evaluation: { warning: false }, dismissed: null, silenced: false }),
+    }));
+    await page.route("**/api/portal/early-win", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ earlyWin: null }),
+    }));
+    await page.route("**/api/portal/capacity-baseline", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ baseline: null, current: null, comparison: null, month4Review: null }),
+    }));
+    await page.route("**/api/portal/weekly-capacity", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(null),
+    }));
     const photo = (colour) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400"><rect width="300" height="400" fill="${colour}"/></svg>`)}`;
     await page.route("**/api/portal/gallery", (route) => route.fulfill({
       status: 200,
@@ -208,9 +228,15 @@ try {
 
     for (const route of routes) {
       const consoleErrors = [];
+      const clientErrors = [];
+      const pageErrors = [];
       const serverErrors = [];
       page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });
-      page.on("response", (response) => { if (response.status() >= 500) serverErrors.push(`${response.status()} ${response.url()}`); });
+      page.on("pageerror", (error) => pageErrors.push(error.message));
+      page.on("response", (response) => {
+        if (response.status() >= 500) serverErrors.push(`${response.status()} ${response.url()}`);
+        else if (response.status() >= 400) clientErrors.push(`${response.status()} ${response.url()}`);
+      });
 
       const response = await page.goto(`${baseUrl}${route.path}`, { waitUntil: "domcontentloaded", timeout: 30_000 });
       await page.waitForLoadState("networkidle", { timeout: 8_000 }).catch(() => {});
@@ -227,7 +253,16 @@ try {
         await page.getByRole("button", { name: "Up to date" }).waitFor();
       }
       if (route.name === "home") {
-        await page.getByText("Give today some breathing room", { exact: true }).waitFor();
+        try {
+          await page.getByText("Give today some breathing room", { exact: true }).waitFor();
+        } catch (error) {
+          await page.screenshot({
+            path: path.join(outputDir, `${viewport.name}-home-priority-missing.png`),
+            fullPage: false,
+            animations: "disabled",
+          });
+          throw new Error(`${error instanceof Error ? error.message : error}; page errors: ${pageErrors.join(" | ") || "none"}; console: ${consoleErrors.join(" | ") || "none"}; server responses: ${serverErrors.join(", ") || "none"}`);
+        }
       }
       if (route.name === "gallery") {
         const compare = page.getByRole("button", { name: "Compare photos" });
@@ -269,7 +304,9 @@ try {
       }
       if (serverErrors.length) throw new Error(`${viewport.name} ${route.path}: ${serverErrors.join(", ")}`);
       const meaningfulConsoleErrors = consoleErrors.filter((message) => !/favicon|403 \(Forbidden\)/i.test(message));
-      if (meaningfulConsoleErrors.length) throw new Error(`${viewport.name} ${route.path}: ${[...new Set(meaningfulConsoleErrors)].join(" | ")}`);
+      if (meaningfulConsoleErrors.length) {
+        throw new Error(`${viewport.name} ${route.path}: ${[...new Set(meaningfulConsoleErrors)].join(" | ")}; responses: ${[...new Set(clientErrors)].join(", ") || "none"}`);
+      }
 
       await page.screenshot({
         path: path.join(outputDir, `${viewport.name}-${route.name}.png`),
