@@ -4,7 +4,7 @@ Date: 26 August 2026
 
 Candidate: AT CAPACITY 1.0 (Build 10)
 
-Verdict: **READY AFTER SPECIFIC PREREQUISITES**. The Gordy-owned binary is validated, processed, installed through TestFlight and fully prepared in App Store Connect. It must not be added for review until the final hosted-portal change is deployed and the exact Build 10 physical-device walkthrough is repeated.
+Verdict: **READY AFTER SPECIFIC PREREQUISITES**. The Gordy-owned binary is validated, processed, installed through TestFlight and fully prepared in App Store Connect. The final hosted-portal correction is deployed and has passed production browser QA. It must not be added for review until the exact Build 10 physical-device walkthrough is completed.
 
 ## Exact candidate
 
@@ -38,17 +38,20 @@ The repeated workout workflow uses a SwiftUI-native runner with one-exercise-at-
 
 This is materially stronger than a repackaged website, but Apple retains discretion under Guideline 4.2 because the wider coaching interface is still served by the hosted portal. Review notes must remain factual and the physical reviewer simulation must demonstrate the native workout rather than merely describing it.
 
-## Preflight correction found on 26 August
+## Preflight correction and production verification on 26 August
 
-The unified Home refactor retained the calendar/wearable priority decision logic but stopped rendering its result. The release test correctly caught the missing “Today’s priority” card. The smallest restoration is now in the working tree and has passed metadata validation, TypeScript, all 210 release-contract tests, lint with zero errors, the production build and visual journey QA at 390 px, 430 px and 1440 px. It must still be deployed to the hosted portal and retested through Build 10 before submission.
+The unified Home refactor retained the calendar/wearable priority decision logic but stopped rendering its result. The release test correctly caught the missing “Today’s priority” card. The smallest restoration was merged in PR #54 (`f6c1072`) and deployed to `https://app.onlinegordy.com`.
+
+The deployed portal passed visual journey QA at 390 px, 430 px and 1440 px across Home, Calendar, Daily Tracker, Check-in, Gallery, Training and DM, plus the desktop admin briefing and persisted Done-today state. The production App Store reviewer contract passed all 84 assertions, including workout start/edit/tap handling, calendar and nutrition flows, DM keyboard behaviour, settings and accessibility labels, native push-token cleanup, offline branding and the absence of Meta/Facebook traffic. The current native source also passed iOS release preflight, built successfully for an iPhone 17 Pro simulator and launched the SwiftUI workout preview with correct safe-area layout.
+
+These checks verify the deployed portal and current native source. They do not replace a physical-device run of the exact signed TestFlight Build 10 for hardware, operating-system permission and background-lifecycle behaviour.
 
 ## Remaining submission gates
 
-1. Deploy the locally verified Home priority restoration, then confirm production and TestFlight show the same current Home experience.
-2. Run `docs/testflight-checklist.md` and `docs/app-store-reviewer-walkthrough.md` on exact Build 10, including launch/session persistence, native workout save/edit/offline recovery, DM photo/voice, booking prompt, account deletion confirmation and error/empty states.
-3. On physical devices, prove APNs receipt/deep-link opening; password-reset Universal Link; Google/Outlook and Terra native return; MyFitnessPal nutrition ingestion; Oura current-day freshness; and camera/photo/microphone permission handling.
-4. Complete the accessibility matrix on a small and current large iPhone. Leave unsupported or unverified App Accessibility declarations unselected.
-5. Review TestFlight crash feedback after the final walkthrough and obtain Gordy's approval of the finished product page and reviewer journey.
+1. Run `docs/testflight-checklist.md` and `docs/app-store-reviewer-walkthrough.md` on exact Build 10, including current Home parity, launch/session persistence, native workout save/edit/offline recovery, DM photo/voice, booking prompt, account deletion confirmation and error/empty states.
+2. On physical devices, prove APNs receipt/deep-link opening; password-reset Universal Link; Google/Outlook and Terra native return; MyFitnessPal nutrition ingestion; Oura current-day freshness; and camera/photo/microphone permission handling.
+3. Complete the accessibility matrix on a small and current large iPhone. Leave unsupported or unverified App Accessibility declarations unselected.
+4. Review TestFlight crash feedback after the final walkthrough and obtain Gordy's approval of the finished product page and reviewer journey.
 
 WHOOP and bloodwork are not version 1 submission blockers provided unavailable or deferred functionality is not advertised as live.
 
