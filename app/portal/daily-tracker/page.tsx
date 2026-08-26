@@ -1,5 +1,6 @@
 "use client";
 
+import { Capacitor } from "@capacitor/core";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
@@ -139,9 +140,12 @@ export default function DailyTrackerPage() {
   const [wearableSummaries, setWearableSummaries] = useState<WearableDailySummary[]>([]);
   const [listening, setListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
+  const [usesNativeKeyboardDictation, setUsesNativeKeyboardDictation] = useState(false);
+  const [trainingDates, setTrainingDates] = useState<string[]>([]);
   const [syncedFields, setSyncedFields] = useState<string[]>([]);
   const speechRef = useRef<SpeechRecognitionLike | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
+  const notesRef = useRef<HTMLTextAreaElement>(null);
   const [form, setForm] = useState({
     tracked_date: todayKey,
     sleep_hours: "",
@@ -154,6 +158,7 @@ export default function DailyTrackerPage() {
   });
 
   const score = useMemo(() => scoreEntry(form), [form]);
+  const trainingAutoCompleted = trainingDates.includes(form.tracked_date);
   const sevenDayEntries = entries.slice(0, 7);
   const sevenDayScore = useMemo(() => {
     const scores = sevenDayEntries.map(scoreEntry).filter((value): value is number => value !== null);
@@ -169,8 +174,12 @@ export default function DailyTrackerPage() {
       if (!res.ok) throw new Error(data.error || "Failed to load tracker");
       const nextEntries = (data.entries || []) as DailyMetric[];
       const nextWearableSummaries = (data.wearableSummaries || []) as WearableDailySummary[];
+      const nextTrainingDates = Array.isArray(data.trainingDates)
+        ? data.trainingDates.filter((date: unknown): date is string => typeof date === "string")
+        : [];
       setEntries(nextEntries);
       setWearableSummaries(nextWearableSummaries);
+      setTrainingDates(nextTrainingDates);
       const selectedWearable = nextWearableSummaries.find((summary) => summary.summary_date === selectedDate)
         || (selectedDate === todayKey ? data.wearableSummary : null)
         || null;
@@ -204,6 +213,7 @@ export default function DailyTrackerPage() {
           tracked_date: selectedDate,
           sleep_hours: selectedWearable?.sleep_minutes ? (selectedWearable.sleep_minutes / 60).toFixed(1) : "",
           water_liters: selectedWearable?.water_ml ? (selectedWearable.water_ml / 1000).toFixed(1) : "",
+          training_completed: nextTrainingDates.includes(selectedDate),
         }));
       }
     } catch (err) {
@@ -218,7 +228,9 @@ export default function DailyTrackerPage() {
   }, [load]);
 
   useEffect(() => {
-    setSpeechSupported(Boolean(window.SpeechRecognition || window.webkitSpeechRecognition));
+    const nativePlatform = Capacitor.isNativePlatform();
+    setUsesNativeKeyboardDictation(nativePlatform);
+    setSpeechSupported(!nativePlatform && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition));
     return () => speechRef.current?.stop();
   }, []);
 
@@ -282,7 +294,7 @@ export default function DailyTrackerPage() {
       energy_level: "",
       stress_level: "",
       nutrition_score: "",
-      training_completed: false,
+      training_completed: trainingDates.includes(todayKey),
       notes: "",
     });
   }
@@ -315,6 +327,11 @@ export default function DailyTrackerPage() {
     speechRef.current = recognition;
     setListening(true);
     recognition.start();
+  }
+
+  function openNativeDictation() {
+    notesRef.current?.focus();
+    toast("Tap the microphone on your iPhone keyboard to dictate your note");
   }
 
   return (
@@ -457,19 +474,38 @@ export default function DailyTrackerPage() {
       <TrackerCard title="Training">
         <button
           type="button"
+          disabled={trainingAutoCompleted}
           onClick={() => setForm((prev) => ({ ...prev, training_completed: !prev.training_completed }))}
-          className={`w-full rounded-2xl border px-4 py-4 text-left transition-colors ${
+          className={`w-full rounded-2xl border px-4 py-4 text-left transition-colors disabled:cursor-default ${
             form.training_completed
               ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
               : "border-[rgba(0,0,0,0.08)] bg-bg-primary text-text-primary"
           }`}
         >
-          <span className="block text-sm font-semibold">{form.training_completed ? "Training done today" : "Training not logged today"}</span>
-          <span className="mt-1 block text-xs text-text-secondary">Tap to toggle. This is separate from detailed session logging.</span>
+          <span className="block text-sm font-semibold">
+            {trainingAutoCompleted
+              ? "Training logged from your completed session"
+              : form.training_completed
+                ? "Training done today"
+                : "Training not logged today"}
+          </span>
+          <span className="mt-1 block text-xs text-text-secondary">
+            {trainingAutoCompleted ? "Updated automatically from Training." : "Tap to mark other training completed today."}
+          </span>
         </button>
       </TrackerCard>
 
       <TrackerCard title="Notes">
+        {usesNativeKeyboardDictation && (
+          <button
+            type="button"
+            onClick={openNativeDictation}
+            className="mb-3 inline-flex min-h-11 items-center gap-2 rounded-full border border-[#E040D0]/25 bg-[#E040D0]/8 px-4 text-xs font-semibold text-[#E040D0]"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3zM5 10v2a7 7 0 0014 0v-2M12 19v3m-4 0h8" /></svg>
+            Dictate with iPhone keyboard
+          </button>
+        )}
         {speechSupported && (
           <button
             type="button"
@@ -481,12 +517,18 @@ export default function DailyTrackerPage() {
           </button>
         )}
         <textarea
+          ref={notesRef}
           rows={4}
           value={form.notes}
           onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
           placeholder="Anything that explains the numbers?"
           className="w-full resize-none rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-text-primary outline-none placeholder:text-text-muted focus:border-accent/50"
         />
+        {usesNativeKeyboardDictation && (
+          <p className="mt-2 text-[11px] text-text-muted">
+            Tap the microphone on the iPhone keyboard. Your words stay editable and AT CAPACITY does not save the recording.
+          </p>
+        )}
         {speechSupported && <p className="mt-2 text-[11px] text-text-muted">Voice is turned into editable text; AT CAPACITY does not save the recording.</p>}
       </TrackerCard>
 

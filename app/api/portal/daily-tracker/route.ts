@@ -15,8 +15,17 @@ type DailyMetric = {
 };
 
 function todayKey() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  if (!year || !month || !day) throw new Error("Could not resolve today's coaching date");
+  return `${year}-${month}-${day}`;
 }
 
 function toNumber(value: unknown) {
@@ -74,10 +83,26 @@ export async function GET() {
 
   if (wearableError) return NextResponse.json({ error: wearableError.message }, { status: 500 });
 
-  const entries = (data || []) as DailyMetric[];
+  const { data: completedSessions, error: completedSessionsError } = await admin
+    .from("client_exercise_session_summaries")
+    .select("log_date")
+    .eq("client_id", profile.id)
+    .lte("log_date", todayKey())
+    .order("log_date", { ascending: false })
+    .limit(50);
+
+  if (completedSessionsError) return NextResponse.json({ error: completedSessionsError.message }, { status: 500 });
+
+  const trainingDates = [...new Set((completedSessions || []).map((session) => session.log_date))];
+  const completedTrainingDates = new Set(trainingDates);
+  const entries = ((data || []) as DailyMetric[]).map((entry) => ({
+    ...entry,
+    training_completed: entry.training_completed || completedTrainingDates.has(entry.tracked_date),
+  }));
   return NextResponse.json({
     today: entries.find((entry) => entry.tracked_date === todayKey()) || null,
     entries,
+    trainingDates,
     wearableSummary: (wearableSummaries || []).find((entry) => entry.summary_date === todayKey()) || wearableSummaries?.[0] || null,
     wearableSummaries: wearableSummaries || [],
   });
