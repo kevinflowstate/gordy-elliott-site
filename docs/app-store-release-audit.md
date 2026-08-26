@@ -1,62 +1,57 @@
 # App Store Release Audit
 
-Date: 18 August 2026
+Date: 26 August 2026
 
-Candidate: AT CAPACITY 1.0 (Build 8)
+Candidate: AT CAPACITY 1.0 (Build 10)
 
-Verdict: **NOT READY** for App Store submission. The code-complete candidate now has a final signed archive that passes Apple server validation, but it must still be uploaded to TestFlight and exercised on physical devices as exact Build 8. Version 1.0 must remain in **Prepare for Submission**.
+Verdict: **READY AFTER SPECIFIC PREREQUISITES**. The Gordy-owned binary is validated, processed, installed through TestFlight and fully prepared in App Store Connect. It must not be added for review until the final hosted-portal change is deployed and the exact Build 10 physical-device walkthrough is repeated.
 
 ## Exact candidate
 
-- Source baseline: `origin/main` at `9298910` plus the native-workout candidate changes on `codex/native-workout-appstore-2026-08-18`.
-- Final archive: `/Volumes/XCode/Storage-Quarantine-2026-07-15/AT-CAPACITY-Releases/AT-CAPACITY-1.0-8.xcarchive`.
-- Preserved superseded archive: `/Volumes/XCode/Storage-Quarantine-2026-07-15/AT-CAPACITY-Releases/AT-CAPACITY-1.0-8-pre-storage-hardening.xcarchive`; this must not be uploaded.
-- Bundle ID: `com.gordyelliott.shift`.
-- Version/build: `1.0 (8)`.
-- Minimum iOS: 15.0.
+- Source baseline before the final hosted-portal correction: `33879f92997a384886ee5c82c6f9ab102653771d` on `codex/gordy-apple-ownership`.
+- Archive: `/Volumes/XCode/Storage-Quarantine-2026-07-15/AT-CAPACITY-Releases/AT-CAPACITY-1.0-10.xcarchive`.
+- App Store Connect Apple ID: `6805066999`.
+- Bundle ID: `com.gordyelliott.atcapacity`.
+- Version/build: `1.0 (10)`.
+- Apple team: `5NU9323724`.
 - Device family: iPhone only.
 - Production origin: `https://app.onlinegordy.com`.
-- Apple team: `H4J3XX8R8M`.
 
-Build 8 has not been uploaded or submitted during this preparation pass.
+## Confirmed Apple state
 
-## New native product value
+- Build 10 passed Xcode archive validation and Organizer's network-backed **Validate App**.
+- Apple processed Build 10 successfully and the build has been installed through Gordy's TestFlight account.
+- Build 10 is selected for App Store version 1.0.
+- The version is still **Prepare for Submission**; **Add for Review has not been clicked**.
+- Release is set to manual.
+- The app is free, public and available in all 175 App Store countries/regions after release.
+- Untested Apple Silicon Mac and Apple Vision Pro availability are disabled.
+- Name, subtitle, categories, content-rights answer, 16+ age rating and non-medical-device declaration are saved.
+- The privacy policy/choices URLs and a 14-data-type, identity-linked, no-tracking privacy label were published.
+- Product copy, keywords, support/marketing URLs, review contact, verified fictional Demo Client login and reviewer notes are saved.
+- Six 1284 x 2778 iPhone screenshots are attached in the intended order: Home, Training, active session, Daily Tracker, DM and Nutrition.
+- Digital Services Act trader status is already configured for the app.
 
-The repeated workout workflow now runs in a full-screen SwiftUI surface rather than hosted portal UI. It includes a session preview, one-exercise-at-a-time logging, set completion haptics, **Apply set 1 to all**, an in-workout rest timer, **Up next**, a full-session overview with jump navigation, final review, edit mode, atomic local draft persistence and offline-safe queued sync through the existing authenticated exercise-log API. Older iOS builds and ordinary web users retain the existing web runner as a fallback.
+## Native product value and Guideline 4.2
 
-Simulator QA on an iPhone 17 Pro completed the native journey through start, entry, apply-to-all, set completion, rest timer, overview/jump, navigation and save. Force-terminating and relaunching restored the exact exercise, elapsed workout, values and completion state. This materially improves the Guideline 4.2 position; Apple acceptance still cannot be guaranteed.
+The repeated workout workflow uses a SwiftUI-native runner with one-exercise-at-a-time logging, haptics, Apply Set 1 to All, rest timing, Up Next, overview/jump navigation, edit mode, local draft persistence and queued authenticated sync. The shell also supplies native splash/offline handling, APNs opt-in and deep links, camera/photo/microphone flows, Universal Links and secure provider return.
 
-## Passed evidence
+This is materially stronger than a repackaged website, but Apple retains discretion under Guideline 4.2 because the wider coaching interface is still served by the hosted portal. Review notes must remain factual and the physical reviewer simulation must demonstrate the native workout rather than merely describing it.
 
-- `npm run ios:preflight`: passed for Build 8 identity, signing team, production origin and Xcode 26.3.
-- The exact committed Build 8 source compiled successfully for a generic iOS destination after the final protected-storage hardening.
-- The final Build 8 archive passed with `** ARCHIVE SUCCEEDED **`, Apple Distribution signing, the `AT CAPACITY App Store` profile and archive-time store validation.
-- `codesign --verify --deep --strict` passed for the final archive. Its entitlements include production APNs, `applinks:app.onlinegordy.com`, beta reports and `get-task-allow = false`; its app executable SHA-256 is `0fc04205333422eb418fbf146e1a8b7cb4d51e32027df76004e4e4b856b84faf`.
-- Xcode Organizer's network-backed **Validate App** passed for final AT CAPACITY 1.0 (8) on 18 August 2026: “Your app successfully passed all validation checks.”
-- `npm run test:release-contracts`: 199/199 passed, including the native workout payload and delayed-offline-sync contracts.
-- Strict TypeScript: passed.
-- ESLint: zero errors. The full project reports 45 existing warnings; focused lint over every touched TypeScript/TSX file reports none.
-- Production Next.js build: passed with 144 routes. The only framework warning is the non-blocking Next.js middleware-convention deprecation.
-- `npm audit --omit=dev`: zero known production dependency vulnerabilities.
-- App Store metadata verifier passed the listing-length and iPhone-only constraints.
-- The read-only production App Review fixture checker passed for `demo@flowstatesystems.ai`, including two sessions/ten exercises, nutrition, recent tracker history, check-ins and two-way DM data.
-- Native simulator accessibility tree exposed named controls for session overview, exercise navigation, set fields, completion, review and save.
+## Preflight correction found on 26 August
 
-## Submission blockers
+The unified Home refactor retained the calendar/wearable priority decision logic but stopped rendering its result. The release test correctly caught the missing “Today’s priority” card. The smallest restoration is now in the working tree and has passed metadata validation, TypeScript, all 210 release-contract tests, lint with zero errors, the production build and visual journey QA at 390 px, 430 px and 1440 px. It must still be deployed to the hosted portal and retested through Build 10 before submission.
 
-1. **Build 8 is not in TestFlight.** It therefore has no exact-build physical walkthrough, crash/launch record or reviewer simulation.
-2. **The new native queue needs one real-device server corroboration.** Complete a workout offline, reconnect, verify the visible saved history and confirm the corresponding owned exercise-log record through the existing review fixture checks.
-3. **Other physical-device journeys remain unproven on exact Build 8:** APNs receipt/deep-link opening; password-reset Universal Link; Google/Outlook and Terra native return; current-day Oura/MyFitnessPal ingestion; camera/photo; small/large iPhone accessibility.
-4. **App Store Connect declarations remain a manual account-owner lane:** confirm DSA trader status, Accessibility declarations, final metadata, working review credential, selected build and crash data.
-5. **Guideline 4.2 risk is reduced but not eliminated.** The workout runner is now unmistakably native and useful offline, while the rest of the coaching product remains a hosted Capacitor portal.
+## Remaining submission gates
 
-WHOOP is not a submission blocker provided it remains disabled and is not advertised in version 1 until Terra confirms TLS and end-to-end testing passes.
+1. Deploy the locally verified Home priority restoration, then confirm production and TestFlight show the same current Home experience.
+2. Run `docs/testflight-checklist.md` and `docs/app-store-reviewer-walkthrough.md` on exact Build 10, including launch/session persistence, native workout save/edit/offline recovery, DM photo/voice, booking prompt, account deletion confirmation and error/empty states.
+3. On physical devices, prove APNs receipt/deep-link opening; password-reset Universal Link; Google/Outlook and Terra native return; MyFitnessPal nutrition ingestion; Oura current-day freshness; and camera/photo/microphone permission handling.
+4. Complete the accessibility matrix on a small and current large iPhone. Leave unsupported or unverified App Accessibility declarations unselected.
+5. Review TestFlight crash feedback after the final walkthrough and obtain Gordy's approval of the finished product page and reviewer journey.
 
-## Exact remaining sequence
+WHOOP and bloodwork are not version 1 submission blockers provided unavailable or deferred functionality is not advertised as live.
 
-1. Review and merge the Build 8 candidate; deploy the web bridge/fallback code to production. Do not submit the App Store version.
-2. Upload the validated Build 8 archive to the internal TestFlight group only. Do not click **Add for Review**.
-3. Execute `docs/testflight-checklist.md`, `docs/app-store-reviewer-walkthrough.md` and `docs/app-store-accessibility.md` on a small and current large iPhone, including native workout termination recovery and offline completion/sync.
-4. Recheck the fictional review login and complete DSA/accessibility declarations and final listing approval in App Store Connect.
-5. Reassess Guideline 4.2 using the exact TestFlight evidence.
-6. Stop with version 1.0 in **Prepare for Submission** and wait for Kevin's explicit authorization before **Add for Review**.
+## Stop condition
+
+Passing the gates above prepares the submission; it does not authorise it. Leave version 1.0 in **Prepare for Submission** and wait for Kevin's explicit instruction before **Add for Review**.

@@ -17,15 +17,15 @@ All declared types below are **linked to the user's identity** because AT CAPACI
 
 | Apple data type | AT CAPACITY examples | Purpose selections |
 | --- | --- | --- |
-| Contact Info - Name | Client name | App Functionality; Product Personalization |
+| Contact Info - Name | Client name | App Functionality |
 | Contact Info - Email Address | Login and support email | App Functionality |
 | Contact Info - Phone Number | Optional consultation/profile phone | App Functionality |
 | Health & Fitness - Health | Injuries, cycle information, sleep, recovery, wellbeing, consultation health answers | App Functionality; Product Personalization |
 | Health & Fitness - Fitness | Programmes, sessions, exercise logs, activity and body measurements | App Functionality; Product Personalization |
 | Sensitive Info | Optional cycle and other sensitive consultation information | App Functionality; Product Personalization |
-| User Content - Emails or Text Messages | Private client/coach DMs | App Functionality |
-| User Content - Audio Data | Optional private voice notes recorded and sent in client/coach DMs | App Functionality |
-| User Content - Photos or Videos | Progress, check-in and profile photos | App Functionality |
+| User Content - Emails or Text Messages | Private client/coach DMs | App Functionality; Product Personalization |
+| User Content - Audio Data | Optional private voice notes recorded and sent in client/coach DMs | App Functionality; Product Personalization |
+| User Content - Photos or Videos | Progress, check-in and profile photos | App Functionality; Product Personalization |
 | User Content - Other User Content | Check-ins, tracker notes, consultations, documents, saved responses, and synced read-only calendar events (identifiers, masked-where-private titles, times, busy status, meeting links) for clients who connect Google Calendar or Outlook Calendar | App Functionality; Product Personalization |
 | Identifiers - User ID | Supabase account/client IDs, Terra reference IDs and Composio connected-account identifiers | App Functionality |
 | Identifiers - Device ID | APNs and web-push device/subscription identifiers | App Functionality |
@@ -51,7 +51,7 @@ All declared types below are **linked to the user's identity** because AT CAPACI
 
 No provider receives data for third-party advertising. Terra, Composio and AI data flows must remain limited to the features the client or coach invokes.
 
-Apple has no calendar-specific data type, so synced calendar events sit under User Content - Other User Content, which is already declared with App Functionality and Product Personalization purposes. On current evidence the published App Privacy selection therefore does not need a new data type for calendar, but re-confirm the selections against this worksheet before submission because the published answers were entered before the calendar work.
+Apple has no calendar-specific data type, so synced calendar events sit under User Content - Other User Content, which is declared with App Functionality and Product Personalization purposes.
 
 ## Final verification before publishing
 
@@ -61,4 +61,8 @@ Apple has no calendar-specific data type, so synced calendar events sit under Us
 4. Confirm Gordy's final privacy/support contact and retention wording.
 5. Confirm the final advertised Terra provider list and complete the outstanding MyFitnessPal production retest.
 6. Confirm the calendar launch decision (Google verification is under review; Outlook needs its production contract test) and that the review build's Connected Calendar screen behaves as described in the review notes.
-7. Declare Audio Data in App Store Connect before the voice-note build is submitted; it is linked to the user, used for App Functionality, and not used for tracking.
+7. The published App Store label includes Audio Data, Photos or Videos and private messages as identity-linked, functionality/personalisation data and not tracking data.
+
+## Live App Store Connect status
+
+Published 26 August 2026 with all 14 data types above linked to the user and no tracking. Privacy Policy and User Privacy Choices URLs both point to `https://app.onlinegordy.com/privacy`.
