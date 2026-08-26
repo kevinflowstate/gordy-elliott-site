@@ -9,6 +9,8 @@ const audioMigrationUrl = new URL("../supabase/migrations/20260824101000_inbox_v
 const photoMigrationUrl = new URL("../supabase/migrations/20260825143000_inbox_photo_messages.sql", import.meta.url);
 const photoRouteUrl = new URL("../app/api/inbox/image/route.ts", import.meta.url);
 const accountDeletionUrl = new URL("../app/api/portal/account/route.ts", import.meta.url);
+const dailyTrackerRouteUrl = new URL("../app/api/portal/daily-tracker/route.ts", import.meta.url);
+const dailyTrackerPageUrl = new URL("../app/portal/daily-tracker/page.tsx", import.meta.url);
 const adminClientRouteUrl = new URL("../app/api/admin/clients/[id]/route.ts", import.meta.url);
 const portalAIRouteUrl = new URL("../app/api/portal/ai/route.ts", import.meta.url);
 const inboxThreadUrl = new URL("../components/inbox/InboxThread.tsx", import.meta.url);
@@ -126,6 +128,23 @@ test("older native builds get honest voice messaging and booking links look acti
   assert.doesNotMatch(monthlyCallPrompt, /state\.config\.label/);
   assert.match(toast, /font-medium text-white/);
   assert.match(toast, /aria-label="Dismiss notification"/);
+});
+
+test("Daily Tracker uses reliable iPhone dictation and reflects completed workout sessions", async () => {
+  const [route, page] = await Promise.all([
+    readFile(dailyTrackerRouteUrl, "utf8"),
+    readFile(dailyTrackerPageUrl, "utf8"),
+  ]);
+
+  assert.match(page, /const nativePlatform = Capacitor\.isNativePlatform\(\)/);
+  assert.match(page, /setSpeechSupported\(!nativePlatform/);
+  assert.match(page, /Dictate with iPhone keyboard/);
+  assert.match(page, /Tap the microphone on the iPhone keyboard/);
+  assert.match(route, /from\("client_exercise_session_summaries"\)/);
+  assert.match(route, /training_completed: entry\.training_completed \|\| completedTrainingDates\.has/);
+  assert.match(route, /trainingDates,/);
+  assert.match(page, /trainingAutoCompleted/);
+  assert.match(page, /Training logged from your completed session/);
 });
 
 test("client activation is ordered, audited and idempotent", async () => {
