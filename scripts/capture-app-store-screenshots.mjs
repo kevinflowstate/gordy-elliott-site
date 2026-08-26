@@ -12,7 +12,7 @@ const storageState = process.env.PORTAL_QA_STORAGE_STATE;
 const chromePath = process.env.PORTAL_QA_CHROME_PATH ||
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const outputDir = process.env.APP_STORE_SCREENSHOT_OUTPUT ||
-  "/Volumes/XCode/Storage-Quarantine-2026-07-15/SHIFT-AppStore-Screenshots/draft";
+  "/Volumes/XCode/Storage-Quarantine-2026-07-15/AT-CAPACITY-AppStore-Screenshots/draft";
 
 await Promise.all([
   access(chromePath),
@@ -31,7 +31,7 @@ const context = await browser.newContext({
   timezoneId: "Europe/London",
   colorScheme: "dark",
   serviceWorkers: "block",
-  userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 SHIFT-Native/1.0 SHIFT-APNS/production",
+  userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 AT-CAPACITY-Native/1.0 SHIFT-APNS/production",
 });
 if (!storageState) {
   await context.addCookies(await createAppReviewBrowserCookies({ baseUrl }));

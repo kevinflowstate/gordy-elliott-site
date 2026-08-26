@@ -57,3 +57,11 @@ The 6 August replacement set is stored at:
 `/Volumes/XCode/Storage-Quarantine-2026-07-15/SHIFT-AppStore-Screenshots/2026-08-06-production-candidate`
 
 It contains six opaque `1284 x 2778` JPEGs generated from production with the marked fictional review account. The set has been visually inspected, includes the current exercise-by-exercise workout runner and was uploaded to App Store Connect in the approved order on 6 August.
+
+## Current Build 10 set
+
+The current production-backed set is stored at:
+
+`/Volumes/XCode/Storage-Quarantine-2026-07-15/AT-CAPACITY-AppStore-Screenshots/build-10`
+
+It contains six opaque `1284 x 2778` JPEGs generated on 26 August 2026 from the marked fictional Demo Client. The files were visually inspected and uploaded to Gordy's App Store Connect record in this order: Home, Training plan, active session, Daily Tracker, DM and Nutrition. No real client data is present.

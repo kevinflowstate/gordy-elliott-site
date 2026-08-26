@@ -1,6 +1,6 @@
 # AT CAPACITY App Store Metadata
 
-Prepared 21 July 2026 for the first iOS release; calendar-connection copy and review notes added 24 July and connected-health status rechecked 6 August 2026. Recheck character limits and reconcile every value against App Store Connect before submission.
+Prepared for the first iOS release and reconciled against the live Gordy-owned App Store Connect record on 26 August 2026. Version 1.0 remains Prepare for Submission.
 
 ## Product fields
 
@@ -44,18 +44,16 @@ KEEP NUTRITION PRACTICAL
 
 STAY CONNECTED TO YOUR COACH
 
-- Send and receive private direct messages
+- Send private text, photo and voice messages
 - Complete weekly check-ins and receive feedback
 - Log sleep, energy, stress, hydration and training in the Daily Tracker
 - Keep consultations, documents and progress information in one place
 
 COACHING CONTEXT THAT MOVES WITH YOU
 
-Eligible clients can use optional cycle tracking. Supported connected apps can also contribute sleep, recovery, activity and nutrition summaries when enabled. Founder Dashboard clients can optionally connect Google Calendar or Outlook Calendar with read-only access so the dashboard reflects the shape of their day. These signals support coaching suggestions only and never change a programme automatically.
+Optional connected apps can contribute sleep, recovery, activity and nutrition summaries when enabled. Eligible clients can connect Google Calendar or Outlook Calendar with read-only access so AT CAPACITY can help reflect the shape of the week. These signals support coaching suggestions only and never diagnose a condition or change a programme automatically.
 
-Note before submission: Google Calendar branding and data-access verification was approved on 7 August 2026. Production browser connect, sync, refresh, disconnect/reconnect and cancellation QA passed without an unverified-app warning. Keep the calendar sentence only after exact TestFlight native return and real event ingestion also pass. Outlook still needs its production contract test.
-
-AT CAPACITY AI can help eligible AI Coaching clients find assigned content and understand their existing coaching plan. Founder Dashboard clients receive direct coaching from Gordy and do not use in-app AI. AI does not replace Gordy, diagnose conditions or provide emergency or medical care.
+Eligible clients can also use AT CAPACITY AI to find assigned content and understand their existing coaching plan. AI does not replace Gordy, diagnose conditions or provide emergency or medical care.
 
 AT CAPACITY is sign-in only. Coaching enrolment and payment happen outside the app, and an existing client account is required.
 
@@ -90,7 +88,7 @@ Notification permission is requested only after the client selects Enable. DMs, 
 
 Account deletion is available after sign-in under Settings > Delete account and requires explicit confirmation. The privacy policy and support page are also available publicly at the URLs supplied in App Store Connect.
 
-Before final submission, append the native-behaviour paragraph prepared in `docs/app-store-reviewer-walkthrough.md` only after every named behaviour has passed on exact TestFlight Build 7. Reviewer-note copy must not overstate an unverified APNs, external-provider, camera/photo or offline-return path.
+The live App Store Connect review notes include the prepared native-behaviour explanation for selected Build 10. Reconfirm every named behaviour after the final hosted-portal deployment and remove any claim that does not pass before submission.
 
 ## Other submission answers
 

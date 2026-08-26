@@ -4,7 +4,7 @@ Record device model, iOS version, build number, tester and result for every run.
 
 ## Install and account
 
-- Run this checklist against AT CAPACITY 1.0 (8), uploaded from the signed archive recorded in `docs/app-store-release-audit.md`.
+- Run this checklist against AT CAPACITY 1.0 (10), selected in App Store Connect from the signed archive recorded in `docs/app-store-release-audit.md`.
 - Install cleanly from TestFlight and launch from a terminated state.
 - Confirm the splash/offline states fit the screen and no website browser chrome appears.
 - Sign in, terminate, relaunch and confirm the session persists.

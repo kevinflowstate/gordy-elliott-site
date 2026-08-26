@@ -9,6 +9,7 @@ import type { StormWarningClientState } from "@/lib/storm-warning";
 import type { EarlyWinView } from "@/lib/early-win";
 import type { WeeklyCapacityResult } from "@/lib/weekly-capacity";
 import EarlyWinCard from "@/components/portal/EarlyWinCard";
+import { getImmediateTodayPriority } from "@/lib/today-priority";
 import {
   calendarEventOccursOn,
   calendarWindowLoad,
@@ -163,6 +164,11 @@ export default function FounderDashboard({
   const [reminder, setReminder] = useState("");
   const [savingReminder, setSavingReminder] = useState(false);
   const capacity = capacityLanguage(wearableSummary);
+  const todayPriority = getImmediateTodayPriority({
+    calendarEvents,
+    wearableSummary,
+    todayTraining,
+  });
   const weekLoad = getWeekLoad(calendarEvents);
   const upcoming = getUpcomingEvents(calendarEvents);
   const nextEvent = upcoming[0] || null;
@@ -304,6 +310,20 @@ export default function FounderDashboard({
               Noted - hide for this week
             </button>
           </div>
+        </section>
+      )}
+
+      {todayPriority && (
+        <section className="rounded-2xl border border-[#E667D6]/25 bg-[#E667D6]/8 px-5 py-4">
+          <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#E667D6]">Today&apos;s priority</div>
+          <h2 className="mt-1 font-heading text-xl font-bold text-text-primary">{todayPriority.label}</h2>
+          <p className="mt-2 text-sm leading-6 text-text-secondary">{todayPriority.body}</p>
+          <Link
+            href={todayPriority.href}
+            className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-[#E667D6] px-4 py-2 text-sm font-bold text-black no-underline"
+          >
+            {todayPriority.cta}
+          </Link>
         </section>
       )}
 
