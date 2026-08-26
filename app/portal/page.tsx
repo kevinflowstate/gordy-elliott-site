@@ -1,33 +1,99 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
-import type { CalendarEvent, ClientProfile, ClientTask } from "@/lib/types";
+import { getCoachNoteOfWeek } from "@/lib/coach-quotes";
+import type { CalendarEvent, CheckIn, ClientProfile, ClientTask, TrainingPlanPhase } from "@/lib/types";
 import type { WearableDailySummary } from "@/lib/wearable-insights";
-import FounderDashboard from "@/components/portal/FounderDashboard";
-import type { CapacityBaseline, CapacityMetrics } from "@/lib/capacity-baseline";
-import type { StormWarningClientState } from "@/lib/storm-warning";
-import type { EarlyWinView } from "@/lib/early-win";
 import type { WeeklyCapacityResult } from "@/lib/weekly-capacity";
+import { getNextCalendarOccurrence } from "@/lib/calendar-occurrence";
+import { getImmediateTodayPriority } from "@/lib/today-priority";
 import MonthlyCallPrompt from "@/components/portal/MonthlyCallPrompt";
 
-type BaselineComparison = {
-  baseline: CapacityBaseline | null;
-  current: { period_start: string; period_end: string; metrics: CapacityMetrics };
-  comparison: Record<keyof CapacityMetrics, {
-    baseline: number | null;
-    current: number | null;
-    delta: number | null;
-    direction: "improved" | "declined" | "unchanged" | "missing";
-  }> | null;
-  month4Review?: {
-    review_date: string;
-    outcome_note: string;
-    completed_at: string | null;
-    source_period: { start: string; end: string } | null;
-    comparison_period: { start: string; end: string } | null;
-  } | null;
-};
+type Tier = "coached" | "premium" | "vip" | "ai_only";
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function getWeekNumber(startDate?: string | null): number | null {
+  if (!startDate) return null;
+  const start = new Date(startDate).getTime();
+  if (Number.isNaN(start) || start > Date.now()) return null;
+  return Math.max(1, Math.ceil((Date.now() - start) / (7 * 24 * 60 * 60 * 1000)));
+}
+
+function ProgressRing({ pct, label, sublabel }: { pct: number; label: string; sublabel: string }) {
+  const size = 148;
+  const stroke = 10;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = Math.max(0, Math.min(100, pct));
+  const offset = circumference * (1 - clamped / 100);
+  return (
+    <div className="relative h-[132px] w-[132px] flex-shrink-0 sm:h-[148px] sm:w-[148px]">
+      <svg width="100%" height="100%" viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+        <defs>
+          <linearGradient id="ring-accent" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#B830A8" />
+            <stop offset="100%" stopColor="#F060E0" />
+          </linearGradient>
+        </defs>
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="url(#ring-accent)"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          style={{ transition: "stroke-dashoffset 0.9s cubic-bezier(0.16, 1, 0.3, 1)", filter: "drop-shadow(0 0 8px rgba(224, 64, 208, 0.45))" }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <div className="metric-num text-[2.1rem] font-bold leading-none text-white sm:text-[2.4rem]">{clamped}<span className="text-base text-white/55 sm:text-lg">%</span></div>
+        <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#F7A8EE]">{label}</div>
+        <div className="mt-0.5 text-[10px] text-white/55">{sublabel}</div>
+      </div>
+    </div>
+  );
+}
+
+function MetricTile({ value, unit, label, hint }: { value: string; unit?: string; label: string; hint: string }) {
+  return (
+    <div className="app-hero-tile min-w-0 rounded-2xl px-2.5 py-3 sm:px-3">
+      <div className="metric-num text-xl font-bold leading-none text-white sm:text-[1.5rem]">
+        {value}
+        {unit && <span className="ml-1 text-sm font-medium text-white/55">{unit}</span>}
+      </div>
+      <div className="mt-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-white/70">{label}</div>
+      <div className="mt-0.5 text-[10px] leading-4 text-white/50">{hint}</div>
+    </div>
+  );
+}
+
+function getNextCheckinDate(checkinDay: string) {
+  const dayMap: Record<string, number> = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
+  const targetDay = dayMap[checkinDay.toLowerCase()] ?? 1;
+  const now = new Date();
+  const next = new Date(now);
+  let daysUntil = targetDay - now.getDay();
+  if (daysUntil < 0) daysUntil += 7;
+  next.setDate(now.getDate() + daysUntil);
+  return next;
+}
+
+function isToday(date: Date) {
+  const now = new Date();
+  return date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+}
 
 function localDateKey(date: Date) {
   return [
@@ -35,6 +101,51 @@ function localDateKey(date: Date) {
     String(date.getMonth() + 1).padStart(2, "0"),
     String(date.getDate()).padStart(2, "0"),
   ].join("-");
+}
+
+// Count consecutive weeks with a check-in, starting from most recent backwards
+function computeCheckinStreak(checkins: CheckIn[]): number {
+  if (!checkins.length) return 0;
+  const sorted = [...checkins].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
+  const weeks = new Set<number>();
+  for (const c of sorted) {
+    if (typeof c.week_number === "number") weeks.add(c.week_number);
+  }
+  const weekNums = Array.from(weeks).sort((a, b) => b - a);
+  if (!weekNums.length) return 0;
+  let streak = 1;
+  for (let i = 1; i < weekNums.length; i++) {
+    if (weekNums[i] === weekNums[i - 1] - 1) streak++;
+    else break;
+  }
+  return streak;
+}
+
+function SectionCard({
+  title,
+  subtitle,
+  children,
+  right,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  right?: React.ReactNode;
+}) {
+  return (
+    <section className="app-card app-rise app-rise-2 rounded-[28px] p-5 sm:p-6">
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-[13px] font-bold uppercase tracking-[0.18em] text-[#E040D0]">{title}</h2>
+          {subtitle && <p className="mt-1 text-sm text-text-secondary">{subtitle}</p>}
+        </div>
+        {right}
+      </div>
+      {children}
+    </section>
+  );
 }
 
 function DashboardSkeleton() {
@@ -79,40 +190,19 @@ export default function PortalDashboard() {
   const { toast } = useToast();
   const [profile, setProfile] = useState<ClientProfile | null>(null);
   const [userName, setUserName] = useState("");
+  const [checkins, setCheckins] = useState<CheckIn[]>([]);
+  const [planPhases, setPlanPhases] = useState<TrainingPlanPhase[]>([]);
+  const [checkinDay, setCheckinDay] = useState("monday");
   const [tasks, setTasks] = useState<ClientTask[]>([]);
+  const [personalTask, setPersonalTask] = useState("");
+  const [savingTask, setSavingTask] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [nextEvent, setNextEvent] = useState<{ title: string; date: Date } | null>(null);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [wearableSummary, setWearableSummary] = useState<WearableDailySummary | null>(null);
-  const [wearableMockMode, setWearableMockMode] = useState(false);
   const [todayTraining, setTodayTraining] = useState<string | null>(null);
-  const [activeTrainingPlan, setActiveTrainingPlan] = useState<string | null>(null);
-  const [baselineComparison, setBaselineComparison] = useState<BaselineComparison | null>(null);
-  const [stormWarning, setStormWarning] = useState<StormWarningClientState | null>(null);
-  const [earlyWinView, setEarlyWinView] = useState<EarlyWinView | null>(null);
   const [weeklyCapacity, setWeeklyCapacity] = useState<WeeklyCapacityResult | null | undefined>(undefined);
-
-  const loadStormWarning = useCallback(async () => {
-    try {
-      const res = await fetch("/api/portal/storm-warning");
-      if (res.ok) setStormWarning(await res.json());
-    } catch {
-      /* The dashboard simply stays quiet without an evaluation. */
-    }
-  }, []);
-
-  const dismissStormWarning = useCallback(async () => {
-    try {
-      const res = await fetch("/api/portal/storm-warning", { method: "POST" });
-      if (res.ok) setStormWarning(await res.json());
-    } catch {
-      /* Leave the warning visible if the dismissal could not be saved. */
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadStormWarning();
-  }, [loadStormWarning]);
 
   const loadDashboard = useCallback(async () => {
     setLoadError(null);
@@ -126,6 +216,9 @@ export default function PortalDashboard() {
         const data = await dashboardRes.json();
         setProfile(data.profile);
         setUserName(data.userName);
+        setCheckins(data.checkins || []);
+        setPlanPhases(data.planPhases || []);
+        setCheckinDay(data.checkinDay || "monday");
       } else {
         setLoadError("We couldn't load your dashboard. Pull-to-refresh or try again.");
       }
@@ -153,22 +246,26 @@ export default function PortalDashboard() {
     let active = true;
     (async () => {
       try {
-        const [calendarRes, integrationsRes, exercisePlanRes, baselineRes, weeklyCapacityRes] = await Promise.all([
+        const [calendarRes, integrationsRes, exercisePlanRes, weeklyCapacityRes] = await Promise.all([
           fetch("/api/calendar"),
           fetch("/api/portal/integrations"),
           fetch("/api/portal/exercise-plan"),
-          fetch("/api/portal/capacity-baseline"),
           fetch("/api/portal/weekly-capacity"),
         ]);
         const data = calendarRes.ok ? await calendarRes.json() : { events: [] };
         const events: CalendarEvent[] = data.events || [];
         if (active) setCalendarEvents(events);
+        let earliest: { title: string; date: Date } | null = null;
+        for (const candidate of events) {
+          const occurrence = getNextCalendarOccurrence(candidate);
+          if (occurrence && (!earliest || occurrence < earliest.date)) {
+            earliest = { title: candidate.title, date: occurrence };
+          }
+        }
+        if (active) setNextEvent(earliest);
         if (integrationsRes.ok) {
           const integrations = await integrationsRes.json();
-          if (active) {
-            setWearableSummary(integrations.latestSummary || null);
-            setWearableMockMode(Boolean(integrations.mockMode));
-          }
+          if (active) setWearableSummary(integrations.latestSummary || null);
         }
         if (exercisePlanRes.ok) {
           const exerciseData = await exercisePlanRes.json();
@@ -177,7 +274,6 @@ export default function PortalDashboard() {
             name: string;
             sessions: Array<{ id: string; name: string }>;
           } | null;
-          if (active) setActiveTrainingPlan(exercisePlan?.name || null);
           if (exercisePlan) {
             const today = new Date();
             const day = today.getDay();
@@ -198,10 +294,6 @@ export default function PortalDashboard() {
             }
           }
         }
-        if (baselineRes.ok) {
-          const baselineData = await baselineRes.json();
-          if (active) setBaselineComparison(baselineData);
-        }
         if (weeklyCapacityRes.ok) {
           const weeklyCapacityData = await weeklyCapacityRes.json();
           if (active) setWeeklyCapacity(weeklyCapacityData);
@@ -211,22 +303,6 @@ export default function PortalDashboard() {
       } catch {
         if (active) setWeeklyCapacity(null);
         /* Upcoming tile falls back to the calendar link. */
-      }
-    })();
-    return () => { active = false; };
-  }, []);
-
-  // The early win card exists only after Gordy explicitly creates one.
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const res = await fetch("/api/portal/early-win");
-        if (!res.ok) return;
-        const data = await res.json();
-        if (active) setEarlyWinView(data?.earlyWin ? data : null);
-      } catch {
-        /* The card simply stays hidden. */
       }
     })();
     return () => { active = false; };
@@ -254,79 +330,368 @@ export default function PortalDashboard() {
     }
   }
 
-  async function addPersonalTask(taskText: string) {
+  async function addPersonalTask(e: React.FormEvent) {
+    e.preventDefault();
+    if (!personalTask.trim()) return;
+    setSavingTask(true);
     try {
       const res = await fetch("/api/portal/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ task_text: taskText }),
+        body: JSON.stringify({ task_text: personalTask }),
       });
+
       if (!res.ok) {
         toast("Couldn't save that reminder. Try again.", "error");
-        return false;
+        return;
       }
       const data = await res.json();
-      setTasks((current) => [...current, data.task]);
-      return true;
+      setTasks((prev) => [...prev, data.task]);
+      setPersonalTask("");
     } catch {
       toast("Couldn't save that reminder. Check your connection.", "error");
-      return false;
+    } finally {
+      setSavingTask(false);
     }
   }
+
+  const coachTasks = useMemo(() => tasks.filter((task) => task.source !== "client"), [tasks]);
+  const personalTasks = useMemo(() => tasks.filter((task) => task.source === "client"), [tasks]);
+  const incompleteCoachTasks = coachTasks.filter((task) => !task.completed);
+  const incompletePersonalTasks = personalTasks.filter((task) => !task.completed);
+  const totalOutstandingTasks = incompleteCoachTasks.length + incompletePersonalTasks.length;
+
+  const allPlanItems = planPhases.flatMap((phase) => phase.items || []);
+  const completedPlanItems = allPlanItems.filter((item) => item.completed).length;
+  const totalPlanItems = allPlanItems.length;
+  const planPct = totalPlanItems > 0 ? Math.round((completedPlanItems / totalPlanItems) * 100) : 0;
+  const nextCheckinDate = getNextCheckinDate(checkinDay);
+  const checkinToday = isToday(nextCheckinDate);
+  const latestReply = checkins.find((checkin) => checkin.admin_reply);
+  const checkinStreak = useMemo(() => computeCheckinStreak(checkins), [checkins]);
+  const tier: Tier = (profile?.tier as Tier) || "coached";
+  const isAiOnly = tier === "ai_only";
+
+  // Submitted this week? Match check-in API week-start logic (Monday).
+  const submittedThisWeek = useMemo(() => {
+    if (!checkins.length) return false;
+    const now = new Date();
+    const weekStart = new Date(now);
+    const day = now.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    weekStart.setDate(weekStart.getDate() + diff);
+    weekStart.setHours(0, 0, 0, 0);
+    return checkins.some((c) => new Date(c.created_at).getTime() >= weekStart.getTime());
+  }, [checkins]);
+
+  const coachNote = getCoachNoteOfWeek();
+  const immediateSignalPriority = useMemo(() => getImmediateTodayPriority({
+    calendarEvents,
+    wearableSummary,
+    todayTraining,
+  }), [calendarEvents, wearableSummary, todayTraining]);
+
+  const weekNumber = getWeekNumber(profile?.start_date);
+  const todayLabel = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+  const ringPct = totalPlanItems > 0 ? planPct : submittedThisWeek ? 100 : 0;
+  const ringLabel = totalPlanItems > 0 ? "Plan" : "This Week";
+  const ringSublabel = totalPlanItems > 0
+    ? `${completedPlanItems} of ${totalPlanItems} actions`
+    : submittedThisWeek
+      ? "check-in logged"
+      : "check-in due";
+
+  // When Gordy has no open priority, never show a dead/empty state — surface a
+  // useful, plan-aware fallback so the home always has a next action.
+  const fallbackPriority = useMemo(() => {
+    if (!submittedThisWeek && checkinToday && !isAiOnly) {
+      return {
+        label: "Check-in is due today",
+        body: "Take two minutes to log how the week went — it's what Gordy reviews.",
+        href: "/portal/checkin",
+        cta: "Open check-in",
+      };
+    }
+    if (immediateSignalPriority) return immediateSignalPriority;
+    if (todayTraining) {
+      return {
+        label: "Today's training",
+        body: `${todayTraining} is ready when you are. Open it to review the session or start logging.`,
+        href: "/portal/exercise-plan",
+        cta: "Open session",
+      };
+    }
+    if (weeklyCapacity?.status === "ready" && weeklyCapacity.score !== null && weeklyCapacity.score < 50) {
+      return {
+        label: weeklyCapacity.label,
+        body: weeklyCapacity.message,
+        href: "/portal/connected-apps",
+        cta: "Review capacity",
+      };
+    }
+    if (totalPlanItems > 0 && planPct < 100) {
+      return {
+        label: "Keep the plan moving",
+        body: `You're ${planPct}% through your current plan. Pick up the next session and log it.`,
+        href: "/portal/exercise-plan",
+        cta: "Go to training",
+      };
+    }
+    const rotation = [
+      { label: "Recovery focus", body: "Nothing scheduled today — treat it as recovery. Sleep, water, light movement.", href: "/portal/daily-tracker", cta: "Log recovery" },
+      { label: "Stay on top of nutrition", body: "Quiet training day is the perfect time to nail your nutrition. Log today's totals.", href: "/portal/nutrition-plan", cta: "Open nutrition" },
+      { label: "Quick daily check", body: "Log sleep, energy and stress so the trends Gordy sees stay accurate.", href: "/portal/daily-tracker", cta: "Open daily tracker" },
+    ];
+    return rotation[new Date().getDate() % rotation.length];
+  }, [submittedThisWeek, checkinToday, isAiOnly, immediateSignalPriority, todayTraining, weeklyCapacity, totalPlanItems, planPct]);
 
   if (loading) {
     return <DashboardSkeleton />;
   }
 
-  // Every coached programme shares one Home composition. Programme type still
-  // controls calls and entitlements, but it must never swap the entire screen.
-  if (profile) {
-    return (
-      <div className="space-y-5" data-testid="unified-client-home" data-programme={profile.programme_type || "capacity"}>
-        <MonthlyCallPrompt />
-        {loadError && (
-          <div className="flex flex-col gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/8 px-5 py-4 text-sm text-amber-300 sm:flex-row sm:items-center sm:justify-between">
-            <div>{loadError}</div>
-            <button
-              type="button"
-              onClick={() => { setLoading(true); void loadDashboard(); }}
-              className="inline-flex min-h-11 w-fit items-center rounded-xl border border-amber-400/30 px-4 py-2 text-xs font-semibold text-amber-200"
-            >
-              Retry
-            </button>
-          </div>
-        )}
-        <FounderDashboard
-          profile={profile}
-          userName={userName}
-          tasks={tasks}
-          calendarEvents={calendarEvents}
-          wearableSummary={wearableSummary}
-          wearableMockMode={wearableMockMode}
-          todayTraining={todayTraining}
-          activeTrainingPlan={activeTrainingPlan}
-          baselineComparison={baselineComparison}
-          stormWarning={stormWarning}
-          earlyWin={earlyWinView}
-          weeklyCapacity={weeklyCapacity}
-          onToggleTask={(taskId, completed) => void toggleTask(taskId, completed)}
-          onAddTask={addPersonalTask}
-          onDismissStormWarning={() => void dismissStormWarning()}
-        />
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto w-full max-w-xl rounded-2xl border border-amber-500/25 bg-amber-500/8 px-5 py-5 text-sm text-amber-200" data-testid="client-home-load-error">
-      <p>{loadError || "We couldn't load your coaching profile just now."}</p>
-      <button
-        type="button"
-        onClick={() => { setLoading(true); void loadDashboard(); }}
-        className="mt-4 inline-flex min-h-11 items-center rounded-xl border border-amber-400/30 px-4 py-2 text-xs font-semibold text-amber-100"
-      >
-        Retry
-      </button>
+    <div className="mx-auto w-full max-w-xl space-y-5 pb-8 pt-1 sm:max-w-2xl" data-testid="unified-client-home" data-programme={profile?.programme_type || "capacity"}>
+      <MonthlyCallPrompt />
+      {loadError && (
+        <div className="flex flex-col gap-3 rounded-3xl border border-amber-500/25 bg-amber-500/8 px-5 py-4 text-sm text-amber-500 sm:flex-row sm:items-center sm:justify-between">
+          <div>{loadError}</div>
+          <button
+            type="button"
+            onClick={() => { setLoading(true); loadDashboard(); }}
+            className="inline-flex w-fit items-center rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-semibold text-amber-500 transition-colors hover:bg-amber-500/15"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      <section className="app-hero app-rise app-rise-1 flex flex-col overflow-hidden rounded-[24px] px-4 py-4 text-white sm:rounded-[30px] sm:px-6 sm:py-5">
+        <div className="min-w-0">
+          <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#F7A8EE]">Today</div>
+          <h1 className="mt-1 text-2xl font-heading font-bold leading-none text-white sm:text-3xl">
+            {`${getGreeting()}${userName ? `, ${userName.split(" ")[0]}` : ""}`}
+          </h1>
+          <p className="mt-1.5 text-[13px] text-white/60">
+            {todayLabel}
+            {weekNumber ? ` · Week ${weekNumber}` : ""}
+          </p>
+        </div>
+
+        {/* Data first: programme ring + the three numbers that matter */}
+        <div className="mt-4 flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
+          <ProgressRing pct={ringPct} label={ringLabel} sublabel={ringSublabel} />
+          <div className="grid w-full flex-1 grid-cols-3 gap-2">
+            <MetricTile
+              value={totalPlanItems > 0 ? `${completedPlanItems}/${totalPlanItems}` : "—"}
+              label="Plan"
+              hint={totalPlanItems > 0 ? "actions done" : "plan incoming"}
+            />
+            <MetricTile
+              value={submittedThisWeek ? "Done" : checkinToday ? "Today" : nextCheckinDate.toLocaleDateString("en-GB", { weekday: "short" })}
+              label="Check-in"
+              hint={submittedThisWeek ? "logged this week" : checkinToday ? "due today — get it in" : "next check-in"}
+            />
+            <MetricTile
+              value={`${checkinStreak}`}
+              unit={checkinStreak === 1 ? "wk" : "wks"}
+              label="Streak"
+              hint="consecutive check-ins"
+            />
+          </div>
+        </div>
+
+        {/* Coach note of the week */}
+        <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[#F060E0]/22 bg-[#E040D0]/10 px-4 py-3">
+          <svg className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#F7A8EE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 8h10M7 12h6m-6 8l-3 1 1-4a8 8 0 1116 0 8 8 0 01-11 7.3" />
+          </svg>
+          <div className="min-w-0">
+            <p className="text-[13.5px] font-medium leading-snug text-white/92">&ldquo;{coachNote.line}&rdquo;</p>
+            <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#F7A8EE]/80">{coachNote.tag} · this week</p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2.5">
+          <Link
+            href={totalOutstandingTasks > 0 ? "#priorities" : fallbackPriority.href}
+            className="app-hero-tile flex min-h-[78px] flex-col justify-between rounded-2xl px-3.5 py-3 no-underline"
+          >
+            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">Today&apos;s Priority</div>
+            <div>
+              <div className="text-[15px] font-semibold text-white">{totalOutstandingTasks > 0 ? `${totalOutstandingTasks} open` : fallbackPriority.label}</div>
+              <div className="mt-0.5 line-clamp-2 text-[11px] text-white/50">{totalOutstandingTasks > 0 ? "Tap to action" : fallbackPriority.body}</div>
+            </div>
+          </Link>
+
+          {!isAiOnly && (
+            <Link
+              href="/portal/checkin"
+              className="app-hero-tile flex min-h-[78px] flex-col justify-between rounded-2xl px-3.5 py-3 no-underline"
+            >
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">Check-in</div>
+              <div>
+                <div className="text-[15px] font-semibold text-white">{submittedThisWeek ? "Logged" : checkinToday ? "Due today" : nextCheckinDate.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</div>
+                <div className="mt-0.5 text-[11px] text-white/50">{submittedThisWeek ? "Update this week" : "Open check-in"}</div>
+              </div>
+            </Link>
+          )}
+
+          <Link
+            href="/portal/calendar"
+            className="app-hero-tile flex min-h-[78px] flex-col justify-between rounded-2xl px-3.5 py-3 no-underline"
+          >
+            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">Upcoming</div>
+            <div>
+              <div className="line-clamp-2 text-[15px] font-semibold leading-tight text-white">{nextEvent ? nextEvent.title : "Nothing booked"}</div>
+              <div className="mt-0.5 text-[11px] text-white/50">{nextEvent ? nextEvent.date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "Open calendar"}</div>
+            </div>
+          </Link>
+
+          <Link
+            href={isAiOnly ? "/portal/ai" : "/portal/checkin"}
+            className="app-hero-tile flex min-h-[78px] flex-col justify-between rounded-2xl px-3.5 py-3 no-underline"
+          >
+            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">{isAiOnly ? "AT CAPACITY AI" : "Gordy's Messages"}</div>
+            <div>
+              <div className="text-[15px] font-semibold text-white">{isAiOnly ? "Ask anything" : latestReply?.admin_reply ? "Reply waiting" : "No new reply"}</div>
+              <div className="mt-0.5 text-[11px] text-white/50">{isAiOnly ? "Open AT CAPACITY AI" : "View replies"}</div>
+            </div>
+          </Link>
+        </div>
+
+        {weeklyCapacity?.status === "ready" && weeklyCapacity.score !== null && (
+          <Link
+            href="/portal/connected-apps"
+            className="mt-3 flex min-h-11 items-center justify-between rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-2.5 no-underline"
+          >
+            <span className="text-xs font-semibold text-white/72">This week&apos;s capacity</span>
+            <span className="flex items-center gap-2 text-xs font-bold text-white">
+              {weeklyCapacity.score}% · {weeklyCapacity.label}
+              <svg className="h-3.5 w-3.5 text-white/45" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </span>
+          </Link>
+        )}
+      </section>
+
+      <div id="priorities" className="scroll-mt-4">
+        <SectionCard
+          title="YOUR ACTIONS"
+          subtitle={isAiOnly ? "Keep the next action simple." : "Tasks and reminders that still need clearing."}
+          right={isAiOnly ? (
+            <Link href="/portal/ai" className="text-xs font-semibold text-accent-bright no-underline transition-colors hover:text-accent-light">
+              AT CAPACITY AI
+            </Link>
+          ) : null}
+        >
+          {isAiOnly ? (
+            <div className="space-y-3">
+              <p className="rounded-2xl border border-[#E040D0]/20 bg-[#E040D0]/8 px-4 py-4 text-sm font-medium leading-relaxed text-text-primary">
+                Use AT CAPACITY AI to choose one priority for today, then keep the rest of the portal out of the way.
+              </p>
+              {incompletePersonalTasks.length > 0 && (
+                <details className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
+                  <summary className="cursor-pointer text-sm font-semibold text-text-secondary">Your reminders</summary>
+                  <div className="mt-3 space-y-3">
+                    {incompletePersonalTasks.map((task) => (
+                      <label key={task.id} className="flex items-center gap-3 rounded-xl border border-[rgba(0,0,0,0.05)] bg-bg-card px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={task.completed}
+                          onChange={(e) => toggleTask(task.id, e.target.checked)}
+                          className="h-4 w-4 cursor-pointer rounded border-2 border-[rgba(0,0,0,0.15)] accent-[#E040D0]"
+                        />
+                        <span className={`min-w-0 flex-1 text-sm ${task.completed ? "text-text-muted line-through" : "text-text-primary"}`}>{task.task_text}</span>
+                      </label>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
+          ) : incompleteCoachTasks.length > 0 ? (
+            <div className="space-y-3">
+              {incompleteCoachTasks.slice(0, 3).map((task) => (
+                <label key={task.id} className="flex min-h-[56px] items-center gap-3 rounded-2xl border border-[#E040D0]/12 bg-[linear-gradient(135deg,rgba(224,64,208,0.07),rgba(245,158,11,0.04))] px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={task.completed}
+                    onChange={(e) => toggleTask(task.id, e.target.checked)}
+                    className="h-4 w-4 cursor-pointer rounded border-2 border-[rgba(0,0,0,0.15)] accent-[#E040D0]"
+                  />
+                  <span className="min-w-0 flex-1 text-sm text-text-primary">{task.task_text}</span>
+                </label>
+              ))}
+              {(incompleteCoachTasks.length > 3 || incompletePersonalTasks.length > 0) && (
+                <details className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
+                  <summary className="cursor-pointer text-sm font-semibold text-text-secondary">
+                    {incompleteCoachTasks.length > 3
+                      ? `${incompleteCoachTasks.length - 3} more coach ${incompleteCoachTasks.length - 3 === 1 ? "priority" : "priorities"}`
+                      : "Your reminders"}
+                  </summary>
+                  <div className="mt-3 space-y-3">
+                    {incompleteCoachTasks.slice(3).map((task) => (
+                      <label key={task.id} className="flex items-center gap-3 rounded-xl border border-[rgba(0,0,0,0.05)] bg-bg-card px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={task.completed}
+                          onChange={(e) => toggleTask(task.id, e.target.checked)}
+                          className="h-4 w-4 cursor-pointer rounded border-2 border-[rgba(0,0,0,0.15)] accent-[#E040D0]"
+                        />
+                        <span className="min-w-0 flex-1 text-sm text-text-primary">{task.task_text}</span>
+                      </label>
+                    ))}
+                    {incompletePersonalTasks.map((task) => (
+                      <label key={task.id} className="flex items-center gap-3 rounded-xl border border-[rgba(0,0,0,0.05)] bg-bg-card px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={task.completed}
+                          onChange={(e) => toggleTask(task.id, e.target.checked)}
+                          className="h-4 w-4 cursor-pointer rounded border-2 border-[rgba(0,0,0,0.15)] accent-[#E040D0]"
+                        />
+                        <span className={`min-w-0 flex-1 text-sm ${task.completed ? "text-text-muted line-through" : "text-text-primary"}`}>{task.task_text}</span>
+                      </label>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
+          ) : incompletePersonalTasks.length > 0 ? (
+            <details open className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
+              <summary className="cursor-pointer text-sm font-semibold text-text-secondary">Your reminders</summary>
+              <div className="mt-3 space-y-3">
+                {incompletePersonalTasks.map((task) => (
+                  <label key={task.id} className="flex items-center gap-3 rounded-xl border border-[rgba(0,0,0,0.05)] bg-bg-card px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={task.completed}
+                      onChange={(e) => toggleTask(task.id, e.target.checked)}
+                      className="h-4 w-4 cursor-pointer rounded border-2 border-[rgba(0,0,0,0.15)] accent-[#E040D0]"
+                    />
+                    <span className={`min-w-0 flex-1 text-sm ${task.completed ? "text-text-muted line-through" : "text-text-primary"}`}>{task.task_text}</span>
+                  </label>
+                ))}
+              </div>
+            </details>
+          ) : null}
+          <details className="app-inset mt-3 rounded-2xl px-4 py-3">
+            <summary className="cursor-pointer text-sm font-semibold text-text-secondary">Add reminder</summary>
+            <form onSubmit={addPersonalTask} className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <input
+                type="text"
+                value={personalTask}
+                onChange={(e) => setPersonalTask(e.target.value)}
+                placeholder="Personal reminder"
+                className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40"
+              />
+              <button
+                type="submit"
+                disabled={savingTask || !personalTask.trim()}
+                className="rounded-xl gradient-accent px-4 py-2 text-sm font-semibold text-white transition-opacity disabled:opacity-40"
+              >
+                {savingTask ? "Adding..." : "Add"}
+              </button>
+            </form>
+          </details>
+        </SectionCard>
+      </div>
     </div>
   );
 }
