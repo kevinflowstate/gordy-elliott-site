@@ -14,7 +14,6 @@ const portalAIRouteUrl = new URL("../app/api/portal/ai/route.ts", import.meta.ur
 const inboxThreadUrl = new URL("../components/inbox/InboxThread.tsx", import.meta.url);
 const monthlyCallPromptUrl = new URL("../components/portal/MonthlyCallPrompt.tsx", import.meta.url);
 const portalHomeUrl = new URL("../app/portal/page.tsx", import.meta.url);
-const founderDashboardUrl = new URL("../components/portal/FounderDashboard.tsx", import.meta.url);
 const toastUrl = new URL("../components/ui/Toast.tsx", import.meta.url);
 
 test("only the three coaching programmes are accepted", () => {
@@ -40,16 +39,15 @@ test("programme entitlements match Gordy's commercial rules", () => {
   assert.equal(legacyProfileForProgramme("capacity").experience_mode, "founder_dashboard");
 });
 
-test("all programmes share one client Home instead of swapping the full dashboard", async () => {
-  const [portalHome, sharedHome] = await Promise.all([
-    readFile(portalHomeUrl, "utf8"),
-    readFile(founderDashboardUrl, "utf8"),
-  ]);
+test("all programmes share the original client Home instead of the founder dashboard", async () => {
+  const portalHome = await readFile(portalHomeUrl, "utf8");
   assert.match(portalHome, /data-testid="unified-client-home"/);
-  assert.match(portalHome, /data-programme=\{profile\.programme_type \|\| "capacity"\}/);
+  assert.match(portalHome, /data-programme=\{profile\?\.programme_type \|\| "capacity"\}/);
   assert.doesNotMatch(portalHome, /profile\?\.experience_mode === "founder_dashboard"/);
-  assert.match(sharedHome, /onAddTask/);
-  assert.match(sharedHome, /Your reminder/);
+  assert.doesNotMatch(portalHome, /<FounderDashboard/);
+  assert.match(portalHome, /<ProgressRing/);
+  assert.match(portalHome, /Today&apos;s Priority/);
+  assert.match(portalHome, /<MonthlyCallPrompt \/>/);
 });
 
 test("monthly confirmations use a calendar-month key", () => {
