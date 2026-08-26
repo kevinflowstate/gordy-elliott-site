@@ -13,6 +13,8 @@ const adminClientRouteUrl = new URL("../app/api/admin/clients/[id]/route.ts", im
 const portalAIRouteUrl = new URL("../app/api/portal/ai/route.ts", import.meta.url);
 const inboxThreadUrl = new URL("../components/inbox/InboxThread.tsx", import.meta.url);
 const monthlyCallPromptUrl = new URL("../components/portal/MonthlyCallPrompt.tsx", import.meta.url);
+const portalHomeUrl = new URL("../app/portal/page.tsx", import.meta.url);
+const founderDashboardUrl = new URL("../components/portal/FounderDashboard.tsx", import.meta.url);
 const toastUrl = new URL("../components/ui/Toast.tsx", import.meta.url);
 
 test("only the three coaching programmes are accepted", () => {
@@ -36,6 +38,18 @@ test("programme entitlements match Gordy's commercial rules", () => {
   assert.equal(programmeConfig.shift.aiMonthlyLimit, 30);
   assert.equal(programmeConfig.capacity.aiMonthlyLimit, null);
   assert.equal(legacyProfileForProgramme("capacity").experience_mode, "founder_dashboard");
+});
+
+test("all programmes share one client Home instead of swapping the full dashboard", async () => {
+  const [portalHome, sharedHome] = await Promise.all([
+    readFile(portalHomeUrl, "utf8"),
+    readFile(founderDashboardUrl, "utf8"),
+  ]);
+  assert.match(portalHome, /data-testid="unified-client-home"/);
+  assert.match(portalHome, /data-programme=\{profile\.programme_type \|\| "capacity"\}/);
+  assert.doesNotMatch(portalHome, /profile\?\.experience_mode === "founder_dashboard"/);
+  assert.match(sharedHome, /onAddTask/);
+  assert.match(sharedHome, /Your reminder/);
 });
 
 test("monthly confirmations use a calendar-month key", () => {
@@ -111,6 +125,7 @@ test("older native builds get honest voice messaging and booking links look acti
   assert.doesNotMatch(inboxThread, />Update required</);
   assert.match(monthlyCallPrompt, /data-testid="monthly-call-booking-link"/);
   assert.match(monthlyCallPrompt, /bg-accent-bright/);
+  assert.doesNotMatch(monthlyCallPrompt, /state\.config\.label/);
   assert.match(toast, /font-medium text-white/);
   assert.match(toast, /aria-label="Dismiss notification"/);
 });

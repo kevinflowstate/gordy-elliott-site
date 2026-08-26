@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import type { CalendarEvent, ClientProfile, ClientTask } from "@/lib/types";
 import type { WearableDailySummary } from "@/lib/wearable-insights";
@@ -140,6 +141,7 @@ export default function FounderDashboard({
   earlyWin,
   weeklyCapacity,
   onToggleTask,
+  onAddTask,
   onDismissStormWarning,
 }: {
   profile: ClientProfile;
@@ -155,8 +157,11 @@ export default function FounderDashboard({
   earlyWin: EarlyWinView | null;
   weeklyCapacity: WeeklyCapacityResult | null | undefined;
   onToggleTask: (taskId: string, completed: boolean) => void;
+  onAddTask: (taskText: string) => Promise<boolean>;
   onDismissStormWarning: () => void;
 }) {
+  const [reminder, setReminder] = useState("");
+  const [savingReminder, setSavingReminder] = useState(false);
   const capacity = capacityLanguage(wearableSummary);
   const weekLoad = getWeekLoad(calendarEvents);
   const upcoming = getUpcomingEvents(calendarEvents);
@@ -170,11 +175,22 @@ export default function FounderDashboard({
     ? stormEvaluation.rules.filter((rule) => rule.triggered).map((rule) => rule.explanation)
     : [];
   const openCoachTasks = tasks.filter((task) => task.source !== "client" && !task.completed);
+  const openPersonalTasks = tasks.filter((task) => task.source === "client" && !task.completed);
   const todayLabel = new Date().toLocaleDateString("en-GB", {
     weekday: "long",
     day: "numeric",
     month: "long",
   });
+
+  async function addReminder(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const taskText = reminder.trim();
+    if (!taskText || savingReminder) return;
+    setSavingReminder(true);
+    const saved = await onAddTask(taskText);
+    if (saved) setReminder("");
+    setSavingReminder(false);
+  }
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-5 pb-8 pt-1">
@@ -319,7 +335,7 @@ export default function FounderDashboard({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M9 5l7 7-7 7" />
             </svg>
           </Link>
-          {openCoachTasks.length > 0 ? openCoachTasks.slice(0, 3).map((task) => (
+          {openCoachTasks.slice(0, 3).map((task) => (
             <button
               key={task.id}
               type="button"
@@ -329,11 +345,46 @@ export default function FounderDashboard({
               <span className="flex h-5 w-5 flex-none items-center justify-center rounded-md border border-[#E667D6]/50" />
               <span className="text-sm font-semibold text-text-primary">{task.task_text}</span>
             </button>
-          )) : (
+          ))}
+          {openPersonalTasks.slice(0, 3).map((task) => (
+            <button
+              key={task.id}
+              type="button"
+              onClick={() => onToggleTask(task.id, true)}
+              className="flex w-full items-center gap-3 rounded-xl border border-[rgba(255,255,255,0.08)] bg-bg-card px-4 py-3 text-left"
+            >
+              <span className="flex h-5 w-5 flex-none items-center justify-center rounded-md border border-white/25" />
+              <span className="min-w-0">
+                <span className="block text-[9px] font-bold uppercase tracking-[0.14em] text-text-muted">Your reminder</span>
+                <span className="mt-0.5 block text-sm font-semibold text-text-primary">{task.task_text}</span>
+              </span>
+            </button>
+          ))}
+          {openCoachTasks.length === 0 && openPersonalTasks.length === 0 && (
             <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-bg-card px-4 py-4 text-sm text-text-secondary">
               Nothing extra from Gordy today. Follow the plan and protect the basics.
             </div>
           )}
+          <details className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-bg-card px-4 py-3">
+            <summary className="cursor-pointer text-xs font-semibold text-text-secondary">Add a personal reminder</summary>
+            <form onSubmit={addReminder} className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <input
+                type="text"
+                value={reminder}
+                onChange={(event) => setReminder(event.target.value)}
+                maxLength={500}
+                placeholder="What do you need to remember?"
+                className="min-h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-text-primary placeholder:text-text-muted focus:border-[#E667D6]/50 focus:outline-none"
+              />
+              <button
+                type="submit"
+                disabled={savingReminder || !reminder.trim()}
+                className="min-h-11 rounded-xl bg-[#E667D6] px-4 text-sm font-bold text-black disabled:opacity-40"
+              >
+                {savingReminder ? "Saving…" : "Add"}
+              </button>
+            </form>
+          </details>
         </div>
       </section>
 
