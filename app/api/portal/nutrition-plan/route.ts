@@ -51,6 +51,10 @@ export async function GET(request: Request) {
   if (connectionResult.error) return NextResponse.json({ error: connectionResult.error.message }, { status: 500 });
 
   const nutrition = nutritionResult.data;
+  const myFitnessPalConnection = {
+    connected: connectionResult.data?.status === "connected",
+    lastSyncAt: connectionResult.data?.last_sync_at || null,
+  };
   const hasNutritionSignal = nutrition && [
     nutrition.nutrition_calories,
     nutrition.protein_g,
@@ -73,7 +77,7 @@ export async function GET(request: Request) {
 
   const plans = plansResult.data;
   if (!plans || plans.length === 0) {
-    return NextResponse.json({ plan: null, tracking: [], quickMeals: [], syncedNutrition });
+    return NextResponse.json({ plan: null, tracking: [], syncedNutrition, myFitnessPalConnection });
   }
 
   const plan = plans[0];
@@ -106,14 +110,6 @@ export async function GET(request: Request) {
         .in("meal_id", mealIds)
     : { data: [] };
 
-  // Get quick meals for the requested date
-  const { data: quickMeals } = await admin
-    .from("client_quick_meals")
-    .select("*")
-    .eq("client_id", profile.id)
-    .eq("tracked_date", date)
-    .order("created_at", { ascending: true });
-
   // Assemble
   const itemsByMeal = new Map<string, typeof items>();
   for (const item of items || []) {
@@ -133,7 +129,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     plan: assembled,
     tracking: tracking || [],
-    quickMeals: quickMeals || [],
     syncedNutrition,
+    myFitnessPalConnection,
   });
 }

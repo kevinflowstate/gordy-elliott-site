@@ -11,6 +11,11 @@ import {
 } from "@/lib/nutrition-totals";
 import type { ClientNutritionPlan, MealTracking, NutritionMeal, NutritionMealItem, QuickMeal, ClientSavedMeal, Food } from "@/lib/types";
 
+type MyFitnessPalConnection = {
+  connected: boolean;
+  lastSyncAt: string | null;
+};
+
 function parseGrams(servingSize: string): number {
   const match = servingSize.match(/~?(\d+)\s*g/i);
   if (match) return parseInt(match[1], 10);
@@ -174,6 +179,7 @@ function AssignedMeals({ plan, tracking, toggling, onToggle }: AssignedMealsProp
 
 const FOOD_CATEGORIES = ["protein", "dairy", "grains", "fruit", "vegetables", "fats", "carbs", "snacks", "drinks", "supplements"];
 const ADDED_FEEDBACK_MS = 1800;
+const MYFITNESSPAL_POLL_DELAYS_MS = [2_500, 4_000, 6_000] as const;
 
 function vibrateOnAdd() {
   if (typeof navigator !== "undefined") {
@@ -203,6 +209,8 @@ export default function PortalNutritionPlanPage() {
   const [tracking, setTracking] = useState<MealTracking[]>([]);
   const [quickMeals, setQuickMeals] = useState<QuickMeal[]>([]);
   const [syncedNutrition, setSyncedNutrition] = useState<SyncedNutrition | null>(null);
+  const [myFitnessPalConnection, setMyFitnessPalConnection] = useState<MyFitnessPalConnection | null>(null);
+  const [refreshingMyFitnessPal, setRefreshingMyFitnessPal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
   const [savedMeals, setSavedMeals] = useState<ClientSavedMeal[]>([]);
@@ -235,35 +243,67 @@ export default function PortalNutritionPlanPage() {
 
   const dateStr = formatDate(selectedDate);
 
-  const fetchData = useCallback(() => {
-    setLoading(true);
-    Promise.all([
-      fetch(`/api/portal/nutrition-plan?date=${dateStr}`).then(async (response) => {
-        if (!response.ok) throw new Error("Failed to load nutrition plan");
-        return response.json();
-      }),
-      fetch(`/api/portal/quick-meals?date=${dateStr}`).then(async (response) => {
-        if (!response.ok) throw new Error("Failed to load manual meals");
-        return response.json();
-      }),
-    ])
-      .then(([planData, quickData]) => {
-        setPlan(planData.plan);
-        setTracking(planData.tracking || []);
-        setQuickMeals(quickData.quickMeals || planData.quickMeals || []);
-        setSavedMeals(quickData.savedMeals || []);
-        setSyncedNutrition(planData.syncedNutrition || null);
-      })
-      .catch((error) => {
-        console.error(error);
-        toast("Couldn't load nutrition data. Pull down to try again.", "error");
-      })
-      .finally(() => setLoading(false));
+  const fetchData = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
+    try {
+      const [planData, quickData] = await Promise.all([
+        fetch(`/api/portal/nutrition-plan?date=${dateStr}`).then(async (response) => {
+          if (!response.ok) throw new Error("Failed to load nutrition plan");
+          return response.json();
+        }),
+        fetch(`/api/portal/quick-meals?date=${dateStr}`).then(async (response) => {
+          if (!response.ok) throw new Error("Failed to load manual meals");
+          return response.json();
+        }),
+      ]);
+      setPlan(planData.plan);
+      setTracking(planData.tracking || []);
+      setQuickMeals(quickData.quickMeals || []);
+      setSavedMeals(quickData.savedMeals || []);
+      setSyncedNutrition(planData.syncedNutrition || null);
+      setMyFitnessPalConnection(planData.myFitnessPalConnection || null);
+      return {
+        syncedNutrition: (planData.syncedNutrition || null) as SyncedNutrition | null,
+        myFitnessPalConnection: (planData.myFitnessPalConnection || null) as MyFitnessPalConnection | null,
+      };
+    } catch (error) {
+      console.error(error);
+      toast("Couldn't load nutrition data. Pull down to try again.", "error");
+      return null;
+    } finally {
+      if (showLoading) setLoading(false);
+    }
   }, [dateStr, toast]);
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
   }, [fetchData]);
+
+  const refreshMyFitnessPal = async () => {
+    setRefreshingMyFitnessPal(true);
+    const previousSummaryUpdate = syncedNutrition?.summaryUpdatedAt || null;
+    try {
+      const response = await fetch("/api/portal/integrations/terra/sync?provider=myfitnesspal", { method: "POST" });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "MyFitnessPal could not be refreshed yet.");
+
+      toast("MyFitnessPal refresh started. New meals can take a few minutes to appear.", "info");
+      for (const delay of MYFITNESSPAL_POLL_DELAYS_MS) {
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        const refreshed = await fetchData(false);
+        const nextSummaryUpdate = refreshed?.syncedNutrition?.summaryUpdatedAt || null;
+        if (nextSummaryUpdate && nextSummaryUpdate !== previousSummaryUpdate) {
+          toast("MyFitnessPal totals updated.");
+          return;
+        }
+      }
+      toast("Refresh requested. If the meal is not visible yet, check Nutrition again in a few minutes.", "info");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "MyFitnessPal could not be refreshed yet.", "error");
+    } finally {
+      setRefreshingMyFitnessPal(false);
+    }
+  };
 
   // Fetch foods when browser opens or search/category changes
   useEffect(() => {
@@ -674,13 +714,51 @@ export default function PortalNutritionPlanPage() {
       </div>
 
       <section className="app-card app-rise app-rise-2 mb-6 overflow-hidden rounded-[28px]">
-        <div className="border-b border-[#E040D0]/15 bg-[linear-gradient(135deg,rgba(224,64,208,0.16),rgba(245,158,11,0.06))] px-5 py-4">
-          <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#E040D0]">Targets dashboard</div>
-          <p className="mt-1 text-sm text-text-secondary">
-            Your assigned targets and {isToday(selectedDate) ? "today's" : "this day's"} logged intake.
-          </p>
+        <div className="flex items-center justify-between gap-4 border-b border-[#E040D0]/15 bg-[linear-gradient(135deg,rgba(224,64,208,0.16),rgba(245,158,11,0.06))] px-5 py-4">
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#E040D0]">Targets dashboard</div>
+            <p className="mt-1 text-sm text-text-secondary">
+              Your assigned targets and {isToday(selectedDate) ? "today's" : "this day's"} logged intake.
+            </p>
+          </div>
+          {myFitnessPalConnection?.connected && (
+            <button
+              type="button"
+              onClick={() => void refreshMyFitnessPal()}
+              disabled={refreshingMyFitnessPal}
+              className="flex flex-shrink-0 items-center gap-2 rounded-full border border-[#E040D0]/25 bg-bg-card px-3 py-2 text-xs font-semibold text-[#E040D0] shadow-sm transition-colors hover:border-[#E040D0]/45 disabled:cursor-wait disabled:opacity-60"
+              aria-label="Refresh MyFitnessPal nutrition"
+            >
+              <svg
+                className={`h-4 w-4 ${refreshingMyFitnessPal ? "animate-spin" : ""}`}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7" />
+              </svg>
+              <span>{refreshingMyFitnessPal ? "Refreshing…" : "Refresh MFP"}</span>
+            </button>
+          )}
         </div>
         <div className="p-5">
+          {myFitnessPalConnection?.connected && !syncedNutrition && (
+            <div className="mb-5 rounded-2xl border border-[#E040D0]/20 bg-[#E040D0]/7 px-4 py-4">
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#E040D0]">
+                MyFitnessPal connected
+              </div>
+              <p className="mt-1 text-sm text-text-secondary">
+                No totals have arrived for this date yet. Meals refresh automatically throughout the day, or use Refresh MFP above.
+              </p>
+              {myFitnessPalConnection.lastSyncAt && (
+                <div className="mt-2 text-[10px] text-text-muted">
+                  {formatSyncDateTime(myFitnessPalConnection.lastSyncAt)}
+                </div>
+              )}
+            </div>
+          )}
           {syncedNutrition && (
             <div className={`mb-5 rounded-2xl border px-4 py-4 ${
               usingSyncedNutrition

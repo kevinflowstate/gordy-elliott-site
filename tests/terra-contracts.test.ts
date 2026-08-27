@@ -342,8 +342,48 @@ test("the client refresh route requests all connected Oura health signal types",
   assert.match(syncRoute, /oura:\s*\["daily", "sleep", "activity"\]/);
   assert.match(syncRoute, /myfitnesspal:\s*\["nutrition"\]/);
   assert.match(syncRoute, /Promise\.allSettled/);
-  assert.doesNotMatch(syncRoute, /\.eq\("provider", "myfitnesspal"\)/);
+  assert.match(syncRoute, /searchParams\.get\("provider"\)/);
+  assert.match(syncRoute, /connectionsQuery = connectionsQuery\.eq\("provider", requestedProvider\)/);
   assert.match(connectedAppsPage, /Health refresh started\. New data can take a moment to appear/);
+});
+
+test("MyFitnessPal refreshes in the background and remains manually refreshable", () => {
+  const cronRoute = fs.readFileSync(
+    path.join(process.cwd(), "app/api/cron/terra-nutrition-sync/route.ts"),
+    "utf8",
+  );
+  const vercelConfig = JSON.parse(fs.readFileSync(path.join(process.cwd(), "vercel.json"), "utf8"));
+  const nutritionPage = fs.readFileSync(
+    path.join(process.cwd(), "app/portal/nutrition-plan/page.tsx"),
+    "utf8",
+  );
+  const nutritionApi = fs.readFileSync(
+    path.join(process.cwd(), "app/api/portal/nutrition-plan/route.ts"),
+    "utf8",
+  );
+  const syncRoute = fs.readFileSync(
+    path.join(process.cwd(), "app/api/portal/integrations/terra/sync/route.ts"),
+    "utf8",
+  );
+
+  assert.deepEqual(
+    vercelConfig.crons.find((cron: { path: string }) => cron.path === "/api/cron/terra-nutrition-sync"),
+    { path: "/api/cron/terra-nutrition-sync", schedule: "15 */2 * * *" },
+  );
+  assert.match(cronRoute, /authorization.*Bearer \$\{process\.env\.CRON_SECRET\}/);
+  assert.match(cronRoute, /\.eq\("provider", "myfitnesspal"\)/);
+  assert.match(cronRoute, /RECENT_SYNC_WINDOW_MS = 60 \* 60 \* 1000/);
+  assert.match(cronRoute, /REQUEST_BATCH_SIZE = 5/);
+  assert.match(cronRoute, /REQUEST_LIMIT = 40/);
+  assert.match(cronRoute, /export const maxDuration = 300/);
+  assert.match(cronRoute, /requestTerraNutritionData/);
+  assert.match(syncRoute, /MYFITNESSPAL_REFRESH_COOLDOWN_MS = 5 \* 60 \* 1000/);
+  assert.match(syncRoute, /status: 429, headers: \{ "Retry-After"/);
+  assert.match(nutritionPage, /terra\/sync\?provider=myfitnesspal/);
+  assert.match(nutritionPage, /Refresh MFP/);
+  assert.match(nutritionPage, /MYFITNESSPAL_POLL_DELAYS_MS/);
+  assert.match(nutritionApi, /myFitnessPalConnection/);
+  assert.doesNotMatch(nutritionApi, /from\("client_quick_meals"\)/);
 });
 
 test("classifies Terra lifecycle events without treating revocations as active data", () => {
