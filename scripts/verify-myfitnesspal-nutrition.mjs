@@ -155,10 +155,21 @@ try {
         lastSyncAt: new Date().toISOString(),
         connectionStatus: "connected",
       };
+      data.myFitnessPalConnection = {
+        connected: true,
+        lastSyncAt: new Date().toISOString(),
+      };
       await route.fulfill({
         response,
         contentType: "application/json",
         body: JSON.stringify(data),
+      });
+    });
+    await page.route("**/api/portal/integrations/terra/sync?provider=myfitnesspal", async (route) => {
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({ accepted: true, partial: false }),
       });
     });
 
@@ -170,6 +181,8 @@ try {
     await syncedHeading.waitFor();
     await page.getByText("1,840", { exact: true }).first().waitFor();
     await page.getByText("2.1L", { exact: true }).waitFor();
+    const refreshButton = page.getByRole("button", { name: "Refresh MyFitnessPal nutrition" });
+    await refreshButton.waitFor();
 
     const layout = await page.evaluate(() => ({
       viewportWidth: document.documentElement.clientWidth,
@@ -185,6 +198,10 @@ try {
       fullPage: false,
       animations: "disabled",
     });
+
+    await refreshButton.click();
+    await page.getByText("Refreshing…", { exact: true }).waitFor();
+    await page.getByText("Refresh MFP", { exact: true }).waitFor({ timeout: 10_000 });
 
     await page.getByRole("button", { name: "Correct totals manually" }).click();
     await page.getByRole("heading", { name: "Add daily totals manually" }).waitFor();
