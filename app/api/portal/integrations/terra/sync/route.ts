@@ -88,7 +88,9 @@ export async function POST(request: Request) {
 
   const now = new Date();
   const startDate = dateKeyInTimeZone(new Date(now.getTime() - (BACKFILL_DAYS - 1) * DAY_MS), "Europe/London");
-  const endDate = dateKeyInTimeZone(now, "Europe/London");
+  // Terra treats end_date as exclusive. Request through tomorrow so today's
+  // in-progress health and nutrition data is included.
+  const endDate = dateKeyInTimeZone(new Date(now.getTime() + DAY_MS), "Europe/London");
 
   const requests = connected.flatMap((connection) => (
     DATA_TYPES_BY_PROVIDER[connection.provider].map((dataType) => ({ connection, dataType }))
