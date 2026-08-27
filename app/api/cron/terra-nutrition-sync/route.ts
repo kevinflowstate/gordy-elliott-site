@@ -35,7 +35,9 @@ export async function GET(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const startDate = dateKeyInTimeZone(new Date(now.getTime() - DAY_MS), "Europe/London");
-  const endDate = dateKeyInTimeZone(now, "Europe/London");
+  // Terra treats end_date as exclusive. Request through tomorrow so today's
+  // in-progress diary is included in each refresh.
+  const endDate = dateKeyInTimeZone(new Date(now.getTime() + DAY_MS), "Europe/London");
 
   let accepted = 0;
   let failed = 0;

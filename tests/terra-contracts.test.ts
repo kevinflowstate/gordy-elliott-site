@@ -377,7 +377,9 @@ test("MyFitnessPal refreshes in the background and remains manually refreshable"
   assert.match(cronRoute, /REQUEST_LIMIT = 40/);
   assert.match(cronRoute, /export const maxDuration = 300/);
   assert.match(cronRoute, /requestTerraNutritionData/);
+  assert.match(cronRoute, /endDate = dateKeyInTimeZone\(new Date\(now\.getTime\(\) \+ DAY_MS\)/);
   assert.match(syncRoute, /MYFITNESSPAL_REFRESH_COOLDOWN_MS = 5 \* 60 \* 1000/);
+  assert.match(syncRoute, /endDate = dateKeyInTimeZone\(new Date\(now\.getTime\(\) \+ DAY_MS\)/);
   assert.match(syncRoute, /status: 429, headers: \{ "Retry-After"/);
   assert.match(nutritionPage, /terra\/sync\?provider=myfitnesspal/);
   assert.match(nutritionPage, /Refresh MFP/);
