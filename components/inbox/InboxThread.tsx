@@ -14,6 +14,9 @@ interface InboxThreadProps {
   onSend: (message: string) => Promise<void>;
   onSendAudio?: (audio: Blob, durationSeconds: number) => Promise<void>;
   onSendImage?: (image: File) => Promise<void>;
+  onSendFile?: (file: File) => Promise<void>;
+  onDeleteMessage?: (messageId: string) => Promise<void>;
+  viewerUserId?: string;
   sending: boolean;
   error: string | null;
   emptyTitle: string;
@@ -21,6 +24,7 @@ interface InboxThreadProps {
   composerPlaceholder?: string;
   threadLabel?: string;
   threadMeta?: string;
+  attachmentContext?: string;
 }
 
 function formatTime(timestamp: string) {
@@ -38,6 +42,9 @@ export default function InboxThread({
   onSend,
   onSendAudio,
   onSendImage,
+  onSendFile,
+  onDeleteMessage,
+  viewerUserId,
   sending,
   error,
   emptyTitle,
@@ -45,12 +52,14 @@ export default function InboxThread({
   composerPlaceholder = "Write a message...",
   threadLabel,
   threadMeta,
+  attachmentContext = "It will be shared privately in this DM.",
 }: InboxThreadProps) {
   const [draft, setDraft] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const submittingRef = useRef(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordingStreamRef = useRef<MediaStream | null>(null);
@@ -62,6 +71,7 @@ export default function InboxThread({
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [audioDraft, setAudioDraft] = useState<{ blob: Blob; url: string; duration: number } | null>(null);
   const [imageDraft, setImageDraft] = useState<PreparedInboxImage | null>(null);
+  const [fileDraft, setFileDraft] = useState<File | null>(null);
   const [viewingImage, setViewingImage] = useState<{ url: string; sender: string } | null>(null);
   const [preparingImage, setPreparingImage] = useState(false);
   const [voiceAvailability, setVoiceAvailability] = useState<"checking" | "ready" | "update-required">("checking");
@@ -235,6 +245,34 @@ export default function InboxThread({
     }
   }
 
+  function chooseFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const source = event.target.files?.[0];
+    if (!source) return;
+    setLocalError(null);
+    if (source.size < 1 || source.size > 10 * 1024 * 1024) {
+      setLocalError("Files must be under 10MB.");
+      event.target.value = "";
+      return;
+    }
+    setFileDraft(source);
+  }
+
+  function discardFileDraft() {
+    setFileDraft(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function sendFileDraft() {
+    if (!fileDraft || !onSendFile || sending) return;
+    setLocalError(null);
+    try {
+      await onSendFile(fileDraft);
+      discardFileDraft();
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message : "File could not be sent.");
+    }
+  }
+
   return (
     <div className="portal-dm-thread flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.025)] md:min-h-[min(72dvh,48rem)]">
       {(threadLabel || threadMeta) && (
@@ -257,7 +295,7 @@ export default function InboxThread({
           </div>
         ) : (
           messages.map((message) => {
-            const isOwn = message.sender_role === currentRole;
+            const isOwn = viewerUserId ? message.sender_user_id === viewerUserId : message.sender_role === currentRole;
             return (
               <div key={message.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[84%] rounded-2xl px-4 py-3 sm:max-w-[72%] ${
@@ -297,11 +335,29 @@ export default function InboxThread({
                         />
                       </button>
                     ) : <div className="text-sm">Photo unavailable. Refresh to try again.</div>
+                  ) : message.message_type === "file" ? (
+                    message.file_url ? (
+                      <a
+                        href={message.file_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={`flex min-w-[13rem] items-center gap-3 rounded-xl border px-3 py-3 no-underline ${isOwn ? "border-black/15 bg-black/5 text-black" : "border-white/10 bg-white/[0.04] text-text-primary"}`}
+                      >
+                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${isOwn ? "bg-black/10" : "bg-accent/10 text-accent-bright"}`} aria-hidden="true">↗</span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold">{message.file_name || "Open attachment"}</span>
+                          <span className={`mt-0.5 block text-[10px] ${isOwn ? "text-black/55" : "text-text-muted"}`}>{message.file_size_bytes ? `${Math.max(1, Math.round(message.file_size_bytes / 1024))} KB` : "Attachment"}</span>
+                        </span>
+                      </a>
+                    ) : <div className="text-sm">Attachment unavailable. Refresh to try again.</div>
                   ) : (
                     <div className="whitespace-pre-wrap text-sm leading-relaxed">{message.message}</div>
                   )}
-                  <div className={`mt-2 text-[10px] ${isOwn ? "text-black/55" : "text-text-muted"}`}>
-                    {formatTime(message.created_at)}
+                  <div className={`mt-2 flex items-center gap-3 text-[10px] ${isOwn ? "text-black/55" : "text-text-muted"}`}>
+                    <span>{formatTime(message.created_at)}</span>
+                    {onDeleteMessage && currentRole === "admin" && (
+                      <button type="button" onClick={() => void onDeleteMessage(message.id)} className={`font-semibold underline-offset-2 hover:underline ${isOwn ? "text-black/55" : "text-red-300"}`}>Remove</button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -326,6 +382,14 @@ export default function InboxThread({
           className="sr-only"
           aria-label="Choose a photo"
         />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.txt,.csv,.docx,.xlsx"
+          onChange={chooseFile}
+          className="sr-only"
+          aria-label="Choose a file"
+        />
         {onSendAudio && voiceAvailability === "update-required" && (
           <div data-testid="voice-update-notice" role="status" className="mb-3 flex items-start gap-2.5 rounded-xl border border-accent/20 bg-accent/8 px-3 py-2.5 text-xs leading-relaxed text-text-secondary">
             <span aria-hidden="true" className="mt-1 h-2 w-2 shrink-0 rounded-full bg-accent-bright" />
@@ -339,12 +403,23 @@ export default function InboxThread({
             <button type="button" onClick={() => void sendAudioDraft()} disabled={sending} className="min-h-10 rounded-xl bg-accent-bright px-3 text-xs font-bold text-black disabled:opacity-50">Send</button>
           </div>
         )}
+        {fileDraft && (
+          <div className="mb-3 flex items-center gap-3 rounded-2xl border border-accent/20 bg-accent/8 p-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent-bright" aria-hidden="true">↗</div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-semibold text-text-primary">{fileDraft.name}</div>
+              <div className="mt-0.5 text-[10px] text-text-muted">{Math.max(1, Math.round(fileDraft.size / 1024))} KB</div>
+            </div>
+            <button type="button" onClick={discardFileDraft} className="min-h-10 rounded-xl border border-white/10 px-3 text-xs font-semibold text-text-secondary">Delete</button>
+            <button type="button" onClick={() => void sendFileDraft()} disabled={sending} className="min-h-10 rounded-xl bg-accent-bright px-3 text-xs font-bold text-black disabled:opacity-50">Send</button>
+          </div>
+        )}
         <div className="flex items-end gap-2">
           {onSendImage && (
             <button
               type="button"
               onClick={() => imageInputRef.current?.click()}
-              disabled={sending || recording || preparingImage || Boolean(audioDraft) || Boolean(imageDraft)}
+              disabled={sending || recording || preparingImage || Boolean(audioDraft) || Boolean(imageDraft) || Boolean(fileDraft)}
               aria-label={preparingImage ? "Preparing photo" : "Choose photo"}
               title="Send a photo"
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-text-secondary transition-colors hover:border-accent/35 hover:text-accent-bright disabled:opacity-35"
@@ -358,11 +433,25 @@ export default function InboxThread({
               )}
             </button>
           )}
+          {onSendFile && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={sending || recording || preparingImage || Boolean(audioDraft) || Boolean(imageDraft) || Boolean(fileDraft)}
+              aria-label="Choose a file"
+              title="Send a file"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-text-secondary transition-colors hover:border-accent/35 hover:text-accent-bright disabled:opacity-35"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828L18 9.828a4 4 0 10-5.657-5.657L5.757 10.757a6 6 0 108.486 8.486L20.5 13" />
+              </svg>
+            </button>
+          )}
           {onSendAudio && voiceAvailability === "ready" && (
             <button
               type="button"
               onClick={() => recording ? recorderRef.current?.stop() : void startRecording()}
-              disabled={sending || Boolean(audioDraft)}
+              disabled={sending || Boolean(audioDraft) || Boolean(imageDraft) || Boolean(fileDraft)}
               aria-label={recording ? "Stop recording" : "Record voice note"}
               title={recording ? "Stop recording" : "Record voice note"}
               className={`flex h-11 shrink-0 items-center gap-2 rounded-full border px-3 text-xs font-bold transition-colors disabled:opacity-35 ${recording ? "border-red-400/40 bg-red-500/15 text-red-400" : "border-white/10 bg-white/[0.04] text-text-secondary"}`}
@@ -392,7 +481,7 @@ export default function InboxThread({
           />
           <button
             type="submit"
-            disabled={!canSend || recording || Boolean(audioDraft) || Boolean(imageDraft)}
+            disabled={!canSend || recording || Boolean(audioDraft) || Boolean(imageDraft) || Boolean(fileDraft)}
             aria-label={sending ? "Sending message" : "Send message"}
             title="Send message"
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent-bright text-black transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
@@ -414,7 +503,7 @@ export default function InboxThread({
             <div className="flex items-center justify-between border-b border-white/8 px-5 py-4">
               <div>
                 <div className="font-heading text-lg font-bold text-white">Send this photo?</div>
-                <div className="mt-0.5 text-xs text-white/55">It will be shared privately in this DM.</div>
+                <div className="mt-0.5 text-xs text-white/55">{attachmentContext}</div>
               </div>
               <button type="button" onClick={discardImageDraft} aria-label="Close photo preview" className="flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.08] text-2xl text-white/70">×</button>
             </div>

@@ -198,7 +198,7 @@ export interface InboxMessage {
   sender_user_id: string;
   sender_role: UserRole;
   message: string | null;
-  message_type?: 'text' | 'audio' | 'image';
+  message_type?: 'text' | 'audio' | 'image' | 'file';
   audio_url?: string | null;
   audio_bucket?: string | null;
   audio_path?: string | null;
@@ -212,11 +212,17 @@ export interface InboxMessage {
   image_size_bytes?: number | null;
   image_width?: number | null;
   image_height?: number | null;
+  file_url?: string | null;
+  file_name?: string | null;
+  file_mime_type?: string | null;
+  file_size_bytes?: number | null;
   read_by_admin: boolean;
   read_by_client: boolean;
   created_at: string;
   sender_name?: string;
 }
+
+export type CommunityMessage = InboxMessage;
 
 export interface InboxConversation {
   client_id: string;
