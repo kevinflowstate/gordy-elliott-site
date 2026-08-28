@@ -14,7 +14,7 @@ const sections: Array<{
 }> = [
   {
     title: "Information AT CAPACITY handles",
-    body: "AT CAPACITY stores account and contact details, coaching plans, text messages and any private voice notes or photos you choose to send, check-ins, progress photos, training and nutrition logs, consultation answers, and any health, injury or cycle information you choose to provide. DM voice notes and photos are stored privately. The microphone, camera and photo library are used only when you choose to record or select something to send. If you connect a supported app through Terra, AT CAPACITY may also receive sleep, recovery, activity and nutrition summaries from that provider. If you connect Google Calendar or Outlook Calendar, AT CAPACITY reads the calendar and event information described below. For coached clients, AT CAPACITY also keeps coaching-administration records, such as call attendance, weekly notes of coaching support provided over WhatsApp, periodic review summaries, and an audited record of any correction to locked baseline figures.",
+    body: "AT CAPACITY stores account and contact details, coaching plans, text messages and any private voice notes or photos you choose to send, check-ins, progress photos, training and nutrition logs, consultation answers, and any health, injury or cycle information you choose to provide. DM voice notes and photos are stored privately. If you are an active SHIFT client, messages and attachments you deliberately post in the SHIFT Community are visible to Gordy and other active SHIFT clients. The microphone, camera and photo library are used only when you choose to record or select something to send. If you connect a supported app through Terra, AT CAPACITY may also receive sleep, recovery, activity and nutrition summaries from that provider. If you connect Google Calendar or Outlook Calendar, AT CAPACITY reads the calendar and event information described below. For coached clients, AT CAPACITY also keeps coaching-administration records, such as call attendance, weekly notes of coaching support provided over WhatsApp, periodic review summaries, and an audited record of any correction to locked baseline figures.",
   },
   {
     title: "Google Calendar data AT CAPACITY accesses",
@@ -40,6 +40,10 @@ const sections: Array<{
   {
     title: "How information is used",
     body: "Your information is used to deliver and personalise coaching, show your plans and progress, support messaging and reminders, identify useful coaching trends, secure the service, and resolve technical problems. Connected-health data informs coaching suggestions only; it does not automatically change your programme and is not used for medical diagnosis or emergency care.",
+  },
+  {
+    title: "SHIFT Community",
+    body: "The SHIFT Community is available only to Gordy and active SHIFT clients. Posts, names and attachments in that space are shared with all current members of that group; it is not a private coaching channel. The app displays this warning before the conversation. Clients should use private DM for health information, personal coaching details or anything they do not want other SHIFT clients to see. Community media is stored privately and made available through short-lived links after membership is checked. Gordy can remove inappropriate posts.",
   },
   {
     title: "Connected health apps",
@@ -74,7 +78,7 @@ export default function PrivacyPage() {
       <article className="mx-auto max-w-3xl">
         <Link href="/" className="text-sm font-semibold text-[#f06be3] no-underline">AT CAPACITY</Link>
         <h1 className="mt-6 font-heading text-4xl font-bold">Privacy Policy</h1>
-        <p className="mt-3 text-sm text-[#aeb0bb]">Effective 3 August 2026</p>
+        <p className="mt-3 text-sm text-[#aeb0bb]">Effective 28 August 2026</p>
         <p className="mt-8 text-base leading-7 text-[#d3d4dc]">
           This policy explains how AT CAPACITY by Gordy Elliott handles information when you use the website, PWA or iOS app.
         </p>

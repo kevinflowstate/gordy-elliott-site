@@ -10,4 +10,5 @@ next-env.d.ts
 native-shell/runtime-config.js
 ios/App/App/public/runtime-config.js
 output/
+outputs/
 supabase/.temp/
