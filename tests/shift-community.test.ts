@@ -53,3 +53,9 @@ test("client messages are positioned by user id rather than treating every clien
   const thread = await readFile(new URL("../components/inbox/InboxThread.tsx", import.meta.url), "utf8");
   assert.match(thread, /viewerUserId \? message\.sender_user_id === viewerUserId/);
 });
+
+test("blocked service workers cannot crash community browser QA or the live portal", async () => {
+  const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
+  assert.match(layout, /then\(function\(reg\)\{if\(!reg\)return;reg\.update\(\)/);
+  assert.match(layout, /\.catch\(function\(\)\{\}\)/);
+});
