@@ -23,7 +23,7 @@ const allVisibleItems: PortalNavItem[] = [
 
 const allMoreItems: PortalNavItem[] = [
   { href: "/portal/daily-tracker", label: "Daily Tracker", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z", tiers: ["coached", "premium", "vip", "ai_only"] },
-  { href: "/portal/community", label: "SHIFT Community", icon: "M17 20h5v-2a4 4 0 00-4-4h-1m0 6H7m10 0v-2c0-2.21-1.79-4-4H7a4 4 0 00-4 4v2h4m10 0H7m3-10a4 4 0 110-8 4 4 0 010 8zm8 2a3 3 0 100-6", tiers: ["coached", "premium", "vip", "ai_only"], programmes: ["shift"] },
+  { href: "/portal/community", label: "SHIFT Community", icon: "M7 8h10M7 12h6m-9 8 3.5-3H18a2 2 0 002-2V5a2 2 0 00-2-2H6a2 2 0 00-2 2v15z", tiers: ["coached", "premium", "vip", "ai_only"], programmes: ["shift"] },
   { href: "/portal/cycle", label: "Cycle Tracker", icon: "M12 6v6l4 2m5-2a9 9 0 11-2.64-6.36M21 3v6h-6", tiers: ["coached", "premium", "vip", "ai_only"], requiresCycle: true },
   { href: "/portal/checkin", label: "Check-in", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4", tiers: ["coached", "premium", "vip"] },
   { href: "/portal/ai", label: "AT CAPACITY AI", icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z", tiers: ["coached", "premium", "vip", "ai_only"] },
