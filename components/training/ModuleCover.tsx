@@ -1,13 +1,10 @@
 "use client";
 
 /**
- * Auto-generated module cover - renders as a styled div with SVG blueprint pattern.
- * No API calls, no image generation. Just CSS + inline SVG.
- *
- * Usage: <ModuleCover title="Financial Foundations" />
- * Variants: "card" (default, for grid) or "banner" (wider, for detail headers)
+ * Shared AT CAPACITY education artwork with the module title rendered in HTML.
+ * Keeping the words outside the image makes every cover crisp, accessible and
+ * reusable when Gordy renames or adds a module.
  */
-
 export default function ModuleCover({
   title,
   variant = "card",
@@ -15,80 +12,34 @@ export default function ModuleCover({
   title: string;
   variant?: "card" | "banner";
 }) {
-  const h = variant === "banner" ? "h-40" : "h-36";
+  const height = variant === "banner" ? "h-44 sm:h-52" : "h-36";
 
   return (
-    <div className={`relative ${h} w-full overflow-hidden bg-[#1a1a1a]`}>
-      {/* Blueprint SVG pattern */}
-      <svg
-        className="absolute inset-0 w-full h-full"
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-      >
-        {/* Dot grid */}
-        <pattern id={`dots-${variant}`} x="0" y="0" width="32" height="32" patternUnits="userSpaceOnUse">
-          <circle cx="16" cy="16" r="1" fill="#E040D0" opacity="0.15" />
-        </pattern>
-        <rect width="100%" height="100%" fill={`url(#dots-${variant})`} />
+    <div className={`relative ${height} w-full overflow-hidden bg-[#08080b]`}>
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-cover bg-[position:58%_center] transition-transform duration-700 group-hover:scale-[1.025]"
+        style={{ backgroundImage: "url('/images/education/at-capacity-module-cover.webp')" }}
+      />
+      <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/28 to-black/5" />
+      <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-black/25" />
 
-        {/* Horizontal pipes */}
-        <line x1="5%" y1="20%" x2="45%" y2="20%" stroke="#E040D0" strokeWidth="1.5" opacity="0.25" />
-        <circle cx="5%" cy="20%" r="4" fill="#E040D0" opacity="0.3" />
-        <circle cx="45%" cy="20%" r="4" fill="#E040D0" opacity="0.3" />
-
-        <line x1="55%" y1="40%" x2="95%" y2="40%" stroke="#E040D0" strokeWidth="1.5" opacity="0.2" />
-        <circle cx="55%" cy="40%" r="4" fill="#E040D0" opacity="0.25" />
-        <circle cx="95%" cy="40%" r="4" fill="#E040D0" opacity="0.25" />
-
-        <line x1="10%" y1="65%" x2="40%" y2="65%" stroke="#E040D0" strokeWidth="1.5" opacity="0.2" />
-        <circle cx="10%" cy="65%" r="3" fill="#E040D0" opacity="0.25" />
-        <circle cx="40%" cy="65%" r="3" fill="#E040D0" opacity="0.25" />
-
-        <line x1="60%" y1="80%" x2="90%" y2="80%" stroke="#E040D0" strokeWidth="1.5" opacity="0.18" />
-        <circle cx="60%" cy="80%" r="3" fill="#E040D0" opacity="0.22" />
-        <circle cx="90%" cy="80%" r="3" fill="#E040D0" opacity="0.22" />
-
-        {/* Vertical connectors */}
-        <line x1="45%" y1="20%" x2="45%" y2="40%" stroke="#E040D0" strokeWidth="1.5" opacity="0.2" />
-        <line x1="75%" y1="40%" x2="75%" y2="65%" stroke="#E040D0" strokeWidth="1.5" opacity="0.18" />
-        <line x1="25%" y1="65%" x2="25%" y2="85%" stroke="#E040D0" strokeWidth="1.5" opacity="0.15" />
-
-        {/* L-shaped brackets */}
-        <path d="M 70 15 L 82 15 L 82 30" fill="none" stroke="#E040D0" strokeWidth="1.5" opacity="0.22" />
-        <circle cx="70%" cy="15%" r="3.5" fill="#E040D0" opacity="0.28" />
-        <rect x="79%" y="28%" width="6%" height="4%" rx="1" fill="none" stroke="#E040D0" strokeWidth="1" opacity="0.18" />
-
-        <path d="M 15 75 L 30 75 L 30 90" fill="none" stroke="#E040D0" strokeWidth="1.5" opacity="0.18" />
-        <circle cx="15%" cy="75%" r="3" fill="#E040D0" opacity="0.22" />
-        <rect x="27%" y="88%" width="5%" height="3.5%" rx="1" fill="none" stroke="#E040D0" strokeWidth="1" opacity="0.15" />
-
-        <path d="M 85 55 L 95 55 L 95 72" fill="none" stroke="#E040D0" strokeWidth="1.5" opacity="0.2" />
-        <circle cx="85%" cy="55%" r="3" fill="#E040D0" opacity="0.25" />
-        <rect x="92%" y="70%" width="5%" height="3.5%" rx="1" fill="none" stroke="#E040D0" strokeWidth="1" opacity="0.16" />
-      </svg>
-
-      {/* Blue radial glow */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_40%,rgba(224,64,208,0.18)_0%,transparent_55%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_75%,rgba(224,64,208,0.12)_0%,transparent_45%)]" />
-
-      {/* Top accent line */}
-      <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-[#E040D0] to-transparent opacity-60" />
-
-      {/* SHIFT text logo */}
-      <div className="absolute top-4 left-0 right-0 flex items-center justify-center">
-        <span className="text-[11px] font-extrabold tracking-[0.15em] text-[#E040D0] font-heading">AT CAPACITY</span>
+      <div className="absolute inset-x-14 top-4 flex flex-col items-center text-center sm:inset-x-16">
+        <span className="font-heading text-[10px] font-extrabold tracking-[0.28em] text-[#f06be3]">
+          AT CAPACITY
+        </span>
+        <span className="mt-0.5 text-[7px] font-semibold uppercase tracking-[0.34em] text-white/55">
+          With Gordy
+        </span>
       </div>
 
-      {/* Module title */}
-      <div className="absolute inset-0 flex items-center justify-center px-8 pt-4">
-        <h3 className="text-xl md:text-2xl font-heading font-extrabold text-white text-center leading-tight tracking-tight">
+      <div className="absolute inset-x-7 bottom-5 top-11 flex items-center justify-center sm:inset-x-10">
+        <h3 className="max-w-[19rem] text-center font-heading text-xl font-extrabold leading-[1.05] tracking-[-0.02em] text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.85)] md:text-2xl">
           {title}
         </h3>
       </div>
 
-      {/* Bottom accent bar */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-12 h-[3px] bg-[#E040D0] opacity-50 rounded-full" />
+      <div aria-hidden="true" className="absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-[#e8d9c5]/55 to-transparent" />
     </div>
   );
 }
