@@ -46,7 +46,7 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>AT CAPACITY uses your microphone only when you choose to record a private voice note for your coach.</string>
 	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
+	<string>LaunchScreenV2</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>
