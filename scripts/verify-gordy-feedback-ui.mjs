@@ -167,6 +167,22 @@ try {
         }],
       }),
     }));
+    await page.route("**/api/portal/monthly-calls", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        clientId: "qa-client",
+        programme: "capacity",
+        config: {
+          label: "CAPACITY",
+          callCount: 2,
+          callLabel: "Book your coaching call",
+          bookingUrl: "https://calendly.com/gordyonline/at-capacity-1-1-call",
+        },
+        monthStart: `${qaDate.getFullYear()}-${String(qaDate.getMonth() + 1).padStart(2, "0")}-01`,
+        confirmations: [],
+      }),
+    }));
     await page.route("**/api/portal/integrations", (route) => route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -313,6 +329,17 @@ try {
         fullPage: false,
         animations: "disabled",
       });
+      if (route.name === "home") {
+        const reminder = page.getByTestId("monthly-call-reminder-link");
+        await reminder.waitFor();
+        await page.getByTestId("monthly-call-reminder-dismiss").click();
+        await reminder.waitFor({ state: "hidden" });
+        await page.reload({ waitUntil: "domcontentloaded" });
+        await page.waitForTimeout(250);
+        if (await reminder.isVisible()) {
+          throw new Error(`${viewport.name} ${route.path}: dismissed monthly coaching reminder returned after reload.`);
+        }
+      }
       console.log(`PASS ${viewport.name} ${route.path}`);
       page.removeAllListeners("console");
       page.removeAllListeners("response");

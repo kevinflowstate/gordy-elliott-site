@@ -16,6 +16,7 @@ const portalAIRouteUrl = new URL("../app/api/portal/ai/route.ts", import.meta.ur
 const inboxThreadUrl = new URL("../components/inbox/InboxThread.tsx", import.meta.url);
 const monthlyCallPromptUrl = new URL("../components/portal/MonthlyCallPrompt.tsx", import.meta.url);
 const portalHomeUrl = new URL("../app/portal/page.tsx", import.meta.url);
+const portalCalendarUrl = new URL("../app/portal/calendar/page.tsx", import.meta.url);
 const toastUrl = new URL("../components/ui/Toast.tsx", import.meta.url);
 
 test("only the three coaching programmes are accepted", () => {
@@ -49,7 +50,23 @@ test("all programmes share the original client Home instead of the founder dashb
   assert.doesNotMatch(portalHome, /<FounderDashboard/);
   assert.match(portalHome, /<ProgressRing/);
   assert.match(portalHome, /Today&apos;s Priority/);
-  assert.match(portalHome, /<MonthlyCallPrompt \/>/);
+  assert.match(portalHome, /<MonthlyCallPrompt variant="reminder" \/>/);
+});
+
+test("monthly call booking lives in Calendar with a dismissible conditional Home reminder", async () => {
+  const [monthlyCallPrompt, portalHome, portalCalendar] = await Promise.all([
+    readFile(monthlyCallPromptUrl, "utf8"),
+    readFile(portalHomeUrl, "utf8"),
+    readFile(portalCalendarUrl, "utf8"),
+  ]);
+
+  assert.match(portalCalendar, /<MonthlyCallPrompt variant="calendar" \/>/);
+  assert.match(portalHome, /<MonthlyCallPrompt variant="reminder" \/>/);
+  assert.match(monthlyCallPrompt, /monthly-call-reminder-dismissed:/);
+  assert.match(monthlyCallPrompt, /outstandingCount === 0/);
+  assert.match(monthlyCallPrompt, /data-testid="monthly-call-reminder-dismiss"/);
+  assert.match(monthlyCallPrompt, /href="\/portal\/calendar#coaching-calls"/);
+  assert.match(monthlyCallPrompt, /id="coaching-calls"/);
 });
 
 test("monthly confirmations use a calendar-month key", () => {
