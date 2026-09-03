@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { CalendarEvent, RecurrenceType } from "@/lib/types";
 import CalendarConnections from "@/components/portal/CalendarConnections";
+import MonthlyCallPrompt from "@/components/portal/MonthlyCallPrompt";
 import { getNextCalendarOccurrence } from "@/lib/calendar-occurrence";
 
 const recurrenceLabels: Record<RecurrenceType, { label: string; color: string }> = {
@@ -226,6 +227,8 @@ export default function PortalCalendarPage() {
         <h1 className="text-3xl font-heading font-bold text-text-primary">Calendar</h1>
         <p className="text-text-secondary mt-1 text-sm">Upcoming events and coaching sessions.</p>
       </div>
+
+      <MonthlyCallPrompt variant="calendar" />
 
       <CalendarConnections onEventsChanged={loadEvents} />
 

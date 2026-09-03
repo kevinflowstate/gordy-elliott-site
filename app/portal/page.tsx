@@ -451,7 +451,7 @@ export default function PortalDashboard() {
 
   return (
     <div className="mx-auto w-full max-w-xl space-y-5 pb-8 pt-1 sm:max-w-2xl" data-testid="unified-client-home" data-programme={profile?.programme_type || "capacity"}>
-      <MonthlyCallPrompt />
+      <MonthlyCallPrompt variant="reminder" />
       {loadError && (
         <div className="flex flex-col gap-3 rounded-3xl border border-amber-500/25 bg-amber-500/8 px-5 py-4 text-sm text-amber-500 sm:flex-row sm:items-center sm:justify-between">
           <div>{loadError}</div>

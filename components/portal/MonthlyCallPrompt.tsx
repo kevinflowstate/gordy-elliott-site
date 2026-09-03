@@ -1,19 +1,38 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
 import type { ProgrammeType } from "@/lib/types";
 
 interface MonthlyCallsResponse {
+  clientId: string;
   programme: ProgrammeType;
   config: { label: string; callCount: number; callLabel: string; bookingUrl: string | null };
+  monthStart: string;
   confirmations: Array<{ call_slot: number; confirmed_at: string }>;
 }
 
-export default function MonthlyCallPrompt() {
+type MonthlyCallPromptVariant = "calendar" | "reminder";
+
+function reminderDismissalKey(state: MonthlyCallsResponse) {
+  return `monthly-call-reminder-dismissed:${state.clientId}:${state.monthStart}`;
+}
+
+function monthLabel(monthStart: string) {
+  return new Date(`${monthStart}T12:00:00`).toLocaleDateString("en-GB", { month: "long" });
+}
+
+export default function MonthlyCallPrompt({
+  variant = "calendar",
+}: {
+  variant?: MonthlyCallPromptVariant;
+}) {
   const { toast } = useToast();
   const [state, setState] = useState<MonthlyCallsResponse | null>(null);
   const [savingSlot, setSavingSlot] = useState<number | null>(null);
+  const [dismissed, setDismissed] = useState(false);
+  const [dismissalResolved, setDismissalResolved] = useState(variant !== "reminder");
 
   useEffect(() => {
     fetch("/api/portal/monthly-calls")
@@ -22,8 +41,72 @@ export default function MonthlyCallPrompt() {
       .catch(() => {});
   }, []);
 
-  if (!state || state.confirmations.length >= state.config.callCount) return null;
+  useEffect(() => {
+    if (variant !== "reminder" || !state) return;
+    try {
+      setDismissed(window.localStorage.getItem(reminderDismissalKey(state)) === "true");
+    } finally {
+      setDismissalResolved(true);
+    }
+  }, [state, variant]);
+
+  if (!state) return null;
   const completed = new Set(state.confirmations.map((item) => item.call_slot));
+  const outstandingCount = Math.max(0, state.config.callCount - completed.size);
+
+  function dismissReminder() {
+    if (!state) return;
+    window.localStorage.setItem(reminderDismissalKey(state), "true");
+    setDismissed(true);
+  }
+
+  if (variant === "reminder") {
+    if (!dismissalResolved || dismissed || outstandingCount === 0) return null;
+
+    return (
+      <section
+        className="app-rise app-rise-1 flex min-h-[72px] items-center gap-3 rounded-[20px] border border-white/[0.09] bg-[#151117] px-4 py-3"
+        aria-label="Monthly coaching reminder"
+      >
+        <Link
+          href="/portal/calendar#coaching-calls"
+          className="group flex min-w-0 flex-1 items-center gap-3 no-underline"
+          data-testid="monthly-call-reminder-link"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent-bright" aria-hidden="true">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 7V3m8 4V3M5 11h14M6 21h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z" />
+            </svg>
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-accent-bright">Monthly coaching</span>
+            <span className="mt-0.5 block text-sm font-semibold leading-5 text-white">
+              Book your {monthLabel(state.monthStart)} {state.config.callCount === 1 ? "call" : "calls"}
+            </span>
+            <span className="mt-0.5 block text-xs text-white/45">
+              {completed.size} of {state.config.callCount} confirmed
+            </span>
+          </span>
+          <svg className="h-4 w-4 shrink-0 text-white/38 transition group-hover:translate-x-0.5 group-hover:text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m9 18 6-6-6-6" />
+          </svg>
+        </Link>
+        <button
+          type="button"
+          onClick={dismissReminder}
+          aria-label="Dismiss monthly coaching reminder"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/38 transition hover:bg-white/[0.06] hover:text-white/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-bright"
+          data-testid="monthly-call-reminder-dismiss"
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m6 6 12 12M18 6 6 18" />
+          </svg>
+        </button>
+      </section>
+    );
+  }
+
+  const allConfirmed = outstandingCount === 0;
 
   async function confirm(slot: number) {
     setSavingSlot(slot);
@@ -45,13 +128,21 @@ export default function MonthlyCallPrompt() {
   }
 
   return (
-    <section className="rounded-[24px] border border-white/10 bg-[#151117] p-5 sm:p-6">
+    <section id="coaching-calls" className="mb-5 scroll-mt-24 rounded-[24px] border border-white/10 bg-[#151117] p-5 sm:p-6" aria-labelledby="coaching-calls-heading">
       <div className="max-w-xl">
         <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent-bright">Monthly coaching</div>
-        <h2 className="mt-2 text-xl font-heading font-extrabold text-white">Keep your calls locked in</h2>
-        <p className="mt-1 text-sm leading-6 text-text-secondary">{state.programme === "in_person" ? "Confirm this month’s 1:1 is arranged with Gordy." : `Book and confirm ${state.config.callCount === 2 ? "both of your calls" : "your call"} for this month.`}</p>
+        <h2 id="coaching-calls-heading" className="mt-2 text-xl font-heading font-extrabold text-white">
+          {allConfirmed ? "Your calls are booked" : "Keep your calls locked in"}
+        </h2>
+        <p className="mt-1 text-sm leading-6 text-text-secondary">
+          {allConfirmed
+            ? `All ${state.config.callCount === 1 ? "coaching time is" : "coaching calls are"} confirmed for ${monthLabel(state.monthStart)}.`
+            : state.programme === "in_person"
+              ? "Confirm this month’s 1:1 is arranged with Gordy."
+              : `Book and confirm ${state.config.callCount === 2 ? "both of your calls" : "your call"} for this month.`}
+        </p>
       </div>
-      <div className="mt-5 border-y border-white/10">
+      <div className="mt-5 border-y border-white/10" data-testid="monthly-call-booking-controls">
         {Array.from({ length: state.config.callCount }, (_, index) => index + 1).map((slot) => {
           const isDone = completed.has(slot);
           return (

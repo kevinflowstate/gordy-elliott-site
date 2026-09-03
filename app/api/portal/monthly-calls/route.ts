@@ -29,6 +29,7 @@ export async function GET() {
     .order("call_slot");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({
+    clientId: ctx.profile.id,
     programme,
     config: programmeConfig[programme],
     monthStart,
