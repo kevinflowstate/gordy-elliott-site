@@ -123,6 +123,14 @@ If production is broken after deploy:
 3. **Push keys rollback** — VAPID keys can be rotated without data loss; subscriptions will re-register on next visit.
 4. **Env vars** — Vercel env history: revert via dashboard, trigger a redeploy.
 
+### iOS hosted-portal release control
+
+The App Store binary opens the hosted portal at `https://app.onlinegordy.com/portal`. A Vercel rollback therefore changes what the installed iOS app displays immediately, even though the signed binary has not changed.
+
+Before the final physical-device walkthrough, declare a short change freeze and record the tested Vercel deployment ID, Git SHA, iOS version/build and review-fixture check. Any later portal deployment invalidates that walkthrough and must be smoke-tested again before submission.
+
+An App Store binary cannot be rolled back after release. If a native-only defect is found after approval, pause manual release in App Store Connect and upload a higher build. If already released, ship a corrected higher version/build; do not attempt to replace the accepted archive in place.
+
 Never `git push --force` to `main` as a rollback. Revert commits instead.
 
 ---

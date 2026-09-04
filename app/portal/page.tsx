@@ -8,6 +8,7 @@ import type { CalendarEvent, CheckIn, ClientProfile, ClientTask, TrainingPlanPha
 import type { WearableDailySummary } from "@/lib/wearable-insights";
 import type { WeeklyCapacityResult } from "@/lib/weekly-capacity";
 import { getNextCalendarOccurrence } from "@/lib/calendar-occurrence";
+import { isFounderExperience } from "@/lib/client-experience";
 import { getImmediateTodayPriority } from "@/lib/today-priority";
 import MonthlyCallPrompt from "@/components/portal/MonthlyCallPrompt";
 
@@ -246,11 +247,10 @@ export default function PortalDashboard() {
     let active = true;
     (async () => {
       try {
-        const [calendarRes, integrationsRes, exercisePlanRes, weeklyCapacityRes] = await Promise.all([
+        const [calendarRes, integrationsRes, exercisePlanRes] = await Promise.all([
           fetch("/api/calendar"),
           fetch("/api/portal/integrations"),
           fetch("/api/portal/exercise-plan"),
-          fetch("/api/portal/weekly-capacity"),
         ]);
         const data = calendarRes.ok ? await calendarRes.json() : { events: [] };
         const events: CalendarEvent[] = data.events || [];
@@ -294,19 +294,32 @@ export default function PortalDashboard() {
             }
           }
         }
-        if (weeklyCapacityRes.ok) {
-          const weeklyCapacityData = await weeklyCapacityRes.json();
-          if (active) setWeeklyCapacity(weeklyCapacityData);
-        } else if (active) {
-          setWeeklyCapacity(null);
-        }
       } catch {
-        if (active) setWeeklyCapacity(null);
         /* Upcoming tile falls back to the calendar link. */
       }
     })();
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!profile) return;
+    if (!isFounderExperience(profile.experience_mode)) {
+      setWeeklyCapacity(null);
+      return;
+    }
+
+    let active = true;
+    void fetch("/api/portal/weekly-capacity")
+      .then(async (response) => {
+        const result = response.ok ? await response.json() : null;
+        if (active) setWeeklyCapacity(result);
+      })
+      .catch(() => {
+        if (active) setWeeklyCapacity(null);
+      });
+
+    return () => { active = false; };
+  }, [profile]);
 
   async function toggleTask(taskId: string, completed: boolean) {
     try {

@@ -1,6 +1,6 @@
 # AT CAPACITY - Release Documentation (v1)
 
-Prepared 24 July 2026 and updated 26 August 2026 from the code on this branch, the implementation checklist and the live Gordy-owned App Store record. This is the release-readiness summary; the canonical detail lives in the linked documents.
+Prepared 24 July 2026 and updated 4 September 2026 from the code on this branch, the implementation checklist and the live Gordy-owned App Store record. This is the release-readiness summary; the canonical detail lives in the linked documents.
 
 ## 1. What v1 ships
 
@@ -17,7 +17,7 @@ Also built as of 24 July 2026 (merged the same day, covered by an independent se
 - Storm Warning: deterministic calendar-pressure warnings with a capped, deduplicated audit log (rule IDs, per-day meeting counts and times only - no event content) and server-validated client dismissals.
 - Founder compliance and Month 4: call-attendance records, weekly WhatsApp-help records (metadata only, admin-only), frozen immutable Month 4 review snapshots visible to the client once completed, and programme-level guarantee configuration that evaluates nothing until Gordy defines the thresholds.
 
-Terra production is prepared for Garmin, Oura, Fitbit and MyFitnessPal, with WHOOP disabled pending Terra's TLS/domain approval. Oura and MyFitnessPal have stored production data, but both need a fresh exact-build pass after the production cutover. Google OAuth is approved and production contains connected Google and Outlook calendars with real synced events; exact Build 10 native return remains to be tested.
+Terra production is prepared for Garmin, Oura, Fitbit and MyFitnessPal. WHOOP is visible in production and at least one stored connection is healthy, but its exact-build acceptance evidence still needs to be recorded. Oura and MyFitnessPal have stored production data, but both need a fresh exact-build pass after the production cutover. Google OAuth is approved and production contains connected Google and Outlook calendars with real synced events; exact Build 10 native return remains to be tested.
 
 Still open (per the implementation checklist): guarantee threshold values themselves (blocked on Gordy's commercial definition - the configuration ships empty and shows clients nothing until set).
 
@@ -29,16 +29,16 @@ Explicitly out of scope for v1: Apple Health/HealthKit, Android Health Connect, 
 | --- | --- | --- |
 | Google branding + Calendar data-access verification (project `at-capacity-503314`) | Approved. | Complete; exact Build 10 native-return QA remains a release gate. |
 | Real production calendar contract tests | Google and Outlook both show connected with real stored events. Exact Build 10 return/disconnect tests remain. | Final physical-device acceptance. |
-| Terra production acceptance | Production credentials and webhook are prepared. Three stored wearable connections are healthy, but current-day Oura/MyFitnessPal evidence after cutover remains outstanding. WHOOP is disabled pending Terra approval. | Advertising current provider support and closing provider acceptance. |
+| Terra production acceptance | Production credentials and webhook are prepared. Stored wearable connections include a healthy WHOOP connection, but exact-build WHOOP evidence and current-day Oura/MyFitnessPal evidence remain outstanding. | Advertising current provider support and closing provider acceptance. |
 | Apple exact-candidate gates | Build 10 is validated, processed, installed internally and selected for version 1.0. Physical QA, accessibility, APNs/provider return and final crash review remain. See `docs/app-store-release-audit.md`. | Final App Store submission. |
 | Supabase leaked-password protection | Enabled; live security advisor clear on 6 August 2026 | Complete. |
 
 ## 3. Privacy and consent position
 
-- Live policy: `/privacy` (code: `app/privacy/page.tsx`, effective 27 July 2026). It discloses calendar connections with Google Limited Use wording, names Composio as the calendar processor, describes the "Busy" masking and no-descriptions/no-attendees position, states that Google reads all calendars on the connected account, discloses coaching-administration records, and states that disconnecting a calendar deletes the synced copies. The code matches these claims (`lib/composio/normalise.ts`, disconnect route).
+- Live policy: `/privacy` (code: `app/privacy/page.tsx`, effective 4 September 2026 after deployment). It identifies Gordy Elliott as controller, provides the support contact route and ICO complaint right, states the lawful bases and explicit-health-consent position, and names Apple push processing. It also discloses calendar connections with Google Limited Use wording, names Composio as the calendar processor, describes the "Busy" masking and no-descriptions/no-attendees position, states that Google reads all calendars on the connected account, discloses coaching-administration records, and states that disconnecting a calendar deletes the synced copies.
 - Explicit consent for health and cycle data is captured at consultation as an unticked checkbox, versioned `health_cycle_v1` and timestamped server-side. Calendar and wearable connections are separately client-initiated OAuth flows.
 - Full data mapping: `docs/app-privacy-inventory.md`. Risk assessment and action plan: `docs/at-capacity-dpia.md` (draft, awaiting Gordy/Kevin sign-off). App Store answers: `docs/app-privacy-questionnaire.md`.
-- Known gaps carried in the DPIA action plan rather than hidden: bounded retention for calendar history, processor due-diligence record, and controller legal identity/ICO complaint-right wording. Calendar and Terra now have just-in-time, versioned connection consent subject to deployment/acceptance; Terra raw-event retention and provider deauthentication are implemented subject to final acceptance. The all-calendars and coaching-administration disclosures are already present in the policy.
+- Known gaps carried in the DPIA action plan rather than hidden: bounded retention for calendar history and the processor due-diligence record. Calendar and Terra have just-in-time, versioned connection consent subject to acceptance; Terra raw-event retention and provider deauthentication are implemented subject to final acceptance. Controller identity, lawful-basis and ICO complaint-right wording are implemented in the pending deployment.
 
 ## 4. Support and legal links
 
@@ -55,8 +55,7 @@ For the reviewer-facing notes (canonical copy in `docs/app-store-metadata.md`):
 
 - The app does not use EventKit and never requests the iOS calendar permission. Calendar access is a web OAuth consent on Google's or Microsoft's own screens, processed by Composio.
 - Access is read-only; the app stores only event identifiers, masked-where-private titles, times, busy status and meeting links, for today plus seven days.
-- If the review build has no calendar providers configured, the Connected Calendar screen shows a not-available state - this is intentional, not a broken feature.
-- The demo/review account should either demonstrate the calendar connect screen's honest unavailable state, or (if a test connection is configured) a connected calendar with fictional events only. Never connect a real calendar to the review fixture.
+- The demo/review account must show only provider behaviour that has been verified on the exact candidate. Never connect a real calendar to the review fixture.
 - Keep the existing Terra framing: connected-health summaries are informational, never diagnostic, and never change a programme automatically.
 
 ## 6. Outstanding Gordy decisions

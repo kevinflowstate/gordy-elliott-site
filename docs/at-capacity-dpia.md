@@ -35,7 +35,7 @@ Data flows and recipients:
 - AI: coaching context is sent per request to Anthropic; query text is embedded via OpenAI or OpenRouter for retrieval over a de-identified coaching-knowledge base. Calendar data is not sent to AI. AI output is suggestion-only and never changes a programme automatically.
 - Push: Apple APNs and web-push services receive device identifiers and notification payloads.
 
-Retention: account and coaching data is retained for the life of the account; clients can permanently delete their account from Settings (`app/api/portal/account/route.ts` removes uploads, then deletes the auth user so client-owned rows cascade). Calendar disconnect revokes the Composio connected account and deletes the synced event copies. Raw Terra webhook payloads are purged after 90 days by default (configurable from 7-365 days); normalised coaching summaries remain with the account. Wearable disconnect calls Terra's deauthentication endpoint before marking the local connection disconnected, and later data for a non-connected row is not stored. These Terra controls are implemented in the 3 August activation branch and require a real testing-environment acceptance run before launch.
+Retention: account and coaching data is retained for the life of the account; clients can permanently delete their account from Settings. Account deletion revokes Terra and Composio access first, removes avatars, progress photos, private DM audio/photos, SHIFT Community media and uploaded documents, then deletes the auth user so client-owned rows cascade (`app/api/portal/account/route.ts`). Calendar disconnect revokes the Composio connected account and deletes the synced event copies. Raw Terra webhook payloads are purged after 90 days by default (configurable from 7-365 days); normalised coaching summaries remain with the account. Wearable disconnect calls Terra's deauthentication endpoint before marking the local connection disconnected, and later data for a non-connected row is not stored. The external-revocation controls still require a real acceptance run before launch.
 
 ## 2. Necessity and proportionality
 
@@ -98,7 +98,7 @@ The revision 2 additions (R11-R13) all land at low residual: they are in-platfor
 | 5 | Compile the processor due-diligence record (DPAs, training-disabled AI terms, transfer mechanisms, sub-processors) | Kevin | Before launch |
 | 6 | Enable Supabase leaked-password protection; consider admin MFA | Kevin | **Leaked-password protection completed 6 August 2026; admin MFA decision remains** |
 | 7 | Run the real production calendar contract tests (Google and Outlook) and the Terra provider acceptance tests when gates open | Build team | Gate-dependent |
-| 8 | Add controller identity and ICO complaint-right wording to the privacy policy | Build team (code change - see findings) | Before launch |
+| 8 | Add controller identity and ICO complaint-right wording to the privacy policy | Build team | **Implemented 4 September 2026; controller sign-off pending** |
 | 9 | Extend the privacy policy's "Information AT CAPACITY handles" wording to cover coaching-administration records: call attendance, weekly off-platform help logs, programme review snapshots and baseline-override audit records | Build team | **Completed 24 July 2026** |
 
 ## 8. Sign-off

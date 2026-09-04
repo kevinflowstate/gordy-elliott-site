@@ -17,7 +17,7 @@ This is the exact reviewer simulation for the final TestFlight candidate. It con
    - Confirm notification permission is not requested until the reviewer chooses Enable.
 
 2. **Dashboard and coaching context**
-   - Review current tasks, the coaching dashboard and weekly capacity context.
+   - Review current tasks, the coaching dashboard and today's coaching priority.
    - Confirm capacity language is suggestive and does not diagnose or automatically alter a programme.
 
 3. **Training**
@@ -34,7 +34,7 @@ This is the exact reviewer simulation for the final TestFlight candidate. It con
 
 5. **Health & Capacity**
    - Open Health & Capacity and confirm the data-consent explanation appears only until accepted.
-   - Inspect the provider-specific cards and honest disconnected/pending/error states.
+   - Inspect the provider-specific cards and confirm the review account contains no stuck pending or error connection.
    - Oura data may show readiness, activity, sleep or HRV independently; nutrition must not appear missing merely because Oura does not provide food tracking.
    - Do not promise MyFitnessPal availability until the outstanding provider retest passes.
 

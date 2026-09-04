@@ -687,7 +687,8 @@ test("Terra connection consent names the processor and records the revised notic
   assert.match(connectionsPanel, /\/images\/providers\/fitbit\.svg/);
   assert.match(connectionsPanel, /\/images\/providers\/oura\.svg/);
   assert.match(connectionsPanel, /\/images\/providers\/garmin\.svg/);
-  assert.match(connectionsPanel, />Coming soon</);
+  assert.doesNotMatch(connectionsPanel, />Coming soon</);
+  assert.doesNotMatch(connectionsPanel, />Soon</);
   assert.doesNotMatch(connectionsPanel, /Planned after provider credentials/);
   assert.doesNotMatch(connectionsPanel, /Apple Health/);
   assert.doesNotMatch(connectionsPanel, /App Store release/);

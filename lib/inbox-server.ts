@@ -66,6 +66,11 @@ export async function getInboxViewer(): Promise<InboxViewer | null> {
 }
 
 export async function listInboxConversations(viewer: InboxViewer): Promise<InboxConversation[]> {
+  // A client without a resolved profile has no safe row scope. Fail closed
+  // before constructing any service-role query rather than falling back to
+  // the administrator-wide conversation list.
+  if (viewer.role === "client" && !viewer.clientProfileId) return [];
+
   const admin = createAdminClient();
 
   const clientsQuery = admin
@@ -74,11 +79,13 @@ export async function listInboxConversations(viewer: InboxViewer): Promise<Inbox
     .order("created_at", { ascending: true });
 
   const [clientsRes, usersRes, messagesRes] = await Promise.all([
-    viewer.role === "client" && viewer.clientProfileId
+    viewer.role === "client"
       ? clientsQuery.eq("id", viewer.clientProfileId)
       : clientsQuery,
-    admin.from("users").select("id, full_name, email, role").eq("role", "client"),
-    viewer.role === "client" && viewer.clientProfileId
+    viewer.role === "client"
+      ? admin.from("users").select("id, full_name, email, role").eq("id", viewer.userId)
+      : admin.from("users").select("id, full_name, email, role").eq("role", "client"),
+    viewer.role === "client"
       ? admin
           .from("inbox_messages")
           .select("*")

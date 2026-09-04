@@ -133,14 +133,15 @@ test("voice recording is gated to native builds containing the microphone permis
   assert.equal(nativeBuildSupportsVoiceNotes("invalid"), false);
 });
 
-test("older native builds get honest voice messaging and booking links look actionable", async () => {
+test("older native builds get durable voice messaging and booking links look actionable", async () => {
   const [inboxThread, monthlyCallPrompt, toast] = await Promise.all([
     readFile(inboxThreadUrl, "utf8"),
     readFile(monthlyCallPromptUrl, "utf8"),
     readFile(toastUrl, "utf8"),
   ]);
 
-  assert.match(inboxThread, /Voice notes are coming in the next TestFlight update\./);
+  assert.match(inboxThread, /Voice notes require a newer version of AT CAPACITY\./);
+  assert.doesNotMatch(inboxThread, /TestFlight/);
   assert.doesNotMatch(inboxThread, />Update required</);
   assert.match(monthlyCallPrompt, /data-testid="monthly-call-booking-link"/);
   assert.match(monthlyCallPrompt, /bg-accent-bright/);

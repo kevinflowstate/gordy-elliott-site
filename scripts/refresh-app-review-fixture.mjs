@@ -56,6 +56,20 @@ if (profile.lifecycle_status !== "active") {
   throw new Error("Refusing to refresh the App Review fixture while the client profile is paused or frozen.");
 }
 
+const { error: profileUpdateError } = await supabase
+  .from("client_profiles")
+  .update({ programme_type: "capacity", onboarding_status: "active" })
+  .eq("id", profile.id);
+if (profileUpdateError) throw profileUpdateError;
+
+const { data: removedWearableConnections, error: wearableCleanupError } = await supabase
+  .from("client_wearable_connections")
+  .delete()
+  .eq("client_id", profile.id)
+  .in("status", ["pending", "error"])
+  .select("id, provider, status");
+if (wearableCleanupError) throw wearableCleanupError;
+
 const updatedAt = new Date().toISOString();
 const entries = [
   { daysAgo: 0, sleep: 7.8, water: 2.6, energy: 8, stress: 3, nutrition: 8, trained: true },
@@ -79,4 +93,6 @@ const { error: upsertError } = await supabase
   .upsert(entries, { onConflict: "client_id,tracked_date" });
 if (upsertError) throw upsertError;
 
-console.log(`Refreshed ${entries.length} fictional Daily Tracker entries for the marked App Review account.`);
+console.log(
+  `Refreshed the marked App Review account as an active CAPACITY client with ${entries.length} fictional Daily Tracker entries; removed ${removedWearableConnections?.length || 0} pending/error wearable connection(s).`,
+);
