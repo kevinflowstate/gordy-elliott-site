@@ -9,6 +9,7 @@ nextEnv.loadEnvConfig(process.env.PORTAL_QA_ENV_DIR || process.cwd());
 
 const baseUrl = process.env.PORTAL_QA_BASE_URL || "http://localhost:4190";
 const storageState = process.env.PORTAL_QA_STORAGE_STATE;
+const readOnly = process.env.PORTAL_QA_READ_ONLY === "true";
 const chromePath = process.env.PORTAL_QA_CHROME_PATH ||
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
@@ -298,32 +299,36 @@ try {
   for (const label of ["Full Name", "Date of Birth", "Sex", "New Password", "Confirm Password"]) {
     check(await page.getByLabel(label, { exact: true }).count() === 1, `Settings exposes ${label} to assistive technology`);
   }
-  const invalidEnvironment = await context.request.post(`${baseUrl}/api/push/native`, {
-    data: { token: "a".repeat(64), environment: "development" },
-  });
-  check(invalidEnvironment.status() === 400, "native push rejects an unknown build environment", `status ${invalidEnvironment.status()}`);
-
-  const fixtureToken = "f".repeat(64);
   const beforeRegistration = await context.request.get(`${baseUrl}/api/push/native`);
   const beforeRegistrationBody = await beforeRegistration.json().catch(() => ({}));
   check(beforeRegistration.status() === 200, "native push registration status is available to the signed-in client", `status ${beforeRegistration.status()}`);
-  try {
-    const registration = await context.request.post(`${baseUrl}/api/push/native`, {
-      data: { token: fixtureToken, environment: "sandbox" },
+  if (readOnly) {
+    console.log("SKIP native push write contract (PORTAL_QA_READ_ONLY=true)");
+  } else {
+    const invalidEnvironment = await context.request.post(`${baseUrl}/api/push/native`, {
+      data: { token: "a".repeat(64), environment: "development" },
     });
-    check(registration.status() === 200, "native push accepts a valid build-scoped device token", `status ${registration.status()}`);
-    const afterRegistration = await context.request.get(`${baseUrl}/api/push/native`);
-    const afterRegistrationBody = await afterRegistration.json().catch(() => ({}));
-    check(
-      afterRegistration.status() === 200 && afterRegistrationBody.deviceCount === (beforeRegistrationBody.deviceCount || 0) + 1,
-      "native push registration is stored for the current account",
-      JSON.stringify(afterRegistrationBody),
-    );
-  } finally {
-    const removal = await context.request.delete(`${baseUrl}/api/push/native`, {
-      data: { token: fixtureToken },
-    });
-    check(removal.status() === 200, "native push removes only the current device token", `status ${removal.status()}`);
+    check(invalidEnvironment.status() === 400, "native push rejects an unknown build environment", `status ${invalidEnvironment.status()}`);
+
+    const fixtureToken = "f".repeat(64);
+    try {
+      const registration = await context.request.post(`${baseUrl}/api/push/native`, {
+        data: { token: fixtureToken, environment: "sandbox" },
+      });
+      check(registration.status() === 200, "native push accepts a valid build-scoped device token", `status ${registration.status()}`);
+      const afterRegistration = await context.request.get(`${baseUrl}/api/push/native`);
+      const afterRegistrationBody = await afterRegistration.json().catch(() => ({}));
+      check(
+        afterRegistration.status() === 200 && afterRegistrationBody.deviceCount === (beforeRegistrationBody.deviceCount || 0) + 1,
+        "native push registration is stored for the current account",
+        JSON.stringify(afterRegistrationBody),
+      );
+    } finally {
+      const removal = await context.request.delete(`${baseUrl}/api/push/native`, {
+        data: { token: fixtureToken },
+      });
+      check(removal.status() === 200, "native push removes only the current device token", `status ${removal.status()}`);
+    }
   }
 
   const forbiddenHosts = [...requestedHosts].filter((host) =>

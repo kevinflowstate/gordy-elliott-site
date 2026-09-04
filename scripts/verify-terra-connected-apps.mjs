@@ -69,7 +69,7 @@ function buildVisualFixture() {
   return {
     mockMode: false,
     available: true,
-    providerAvailability: { whoop: false },
+    providerAvailability: { whoop: true },
     consentAccepted: true,
     connections: [
       {
@@ -286,8 +286,14 @@ try {
       await checkbox.check();
       if (await garminButton.isDisabled()) throw new Error(`${viewport.name}: provider button stayed disabled after consent`);
     }
-    if (await page.locator('[data-provider-id="whoop"]').count() !== 1 || await page.locator('[data-provider-id="strava"]').count() !== 1) {
-      throw new Error(`${viewport.name}: WHOOP and Strava coming-soon states are missing`);
+    if (await page.getByRole("heading", { name: "WHOOP", exact: true }).count() !== 1) {
+      throw new Error(`${viewport.name}: enabled WHOOP connection is missing`);
+    }
+    if (await page.getByRole("heading", { name: "Strava", exact: true }).count() !== 0) {
+      throw new Error(`${viewport.name}: disabled Strava roadmap item is reviewer-visible`);
+    }
+    if (await page.getByText("Coming soon", { exact: true }).count() !== 0) {
+      throw new Error(`${viewport.name}: unfinished-provider copy is reviewer-visible`);
     }
     await page.screenshot({
       path: path.join(outputDir, `${viewport.name}-connections.png`),

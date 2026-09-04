@@ -2,6 +2,10 @@ import { access, mkdir } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { chromium } from "playwright-core";
+import nextEnv from "@next/env";
+import { createAppReviewBrowserCookies } from "./lib/app-review-browser-auth.mjs";
+
+nextEnv.loadEnvConfig(process.env.PORTAL_QA_ENV_DIR || process.cwd());
 
 const baseUrl = process.env.PORTAL_QA_BASE_URL || "http://127.0.0.1:4190";
 const storageState = process.env.PORTAL_QA_STORAGE_STATE;
@@ -62,13 +66,8 @@ function routeName(route) {
   return route === "/portal" ? "dashboard" : route.split("/").filter(Boolean).at(-1);
 }
 
-if (!storageState) {
-  console.error("Set PORTAL_QA_STORAGE_STATE to a Playwright storage-state file for an authenticated client.");
-  process.exit(2);
-}
-
 const chromePath = process.env.PORTAL_QA_CHROME_PATH || defaultChromePath();
-await Promise.all([access(storageState), access(chromePath)]).catch((error) => {
+await Promise.all([storageState ? access(storageState) : Promise.resolve(), access(chromePath)]).catch((error) => {
   console.error(`Mobile QA setup is incomplete: ${error.message}`);
   process.exit(2);
 });
@@ -85,10 +84,13 @@ const failures = [];
 try {
   for (const run of runs) {
     const context = await browser.newContext({
-      storageState,
+      ...(storageState ? { storageState } : {}),
       viewport: { width: run.width, height: run.height },
       serviceWorkers: "block",
     });
+    if (!storageState) {
+      await context.addCookies(await createAppReviewBrowserCookies({ baseUrl }));
+    }
     const page = await context.newPage();
     page.setDefaultTimeout(15_000);
 

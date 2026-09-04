@@ -11,7 +11,13 @@ const sections: Array<{
   body: string;
   googlePolicyLink?: boolean;
   terraPolicyLink?: boolean;
+  icoPolicyLink?: boolean;
 }> = [
+  {
+    title: "Who is responsible and your legal rights",
+    body: "Gordy Elliott is the data controller for AT CAPACITY. Flowstate operates and supports the platform on his behalf. Core coaching information is processed to provide the coaching service you have agreed to; optional calendar, wearable, cycle and notification features are processed with your consent; and limited security and abuse-prevention records are processed for the legitimate interest of protecting the service. Where health information is involved, AT CAPACITY relies on the explicit consent collected in the app. You may ask to access, correct or erase your information, restrict or object to processing where applicable, withdraw consent for an optional feature, or request a portable copy. Withdrawing consent does not affect processing that was lawful before withdrawal. You may also complain to the UK Information Commissioner’s Office.",
+    icoPolicyLink: true,
+  },
   {
     title: "Information AT CAPACITY handles",
     body: "AT CAPACITY stores account and contact details, coaching plans, text messages and any private voice notes or photos you choose to send, check-ins, progress photos, training and nutrition logs, consultation answers, and any health, injury or cycle information you choose to provide. DM voice notes and photos are stored privately. If you are an active SHIFT client, messages and attachments you deliberately post in the SHIFT Community are visible to Gordy and other active SHIFT clients. The microphone, camera and photo library are used only when you choose to record or select something to send. If you connect a supported app through Terra, AT CAPACITY may also receive sleep, recovery, activity and nutrition summaries from that provider. If you connect Google Calendar or Outlook Calendar, AT CAPACITY reads the calendar and event information described below. For coached clients, AT CAPACITY also keeps coaching-administration records, such as call attendance, weekly notes of coaching support provided over WhatsApp, periodic review summaries, and an audited record of any correction to locked baseline figures.",
@@ -56,7 +62,7 @@ const sections: Array<{
   },
   {
     title: "Who receives information",
-    body: "Information is available to Gordy and authorised service providers needed to operate AT CAPACITY, including Vercel for hosting and application processing, Supabase for authentication and database services, Resend for email, notification providers, Terra for optional wearable connections, Composio for optional calendar connections, and the AI providers described above for non-Google coaching information. Information is not sold. Providers receive only the information needed to deliver their service.",
+    body: "Information is available to Gordy and authorised service providers needed to operate AT CAPACITY, including Vercel for hosting and application processing, Supabase for authentication and database services, Resend for email, Apple Push Notification service and web-push providers for notifications you enable, Terra for optional wearable connections, Composio for optional calendar connections, and the AI providers described above for non-Google coaching information. Information is not sold. Providers receive only the information needed to deliver their service.",
   },
   {
     title: "Retention and deletion",
@@ -78,7 +84,7 @@ export default function PrivacyPage() {
       <article className="mx-auto max-w-3xl">
         <Link href="/" className="text-sm font-semibold text-[#f06be3] no-underline">AT CAPACITY</Link>
         <h1 className="mt-6 font-heading text-4xl font-bold">Privacy Policy</h1>
-        <p className="mt-3 text-sm text-[#aeb0bb]">Effective 28 August 2026</p>
+        <p className="mt-3 text-sm text-[#aeb0bb]">Effective 4 September 2026</p>
         <p className="mt-8 text-base leading-7 text-[#d3d4dc]">
           This policy explains how AT CAPACITY by Gordy Elliott handles information when you use the website, PWA or iOS app.
         </p>
@@ -113,13 +119,26 @@ export default function PrivacyPage() {
                     </a>
                   </>
                 )}
+                {section.icoPolicyLink && (
+                  <>
+                    {" "}
+                    <a
+                      href="https://ico.org.uk/make-a-complaint/"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[#f06be3]"
+                    >
+                      Make a complaint to the ICO.
+                    </a>
+                  </>
+                )}
               </p>
             </section>
           ))}
           <section>
             <h2 className="font-heading text-xl font-bold">Contact</h2>
             <p className="mt-3 text-[15px] leading-7 text-[#c3c4cd]">
-              Coaching clients can contact Gordy through private text, voice-note or photo DMs in AT CAPACITY. For account-access help, visit the <Link href="/support" className="text-[#f06be3]">support page</Link>.
+              Coaching clients can contact Gordy through private text, voice-note or photo DMs in AT CAPACITY. Privacy requests and account-access questions can also be sent through the <Link href="/support" className="text-[#f06be3]">support page</Link>; Flowstate will pass privacy requests to Gordy as data controller.
             </p>
           </section>
         </div>

@@ -1,8 +1,83 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { COMMUNITY_MEDIA_BUCKET } from "@/lib/community-media";
 import { NextResponse } from "next/server";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
+
+type WearableConnection = {
+  terra_user_id: string | null;
+  raw_user: unknown;
+};
+
+type CalendarConnection = {
+  composio_user_id: string;
+  composio_connected_account_id: string | null;
+};
+
+type ProviderRevocationDependencies = {
+  deauthenticateTerraUser: (terraUserId: string) => Promise<unknown>;
+  deleteComposioConnectedAccount: (connectedAccountId: string) => Promise<unknown>;
+  listComposioConnectedAccountIds: (composioUserId: string) => Promise<string[]>;
+};
+
+const providerRevocationDependencies: ProviderRevocationDependencies = {
+  async deauthenticateTerraUser(terraUserId) {
+    const { deauthenticateTerraUser } = await import("@/lib/terra/client");
+    return deauthenticateTerraUser(terraUserId);
+  },
+  async deleteComposioConnectedAccount(connectedAccountId) {
+    const { getComposioClient } = await import("@/lib/composio/client");
+    return getComposioClient().connectedAccounts.delete(connectedAccountId);
+  },
+  async listComposioConnectedAccountIds(composioUserId) {
+    const { getComposioClient } = await import("@/lib/composio/client");
+    const remoteAccounts = await getComposioClient().connectedAccounts.list({
+      userIds: [composioUserId],
+      limit: 100,
+    }, { signal: AbortSignal.timeout(10_000) });
+    return remoteAccounts.items.map((account) => account.id);
+  },
+};
+
+function isMockWearableConnection(connection: WearableConnection) {
+  return Boolean(
+    connection.raw_user
+    && typeof connection.raw_user === "object"
+    && "mock" in connection.raw_user
+    && connection.raw_user.mock === true
+  );
+}
+
+export async function revokeExternalProviderAccess(
+  wearableConnections: WearableConnection[],
+  calendarConnections: CalendarConnection[],
+  dependencies: ProviderRevocationDependencies = providerRevocationDependencies,
+) {
+  const terraUserIds = [...new Set(wearableConnections
+    .filter((connection) => connection.terra_user_id && !isMockWearableConnection(connection))
+    .map((connection) => connection.terra_user_id as string))];
+
+  for (const terraUserId of terraUserIds) {
+    await dependencies.deauthenticateTerraUser(terraUserId);
+  }
+
+  const composioConnections = new Map<string, string>();
+  for (const connection of calendarConnections) {
+    if (connection.composio_connected_account_id) {
+      composioConnections.set(connection.composio_connected_account_id, connection.composio_user_id);
+    }
+  }
+
+  for (const [connectedAccountId, composioUserId] of composioConnections) {
+    try {
+      await dependencies.deleteComposioConnectedAccount(connectedAccountId);
+    } catch (disconnectError) {
+      const remainingIds = await dependencies.listComposioConnectedAccountIds(composioUserId);
+      if (remainingIds.includes(connectedAccountId)) throw disconnectError;
+    }
+  }
+}
 
 async function listStoragePaths(admin: AdminClient, bucket: string, prefix: string): Promise<string[]> {
   const paths: string[] = [];
@@ -62,11 +137,43 @@ export async function DELETE(request: Request) {
   }
 
   try {
+    if (profile) {
+      const [{ data: wearableConnections, error: wearableError }, { data: calendarConnections, error: calendarError }] = await Promise.all([
+        admin
+          .from("client_wearable_connections")
+          .select("terra_user_id, raw_user")
+          .eq("client_id", profile.id),
+        admin
+          .from("client_calendar_connections")
+          .select("composio_user_id, composio_connected_account_id")
+          .eq("client_id", profile.id),
+      ]);
+      if (wearableError || calendarError) throw new Error("Provider connections could not be loaded.");
+
+      await revokeExternalProviderAccess(
+        (wearableConnections || []) as WearableConnection[],
+        (calendarConnections || []) as CalendarConnection[],
+      );
+    }
+  } catch {
+    return NextResponse.json(
+      { error: "Your connected apps could not be disconnected. Please try again." },
+      { status: 502 },
+    );
+  }
+
+  try {
     const avatarPaths = await listStoragePaths(admin, "avatars", user.id);
     await removeStoragePaths(admin, "avatars", avatarPaths);
 
     if (profile) {
-      const [{ data: documents, error: documentsError }, progressPaths, inboxAudioPaths, inboxImagePaths] = await Promise.all([
+      const [
+        { data: documents, error: documentsError },
+        progressPaths,
+        inboxAudioPaths,
+        inboxImagePaths,
+        communityMediaPaths,
+      ] = await Promise.all([
         admin
           .from("client_documents")
           .select("storage_bucket, storage_path")
@@ -74,6 +181,7 @@ export async function DELETE(request: Request) {
         listStoragePaths(admin, "progress-photos", profile.id),
         listStoragePaths(admin, "inbox-audio", profile.id),
         listStoragePaths(admin, "inbox-images", profile.id),
+        listStoragePaths(admin, COMMUNITY_MEDIA_BUCKET, user.id),
       ]);
       if (documentsError) throw documentsError;
 
@@ -88,6 +196,7 @@ export async function DELETE(request: Request) {
         removeStoragePaths(admin, "progress-photos", progressPaths),
         removeStoragePaths(admin, "inbox-audio", inboxAudioPaths),
         removeStoragePaths(admin, "inbox-images", inboxImagePaths),
+        removeStoragePaths(admin, COMMUNITY_MEDIA_BUCKET, communityMediaPaths),
         ...Array.from(documentsByBucket, ([bucket, paths]) => removeStoragePaths(admin, bucket, paths)),
       ]);
     }

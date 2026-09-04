@@ -72,16 +72,33 @@ try {
     "Load review client profile",
     supabase
       .from("client_profiles")
-      .select("id, ai_credits, date_of_birth, lifecycle_status, primary_goal, profile_setup_data, consultation_data")
+      .select("id, ai_credits, date_of_birth, lifecycle_status, programme_type, onboarding_status, primary_goal, profile_setup_data, consultation_data")
       .eq("user_id", authUser.id)
       .single(),
   );
   const fixtureAge = ageInYears(profile.date_of_birth);
   requireCondition(profile.lifecycle_status === "active", "The review account is paused or frozen.");
+  requireCondition(profile.programme_type === "capacity", "The review account must use the CAPACITY programme.");
+  requireCondition(profile.onboarding_status === "active", "The review account onboarding status is not active.");
   requireCondition((profile.ai_credits || 0) > 0, "The review account cannot use AT CAPACITY AI because it has no credit.");
   requireCondition(fixtureAge !== null && fixtureAge >= 16, "The review account date of birth is missing, invalid, or under 16.");
   requireCondition(Boolean(profile.primary_goal?.trim()), "The review account has no primary coaching goal.");
   requireCleanCopy(profile, "The review client profile");
+
+  const { data: unhealthyWearableConnections } = await query(
+    "Load reviewer-visible wearable connection errors",
+    supabase
+      .from("client_wearable_connections")
+      .select("provider, status, updated_at")
+      .eq("client_id", profile.id)
+      .in("status", ["pending", "error"]),
+  );
+  requireCondition(
+    unhealthyWearableConnections.length === 0,
+    `The review account has pending or errored wearable connections: ${unhealthyWearableConnections
+      .map((connection) => `${connection.provider} (${connection.status})`)
+      .join(", ")}.`,
+  );
 
   const { data: exercisePlans } = await query(
     "Load active exercise plan",
@@ -161,6 +178,9 @@ try {
 
   evidence.push(
     `account=${reviewEmail}`,
+    `programme=${profile.programme_type}`,
+    `onboarding=${profile.onboarding_status}`,
+    `wearableIssues=${unhealthyWearableConnections.length}`,
     `exerciseSessions=${exerciseSessions.length}`,
     `exerciseItems=${exerciseItemCount || 0}`,
     `nutritionMeals=${meals.length}`,

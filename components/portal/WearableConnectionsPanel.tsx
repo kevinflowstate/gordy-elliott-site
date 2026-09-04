@@ -99,7 +99,6 @@ export default function WearableConnectionsPanel({
   const connectionByProvider = new Map<string, WearableConnection>();
   for (const connection of connections) connectionByProvider.set(connection.provider, connection);
   const activeProviders = providers.filter((provider) => !provider.disabled);
-  const laterProviders = providers.filter((provider) => provider.disabled);
   const connectedConnections = connections.filter((connection) => connection.status === "connected");
   const connectedProviderDetails = connectedConnections
     .map((connection) => providers.find((provider) => provider.id === connection.provider))
@@ -236,30 +235,6 @@ export default function WearableConnectionsPanel({
               />
             );
           })}
-        </div>
-      </section>
-
-      <section className="mt-8">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/35">Coming soon</div>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          {laterProviders.map((provider) => (
-            <div
-              key={provider.id}
-              data-provider-id={provider.id}
-              className="flex min-h-[88px] items-center gap-3 rounded-[22px] border border-white/[0.06] bg-white/[0.025] p-4 opacity-65"
-            >
-              <ProviderMark provider={provider} />
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <div className="truncate text-sm font-semibold text-white">{provider.name}</div>
-                  <span className="rounded-full border border-white/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-white/35">
-                    Soon
-                  </span>
-                </div>
-                <p className="mt-1 line-clamp-2 text-xs leading-5 text-white/38">{provider.description}</p>
-              </div>
-            </div>
-          ))}
         </div>
       </section>
 

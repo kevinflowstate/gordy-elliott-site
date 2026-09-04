@@ -78,17 +78,15 @@ AT CAPACITY is a sign-in-only companion app for existing Gordy Elliott coaching 
 
 Use the supplied Demo Client account to inspect an assigned training programme and log a session; view the assigned nutrition plan; use Daily Tracker; review check-ins and coach replies; open DM; view consultation and Settings; and inspect Connected Apps. The account contains representative fictional data only.
 
-Connected-health summaries are optional informational coaching signals. They do not diagnose conditions and never alter a training programme automatically. Apple Health is not enabled in version 1. Oura has completed a real TestFlight connection and data-ingestion pass. MyFitnessPal must complete a final provider retest after an observed Terra upstream login timeout. Connection failures are shown honestly and the app never substitutes fabricated production data.
+Connected-health summaries are optional informational coaching signals. They do not diagnose conditions and never alter a training programme automatically. The Connected Apps screen shows the availability and current connection state reported by the server, allows a client to disconnect a connection, and does not substitute fabricated production data. Apple Health is not enabled in version 1.
 
-Calendar connections (Founder Dashboard clients) are optional and read-only. The app does not use EventKit or request the iOS calendar permission; clients authorise Google Calendar or Outlook Calendar through the provider's own OAuth consent screen, processed by Composio as service provider. AT CAPACITY stores only event identifiers, titles (private events shown as "Busy"), start/end times, busy status and a meeting link - never descriptions or attendee lists. Disconnecting removes the synced copies. If calendar providers are not configured in the review build, the connect screen presents a not-available state.
-
-Google Calendar OAuth branding and data-access verification is approved. Production browser QA passed the verified consent screen, read-only permissions, return to AT CAPACITY, sync, refresh, disconnect/reconnect and cancelled-permission handling without an unverified-app warning. Exact TestFlight native-return QA will be completed before submission.
+Calendar connections for clients using the Founder Dashboard experience are optional and read-only. The app does not use EventKit or request the iOS calendar permission. Clients authorise Google Calendar or Outlook Calendar through the provider's own OAuth consent screen, processed by Composio as service provider. AT CAPACITY stores event identifiers, titles (private events shown as "Busy"), start/end times, busy status and a meeting link, but not descriptions or attendee lists. Disconnecting removes the synced event copies.
 
 Notification permission is requested only after the client selects Enable. DMs, coach nudges, tasks and reminders use the same account-level pause/freeze suppression rules as in-app notifications.
 
 Account deletion is available after sign-in under Settings > Delete account and requires explicit confirmation. The privacy policy and support page are also available publicly at the URLs supplied in App Store Connect.
 
-The live App Store Connect review notes include the prepared native-behaviour explanation for selected Build 10. Reconfirm every named behaviour after the final hosted-portal deployment and remove any claim that does not pass before submission.
+Submission hold: do not copy these notes into App Store Connect or submit the app until the exact selected build, review credentials, external-provider presentation, account deletion and full reviewer journey have passed the final pre-submission checks. Remove any claim that is not verified on that exact build.
 
 ## Other submission answers
 

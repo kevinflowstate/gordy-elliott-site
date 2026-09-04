@@ -147,7 +147,7 @@ export default function InboxThread({
   async function startRecording() {
     setLocalError(null);
     if (voiceAvailability !== "ready") {
-      setLocalError("Update AT CAPACITY from TestFlight to record voice notes.");
+      setLocalError("Update AT CAPACITY to the latest available version to record voice notes.");
       return;
     }
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
@@ -393,7 +393,7 @@ export default function InboxThread({
         {onSendAudio && voiceAvailability === "update-required" && (
           <div data-testid="voice-update-notice" role="status" className="mb-3 flex items-start gap-2.5 rounded-xl border border-accent/20 bg-accent/8 px-3 py-2.5 text-xs leading-relaxed text-text-secondary">
             <span aria-hidden="true" className="mt-1 h-2 w-2 shrink-0 rounded-full bg-accent-bright" />
-            <span><strong className="font-bold text-text-primary">Voice notes are coming in the next TestFlight update.</strong> Use text messages for now.</span>
+            <span><strong className="font-bold text-text-primary">Voice notes require a newer version of AT CAPACITY.</strong> Update the app when a newer version is available, or use text messages for now.</span>
           </div>
         )}
         {audioDraft && (

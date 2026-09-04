@@ -11,3 +11,14 @@ test("rejects external and protocol-relative redirect targets", () => {
   assert.equal(safeLocalRedirect("//example.com/portal"), "/portal");
   assert.equal(safeLocalRedirect("javascript:alert(1)"), "/portal");
 });
+
+test("rejects paths that normalise into protocol-relative redirects", () => {
+  assert.equal(safeLocalRedirect("/..//evil.com"), "/portal");
+  assert.equal(safeLocalRedirect("/\\evil.com"), "/portal");
+  assert.equal(safeLocalRedirect("/portal\nevil"), "/portal");
+});
+
+test("never trusts an unsafe fallback", () => {
+  assert.equal(safeLocalRedirect(null, "//evil.com"), "/portal");
+  assert.equal(safeLocalRedirect(null, "/login?reason=expired"), "/login?reason=expired");
+});

@@ -1,6 +1,6 @@
 # AT CAPACITY Implementation Checklist
 
-Last updated: 24 July 2026
+Last updated: 4 September 2026
 
 ## Objective
 
@@ -33,8 +33,8 @@ Target:
 - [ ] Sign off the DPIA (`docs/at-capacity-dpia.md`) - Gordy/Kevin.
 - [ ] Compile the processor due-diligence record (DPAs, AI training-disabled
       terms, transfer mechanisms) - Kevin.
-- [ ] Supply the controller legal identity and complaint-contact details for
-      the privacy policy (UK GDPR: controller name and ICO complaint right).
+- [x] Identify Gordy Elliott as controller and add the support contact route
+      and ICO complaint right to the privacy policy.
 
 ## Existing Foundations
 
@@ -328,15 +328,16 @@ Estimated effort: 1 to 2 days
 - [x] Test baseline locking and comparison calculations. Guarantee thresholds
       remain blocked by the commercial definition.
 - [x] Test dashboard layout at 390x844 and 1440x1000.
-- [ ] Update privacy inventory and client consent language. The privacy
+- [x] Update privacy inventory and client consent language. The privacy
       inventory rewrite is complete (`docs/app-privacy-inventory.md`,
       24 July 2026). The versioned wearable connection notice shipped in
       the Terra activation branch on 3 August 2026; the calendar
-      connection-point notice remains outstanding.
+      connection-point notice and deletion/revocation inventory were
+      completed by 4 September 2026.
 - [ ] Complete a health and calendar data DPIA. Drafted 24 July 2026
       (`docs/at-capacity-dpia.md`); awaiting Gordy/Kevin sign-off.
-- [ ] Add controller legal identity and ICO complaint-right wording to the
-      privacy policy. (blocked: controller legal identity from Gordy/Kevin)
+- [x] Add controller legal identity, support contact route and ICO
+      complaint-right wording to the privacy policy.
 - [ ] Agree and implement bounded retention for synced calendar-event
       history and raw Terra webhook payloads. Terra raw events now default
       to a 90-day scheduled purge (configurable from 7-365 days); calendar
