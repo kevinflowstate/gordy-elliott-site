@@ -332,8 +332,18 @@ try {
       if (route.name === "home") {
         const reminder = page.getByTestId("monthly-call-reminder-link");
         await reminder.waitFor();
+        const hero = page.locator("[data-testid='unified-client-home'] .app-hero").first();
+        const heroTopWithReminder = (await hero.boundingBox())?.y;
         await page.getByTestId("monthly-call-reminder-dismiss").click();
         await reminder.waitFor({ state: "hidden" });
+        const heroTopAfterDismiss = (await hero.boundingBox())?.y;
+        if (
+          heroTopWithReminder === undefined
+          || heroTopAfterDismiss === undefined
+          || Math.abs(heroTopWithReminder - heroTopAfterDismiss) > 1
+        ) {
+          throw new Error(`${viewport.name} ${route.path}: monthly coaching overlay moved Home content (${heroTopWithReminder} -> ${heroTopAfterDismiss}).`);
+        }
         await page.reload({ waitUntil: "domcontentloaded" });
         await page.waitForTimeout(250);
         if (await reminder.isVisible()) {

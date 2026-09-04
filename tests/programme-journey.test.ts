@@ -65,6 +65,8 @@ test("monthly call booking lives in Calendar with a dismissible conditional Home
   assert.match(monthlyCallPrompt, /monthly-call-reminder-dismissed:/);
   assert.match(monthlyCallPrompt, /outstandingCount === 0/);
   assert.match(monthlyCallPrompt, /data-testid="monthly-call-reminder-dismiss"/);
+  assert.match(monthlyCallPrompt, /data-testid="monthly-call-reminder-overlay"/);
+  assert.match(monthlyCallPrompt, /fixed left-4 right-4/);
   assert.match(monthlyCallPrompt, /href="\/portal\/calendar#coaching-calls"/);
   assert.match(monthlyCallPrompt, /id="coaching-calls"/);
 });
