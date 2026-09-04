@@ -65,8 +65,9 @@ export default function MonthlyCallPrompt({
 
     return (
       <section
-        className="app-rise app-rise-1 flex min-h-[72px] items-center gap-3 rounded-[20px] border border-white/[0.09] bg-[#151117] px-4 py-3"
+        className="app-rise app-rise-1 fixed left-4 right-4 top-[calc(env(safe-area-inset-top,0px)+0.75rem)] z-[90] mx-auto flex min-h-[72px] max-w-[420px] items-center gap-3 rounded-[20px] border border-accent/20 bg-[#151117]/95 px-4 py-3 shadow-[0_18px_55px_rgba(0,0,0,0.48)] backdrop-blur-xl sm:left-auto sm:right-6 sm:top-6 sm:mx-0 sm:w-[390px]"
         aria-label="Monthly coaching reminder"
+        data-testid="monthly-call-reminder-overlay"
       >
         <Link
           href="/portal/calendar#coaching-calls"
