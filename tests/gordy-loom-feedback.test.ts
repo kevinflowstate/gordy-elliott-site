@@ -49,6 +49,8 @@ test("today priority reacts immediately to fresh wearable and calendar pressure"
   const wearable = {
     summary_date: "2026-08-14",
     recovery_status: "reduce_intensity",
+    sleep_minutes: 180,
+    readiness_score: 42,
   } as WearableDailySummary;
   const calendarEvents = Array.from({ length: 3 }, (_, index) => event({
     id: `event-${index}`,
@@ -65,6 +67,8 @@ test("today priority ignores stale recovery but recognises a genuinely busy cale
   const staleWearable = {
     summary_date: "2026-08-13",
     recovery_status: "reduce_intensity",
+    sleep_minutes: 180,
+    readiness_score: 42,
   } as WearableDailySummary;
   const quiet = getImmediateTodayPriority({ calendarEvents: [], wearableSummary: staleWearable, todayTraining: null, now: today });
   assert.equal(quiet, null);

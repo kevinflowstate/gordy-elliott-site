@@ -1,3 +1,4 @@
+import { dateKeyInTimeZone } from "@/lib/founder-dashboard";
 import { buildWearableInsight, type WearableDailySummary } from "@/lib/wearable-insights";
 
 type AnyRecord = Record<string, unknown>;
@@ -36,8 +37,14 @@ function getString(...values: unknown[]) {
 
 function getDateKey(...values: unknown[]) {
   const value = getString(...values);
-  if (!value) return new Date().toISOString().split("T")[0];
-  return value.includes("T") ? value.split("T")[0] : value.slice(0, 10);
+  if (!value) return null;
+  // Explicit calendar dates and local timestamps already describe the source day.
+  if (!/^\d{4}-\d{2}-\d{2}(?:T|$)/.test(value)) return null;
+  if (value.includes("T") && /(?:Z|[+-]\d{2}:\d{2})$/i.test(value)) {
+    const date = new Date(value);
+    return Number.isFinite(date.getTime()) ? dateKeyInTimeZone(date, "Europe/London") : null;
+  }
+  return value.slice(0, 10);
 }
 
 function uniqueProviders(provider: string | null) {
@@ -115,6 +122,8 @@ function normaliseTerraEntry(payload: AnyRecord): Omit<WearableDailySummary, "id
     payload.created_at,
   );
 
+  if (!summaryDate) return null;
+
   const base = {
     summary_date: summaryDate,
     providers: uniqueProviders(userInfo.provider),
@@ -137,7 +146,7 @@ function normaliseTerraEntry(payload: AnyRecord): Omit<WearableDailySummary, "id
       activity.workout_count,
       daily.workout_count,
       summary.workout_count,
-      userInfo.eventType.toLowerCase() === "activity" ? 1 : null,
+      userInfo.eventType.toLowerCase() === "activity" && getString(metadata.start_time) ? 1 : null,
     ),
     nutrition_calories: getInteger(nutrition.calories, nutrition.energy_kcal, macros.calories, summary.nutrition_calories),
     protein_g: getNumber(nutrition.protein_g, nutrition.protein, macros.protein_g, summary.protein_g),
@@ -164,13 +173,12 @@ function normaliseTerraEntry(payload: AnyRecord): Omit<WearableDailySummary, "id
 }
 
 export function normaliseTerraPayloads(payload: AnyRecord) {
-  const entries = Array.isArray(payload.data) ? payload.data.map(asRecord) : [];
-  if (!entries.length) {
+  if (!Array.isArray(payload.data)) {
     const summary = normaliseTerraEntry(payload);
     return summary ? [summary] : [];
   }
 
-  return entries
+  return payload.data.map(asRecord)
     .map((entry) => normaliseTerraEntry({ ...payload, data: entry }))
     .filter((summary): summary is NonNullable<typeof summary> => summary !== null);
 }

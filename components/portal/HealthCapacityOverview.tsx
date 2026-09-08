@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { dateKeyInTimeZone } from "@/lib/founder-dashboard";
 import type { WearableConnection, WearableDailySummary } from "@/lib/wearable-insights";
-import { hasWearableHealthSignals, titleCaseProvider } from "@/lib/wearable-insights";
+import { hasWearableHealthSignals, wearableReadinessScore, titleCaseProvider } from "@/lib/wearable-insights";
 
 type SignalCategory = "overview" | "sleep" | "activity" | "heart" | "nutrition";
 type MetricKey =
@@ -108,6 +108,7 @@ export default function HealthCapacityOverview({
     (connection) => connection.provider === "myfitnesspal" && connection.status === "connected",
   ) || orderedSummaries.some((summary) => summary.providers.includes("myfitnesspal"));
   const connectedProviders = connections.filter((connection) => connection.status === "connected");
+  const hasConnectedWearable = connectedProviders.some((connection) => connection.provider !== "myfitnesspal");
   const categories = (Object.keys(CATEGORY_COPY) as SignalCategory[]).filter(
     (item) => item !== "nutrition" || hasNutrition,
   );
@@ -142,24 +143,25 @@ export default function HealthCapacityOverview({
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[#ef68db]">
             <SignalIcon name="heart" className="h-7 w-7" />
           </div>
-          <h2 className="mt-5 text-2xl font-semibold tracking-tight text-white">Your health picture starts here</h2>
+          <h2 className="mt-5 text-2xl font-semibold tracking-tight text-white">{hasConnectedWearable ? "Waiting for health data" : "Your health picture starts here"}</h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-white/55">
-            Connect a wearable and AT CAPACITY will turn sleep, recovery and activity into a clear daily coaching signal.
+            {hasConnectedWearable ? "Your wearable is connected, but no health measurements have arrived yet. Refresh after your device has synced." : "Connect a wearable and AT CAPACITY will turn sleep, recovery and activity into a clear daily coaching signal."}
           </p>
           <button
             type="button"
-            onClick={onManageConnections}
+            onClick={hasConnectedWearable ? onRefresh : onManageConnections}
+            disabled={refreshing}
             className="mt-6 min-h-12 rounded-full bg-[#e440d0] px-6 text-sm font-bold text-white shadow-[0_14px_34px_-16px_rgba(228,64,208,0.8)]"
           >
-            Connect a wearable
+            {hasConnectedWearable ? (refreshing ? "Requesting data…" : "Refresh health data") : "Connect a wearable"}
           </button>
         </section>
       </div>
     );
   }
 
-  const score = selected.readiness_score;
-  const status = recoveryPresentation(selected.recovery_status);
+  const score = wearableReadinessScore(selected);
+  const status = recoveryPresentation(score === null ? null : selected.recovery_status);
   const sourceLabel = selected.providers.length
     ? selected.providers.map(titleCaseProvider).join(" + ")
     : connectedProviders.map((connection) => titleCaseProvider(connection.provider)).join(" + ");
@@ -182,7 +184,7 @@ export default function HealthCapacityOverview({
               <RefreshIcon spinning={refreshing} />
             </div>
             <div className="mt-5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#f2b968]">Waiting for today&apos;s data</div>
-            <h2 className="mt-2 font-heading text-[2rem] font-bold tracking-tight text-white sm:text-[2.45rem]">Your latest complete health picture is from {dateLabel}</h2>
+            <h2 className="mt-2 font-heading text-[2rem] font-bold tracking-tight text-white sm:text-[2.45rem]">Your latest health data is from {dateLabel}</h2>
             <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-white/55">
               We will show today&apos;s Capacity score as soon as fresh sleep and activity data arrives. An older score will never be presented as today&apos;s result.
             </p>
@@ -293,12 +295,14 @@ export default function HealthCapacityOverview({
           <div className="text-center sm:text-left">
             <div className={`text-[11px] font-bold uppercase tracking-[0.2em] ${status.tone}`}>{status.label}</div>
             <h2 className="mt-2 font-heading text-[2.35rem] font-bold leading-[0.98] tracking-[-0.025em] text-white sm:text-[3rem]">
-              {isToday ? status.headline : historicalRecoveryHeadline(selected.recovery_status)}
+              {score === null || isToday ? status.headline : historicalRecoveryHeadline(selected.recovery_status)}
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-[14px] leading-[1.65] text-white/58 sm:mx-0 sm:text-[15px]">
-              {isToday
+              {score === null
+                ? status.fallbackInsight
+                : isToday
                 ? selected.insight || status.fallbackInsight
-                : `This is the coaching signal calculated from the complete data received for ${dateLabel}.`}
+                : `This is the coaching signal calculated from the data received for ${dateLabel}.`}
             </p>
             <div className="mt-5 flex flex-wrap items-center justify-center gap-3 sm:justify-start">
               <Link
@@ -542,7 +546,7 @@ function CapacityTrendBackdrop({ summaries }: { summaries: WearableDailySummary[
   const values = summaries
     .slice(0, 7)
     .reverse()
-    .map((summary) => summary.readiness_score)
+    .map(wearableReadinessScore)
     .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
   if (values.length < 2) return null;
   const min = Math.min(...values);
@@ -599,7 +603,16 @@ function HealthOverviewSkeleton() {
   );
 }
 
-function recoveryPresentation(status: WearableDailySummary["recovery_status"]) {
+function recoveryPresentation(status: WearableDailySummary["recovery_status"] | null) {
+  if (status === null) {
+    return {
+      label: "Recovery data unavailable",
+      shortLabel: "Waiting for data",
+      headline: "Your recovery picture is incomplete",
+      tone: "text-white/55",
+      fallbackInsight: "We have not received enough sleep data to estimate capacity. Available activity and heart measurements are shown below.",
+    };
+  }
   if (status === "reduce_intensity") {
     return {
       label: "Recovery under pressure",
@@ -639,7 +652,10 @@ function metricValue(summary: WearableDailySummary, key: MetricKey) {
 }
 
 function categoryReading(category: SignalCategory, summary: WearableDailySummary) {
-  if (category === "overview") return summary.readiness_score === null ? "—" : Math.round(summary.readiness_score);
+  if (category === "overview") {
+    const score = wearableReadinessScore(summary);
+    return score === null ? "—" : Math.round(score);
+  }
   if (category === "sleep") {
     if (summary.sleep_score !== null) return Math.round(summary.sleep_score);
     return summary.sleep_minutes === null ? "—" : `${(summary.sleep_minutes / 60).toFixed(1)}h`;
@@ -655,7 +671,7 @@ function categoryReading(category: SignalCategory, summary: WearableDailySummary
 function readinessAverage(summaries: WearableDailySummary[]) {
   const values = summaries
     .slice(0, 7)
-    .map((summary) => summary.readiness_score)
+    .map(wearableReadinessScore)
     .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
   if (!values.length) return "—";
   return Math.round(values.reduce((total, value) => total + value, 0) / values.length);

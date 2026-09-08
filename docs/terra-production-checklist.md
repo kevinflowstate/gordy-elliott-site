@@ -55,3 +55,13 @@ Official references:
 - Flo is not treated as a supported provider without written confirmation and a successful Terra account-level test.
 - Terra-side deauthentication, revocation handling and local non-reconnection are implemented but still require a real testing-environment acceptance run.
 - Vercel maintenance logging is implemented; configure an operational alert from Terra payload history or Vercel logs before onboarding real clients.
+
+## WHOOP investigation — 8 September 2026
+
+Production acceptance remains open. Read-only inspection found one auth event and 24 WHOOP data events (eight each activity/daily/sleep), all with `data: []` and `status: success`. Direct Terra dashboard HTTP GETs for the affected user over Last Week also returned empty arrays for all three datasets. Connection activity and enabled scopes do not establish that measurements have arrived.
+
+The app incorrectly treated an empty activity envelope as one workout, assigned the receipt date, and generated an 82 capacity score. The dedicated WHOOP investigation branch rejects empty/undated records and suppresses recovery estimates without sleep, including legacy UI scores. See `tests/fixtures/whoop-empty-production.md` and `tests/whoop-data.test.tsx`. This branch has not been deployed.
+
+After deployment approval, separately review a client-scoped rebuild of affected summaries from retained raw events. Preserve all genuine other-provider measurements, especially mixed Garmin/WHOOP dates. Replaying identical webhook payloads is insufficient because applied payload IDs are deduplicated. Do not delete raw evidence or reconnect the user as a diagnostic shortcut.
+
+A populated WHOOP payload is still required to validate provider recovery, strain units and workout aggregation end to end. Concurrent summary writes use a read/merge/upsert sequence; sequential sparse-merge tests do not prove race-free database writes. That existing risk did not cause the observed empty arrays and is not changed by this patch.

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { CalendarEvent, ClientProfile, ClientTask } from "@/lib/types";
-import type { WearableDailySummary } from "@/lib/wearable-insights";
+import { wearableReadinessScore, type WearableDailySummary } from "@/lib/wearable-insights";
 import type { CapacityBaseline, CapacityMetrics } from "@/lib/capacity-baseline";
 import type { StormWarningClientState } from "@/lib/storm-warning";
 import type { EarlyWinView } from "@/lib/early-win";
@@ -75,12 +75,13 @@ function getUpcomingEvents(events: CalendarEvent[]) {
 }
 
 function capacityLanguage(summary: WearableDailySummary | null) {
-  if (!summary || summary.readiness_score === null) {
+  const score = summary ? wearableReadinessScore(summary) : null;
+  if (!summary || score === null) {
     return {
       score: null,
       load: 0,
       label: "Waiting for today's signals",
-      detail: "Connect a wearable to bring sleep and recovery into this readout.",
+      detail: summary ? "Waiting for sleep data before estimating recovery." : "Connect a wearable to bring sleep and recovery into this readout.",
       tone: "text-white/65",
     };
   }
@@ -99,7 +100,6 @@ function capacityLanguage(summary: WearableDailySummary | null) {
     };
   }
 
-  const score = summary.readiness_score;
   const load = 100 - score;
   if (summary.recovery_status === "reduce_intensity") {
     return {

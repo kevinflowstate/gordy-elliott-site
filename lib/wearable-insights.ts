@@ -70,6 +70,20 @@ export function hasWearableHealthSignals(summary: WearableDailySummary) {
   return hasWearableProvider && healthValues.some((value) => typeof value === "number" && Number.isFinite(value));
 }
 
+// Activity alone (or an isolated heart reading without a baseline) cannot
+// establish recovery. Require a sleep measurement before estimating capacity.
+export function hasWearableRecoverySignals(
+  summary: Pick<WearableDailySummary, "sleep_minutes" | "sleep_score">,
+) {
+  return [summary.sleep_minutes, summary.sleep_score].some(
+    (value) => typeof value === "number" && Number.isFinite(value),
+  );
+}
+
+export function wearableReadinessScore(summary: WearableDailySummary) {
+  return hasWearableRecoverySignals(summary) ? summary.readiness_score : null;
+}
+
 function roundScore(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
@@ -78,6 +92,14 @@ export function buildWearableInsight(
   summary: Omit<WearableDailySummary, "readiness_score" | "recovery_status" | "flags" | "insight">,
   baselines?: { resting_hr_bpm?: number | null; hrv_ms?: number | null },
 ): Pick<WearableDailySummary, "readiness_score" | "recovery_status" | "flags" | "insight"> {
+  if (!hasWearableRecoverySignals(summary)) {
+    return {
+      readiness_score: null,
+      recovery_status: "watch",
+      flags: ["recovery_data_unavailable"],
+      insight: "Recovery data is incomplete. Waiting for sleep measurements before estimating capacity.",
+    };
+  }
   const flags: string[] = [];
   let score = 82;
 

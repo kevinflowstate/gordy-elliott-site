@@ -1,0 +1,47 @@
+[
+  {
+    "data": [],
+    "type": "activity",
+    "user": {
+      "active": true,
+      "scopes": "read:cycles,read:recovery,read:sleep,read:profile,offline,read:workout,read:body_measurement",
+      "user_id": "00000000-0000-4000-8000-000000000001",
+      "provider": "WHOOP",
+      "created_at": "2026-09-03T11:52:22Z",
+      "reference_id": "client:00000000-0000-4000-8000-000000000002",
+      "last_webhook_update": null
+    },
+    "status": "success",
+    "version": "2022-03-16"
+  },
+  {
+    "data": [],
+    "type": "sleep",
+    "user": {
+      "active": true,
+      "scopes": "read:cycles,read:recovery,read:sleep,read:profile,offline,read:workout,read:body_measurement",
+      "user_id": "00000000-0000-4000-8000-000000000001",
+      "provider": "WHOOP",
+      "created_at": "2026-09-03T11:52:22Z",
+      "reference_id": "client:00000000-0000-4000-8000-000000000002",
+      "last_webhook_update": null
+    },
+    "status": "success",
+    "version": "2022-03-16"
+  },
+  {
+    "data": [],
+    "type": "daily",
+    "user": {
+      "active": true,
+      "scopes": "read:cycles,read:recovery,read:sleep,read:profile,offline,read:workout,read:body_measurement",
+      "user_id": "00000000-0000-4000-8000-000000000001",
+      "provider": "WHOOP",
+      "created_at": "2026-09-03T11:52:22Z",
+      "reference_id": "client:00000000-0000-4000-8000-000000000002",
+      "last_webhook_update": null
+    },
+    "status": "success",
+    "version": "2022-03-16"
+  }
+]

@@ -1,6 +1,6 @@
 import { calendarEventOccursOnDate } from "@/lib/calendar-occurrence";
 import type { CalendarEvent } from "@/lib/types";
-import type { WearableDailySummary } from "@/lib/wearable-insights";
+import { wearableReadinessScore, type WearableDailySummary } from "@/lib/wearable-insights";
 
 export type ImmediateTodayPriority = {
   label: string;
@@ -32,6 +32,7 @@ export function getImmediateTodayPriority({
     (event) => !event.all_day && calendarEventOccursOnDate(event, now),
   ).length;
   const recovery = wearableSummary?.summary_date === localDateKey(now)
+    && wearableReadinessScore(wearableSummary) !== null
     ? wearableSummary.recovery_status
     : null;
   const actionHref = todayTraining ? "/portal/exercise-plan" : "/portal/daily-tracker";

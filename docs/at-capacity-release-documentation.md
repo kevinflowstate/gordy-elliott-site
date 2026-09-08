@@ -77,3 +77,7 @@ Also awaiting Gordy: approval of listing copy/screenshots/content rights/review 
 3. Complete the DSA legal declaration, DPIA/controller sign-off and truthful App Accessibility declarations.
 4. The Early Win, Storm Warning, Founder compliance and Month 4 migrations are applied and recorded in production as `20260728122140`, `20260728122215`, `20260728122252` and `20260728122318`. Do not rerun them; verify schema/history alignment before future deploys.
 5. Reconfirm Build 10 and the final review notes in App Store Connect, then stop in **Prepare for Submission** until Kevin authorises **Add for Review**.
+
+## WHOOP acceptance update — 8 September 2026
+
+WHOOP is authenticated but measurement delivery is not accepted: read-only production evidence shows empty activity/daily/sleep responses, including direct Terra dashboard reads. The investigation branch corrects false workout/recovery conclusions from empty data and adds regression coverage. No deployment, production data repair or account reconnection was performed. The procedure and remaining gates are recorded in `docs/terra-production-checklist.md`; a populated real WHOOP payload and exact-client retest remain required.

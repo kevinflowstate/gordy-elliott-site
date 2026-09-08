@@ -1,3 +1,4 @@
+import { dateKeyInTimeZone } from "@/lib/founder-dashboard";
 import { getTerraConfig } from "@/lib/terra/client";
 import { TERRA_CONSENT_VERSION } from "@/lib/terra/events";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -37,7 +38,7 @@ export async function GET() {
       .from("client_wearable_daily_summaries")
       .select("*")
       .eq("client_id", profile.id)
-      .lte("summary_date", new Date().toISOString().slice(0, 10))
+      .lte("summary_date", dateKeyInTimeZone(new Date(), "Europe/London"))
       .order("summary_date", { ascending: false })
       .limit(14),
   ]);
