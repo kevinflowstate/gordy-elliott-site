@@ -6,7 +6,7 @@ Prepared for the first iOS release and reconciled against the live Gordy-owned A
 
 | Field | Submission value |
 | --- | --- |
-| Name | AT CAPACITY by Gordy |
+| Name | AT CAPACITY |
 | Subtitle | Training, nutrition, coaching |
 | Primary category | Health & Fitness |
 | Secondary category | Lifestyle |
@@ -100,3 +100,8 @@ Submission hold: Kevin confirmed the prior iPhone walkthrough on 9 September. Pr
 - Export compliance: **No non-exempt encryption.** The app uses operating-system and standard HTTPS encryption and declares `ITSAppUsesNonExemptEncryption = NO`.
 - Regulated medical device: **No.** The app provides fitness coaching and explicitly avoids diagnosis or treatment claims.
 - Sign-in required: **Yes.** Supply the verified Demo Client credentials already held in App Store Connect.
+
+
+## Saved App Store Connect reconciliation — 9 September 2026
+
+The live app name is AT CAPACITY; Gordy remains the business/account holder. Kevin confirmed the new consent and sign-in screens on iPhone. Revised description and reviewer notes are now saved and verified after a fresh page load. The live reviewer notes retain the detailed Build 10 SwiftUI workout-runner guidance and add default-off AI sharing, recipients and withdrawal, WHOOP/Apple Health unavailability and deferred group chat. The longer draft above is reference material; it should not overwrite the saved native-utility explanation. The earlier session/reconciliation hold is resolved. Final MRDP per-app declaration is prepared but unsaved pending owner confirmation of existing tax information. No submission authorized or performed. See apple-release-corrections-2026-09-09.md for the current handover.
