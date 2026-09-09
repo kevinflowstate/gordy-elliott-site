@@ -29,12 +29,12 @@ test("every community route checks active SHIFT membership on the server", async
   assert.match(server, /lifecycle_status !== "active"/);
 });
 
-test("the community is only advertised to SHIFT clients and warns that it is shared", async () => {
+test("the deferred community is absent from client navigation and retains its sharing warning", async () => {
   const mobile = await readFile(new URL("../components/portal/MobileNav.tsx", import.meta.url), "utf8");
   const sidebar = await readFile(new URL("../components/portal/Sidebar.tsx", import.meta.url), "utf8");
   const client = await readFile(new URL("../components/community/ShiftCommunityClient.tsx", import.meta.url), "utf8");
-  assert.match(mobile, /\/portal\/community[\s\S]+programmes: \["shift"\]/);
-  assert.match(sidebar, /\/portal\/community[\s\S]+programmes: \["shift"\]/);
+  assert.doesNotMatch(mobile, /\/portal\/community/);
+  assert.doesNotMatch(sidebar, /\/portal\/community/);
   assert.match(client, /Every active SHIFT client can see what is posted here/);
   assert.match(client, /Use DM for personal coaching/);
 });

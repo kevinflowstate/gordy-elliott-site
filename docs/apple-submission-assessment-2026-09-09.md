@@ -1,5 +1,8 @@
 # AT CAPACITY — Apple submission assessment
 
+**Follow-up:** Kevin authorized the three code corrections and confirmed the prior iPhone walkthrough. See [current correction report](apple-release-corrections-2026-09-09.md). The findings below describe the pre-correction state; the walkthrough gap must not be read as evidence that testing never occurred.
+
+
 9 September 2026, 14:11 UTC. **Verdict: NOT READY.**
 
 WHOOP is hidden in production and does not need to hold up version 1. The wider app has two substantive review blockers, a payment-presentation risk, and an incomplete final native-device check. This assessment supersedes the more optimistic 26 August audit.

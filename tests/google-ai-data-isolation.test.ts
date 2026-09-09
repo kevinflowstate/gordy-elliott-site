@@ -21,9 +21,9 @@ test("every OpenRouter request enforces zero data retention", async () => {
   const retrieval = await readFile("lib/brain-retrieval.ts", "utf8");
   const ingestion = await readFile("scripts/ingest-shift-brain.mjs", "utf8");
 
-  assert.match(consultation, /provider:\s*\{\s*zdr:\s*true\s*\}/);
-  assert.match(retrieval, /provider:\s*\{\s*zdr:\s*true\s*\}/);
-  assert.match(ingestion, /provider:\s*\{\s*zdr:\s*true\s*\}/);
+  assert.match(consultation, /provider:\s*\{\s*zdr:\s*true(?:\s*[,}])/);
+  assert.match(retrieval, /provider:\s*\{\s*zdr:\s*true(?:\s*[,}])/);
+  assert.match(ingestion, /provider:\s*\{\s*zdr:\s*true(?:\s*[,}])/);
 });
 
 test("calendar-derived coaching signals remain deterministic", async () => {

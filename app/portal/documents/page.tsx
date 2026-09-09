@@ -103,8 +103,8 @@ export default function PortalDocumentsPage() {
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/15 text-accent-bright">
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
           </div>
-          <h2 className="mt-4 text-xl font-heading font-bold text-text-primary">Upgrade to Access</h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-text-secondary">Private document sharing is included with CAPACITY and IN PERSON coaching. Message Gordy if you want to discuss upgrading.</p>
+          <h2 className="mt-4 text-xl font-heading font-bold text-text-primary">Document sharing</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-text-secondary">Document sharing is not included in your current coaching programme. Your assigned plans and private messages are available as usual.</p>
         </div>
       )}
 

@@ -1,9 +1,11 @@
+import { COMMUNITY_RELEASE_ENABLED } from "@/lib/release-features";
 import { getCommunityViewer, listShiftCommunityMessages, notifyCommunityPost } from "@/lib/community-server";
 import { rateLimit } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
 export async function GET() {
+  if (!COMMUNITY_RELEASE_ENABLED) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const viewer = await getCommunityViewer();
   if (!viewer) return NextResponse.json({ error: "SHIFT community access is required" }, { status: 403 });
   try {
@@ -17,6 +19,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!COMMUNITY_RELEASE_ENABLED) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const viewer = await getCommunityViewer();
   if (!viewer) return NextResponse.json({ error: "SHIFT community access is required" }, { status: 403 });
 

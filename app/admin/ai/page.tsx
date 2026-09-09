@@ -59,6 +59,8 @@ function renderContent(text: string) {
 }
 
 export default function AdminShiftAIPage() {
+  const [sharingConfirmed, setSharingConfirmed] = useState(false);
+  const [consentScope, setConsentScope] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -75,7 +77,7 @@ export default function AdminShiftAIPage() {
 
   async function handleSend() {
     const trimmed = input.trim();
-    if (!trimmed || loading) return;
+    if (!trimmed || loading || !sharingConfirmed) return;
 
     const userMsg: Message = { role: "user", content: trimmed };
     const updated = [...messages, userMsg];
@@ -89,17 +91,19 @@ export default function AdminShiftAIPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: trimmed,
-          history: messages,
+          history: messages, consentScope, sharingConfirmed,
         }),
       });
 
       if (!res.ok) {
-        setMessages([...updated, { role: "assistant", content: "Sorry, something went wrong. Please try again." }]);
+        const error = await res.json().catch(() => ({}));
+        setMessages([...updated, { role: "assistant", content: error.error || "Sorry, something went wrong. Please try again." }]);
         return;
       }
 
       const data = await res.json();
-      setMessages([...updated, { role: "assistant", content: data.reply }]);
+      setConsentScope(data.consentScope);
+      setMessages([...(consentScope && consentScope !== data.consentScope ? [userMsg] : updated), { role: "assistant", content: data.reply }]);
     } catch {
       setMessages([...updated, { role: "assistant", content: "Sorry, something went wrong. Please try again." }]);
     } finally {
@@ -134,7 +138,7 @@ export default function AdminShiftAIPage() {
             </div>
             <h2 className="text-lg font-semibold text-text-primary mb-2">How can I help?</h2>
             <p className="text-sm text-text-muted max-w-md mb-6">
-              I know all your clients, their plans, check-ins, and training modules. Ask me anything.
+              Only clients who have allowed AI sharing are included in this conversation.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-md">
               {[
@@ -194,6 +198,10 @@ export default function AdminShiftAIPage() {
         <div ref={messagesEndRef} />
       </div>
 
+      <label className="mb-3 flex gap-3 text-sm leading-6 text-text-secondary">
+        <input type="checkbox" checked={sharingConfirmed} onChange={(event) => setSharingConfirmed(event.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-[#E040D0]" />
+        <span>I agree to send my prompt to Anthropic and to OpenAI through OpenRouter for coaching assistance. I will include personal information only about clients who have enabled AI sharing in Settings.</span>
+      </label>
       <div className="relative">
         <AIComposerTextarea
           ref={inputRef}
@@ -206,7 +214,7 @@ export default function AdminShiftAIPage() {
         />
         <button
           onClick={handleSend}
-          disabled={!input.trim() || loading}
+          disabled={!input.trim() || loading || !sharingConfirmed}
           className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl bg-accent-bright/20 hover:bg-accent-bright/30 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors cursor-pointer"
         >
           <svg className="w-4 h-4 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,3 +1,4 @@
+import { requireClientAIConsent } from "@/lib/ai-consent-server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getShiftBrainContextResult } from "@/lib/brain-retrieval";
@@ -123,6 +124,8 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (!profile) return NextResponse.json({ error: "Client profile not found" }, { status: 404 });
+  const consentError = await requireClientAIConsent(admin, profile.id);
+  if (consentError) return consentError;
   const programme = normalizeProgrammeType(profile.programme_type);
   const shiftLimit = programme === "shift" ? await getShiftAILimit(admin) : null;
   const programmeUsage = shiftLimit === null

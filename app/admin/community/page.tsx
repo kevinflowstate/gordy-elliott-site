@@ -1,5 +1,6 @@
-import ShiftCommunityClient from "@/components/community/ShiftCommunityClient";
+import { notFound } from "next/navigation";
 
-export default function AdminCommunityPage() {
-  return <ShiftCommunityClient adminMode />;
+export default function CommunityPage() {
+  // Deferred for the initial release, including direct links.
+  notFound();
 }

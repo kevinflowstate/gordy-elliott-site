@@ -100,6 +100,7 @@ async function createQueryEmbedding(
   const apiKey = embeddingApiKey(provider);
   if (!apiKey) return { embedding: [], usage: null };
   const model = process.env.SHIFT_BRAIN_EMBEDDING_MODEL || defaultEmbeddingModel(provider);
+  if (provider === "openrouter" && !model.startsWith("openai/")) throw new Error("Embedding recipient is outside AI consent scope");
 
   const response = await fetch(embeddingEndpoint(provider), {
     method: "POST",
@@ -111,7 +112,7 @@ async function createQueryEmbedding(
     body: JSON.stringify({
       model,
       input,
-      ...(provider === "openrouter" ? { provider: { zdr: true } } : {}),
+      ...(provider === "openrouter" ? { provider: { zdr: true, only: ["openai"], allow_fallbacks: false } } : {}),
     }),
   });
 
@@ -158,7 +159,7 @@ function defaultEmbeddingModel(provider: EmbeddingProvider) {
 
 function embeddingEndpoint(provider: EmbeddingProvider) {
   if (provider === "openrouter") {
-    return `${process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1"}/embeddings`;
+    return "https://openrouter.ai/api/v1/embeddings";
   }
   return "https://api.openai.com/v1/embeddings";
 }

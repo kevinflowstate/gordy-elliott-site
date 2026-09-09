@@ -1,5 +1,7 @@
 "use client";
 
+import AISharingConsent from "@/components/portal/AISharingConsent";
+
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { ConsultationFormConfig } from "@/lib/consultation-form";
@@ -286,6 +288,8 @@ export default function ConsultationPage() {
             I understand this form may include health, training, nutrition, injury, and cycle-related information. Gordy will use it to personalise coaching support, not to provide medical diagnosis or emergency care.
           </span>
         </label>
+
+        <AISharingConsent />
 
         {submitError && (
           <div role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">

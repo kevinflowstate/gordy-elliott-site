@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import AISharingConsent from "@/components/portal/AISharingConsent";
 import AIComposerTextarea from "@/components/ui/AIComposerTextarea";
 
 interface Message {
@@ -60,6 +61,7 @@ function renderContent(text: string) {
 }
 
 export default function ShiftAIPage() {
+  const [aiAllowed, setAiAllowed] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -126,7 +128,7 @@ export default function ShiftAIPage() {
 
   async function handleSend(override?: string) {
     const trimmed = (override || input).trim();
-    if (!trimmed || loading) return;
+    if (!trimmed || loading || !aiAllowed) return;
 
     const userMsg: Message = { role: "user", content: trimmed };
     const updated = [...messages, userMsg];
@@ -146,6 +148,7 @@ export default function ShiftAIPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        if (data.code === "AI_CONSENT_REQUIRED" || data.code === "AI_CONSENT_UNAVAILABLE") { setAiAllowed(false); setMessages([]); return; }
         if (data.usage) setUsage(data.usage);
         setMessages([...updated, { role: "assistant", content: data.error || "Sorry, something went wrong. Please try again." }]);
         return;
@@ -168,12 +171,14 @@ export default function ShiftAIPage() {
     }
   }
 
+  if (!aiAllowed) return <div className="mx-auto max-w-3xl pb-28"><h1 className="mb-4 text-xl font-heading font-bold">AT CAPACITY AI</h1><AISharingConsent onChange={setAiAllowed} /></div>;
+
   return (
     <div className="shift-ai-shell mx-auto flex w-full max-w-3xl flex-col h-[calc(100dvh-10rem)] sm:h-[calc(100dvh-8rem)] lg:h-[calc(100vh-4rem)]">
       <div className="mb-4 sm:mb-6">
         <h1 className="text-xl font-heading font-extrabold text-text-primary sm:text-2xl">AT CAPACITY AI</h1>
         <p className="text-sm text-text-secondary mt-1">
-          Your personal coaching assistant - ask about training, your plan, or next steps.
+          Your personal coaching assistant - ask about training, your plan, or next steps. <Link href="/portal/settings#ai-sharing" className="text-accent-bright underline">Manage AI sharing</Link>
         </p>
         {usage?.limited && usage.limit !== null && (
           <div className="mt-3 inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-text-secondary">

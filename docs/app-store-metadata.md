@@ -53,7 +53,7 @@ COACHING CONTEXT THAT MOVES WITH YOU
 
 Optional connected apps can contribute sleep, recovery, activity and nutrition summaries when enabled. Eligible clients can connect Google Calendar or Outlook Calendar with read-only access so AT CAPACITY can help reflect the shape of the week. These signals support coaching suggestions only and never diagnose a condition or change a programme automatically.
 
-Eligible clients can also use AT CAPACITY AI to find assigned content and understand their existing coaching plan. AI does not replace Gordy, diagnose conditions or provide emergency or medical care.
+After explicitly allowing optional AI sharing, eligible clients can also use AT CAPACITY AI to find assigned content and understand their existing coaching plan. AI does not replace Gordy, diagnose conditions or provide emergency or medical care.
 
 AT CAPACITY is sign-in only. Coaching enrolment and payment happen outside the app, and an existing client account is required.
 
@@ -80,13 +80,17 @@ Use the supplied Demo Client account to inspect an assigned training programme a
 
 Connected-health summaries are optional informational coaching signals. They do not diagnose conditions and never alter a training programme automatically. The Connected Apps screen shows the availability and current connection state reported by the server, allows a client to disconnect a connection, and does not substitute fabricated production data. Apple Health is not enabled in version 1.
 
+AI sharing starts off. In Settings > AI sharing (also shown before the first AI chat and on the consultation form), clients see the data categories and named recipients before choosing Allow AI sharing or Keep AI off. Plans, tracking and private coach messages work with AI off. Withdrawal in Settings stops new client and coach-triggered AI requests. Consultation submission still works without an AI summary.
+
+Group chat is deferred for version 1: client/admin navigation and direct pages are unavailable, and community APIs return 404. WHOOP and Apple Health are unavailable in this release.
+
 Calendar connections for clients using the Founder Dashboard experience are optional and read-only. The app does not use EventKit or request the iOS calendar permission. Clients authorise Google Calendar or Outlook Calendar through the provider's own OAuth consent screen, processed by Composio as service provider. AT CAPACITY stores event identifiers, titles (private events shown as "Busy"), start/end times, busy status and a meeting link, but not descriptions or attendee lists. Disconnecting removes the synced event copies.
 
 Notification permission is requested only after the client selects Enable. DMs, coach nudges, tasks and reminders use the same account-level pause/freeze suppression rules as in-app notifications.
 
 Account deletion is available after sign-in under Settings > Delete account and requires explicit confirmation. The privacy policy and support page are also available publicly at the URLs supplied in App Store Connect.
 
-Submission hold: do not copy these notes into App Store Connect or submit the app until the exact selected build, review credentials, external-provider presentation, account deletion and full reviewer journey have passed the final pre-submission checks. Remove any claim that is not verified on that exact build.
+Submission hold: Kevin confirmed the prior iPhone walkthrough on 9 September. Preserve that coverage; the new hosted consent flow needs only a focused check on Build 10. Do not copy these notes into App Store Connect or submit the app until the current App Store Connect session and revised notes have been reconciled. Do not add for review without separate submission authorization.
 
 ## Other submission answers
 

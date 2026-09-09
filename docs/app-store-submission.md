@@ -43,17 +43,15 @@ The canonical review notes and contact details are in `docs/app-store-metadata.m
 
 ## Submission blockers
 
-Current verdict: **NOT READY**, reassessed 9 September against Apple's official documentation. See [current assessment](apple-submission-assessment-2026-09-09.md).
+Current position (9 September): the three code corrections requested by Kevin are implemented. Deployment and focused verification are recorded in [release corrections](apple-release-corrections-2026-09-09.md). The earlier [Apple assessment](apple-submission-assessment-2026-09-09.md) remains historical evidence of why they were needed.
 
-- Add explicit, server-enforced third-party AI sharing consent across client and coach-triggered processing.
-- Complete SHIFT community filtering/reporting/blocking and review coverage, or defer community consistently for this release.
-- Correct the Documents upgrade invitation and reconcile the purchase-model explanation.
-- Recheck App Store Connect after sign-in; prior configuration evidence is historical.
-
-- Complete the physical-device TestFlight reviewer walkthrough and crash review on exact Build 10 after the final hosted-portal deployment.
-- Retest Google/Outlook return, MyFitnessPal nutrition ingestion, Oura current-day freshness and APNs receipt/deep-link opening on that exact candidate.
-- Complete the accessibility evidence matrix on a small and current large iPhone; publish only the declarations actually demonstrated.
-- Confirm Gordy's final approval of the listing screenshots/copy and the remaining Guideline 4.2 risk documented in `docs/app-store-reviewer-walkthrough.md`.
+- Explicit, versioned AI-sharing permission defaults off and is enforced for client chat, consultation summaries and coach-triggered processing. Withdrawal is available in Settings.
+- Group chat is deferred across navigation, direct pages and read/post/upload/delete APIs.
+- The Documents upgrade invitation is removed; the existing-client companion model is retained.
+- Kevin confirms the previous iPhone walkthrough was completed. Do not demand a full repeat because older checklists contain unchecked boxes. Only the changed consent flow and removal of deferred features need a focused check on Build 10.
+- Recheck the current App Store Connect record after sign-in and reconcile the revised review notes, selected Build 10, review-account details, privacy answers and age-rating answers. Previous configuration evidence is dated 26 August and must not be represented as current verification.
+- Review current TestFlight crash feedback and confirm Gordy's final approval of listing screenshots/copy. Publish accessibility-support declarations only where demonstrated; optional labels are not a blanket submission blocker.
+- No new native binary is required by these hosted-only corrections. Apple's final approval, including its assessment under Guideline 4.2, remains Apple's decision.
 
 ## Closed pre-submission controls
 
@@ -79,7 +77,4 @@ Completed on 7 August 2026:
 3. Calendar-to-AI isolation remains covered by the release-contract suite.
 4. App Store Connect review notes are saved against selected Build 10. Exact-device native return still needs its final pass.
 
-Still required:
-
-1. Prove exact TestFlight native return and real event ingestion; the QA Google calendar had zero events in the seven-day sync window.
-2. Submit manually to Apple only after the remaining App Store Connect and physical-device gates above are complete.
+The old calendar/device checklist above is historical. Reconcile individual unrecorded details with Kevin’s completed walkthrough rather than restarting the full journey. Submit manually only after the remaining current checks and separate authorization.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import AISharingConsent from "@/components/portal/AISharingConsent";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { unregisterNativePushDevice } from "@/lib/native-push-client";
@@ -559,6 +560,8 @@ function SettingsContent() {
           {nativeVersion && <span className="text-text-muted">Version {nativeVersion}</span>}
         </div>
       </div>
+
+      <div id="ai-sharing" className="scroll-mt-6"><AISharingConsent /></div>
 
       <div className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/[0.04] p-6">
         <h2 className="text-lg font-heading font-bold text-text-primary">Delete account</h2>

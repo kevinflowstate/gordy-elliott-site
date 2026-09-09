@@ -13,6 +13,7 @@ export default function NutritionPlansPage() {
   const [search, setSearch] = useState("");
   const [calorieFilter, setCalorieFilter] = useState("All");
   const [showAiForm, setShowAiForm] = useState(false);
+  const [templateOnly, setTemplateOnly] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiGenerating, setAiGenerating] = useState(false);
 
@@ -107,7 +108,7 @@ export default function NutritionPlansPage() {
       const res = await fetch("/api/admin/ai-generate-nutrition", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: aiPrompt }),
+        body: JSON.stringify({ prompt: aiPrompt, templateOnly }),
       });
       const data = await res.json().catch(() => ({}));
 
@@ -200,11 +201,15 @@ export default function NutritionPlansPage() {
             placeholder="e.g. 1700 calorie working-day fat-loss template, 160g protein, four meals, easy prep, chicken and salmon okay, low added sugar."
             className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-[#E040D0]/40 focus:outline-none"
           />
+          <label className="mt-3 flex gap-3 text-sm leading-6 text-text-secondary">
+            <input type="checkbox" checked={templateOnly} onChange={(event) => setTemplateOnly(event.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-[#E040D0]" />
+            <span>Send this generic template brief to Anthropic. It contains no names or personal client information. I will personalise the template manually.</span>
+          </label>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={handleAiGenerate}
-              disabled={aiGenerating}
+              disabled={aiGenerating || !templateOnly}
               className="rounded-xl gradient-accent px-4 py-2 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               <CyclingStatusText

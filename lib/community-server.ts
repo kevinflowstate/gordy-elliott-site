@@ -1,3 +1,4 @@
+import { COMMUNITY_RELEASE_ENABLED } from "@/lib/release-features";
 import { getInboxViewer } from "@/lib/inbox-server";
 import { notifyClientUser } from "@/lib/client-notifications";
 import { normalizeProgrammeType } from "@/lib/programmes";
@@ -30,6 +31,7 @@ type CommunityRow = {
 };
 
 export async function getCommunityViewer(): Promise<CommunityViewer | null> {
+  if (!COMMUNITY_RELEASE_ENABLED) return null;
   const viewer = await getInboxViewer();
   if (!viewer) return null;
   if (viewer.role === "admin") {
@@ -65,6 +67,7 @@ export async function getCommunityViewer(): Promise<CommunityViewer | null> {
 }
 
 export async function listShiftCommunityMessages(): Promise<CommunityMessage[]> {
+  if (!COMMUNITY_RELEASE_ENABLED) return [];
   const admin = createAdminClient();
   const { data: rows, error } = await admin
     .from("shift_community_messages")
@@ -126,6 +129,7 @@ export async function listShiftCommunityMessages(): Promise<CommunityMessage[]> 
 }
 
 export async function notifyCommunityPost(viewer: CommunityViewer, messageType: CommunityRow["message_type"], preview?: string) {
+  if (!COMMUNITY_RELEASE_ENABLED) return;
   const admin = createAdminClient();
   const summary = messageType === "text"
     ? (preview || "New community message").slice(0, 160)

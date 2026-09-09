@@ -20,7 +20,7 @@ const sections: Array<{
   },
   {
     title: "Information AT CAPACITY handles",
-    body: "AT CAPACITY stores account and contact details, coaching plans, text messages and any private voice notes or photos you choose to send, check-ins, progress photos, training and nutrition logs, consultation answers, and any health, injury or cycle information you choose to provide. DM voice notes and photos are stored privately. If you are an active SHIFT client, messages and attachments you deliberately post in the SHIFT Community are visible to Gordy and other active SHIFT clients. The microphone, camera and photo library are used only when you choose to record or select something to send. If you connect a supported app through Terra, AT CAPACITY may also receive sleep, recovery, activity and nutrition summaries from that provider. If you connect Google Calendar or Outlook Calendar, AT CAPACITY reads the calendar and event information described below. For coached clients, AT CAPACITY also keeps coaching-administration records, such as call attendance, weekly notes of coaching support provided over WhatsApp, periodic review summaries, and an audited record of any correction to locked baseline figures.",
+    body: "AT CAPACITY stores account and contact details, coaching plans, text messages and any private voice notes or photos you choose to send, check-ins, progress photos, training and nutrition logs, consultation answers, and any health, injury or cycle information you choose to provide. DM voice notes and photos are stored privately. The microphone, camera and photo library are used only when you choose to record or select something to send. If you connect a supported app through Terra, AT CAPACITY may also receive sleep, recovery, activity and nutrition summaries from that provider. If you connect Google Calendar or Outlook Calendar, AT CAPACITY reads the calendar and event information described below. For coached clients, AT CAPACITY also keeps coaching-administration records, such as call attendance, weekly notes of coaching support provided over WhatsApp, periodic review summaries, and an audited record of any correction to locked baseline figures.",
   },
   {
     title: "Google Calendar data AT CAPACITY accesses",
@@ -49,7 +49,7 @@ const sections: Array<{
   },
   {
     title: "SHIFT Community",
-    body: "The SHIFT Community is available only to Gordy and active SHIFT clients. Posts, names and attachments in that space are shared with all current members of that group; it is not a private coaching channel. The app displays this warning before the conversation. Clients should use private DM for health information, personal coaching details or anything they do not want other SHIFT clients to see. Community media is stored privately and made available through short-lived links after membership is checked. Gordy can remove inappropriate posts.",
+    body: "Group chat is unavailable in this release. Previously stored group posts and attachments remain subject to the retention and deletion terms below. Private messages with Gordy remain available.",
   },
   {
     title: "Connected health apps",
@@ -58,7 +58,7 @@ const sections: Array<{
   },
   {
     title: "AI-assisted features",
-    body: "AT CAPACITY may send relevant non-Google coaching context to Anthropic API or OpenRouter to produce summaries or suggestions. OpenRouter routes those requests to the model identified for the feature. Google Calendar data is technically separated from these AI routes and is never included. Gordy remains responsible for coaching decisions. AI output can be incomplete or wrong and should not be treated as medical advice.",
+    body: "AI sharing is optional and off until you explicitly allow it in the app. If you allow it, relevant AI messages, name, goals, plans, check-ins, tracker entries, consultation answers, coach notes and optional health, injury, cycle and connected-wearable information may be shared with Anthropic, OpenAI and OpenRouter (routing to OpenAI) for replies, consultation summaries and AI-assisted coaching prepared by Gordy. Questions may also be sent to OpenAI through OpenRouter to find relevant coaching guidance. Google Calendar data is excluded from all AI prompts and embeddings. Your permission choice and the version of the information you accepted are recorded. You can decline or withdraw in Settings > AI sharing and continue using ordinary coaching, plans, tracking and private messages. Withdrawal stops new AI requests; processing already started may finish. Previously saved summaries remain subject to the retention and deletion terms below. Gordy remains responsible for coaching decisions. AI can be wrong and is not medical advice.",
   },
   {
     title: "Who receives information",
@@ -70,7 +70,7 @@ const sections: Array<{
   },
   {
     title: "Your choices",
-    body: "You can update profile information, disconnect supported apps, turn optional cycle tracking off, and request access to or correction of your information. You can also delete your account in Settings. Disconnecting Google Calendar or Outlook Calendar stops new syncs and removes the synced calendar-event copies associated with that connection. Disconnecting a Terra health connection revokes Terra's access and stops AT CAPACITY accepting new data from it. Existing coaching summaries remain until you delete your account or request their deletion.",
+    body: "You can update profile information, disconnect supported apps, turn optional cycle tracking off, withdraw AI-sharing permission in Settings, and request access to or correction of your information. You can also delete your account in Settings. Disconnecting Google Calendar or Outlook Calendar stops new syncs and removes the synced calendar-event copies associated with that connection. Disconnecting a Terra health connection revokes Terra's access and stops AT CAPACITY accepting new data from it. Existing coaching summaries remain until you delete your account or request their deletion.",
   },
   {
     title: "Security and age",
@@ -84,7 +84,7 @@ export default function PrivacyPage() {
       <article className="mx-auto max-w-3xl">
         <Link href="/" className="text-sm font-semibold text-[#f06be3] no-underline">AT CAPACITY</Link>
         <h1 className="mt-6 font-heading text-4xl font-bold">Privacy Policy</h1>
-        <p className="mt-3 text-sm text-[#aeb0bb]">Effective 4 September 2026</p>
+        <p className="mt-3 text-sm text-[#aeb0bb]">Effective 9 September 2026</p>
         <p className="mt-8 text-base leading-7 text-[#d3d4dc]">
           This policy explains how AT CAPACITY by Gordy Elliott handles information when you use the website, PWA or iOS app.
         </p>

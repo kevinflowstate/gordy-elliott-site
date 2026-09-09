@@ -1,9 +1,11 @@
+import { COMMUNITY_RELEASE_ENABLED } from "@/lib/release-features";
 import { requireAdmin } from "@/lib/admin-auth";
 import { COMMUNITY_MEDIA_BUCKET } from "@/lib/community-media";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
+  if (!COMMUNITY_RELEASE_ENABLED) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const auth = await requireAdmin();
   if (!auth.authorized) return NextResponse.json({ error: auth.error }, { status: auth.status });
   const { id } = await context.params;

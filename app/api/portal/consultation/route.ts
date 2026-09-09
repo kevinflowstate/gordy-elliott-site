@@ -1,3 +1,4 @@
+import { getClientAIConsent } from "@/lib/ai-consent-server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { dbError } from "@/lib/api-errors";
@@ -46,6 +47,8 @@ async function extractConsultationSummary(data: Record<string, unknown>) {
   const fallback = buildFallbackSummary(data);
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) return fallback;
+  const model = process.env.OPENROUTER_CONSULTATION_MODEL || "openai/gpt-4o-mini";
+  if (!model.startsWith("openai/")) return fallback;
 
   try {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -57,8 +60,8 @@ async function extractConsultationSummary(data: Record<string, unknown>) {
         "X-Title": "Gordy Elliott Portal",
       },
       body: JSON.stringify({
-        model: process.env.OPENROUTER_CONSULTATION_MODEL || "openai/gpt-4o-mini",
-        provider: { zdr: true },
+        model,
+        provider: { zdr: true, only: ["openai"], allow_fallbacks: false },
         messages: [
           {
             role: "system",
@@ -226,7 +229,10 @@ export async function POST(req: NextRequest) {
         : false;
   }
 
-  updates.consultation_summary = await extractConsultationSummary(consultationData);
+  const aiConsent = await getClientAIConsent(admin, currentProfile.id).catch(() => null);
+  updates.consultation_summary = aiConsent?.granted
+    ? await extractConsultationSummary(consultationData)
+    : buildFallbackSummary(consultationData);
   if (shouldAdvanceOnboarding) updates.onboarding_status = "consultation_complete";
 
   const { error } = await admin

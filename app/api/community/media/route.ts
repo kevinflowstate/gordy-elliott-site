@@ -1,3 +1,4 @@
+import { COMMUNITY_RELEASE_ENABLED } from "@/lib/release-features";
 import {
   COMMUNITY_AUDIO_TYPES,
   COMMUNITY_FILE_TYPES,
@@ -20,6 +21,7 @@ import { NextResponse } from "next/server";
 type MediaType = "audio" | "image" | "file";
 
 export async function POST(request: Request) {
+  if (!COMMUNITY_RELEASE_ENABLED) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const viewer = await getCommunityViewer();
   if (!viewer) return NextResponse.json({ error: "SHIFT community access is required" }, { status: 403 });
 

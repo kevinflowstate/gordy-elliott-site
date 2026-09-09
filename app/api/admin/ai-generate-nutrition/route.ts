@@ -1,3 +1,4 @@
+import { requireClientAIConsent } from "@/lib/ai-consent-server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { selectFoodsForPrompt } from "@/lib/food-library";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -148,13 +149,20 @@ export async function POST(req: NextRequest) {
   const auth = await requireAdmin();
   if (!auth.authorized) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { prompt } = await req.json();
+  const { prompt, client_id: clientId, templateOnly } = await req.json();
   if (!prompt?.trim()) return NextResponse.json({ error: "Prompt required" }, { status: 400 });
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "AI not configured" }, { status: 500 });
 
   const admin = createAdminClient();
+  if (clientId) {
+    const consentError = await requireClientAIConsent(admin, clientId);
+    if (consentError) return consentError;
+  } else if (templateOnly !== true) {
+    return NextResponse.json({ error: "Confirm this is a generic template brief with no personal client information." }, { status: 400 });
+  }
+
   const { data: foods, error: foodsError } = await admin
     .from("foods")
     .select("id, name, category, serving_size, calories, protein_g, carbs_g, fat_g, fibre_g, sugar_g")

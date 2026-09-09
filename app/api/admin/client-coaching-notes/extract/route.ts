@@ -1,3 +1,4 @@
+import { requireClientAIConsent } from "@/lib/ai-consent-server";
 import { requireAdmin } from "@/lib/admin-auth";
 import {
   extractJsonObject,
@@ -47,6 +48,8 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
+  const consentError = await requireClientAIConsent(admin, clientId);
+  if (consentError) return consentError;
   const { data: client, error: clientError } = await admin
     .from("client_profiles")
     .select("id, goals, primary_goal, goal_notes, tier, user:users!client_profiles_user_id_fkey(full_name, email)")

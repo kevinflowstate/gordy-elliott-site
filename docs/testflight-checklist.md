@@ -1,5 +1,12 @@
 # TestFlight Checklist
 
+## 9 September clarification
+
+Kevin confirms the previous iPhone walkthrough was completed. This is user-confirmed coverage, alongside the separately recorded Build 10 install/sign-in and APNs acceptance evidence. Historical unchecked boxes below must not be treated as proof that the walkthrough never happened. No blanket repeat is requested.
+
+For the hosted changes in this release, check only the new flow on Build 10: AI starts off; Allow enables chat; withdrawal in Settings blocks further chat; private coaching remains usable. Confirm group chat and the Documents upgrade invitation are absent. Production browser verification is recorded separately and must not be described as a physical-device test.
+
+
 Record device model, iOS version, build number, tester and result for every run.
 
 ## Install and account

@@ -44,7 +44,7 @@ All declared types below are **linked to the user's identity** because AT CAPACI
 - Supabase: authentication, database and private storage
 - Vercel: hosting and operational logs
 - Resend: transactional email once production email is configured
-- AI providers (Anthropic; OpenAI or OpenRouter for embeddings): relevant coaching context used to answer a request or create a coaching suggestion. Calendar data is not sent to AI providers.
+- AI providers (Anthropic, OpenAI and OpenRouter routing only to OpenAI): relevant coaching context is sent only after the client explicitly grants current AI-sharing permission. This covers replies, consultation summaries and coach-triggered assistance, including retrieval embeddings. Withdrawal stops new requests. Calendar data is not sent to AI providers. Permission events record the account, decision, disclosure version and timestamp; account deletion cascades these records.
 - Terra: account reference and connected health/fitness summaries after a client opts in
 - Composio: Google Calendar and Outlook Calendar OAuth and read-only event reads after a client opts in; OAuth tokens are held by Composio, and Google/Microsoft act as the client-authorised data sources
 - Apple Push Notification service and web-push providers: device/subscription identifiers and notification payloads

@@ -1,8 +1,10 @@
 # App Store Release Audit
 
-## Current verdict — 9 September 2026: NOT READY
+## Current status — 9 September 2026 release corrections
 
-WHOOP is hidden in production (6128811, deployment dpl_295J5EP1mAnBDsf1wVtAiwuBPqsD). The new Apple-docs assessment identifies explicit AI-sharing consent and SHIFT community safety gaps, an upgrade/payment-presentation risk, and outstanding exact-build/device and App Store Connect checks. See [the current assessment](apple-submission-assessment-2026-09-09.md). The older readiness assessment below is retained as historical evidence and is superseded.
+The requested AI-consent, group-chat deferral and Documents-copy changes are implemented; WHOOP remains hidden. See [release corrections and verification](apple-release-corrections-2026-09-09.md) for the exact deployment state. Kevin confirms that the prior iPhone walkthrough was completed. The earlier “NOT READY” assessment identified real code gaps, but its demand for a full repeat of that walkthrough overstated the available evidence. Remaining checks are focused on the changed flow and the current App Store Connect record. No Apple submission is authorized by this document.
+
+The previous assessments below are retained as historical evidence and are superseded by the current correction report.
 
 ## Historical audit
 
