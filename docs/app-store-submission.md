@@ -43,6 +43,13 @@ The canonical review notes and contact details are in `docs/app-store-metadata.m
 
 ## Submission blockers
 
+Current verdict: **NOT READY**, reassessed 9 September against Apple's official documentation. See [current assessment](apple-submission-assessment-2026-09-09.md).
+
+- Add explicit, server-enforced third-party AI sharing consent across client and coach-triggered processing.
+- Complete SHIFT community filtering/reporting/blocking and review coverage, or defer community consistently for this release.
+- Correct the Documents upgrade invitation and reconcile the purchase-model explanation.
+- Recheck App Store Connect after sign-in; prior configuration evidence is historical.
+
 - Complete the physical-device TestFlight reviewer walkthrough and crash review on exact Build 10 after the final hosted-portal deployment.
 - Retest Google/Outlook return, MyFitnessPal nutrition ingestion, Oura current-day freshness and APNs receipt/deep-link opening on that exact candidate.
 - Complete the accessibility evidence matrix on a small and current large iPhone; publish only the declarations actually demonstrated.

@@ -1,5 +1,11 @@
 # App Store Release Audit
 
+## Current verdict — 9 September 2026: NOT READY
+
+WHOOP is hidden in production (6128811, deployment dpl_295J5EP1mAnBDsf1wVtAiwuBPqsD). The new Apple-docs assessment identifies explicit AI-sharing consent and SHIFT community safety gaps, an upgrade/payment-presentation risk, and outstanding exact-build/device and App Store Connect checks. See [the current assessment](apple-submission-assessment-2026-09-09.md). The older readiness assessment below is retained as historical evidence and is superseded.
+
+## Historical audit
+
 Date: 26 August 2026
 
 Candidate: AT CAPACITY 1.0 (Build 10)
