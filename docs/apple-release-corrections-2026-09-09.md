@@ -23,7 +23,16 @@ Mobile browser verification at 390×844 confirmed that refusal persists, the dis
 
 After recovery, all 283 tests passed using `tsx --test --test-concurrency=1`, with a 1GB Node heap cap. The Astra autoreview completed successfully with no findings (`autoreview --mode local`, current ChatGPT-app CLI; optional connector/plugin workers disabled for that subprocess). Earlier attempts with older installed CLIs failed because they did not support Astra; those failures were tooling failures, not review findings. No code changes were needed after the clean review.
 
-The production deployment and final live verification are recorded below during closeout.
+Production is live at https://app.onlinegordy.com with code `fce152ff8b8b706ba90cfeef57c0b99fdd030e18`, deployment `dpl_GekjtZQwzVQZ3fWUoWFFuyAqijkb`. Vercel confirms READY, the canonical production alias and the exact Git revision. The hosted build passed.
+
+Production verification completed after recovery:
+
+- The real authenticated API checks passed for unauthenticated/stale/malformed choices, owner-scoped grant (including forged owner fields), withdrawal, direct database access denial, all four disabled community operations, and consultation submission with AI off. Fictional consultation fields were restored and permission was left off.
+- The live browser showed the disclosure, accepted explicit opt-in and returned a successful AI summary of the fictional client's assigned training. Settings withdrawal persisted; reopening AI returned to the opt-in screen.
+- Existing private DMs loaded with AI off. Group chat was absent from navigation, and its direct page displayed 404. No message was sent to Gordy or another person during testing.
+- Pre-crash mobile visual verification covered refusal, consent copy and buttons at 390×844 without horizontal overflow. The interrupted AI-response/withdrawal checks were completed on the live deployment after recovery.
+
+The source is on `codex/whoop-data-investigation`. These corrections have not been merged into `main`; preserve this deployed revision when preparing any subsequent main-based deployment. No additional local build/review/test processes were left running.
 
 ## iPhone walkthrough and submission
 
