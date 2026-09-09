@@ -4,11 +4,28 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import HealthCapacityOverview from "@/components/portal/HealthCapacityOverview";
+import WearableConnectionsPanel from "@/components/portal/WearableConnectionsPanel";
 import { dateKeyInTimeZone } from "@/lib/founder-dashboard";
 import { normaliseTerraPayloads, mergeDailySummary } from "@/lib/terra/normalise";
 import { buildWearableInsight, wearableReadinessScore, type WearableDailySummary } from "@/lib/wearable-insights";
 
 const date = dateKeyInTimeZone(new Date(), "Europe/London");
+test("disabled WHOOP disappears from connection actions, logos, counts and latest signal", () => {
+  const renderPanel = (whoopAvailable: boolean) => renderToStaticMarkup(
+    <WearableConnectionsPanel
+      connections={[{ id: "demo", client_id: "demo", provider: "whoop", terra_user_id: null, reference_id: "demo", status: "connected", last_sync_at: "2026-09-08T12:00:00Z", connected_at: null, disconnected_at: null }]}
+      consentAccepted available mockMode={false} whoopAvailable={whoopAvailable}
+      connecting={null} disconnecting={null} onConsentChange={() => {}} onConnect={() => {}} onDisconnect={() => {}} onBack={() => {}}
+    />
+  );
+  const hidden = renderPanel(false);
+  assert.doesNotMatch(hidden, /WHOOP|Latest signal|Disconnect<\/button>/);
+  assert.match(hidden, /No services connected/);
+  for (const provider of ["Garmin", "Oura", "Fitbit", "MyFitnessPal"]) assert.match(hidden, new RegExp(provider));
+  const enabled = renderPanel(true);
+  assert.match(enabled, /WHOOP/);
+  assert.match(enabled, /1 service connected/);
+});
 const daily = () => normaliseTerraPayloads({ type: "daily", user: { provider: "WHOOP" }, data: [{ metadata: { start_time: date }, strain_data: { strain_level: 11.4 } }] })[0];
 // Expected shared Terra contract, NOT a populated production WHOOP sample.
 const sleep = () => normaliseTerraPayloads({ type: "sleep", user: { provider: "WHOOP" }, data: [{ metadata: { start_time: `${date}T00:00:00+01:00`, end_time: `${date}T07:00:00+01:00` }, sleep_durations_data: { asleep: { duration_asleep_state_seconds: 25200 } }, scores: { sleep: 82 }, heart_rate_data: { summary: { avg_hrv_rmssd: 48, resting_hr_bpm: 55 } } }] })[0];

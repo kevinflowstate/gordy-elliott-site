@@ -93,13 +93,15 @@ export default function WearableConnectionsPanel({
   onDisconnect: (connection: WearableConnection) => void;
   onBack: () => void;
 }) {
-  const providers = wearableProviders.map((provider) => (
-    provider.id === "whoop" ? { ...provider, disabled: !whoopAvailable } : provider
-  ));
+  const providers = wearableProviders
+    .filter((provider) => provider.id !== "whoop" || whoopAvailable)
+    .map((provider) => provider.id === "whoop" ? { ...provider, disabled: false } : provider);
   const connectionByProvider = new Map<string, WearableConnection>();
   for (const connection of connections) connectionByProvider.set(connection.provider, connection);
   const activeProviders = providers.filter((provider) => !provider.disabled);
-  const connectedConnections = connections.filter((connection) => connection.status === "connected");
+  const connectedConnections = connections.filter((connection) =>
+    connection.status === "connected" && (connection.provider !== "whoop" || whoopAvailable)
+  );
   const connectedProviderDetails = connectedConnections
     .map((connection) => providers.find((provider) => provider.id === connection.provider))
     .filter((provider): provider is WearableProvider => Boolean(provider));

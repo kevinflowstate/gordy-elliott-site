@@ -290,10 +290,14 @@ export default function ConnectedAppsPage() {
     );
   }
 
+  const visibleConnections = (data?.connections || []).filter((connection) =>
+    connection.provider !== "whoop" || data?.providerAvailability?.whoop
+  );
+
   if (view === "connections") {
     return (
       <WearableConnectionsPanel
-        connections={data?.connections || []}
+        connections={visibleConnections}
         consentAccepted={consentAccepted}
         available={data?.available !== false}
         mockMode={Boolean(data?.mockMode)}
@@ -311,7 +315,7 @@ export default function ConnectedAppsPage() {
   return (
     <HealthCapacityOverview
       summaries={data?.summaries || []}
-      connections={data?.connections || []}
+      connections={visibleConnections}
       loading={loading}
       refreshing={refreshing}
       onRefresh={() => void refresh()}
