@@ -105,3 +105,8 @@ Submission hold: Kevin confirmed the prior iPhone walkthrough on 9 September. Pr
 ## Saved App Store Connect reconciliation — 9 September 2026
 
 The live app name is AT CAPACITY; Gordy remains the business/account holder. Kevin confirmed the new consent and sign-in screens on iPhone. Revised description and reviewer notes are now saved and verified after a fresh page load. The live reviewer notes retain the detailed Build 10 SwiftUI workout-runner guidance and add default-off AI sharing, recipients and withdrawal, WHOOP/Apple Health unavailability and deferred group chat. The longer draft above is reference material; it should not overwrite the saved native-utility explanation. The earlier session/reconciliation hold is resolved. Final MRDP per-app declaration is prepared but unsaved pending owner confirmation of existing tax information. No submission authorized or performed. See apple-release-corrections-2026-09-09.md for the current handover.
+
+
+## Submission status — 9 September 2026
+
+With Kevin’s explicit authorization, version 1.0 Build 10 was submitted at 16:40 BST. Current verified status: Waiting for Review. Submission ID 8aaa1329-49a9-48ee-a027-9083d3e6c64b. MRDP hold resolved; manual release remains selected. Earlier submission holds above are historical.

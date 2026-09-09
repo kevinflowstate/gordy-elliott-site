@@ -71,3 +71,15 @@ The in-app browser is left on that final confirmation screen. After the owner ve
 
 Official MRDP reference: https://developer.apple.com/help/app-store-connect/manage-compliance-information/manage-information-for-model-reporting-rules-for-digital-platforms
 Official new social-media questions: https://developer.apple.com/news/?id=tlur8uvi
+
+
+## Submitted to Apple — 9 September 2026, 16:40 BST
+
+Kevin explicitly authorized submission after completing the MRDP declaration himself; the compliance warning was verified cleared. Added version 1.0 Build 10 for review and clicked Submit for Review. Apple confirmed “1 Item Submitted”; the submission detail page independently shows **Waiting for Review**, item **1.0 (10)**, submitted by Kevin Harkin on 9 September 2026 at 16:40 BST.
+
+Submission ID: `8aaa1329-49a9-48ee-a027-9083d3e6c64b`.
+Submission URL: https://appstoreconnect.apple.com/apps/6805066999/distribution/reviewsubmissions/details/8aaa1329-49a9-48ee-a027-9083d3e6c64b
+
+Manual release was confirmed selected immediately before submission and was not changed. Approval will require a later manual release; nothing has been published to the App Store. Apple's confirmation says review can take up to 48 hours and an email will follow; this is Apple's displayed guidance, not a guaranteed completion time.
+
+The visible in-app browser tab is left on the Waiting for Review detail page, marked as a deliverable so Kevin can screenshot it for Gordy. No message or screenshot was sent to Gordy. No monitoring automation was requested or created. Next action: respond to Apple's review outcome when received, and obtain release authorization before publishing an approved version. Preserve the deployed feature-branch corrections during any later main integration.
