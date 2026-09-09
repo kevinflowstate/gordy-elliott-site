@@ -3,7 +3,6 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { safeLocalRedirect } from "@/lib/safe-redirect";
 
@@ -88,7 +87,7 @@ function LoginForm() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-6">
+    <main className="min-h-svh flex items-start justify-center px-5 py-8 sm:items-center sm:px-6 sm:py-12">
       {loading && (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#0A0A0A] px-6 text-center" role="status" aria-live="polite">
           <div className="relative flex h-24 w-24 items-center justify-center rounded-3xl border border-[#E040D0]/25 bg-[#E040D0]/10">
@@ -100,10 +99,10 @@ function LoginForm() {
         </div>
       )}
       <div className="max-w-[400px] w-full">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-block mb-4">
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="inline-block mb-4">
             <Image src="/images/shift-logo.svg" alt="AT CAPACITY" width={48} height={48} className="h-12 w-auto mx-auto" />
-          </Link>
+          </div>
           <div className="mb-2 font-heading text-sm font-black tracking-[0.16em] text-text-primary">
             <span className="text-accent-bright">AT</span> CAPACITY
           </div>
@@ -111,7 +110,7 @@ function LoginForm() {
           <p className="text-text-secondary text-sm">{resetMode ? "Reset your password" : "Sign in to access your dashboard"}</p>
         </div>
 
-        <form onSubmit={resetMode ? handlePasswordReset : handleSubmit} className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-[20px] p-8">
+        <form onSubmit={resetMode ? handlePasswordReset : handleSubmit} className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-[20px] p-6 sm:p-8">
           {callbackError === "setup_link_invalid" && !error && (
             <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-300 text-sm">
               That setup link has expired or is invalid. Please ask Gordy to resend your setup email.
@@ -131,14 +130,19 @@ function LoginForm() {
           {resetMode ? (
             <>
               <div className="mb-6">
-                <label className="block text-sm font-medium text-text-secondary mb-2">Email</label>
+                <label htmlFor="reset-email" className="block text-sm font-medium text-text-secondary mb-2">Email</label>
                 <input
+                  id="reset-email"
+                  name="email"
                   type="email"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  enterKeyHint="send"
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
                   required
                   autoComplete="email"
-                  className="w-full h-11 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 text-text-primary text-sm focus:outline-none focus:border-accent/40 transition-colors"
+                  className="w-full h-12 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 text-text-primary text-base focus:outline-none focus:border-accent/40 transition-colors"
                 />
               </div>
 
@@ -153,30 +157,38 @@ function LoginForm() {
           ) : (
             <>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-text-secondary mb-2">Email</label>
+                <label htmlFor="login-email" className="block text-sm font-medium text-text-secondary mb-2">Email</label>
                 <input
+                  id="login-email"
+                  name="email"
                   type="email"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  enterKeyHint="next"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   autoComplete="email"
-                  className="w-full h-11 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 text-text-primary text-sm focus:outline-none focus:border-accent/40 transition-colors"
+                  className="w-full h-12 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 text-text-primary text-base focus:outline-none focus:border-accent/40 transition-colors"
                 />
               </div>
 
-              <div className="mb-3">
-                <label className="block text-sm font-medium text-text-secondary mb-2">Password</label>
+              <div className="mb-2">
+                <label htmlFor="login-password" className="block text-sm font-medium text-text-secondary mb-2">Password</label>
                 <input
+                  id="login-password"
+                  name="password"
                   type="password"
+                  enterKeyHint="go"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="current-password"
-                  className="w-full h-11 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 text-text-primary text-sm focus:outline-none focus:border-accent/40 transition-colors"
+                  className="w-full h-12 bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 text-text-primary text-base focus:outline-none focus:border-accent/40 transition-colors"
                 />
               </div>
 
-              <div className="mb-6 text-right">
+              <div className="mb-3 text-right">
                 <button
                   type="button"
                   onClick={() => {
@@ -185,7 +197,7 @@ function LoginForm() {
                     setError("");
                     setResetMessage("");
                   }}
-                  className="text-xs font-semibold text-[#E040D0] hover:text-[#b830a8]"
+                  className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-[#E040D0] hover:text-[#b830a8]"
                 >
                   Forgot password?
                 </button>
@@ -202,8 +214,8 @@ function LoginForm() {
           )}
         </form>
 
-        <p className="text-center text-text-muted text-xs mt-6">
-          {resetMode ? (
+        {resetMode && (
+          <p className="text-center text-text-muted text-sm mt-4">
             <button
               type="button"
               onClick={() => {
@@ -211,16 +223,12 @@ function LoginForm() {
                 setError("");
                 setResetMessage("");
               }}
-              className="text-text-muted hover:text-text-secondary transition-colors"
+              className="inline-flex min-h-11 items-center px-3 text-text-muted hover:text-text-secondary transition-colors"
             >
               Back to sign in
             </button>
-          ) : (
-            <Link href="/" className="text-text-muted hover:text-text-secondary transition-colors no-underline">
-              Back to main site
-            </Link>
-          )}
-        </p>
+          </p>
+        )}
       </div>
     </main>
   );
