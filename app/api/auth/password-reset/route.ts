@@ -1,4 +1,5 @@
 import { buildAccountRecoveryUrl } from "@/lib/account-links";
+import { resolveClientLifecycleStatus } from "@/lib/client-attention";
 import { sendPasswordResetEmail } from "@/lib/email-templates";
 import { rateLimit } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -28,12 +29,27 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient();
   const { data: appUser } = await admin
     .from("users")
-    .select("email, full_name, role")
+    .select("id, email, full_name, role")
     .eq("email", normalizedEmail)
     .maybeSingle();
 
   if (!appUser?.email) {
     return NextResponse.json(GENERIC_RESPONSE);
+  }
+
+  if (appUser.role === "client") {
+    const { data: clientProfile, error: clientProfileError } = await admin
+      .from("client_profiles")
+      .select("lifecycle_status, lifecycle_resumes_at")
+      .eq("user_id", appUser.id)
+      .maybeSingle();
+
+    if (clientProfileError || !clientProfile || resolveClientLifecycleStatus(
+      clientProfile?.lifecycle_status,
+      clientProfile?.lifecycle_resumes_at,
+    ) === "access_frozen") {
+      return NextResponse.json(GENERIC_RESPONSE);
+    }
   }
 
   try {
