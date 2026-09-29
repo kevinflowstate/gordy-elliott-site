@@ -372,6 +372,7 @@ export interface ClientExercisePlan {
   template_id?: string;
   name: string;
   description?: string;
+  overview?: string | null;
   status: 'active' | 'completed' | 'archived';
   start_date?: string;
   end_date?: string;

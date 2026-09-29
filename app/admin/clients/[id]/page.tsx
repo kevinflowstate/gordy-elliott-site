@@ -591,7 +591,7 @@ export default function ClientDetailPage() {
     } finally { setAssigningExercise(false); }
   }
 
-  async function handleSaveScratchExercisePlan(template: { name: string; description?: string; sessions?: unknown[] }) {
+  async function handleSaveScratchExercisePlan(template: { name: string; description?: string; overview?: string; sessions?: unknown[] }) {
     const activeExPlan = exercisePlans.find((p) => p.status === "active");
     if (exerciseBuilderMode === "create" && activeExPlan) {
       const ok = confirm(
@@ -614,6 +614,7 @@ export default function ClientDetailPage() {
             client_id: client?.id,
             name: template.name,
             description: template.description,
+            overview: template.overview,
             status: "active",
             sessions: template.sessions,
           },
@@ -3680,6 +3681,7 @@ export default function ClientDetailPage() {
           id: activeExPlan.id,
           name: activeExPlan.name,
           description: activeExPlan.description || "",
+          overview: activeExPlan.overview || "",
           category: "strength" as const,
           is_active: true,
           sessions: activeExPlan.sessions || [],
@@ -4113,6 +4115,9 @@ function TrainingTabContent({
                 <h3 className="font-heading font-bold text-text-primary text-base">{activeExPlan.name}</h3>
                 {activeExPlan.description && (
                   <p className="text-sm text-text-secondary mt-1">{activeExPlan.description}</p>
+                )}
+                {activeExPlan.overview && (
+                  <p className="mt-2 whitespace-pre-line text-sm text-text-secondary">{activeExPlan.overview}</p>
                 )}
                 <span className="text-xs text-[#E040D0] font-medium mt-1 inline-block">{activeExPlan.sessions.length} sessions · live for this client now</span>
               </div>
