@@ -18,6 +18,7 @@ function draft(items: ExerciseSessionItem[]): ExerciseTemplate {
 test("invalid exercise rows are rejected before a template can be written", () => {
   assert.match(validateTemplate(draft([{ ...item("bad", 0), exercise_id: "__missing__" }])) || "", /invalid/);
   assert.match(validateTemplate(draft([{ ...item("bad", 0), reps: "" }])) || "", /valid target/);
+  assert.equal(validateTemplate(draft([{ ...item("timed", 0), reps: "", prescription_type: "time", prescription_text: "12 min" }])), null);
   assert.equal(validateTemplate(draft([item("ok", 0)])), null);
 });
 

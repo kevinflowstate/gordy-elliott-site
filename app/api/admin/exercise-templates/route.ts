@@ -15,7 +15,8 @@ export function validateTemplate(template: ExerciseTemplate): string | null {
     for (const [itemIndex, item] of session.items.entries()) {
       if (item.exercise_id === "__section__") continue;
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.exercise_id || "")) return `Exercise ${itemIndex + 1} in ${session.name} is invalid.`;
-      if (!Number.isInteger(item.sets) || item.sets < 0 || !item.reps?.trim()) return `Exercise ${itemIndex + 1} in ${session.name} needs a valid target.`;
+      const needsReps = normalisePrescriptionType(item.prescription_type) === "sets_reps";
+      if (!Number.isInteger(item.sets) || item.sets < 0 || (needsReps && !item.reps?.trim())) return `Exercise ${itemIndex + 1} in ${session.name} needs a valid target.`;
     }
   }
   return null;
