@@ -5,6 +5,7 @@ import type { ExerciseTemplate, ExerciseSession, ExerciseSessionItem, Exercise }
 import DndSortableList, { DragHandle } from "@/components/ui/DndSortableList";
 import { PRESCRIPTION_TYPES, normalisePrescriptionType } from "@/lib/exercise-prescriptions";
 import ExercisePicker from "./ExercisePicker";
+import { canLinkSuperset, normaliseSupersetGroups, toggleSupersetPair, supersetPosition } from "@/lib/superset-builder";
 
 interface ExerciseTemplateBuilderProps {
   existingTemplate?: ExerciseTemplate;
@@ -72,11 +73,10 @@ export default function ExerciseTemplateBuilder({
   const [tags, setTags] = useState<string[]>(existingTemplate?.tags || []);
   const [tagInput, setTagInput] = useState("");
   const [category, setCategory] = useState<string>(existingTemplate?.category || "general");
-  const [durationWeeks, setDurationWeeks] = useState<string>(
-    existingTemplate?.duration_weeks ? String(existingTemplate.duration_weeks) : ""
-  );
   const [sessions, setSessions] = useState<ExerciseSession[]>(
-    existingTemplate?.sessions.length ? existingTemplate.sessions : [createEmptySession(0)]
+    existingTemplate?.sessions.length
+      ? existingTemplate.sessions.map((session) => ({ ...session, items: normaliseSupersetGroups(session.items, generateId) }))
+      : [createEmptySession(0)]
   );
   const [exercisePickerTarget, setExercisePickerTarget] = useState<{ sessionId: string; sectionItemId?: string } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -171,7 +171,7 @@ export default function ExerciseTemplateBuilder({
     setSessions((prev) =>
       prev.map((s) => {
         if (s.id !== sessionId) return s;
-        return { ...s, items: s.items.filter((item) => item.id !== itemId) };
+        return { ...s, items: normaliseSupersetGroups(s.items.filter((item) => item.id !== itemId), generateId) };
       })
     );
   }
@@ -180,7 +180,7 @@ export default function ExerciseTemplateBuilder({
     setSessions((prev) =>
       prev.map((s) => {
         if (s.id !== sessionId) return s;
-        return { ...s, items: reordered.map((item, i) => ({ ...item, order_index: i })) };
+        return { ...s, items: normaliseSupersetGroups(reordered.map((item, i) => ({ ...item, order_index: i })), generateId) };
       })
     );
   }
@@ -192,13 +192,12 @@ export default function ExerciseTemplateBuilder({
     setSaveError("");
     try {
       const template: ExerciseTemplate = {
-        id: existingTemplate?.id || generateId(),
+        id: existingTemplate?.id || "",
         name: name.trim(),
         description: description.trim() || undefined,
         overview: overview.trim() || undefined,
         tags: tags.length ? tags : undefined,
         category,
-        duration_weeks: durationWeeks ? parseInt(durationWeeks, 10) : undefined,
         is_active: true,
         sessions,
         created_at: existingTemplate?.created_at || new Date().toISOString(),
@@ -352,20 +351,6 @@ export default function ExerciseTemplateBuilder({
                 </select>
               </div>
 
-              <div className="w-36">
-                <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
-                  Duration (weeks)
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="52"
-                  value={durationWeeks}
-                  onChange={(e) => setDurationWeeks(e.target.value)}
-                  placeholder="e.g. 8"
-                  className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors"
-                />
-              </div>
             </div>
           </div>
 
@@ -457,24 +442,7 @@ function SessionCard({
   canRemove,
 }: SessionCardProps) {
   function toggleSuperset(itemIndex: number) {
-    const items = [...session.items];
-    const current = items[itemIndex];
-    const next = items[itemIndex + 1];
-    if (!next) return;
-
-    if (current.superset_group) {
-      // Remove superset from both items that share this group
-      items[itemIndex] = { ...current, superset_group: undefined };
-      if (next.superset_group === current.superset_group) {
-        items[itemIndex + 1] = { ...next, superset_group: undefined };
-      }
-    } else {
-      // Create superset linking this item and the next
-      const groupId = crypto.randomUUID();
-      items[itemIndex] = { ...current, superset_group: groupId };
-      items[itemIndex + 1] = { ...next, superset_group: next.superset_group || groupId };
-    }
-    onReorderItems(items);
+    onReorderItems(toggleSupersetPair(session.items, itemIndex, generateId));
   }
 
   return (
@@ -550,8 +518,8 @@ function SessionCard({
               renderItem={(item, idx, dragHandleProps) => (
                 <ExerciseItemRow
                   item={item}
-                  itemIndex={idx}
-                  totalItems={session.items.length}
+                  canLinkNext={canLinkSuperset(session.items, idx)}
+                  supersetLabel={supersetPosition(session.items, idx)}
                   dragHandleProps={dragHandleProps}
                   onUpdate={(updates) => onUpdateItem(item.id, updates)}
                   onRemove={() => onRemoveItem(item.id)}
@@ -593,8 +561,8 @@ function SessionCard({
 
 interface ExerciseItemRowProps {
   item: ExerciseSessionItem;
-  itemIndex: number;
-  totalItems: number;
+  canLinkNext: boolean;
+  supersetLabel: string | null;
   dragHandleProps: Record<string, unknown>;
   onUpdate: (updates: Partial<ExerciseSessionItem>) => void;
   onRemove: () => void;
@@ -602,7 +570,7 @@ interface ExerciseItemRowProps {
   onAddExerciseToSection?: () => void;
 }
 
-function ExerciseItemRow({ item, itemIndex, totalItems, dragHandleProps, onUpdate, onRemove, onToggleSuperset, onAddExerciseToSection }: ExerciseItemRowProps) {
+function ExerciseItemRow({ item, canLinkNext, supersetLabel, dragHandleProps, onUpdate, onRemove, onToggleSuperset, onAddExerciseToSection }: ExerciseItemRowProps) {
   const inputClass =
     "w-full bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-lg px-2 py-1.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/30 transition-colors text-center";
 
@@ -662,7 +630,7 @@ function ExerciseItemRow({ item, itemIndex, totalItems, dragHandleProps, onUpdat
             </div>
             {inSuperset && (
               <span className="text-[9px] font-bold text-accent-bright uppercase tracking-wider bg-accent/10 px-1.5 py-0.5 rounded flex-shrink-0">
-                SS
+                {supersetLabel || "SS"}
               </span>
             )}
           </div>
@@ -753,19 +721,19 @@ function ExerciseItemRow({ item, itemIndex, totalItems, dragHandleProps, onUpdat
             className={inputClass}
           />
         </div>
-        {/* Superset toggle - only show when not the last item */}
-        {itemIndex < totalItems - 1 && (
+        {/* Each button links this exercise to the next exercise in this section. */}
+        {canLinkNext && (
           <button
             type="button"
             onClick={onToggleSuperset}
-            title={inSuperset ? "Remove superset" : "Link as superset with next exercise"}
+            title="Toggle superset link to next exercise in this section"
             className={`w-7 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-all p-1 cursor-pointer rounded text-[9px] font-bold ${inSuperset ? "text-accent-bright" : "text-text-muted hover:text-accent-bright"}`}
           >
             SS
           </button>
         )}
         {/* Placeholder to keep alignment when superset button is hidden */}
-        {itemIndex >= totalItems - 1 && (
+        {!canLinkNext && (
           <div className="w-7 flex-shrink-0" />
         )}
         {/* Remove */}

@@ -11,3 +11,7 @@ export type PushChannelResult = {
   reason?: string;
   subscriptionCount: number;
 };
+
+export function shouldUseWebPushFallback(native: Pick<PushChannelResult, "sent">): boolean {
+  return native.sent === 0;
+}

@@ -924,6 +924,14 @@ export default function PortalExercisePlanPage() {
           </div>
         </section>
 
+        {plan.overview && (
+          <section aria-label="Plan overview" className="app-card rounded-[24px] border border-[#E040D0]/15 p-5">
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#E667D6]">Your plan</div>
+            <h2 className="mt-1 font-heading text-lg font-bold text-text-primary">Plan overview</h2>
+            <p className="mt-3 whitespace-pre-line text-sm leading-6 text-text-secondary">{plan.overview}</p>
+          </section>
+        )}
+
         <section className="app-card rounded-[24px] p-4">
           <div className="flex items-start justify-between gap-3">
             <div>

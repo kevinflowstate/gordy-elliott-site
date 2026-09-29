@@ -137,6 +137,7 @@ export async function POST(request: Request) {
         template_id,
         name: template.name,
         description: template.description,
+        overview: template.overview || null,
         status: "active",
         start_date: new Date().toISOString().split("T")[0],
       })
@@ -218,6 +219,7 @@ export async function POST(request: Request) {
         template_id: plan.template_id || null,
         name: plan.name,
         description: plan.description || null,
+        overview: plan.overview?.trim() || null,
         status: plan.status || "active",
         start_date: plan.start_date || new Date().toISOString().split("T")[0],
         end_date: plan.end_date || null,

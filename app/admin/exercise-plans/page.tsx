@@ -369,14 +369,6 @@ function TemplateCard({ template, onView, onEdit, onDuplicate, onDelete }: Templ
         )}
 
         <div className="flex items-center gap-3 text-[10px] text-text-muted">
-          {template.duration_weeks && (
-            <span className="inline-flex items-center gap-1">
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              {template.duration_weeks}w
-            </span>
-          )}
           <span className="inline-flex items-center gap-1">
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
@@ -483,7 +475,6 @@ function TemplatePreview({ template, onEdit, onClose }: TemplatePreviewProps) {
                   <span className={`text-[11px] px-2.5 py-1 rounded-full font-semibold border capitalize ${categoryColor}`}>
                     {template.category}
                   </span>
-                  {template.duration_weeks && <span>{template.duration_weeks} weeks</span>}
                   <span>{template.sessions.length} session{template.sessions.length !== 1 ? "s" : ""}</span>
                   <span>{totalExercises} exercise{totalExercises !== 1 ? "s" : ""}</span>
                 </div>
