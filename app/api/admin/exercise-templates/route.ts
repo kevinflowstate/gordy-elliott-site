@@ -138,80 +138,30 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
   const body = await request.json();
-  const { template } = body;
+  const { template } = body as { template?: ExerciseTemplate };
 
   if (!template) return NextResponse.json({ error: "template is required" }, { status: 400 });
   const validationError = validateTemplate(template);
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
 
-  const now = new Date().toISOString();
-
-  const templatePayload = {
+  const payload = {
     name: template.name.trim(),
     description: template.description?.trim() || null,
     overview: template.overview?.trim() || null,
     tags: template.tags || [],
     category: template.category || "general",
-    is_active: true,
-    updated_at: now,
+    sessions: template.sessions.map((session) => ({
+      name: session.name.trim(),
+      day_number: session.day_number,
+      notes: session.notes || null,
+      items: exerciseRows(session.items, ""),
+    })),
   };
-
-  const isUpdate = !!template.id;
-  let previousSessionIds: string[] = [];
-  if (isUpdate) {
-    const { data: current, error: currentError } = await admin.from("exercise_training_templates").select("id").eq("id", template.id).maybeSingle();
-    if (currentError || !current) return dbError(currentError, "Training template no longer exists. Reload and try again.", 404);
-    const { data: previous, error: previousError } = await admin.from("exercise_training_sessions").select("id").eq("template_id", template.id);
-    if (previousError) return dbError(previousError, "Couldn't load the existing sessions. Try again.");
-    previousSessionIds = (previous || []).map((session) => session.id);
-  }
-
-  const { data: created, error: createError } = isUpdate
-    ? { data: { id: template.id }, error: null }
-    : await admin.from("exercise_training_templates").insert(templatePayload).select("id").maybeSingle();
-  if (createError || !created) return dbError(createError, "Couldn't create that training template. Try again.");
-  const templateId = created.id;
-  const stagedSessionIds: string[] = [];
-
-  async function fail(error: unknown, message: string) {
-    const cleanup = isUpdate
-      ? stagedSessionIds.length ? await admin.from("exercise_training_sessions").delete().in("id", stagedSessionIds) : { error: null }
-      : await admin.from("exercise_training_templates").delete().eq("id", templateId);
-    if (cleanup.error) console.error("Couldn't clean up incomplete training template save", cleanup.error);
-    return dbError(error, message);
-  }
-
-  // Stage replacement sessions while the existing version remains available.
-  for (const session of template.sessions) {
-    const { data: newSession, error: sError } = await admin
-      .from("exercise_training_sessions")
-      .insert({
-        template_id: templateId,
-        name: session.name,
-        day_number: session.day_number,
-        notes: session.notes || null,
-      })
-      .select()
-      .maybeSingle();
-
-    if (sError || !newSession) return fail(sError, `Couldn't save session "${session.name}". The template was not changed.`);
-    stagedSessionIds.push(newSession.id);
-    const rows = exerciseRows(session.items, newSession.id);
-    if (rows.length) {
-      const { error: itemsError } = await admin.from("exercise_training_session_items").insert(rows);
-      if (itemsError) return fail(itemsError, `Couldn't save exercises in "${session.name}". The template was not changed.`);
-    }
-  }
-
-  if (isUpdate) {
-    const { data: updated, error: updateError } = await admin.from("exercise_training_templates").update(templatePayload).eq("id", templateId).select("id").maybeSingle();
-    if (updateError || !updated) return fail(updateError, "Couldn't update the template details. The old sessions are still available.");
-    if (previousSessionIds.length) {
-      const { error: deleteError } = await admin.from("exercise_training_sessions").delete().in("id", previousSessionIds);
-      if (deleteError) return fail(deleteError, "Couldn't replace the old sessions. Try again.");
-    }
-  }
-
+  const { data: templateId, error } = await admin.rpc("save_exercise_training_template", {
+    p_template_id: template.id || null,
+    p_template: payload,
+  });
+  if (error || !templateId) return dbError(error, "Couldn't save that training template. Nothing was changed. Try again.");
   return NextResponse.json({ success: true, template_id: templateId });
 }
 
