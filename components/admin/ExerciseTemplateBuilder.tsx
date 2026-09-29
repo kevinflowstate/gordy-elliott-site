@@ -442,7 +442,7 @@ function SessionCard({
   canRemove,
 }: SessionCardProps) {
   function toggleSuperset(itemIndex: number) {
-    onReorderItems(toggleSupersetPair(session.items, itemIndex, crypto.randomUUID));
+    onReorderItems(toggleSupersetPair(session.items, itemIndex, generateId));
   }
 
   return (

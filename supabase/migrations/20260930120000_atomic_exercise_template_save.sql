@@ -27,7 +27,7 @@ BEGIN
     VALUES
       (trim(p_template->>'name'), nullif(trim(p_template->>'description'), ''),
        nullif(trim(p_template->>'overview'), ''),
-       coalesce(p_template->'tags', '[]'::jsonb),
+       ARRAY(SELECT jsonb_array_elements_text(coalesce(p_template->'tags', '[]'::jsonb))),
        coalesce(nullif(p_template->>'category', ''), 'general'), true, now())
     RETURNING id INTO v_template_id;
   ELSE
@@ -42,7 +42,7 @@ BEGIN
       name = trim(p_template->>'name'),
       description = nullif(trim(p_template->>'description'), ''),
       overview = nullif(trim(p_template->>'overview'), ''),
-      tags = coalesce(p_template->'tags', '[]'::jsonb),
+      tags = ARRAY(SELECT jsonb_array_elements_text(coalesce(p_template->'tags', '[]'::jsonb))),
       category = coalesce(nullif(p_template->>'category', ''), 'general'),
       is_active = true,
       updated_at = now()
