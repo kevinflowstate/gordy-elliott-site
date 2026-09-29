@@ -21,13 +21,6 @@ function getGreeting(): string {
   return "Good evening";
 }
 
-function getWeekNumber(startDate?: string | null): number | null {
-  if (!startDate) return null;
-  const start = new Date(startDate).getTime();
-  if (Number.isNaN(start) || start > Date.now()) return null;
-  return Math.max(1, Math.ceil((Date.now() - start) / (7 * 24 * 60 * 60 * 1000)));
-}
-
 function ProgressRing({ pct, label, sublabel }: { pct: number; label: string; sublabel: string }) {
   const size = 148;
   const stroke = 10;
@@ -404,7 +397,6 @@ export default function PortalDashboard() {
     todayTraining,
   }), [calendarEvents, wearableSummary, todayTraining]);
 
-  const weekNumber = getWeekNumber(profile?.start_date);
   const todayLabel = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
   const ringPct = totalPlanItems > 0 ? planPct : submittedThisWeek ? 100 : 0;
   const ringLabel = totalPlanItems > 0 ? "Plan" : "This Week";
@@ -485,7 +477,6 @@ export default function PortalDashboard() {
           </h1>
           <p className="mt-1.5 text-[13px] text-white/60">
             {todayLabel}
-            {weekNumber ? ` · Week ${weekNumber}` : ""}
           </p>
         </div>
 

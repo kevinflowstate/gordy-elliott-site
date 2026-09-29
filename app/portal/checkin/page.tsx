@@ -131,7 +131,6 @@ export default function CheckInPage() {
   const [loadError, setLoadError] = useState("");
   const [currentWeekSubmitted, setCurrentWeekSubmitted] = useState(false);
   const [currentWeekSavedAt, setCurrentWeekSavedAt] = useState<string | null>(null);
-  const [currentWeekNumber, setCurrentWeekNumber] = useState<number | null>(null);
   const [checkinDay, setCheckinDay] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState("");
   const [templateName, setTemplateName] = useState<string | null>(null);
@@ -235,7 +234,6 @@ export default function CheckInPage() {
             }
             setCurrentWeekSubmitted(true);
             setCurrentWeekSavedAt(existing.created_at || null);
-            setCurrentWeekNumber(existing.week_number || null);
           } else {
             const integrationsRes = await fetch("/api/portal/integrations");
             if (integrationsRes.ok && !cancelled) {
@@ -324,7 +322,6 @@ export default function CheckInPage() {
         }
         setCurrentWeekSubmitted(true);
         setCurrentWeekSavedAt(new Date().toISOString());
-        setCurrentWeekNumber(data.week_number || currentWeekNumber);
         setSaveMessage(data.updated ? "Your check-in for this week was updated." : "Your check-in for this week was saved.");
         setSubmitted(true);
         if (failedPhotoAngles.length > 0) {
@@ -385,8 +382,8 @@ export default function CheckInPage() {
           </div>
           <h2 className="text-2xl font-heading font-bold text-text-primary mb-2">Check-in Saved</h2>
           <p className="text-text-secondary">{saveMessage || "Gordy will review your check-in and respond shortly."}</p>
-          {currentWeekNumber !== null && (
-            <p className="mt-2 text-sm text-text-muted">Week {currentWeekNumber} · saved {formatSavedAt(currentWeekSavedAt)}</p>
+          {currentWeekSavedAt && (
+            <p className="mt-2 text-sm text-text-muted">Saved {formatSavedAt(currentWeekSavedAt)}</p>
           )}
           <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <button
