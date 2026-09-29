@@ -1,7 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyClientProfile } from "@/lib/client-notifications";
 import { sendPushToUser } from "@/lib/push";
-import { sendCheckinReminderEmail } from "@/lib/email-templates";
 import { resolveClientLifecycleStatus } from "@/lib/client-attention";
 import { NextResponse } from "next/server";
 
@@ -103,9 +102,8 @@ export async function GET(request: Request) {
     keyDateWishes++;
   }
 
-  // Send push + email to clients who haven't checked in yet
+  // Send push reminders to active clients who haven't checked in yet.
   let pushSent = 0;
-  let emailSent = 0;
   let skipped = 0;
 
   if (today === checkinDay && clients && clients.length > 0) {
@@ -123,14 +121,6 @@ export async function GET(request: Request) {
 
     const checkedInClientIds = new Set(
       (recentCheckins || []).map((c) => c.client_id)
-    );
-
-    // Get week number for email
-    const { data: profilesWithStart } = await admin
-      .from("client_profiles")
-      .select("id, user_id, start_date");
-    const clientStartDates = new Map(
-      (profilesWithStart || []).map((p: { user_id: string; start_date: string }) => [p.user_id, p.start_date])
     );
 
     for (const client of clients) {
@@ -152,27 +142,6 @@ export async function GET(request: Request) {
         tag: "checkin-reminder",
       });
       if (result.sent > 0) pushSent++;
-
-      // Email fallback
-      const startDate = clientStartDates.get(client.id);
-      const weekNum = startDate
-        ? Math.ceil((Date.now() - new Date(startDate).getTime()) / (7 * 24 * 60 * 60 * 1000))
-        : 1;
-
-      try {
-        // Get client email
-        const { data: userData } = await admin.auth.admin.getUserById(client.id);
-        if (userData?.user?.email) {
-          await sendCheckinReminderEmail(
-            userData.user.email,
-            client.full_name || "there",
-            weekNum
-          );
-          emailSent++;
-        }
-      } catch {
-        // Email send failed - push was the primary anyway
-      }
     }
   }
 
@@ -183,7 +152,6 @@ export async function GET(request: Request) {
     checkinReminders: pushSent,
     keyDateWishes,
     pushSent,
-    emailSent,
     skipped,
     totalClients: clients?.length || 0,
   });

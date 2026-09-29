@@ -2,7 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeVapidKey } from "@/lib/vapid";
 import { getClientNotificationSuppression } from "@/lib/client-lifecycle";
 import { sendNativePushToUser } from "@/lib/native-push-server";
-import type { PushChannelResult, PushMessage } from "@/lib/push-contract";
+import { shouldUseWebPushFallback, type PushChannelResult, type PushMessage } from "@/lib/push-contract";
 import webpush from "web-push";
 
 async function sendWebPushToUser(userId: string, notification: PushMessage): Promise<PushChannelResult> {
@@ -91,10 +91,14 @@ export async function sendPushToUser(
     }
   }
 
-  const [web, native] = await Promise.all([
-    sendWebPushToUser(userId, notification),
-    sendNativePushToUser(userId, notification),
-  ]);
+  // Prefer the current native app identity. Older web installations can retain
+  // their historical browser-app name, and sending through both channels can
+  // show the same reminder twice. Fall back to web only when APNs delivered
+  // nothing (including when no native device is registered).
+  const native = await sendNativePushToUser(userId, notification);
+  const web = shouldUseWebPushFallback(native)
+    ? await sendWebPushToUser(userId, notification)
+    : { sent: 0, failed: 0, subscriptionCount: 0, reason: "Skipped because native push was delivered." };
   const reasons = [web.reason, native.reason].filter((reason): reason is string => Boolean(reason));
 
   return {
