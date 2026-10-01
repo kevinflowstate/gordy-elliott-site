@@ -1,3 +1,4 @@
+import { buildWorkoutBlocks } from "@/lib/workout-groups";
 import { formatExercisePrescription, shouldUseSetLogging } from "@/lib/exercise-prescriptions";
 import { getExerciseDemoUrl } from "@/lib/exercise-demo";
 import type { WorkoutSetData } from "@/lib/workout-runner";
@@ -80,6 +81,9 @@ export interface NativeWorkoutLaunchPayload {
       notes: string | null;
       demoURL: string | null;
       usesSetLogging: boolean;
+      groupID: string;
+      groupKind: string;
+      durationSeconds: number | null;
     }>;
   };
   date: string;
@@ -99,25 +103,19 @@ export function isNativeWorkoutAvailable() {
 }
 
 export function buildNativeWorkoutLaunchPayload(options: NativeWorkoutLaunchOptions): NativeWorkoutLaunchPayload {
-  let section: string | null = null;
-  const exercises = options.session.items.flatMap((item) => {
-    if (item.exercise_id === "__section__") {
-      section = item.section_label?.trim() || "Next section";
-      return [];
-    }
-
-    const name = item.exercise?.name || "Exercise";
-    return [{
-      id: item.id,
-      name,
-      prescription: formatExercisePrescription(item),
-      section,
-      restSeconds: item.rest_seconds || null,
-      notes: item.notes || null,
-      demoURL: getExerciseDemoUrl(item.exercise?.video_url, name),
-      usesSetLogging: shouldUseSetLogging(item),
-    }];
-  });
+  const exercises = buildWorkoutBlocks(options.session).flatMap(block => block.exercises.map(({ item, section }) => ({
+    id: item.id,
+    name: item.exercise?.name || "Exercise",
+    prescription: formatExercisePrescription(item),
+    section,
+    restSeconds: item.rest_seconds || null,
+    notes: item.notes || null,
+    demoURL: getExerciseDemoUrl(item.exercise?.video_url, item.exercise?.name),
+    usesSetLogging: shouldUseSetLogging(item),
+    groupID: block.id,
+    groupKind: block.kind,
+    durationSeconds: block.durationSeconds,
+  })));
 
   return {
     schemaVersion: 1,

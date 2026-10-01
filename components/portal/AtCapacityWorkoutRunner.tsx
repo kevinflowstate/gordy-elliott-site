@@ -5,10 +5,11 @@ import { formatExercisePrescription, shouldUseSetLogging } from "@/lib/exercise-
 import { getExerciseDemoUrl } from "@/lib/exercise-demo";
 import { openExerciseDemo } from "@/lib/exercise-demo-client";
 import {
-  nextWorkoutExerciseIndex,
   workoutSetProgress,
   type WorkoutSetData,
 } from "@/lib/workout-runner";
+import { buildWorkoutBlocks, blockForIndex } from "@/lib/workout-groups";
+import WorkoutCircuitControls from "./WorkoutCircuitControls";
 import type { ExerciseSession, ExerciseSessionItem } from "@/lib/types";
 
 type RunnerStage = "preview" | "section" | "exercise" | "review" | "summary";
@@ -28,17 +29,12 @@ interface WorkoutRunnerProps {
     itemId: string,
     setIndex: number,
     field: keyof WorkoutSetData,
-    value: string | boolean,
+    value: string | boolean | number,
   ) => void;
   onToggleSet: (itemId: string, setIndex: number) => void;
   onAddSet: (itemId: string) => void;
   onApplyFirstSetToAll: (itemId: string) => void;
   onFinish: () => Promise<boolean>;
-}
-
-interface RunnerExercise {
-  item: ExerciseSessionItem;
-  section: string | null;
 }
 
 function formatElapsed(ms: number) {
@@ -61,21 +57,6 @@ function LiveTimer({ startedAt }: { startedAt: number | null }) {
   }, [startedAt]);
 
   return <>{startedAt ? formatElapsed(now - startedAt) : "0:00"}</>;
-}
-
-function buildExercises(session: ExerciseSession): RunnerExercise[] {
-  let section: string | null = null;
-  const exercises: RunnerExercise[] = [];
-
-  for (const item of session.items) {
-    if (item.exercise_id === "__section__") {
-      section = item.section_label?.trim() || "Next section";
-      continue;
-    }
-    exercises.push({ item, section });
-  }
-
-  return exercises;
 }
 
 function Icon({
@@ -130,7 +111,8 @@ export default function AtCapacityWorkoutRunner({
   onApplyFirstSetToAll,
   onFinish,
 }: WorkoutRunnerProps) {
-  const exercises = useMemo(() => buildExercises(session), [session]);
+  const blocks = useMemo(() => buildWorkoutBlocks(session), [session]);
+  const exercises = useMemo(() => blocks.flatMap(block => block.exercises), [blocks]);
   const editingSavedSession = mode === "edit";
   const [stage, setStage] = useState<RunnerStage>(() => editingSavedSession ? "exercise" : "preview");
   const [exerciseIndex, setExerciseIndex] = useState(0);
@@ -142,7 +124,10 @@ export default function AtCapacityWorkoutRunner({
   const currentOverviewItemRef = useRef<HTMLButtonElement | null>(null);
   const workoutStartedAt = startedAt ?? localStartedAt;
 
-  const current = exercises[exerciseIndex];
+  const currentBlock = blockForIndex(blocks, exerciseIndex);
+  const current = currentBlock?.exercises[0];
+  const groupStart = currentBlock?.start ?? exerciseIndex;
+  const groupEnd = currentBlock?.end ?? exerciseIndex;
   const currentSectionExerciseCount = current?.section
     ? exercises.filter((exercise) => exercise.section === current.section).length
     : 0;
@@ -190,7 +175,7 @@ export default function AtCapacityWorkoutRunner({
 
   function enterExercise(index: number, fromSection: string | null) {
     const next = exercises[index];
-    setExerciseIndex(index);
+    setExerciseIndex(blockForIndex(blocks, index)?.start ?? index);
     if (next?.section && next.section !== fromSection) {
       setStage("section");
     } else {
@@ -212,22 +197,22 @@ export default function AtCapacityWorkoutRunner({
       setStage("preview");
       return;
     }
-    const previousIndex = exerciseIndex - 1;
+    const previousIndex = blockForIndex(blocks, groupStart - 1)?.start ?? 0;
     setExerciseIndex(previousIndex);
     setStage("exercise");
   }
 
   function next() {
-    if (exerciseIndex >= exercises.length - 1) {
+    if (groupEnd >= exercises.length - 1) {
       setStage("review");
       return;
     }
-    enterExercise(exerciseIndex + 1, current?.section || null);
+    enterExercise(groupEnd + 1, current?.section || null);
   }
 
   function jumpToExercise(index: number) {
     if (index < 0 || index >= exercises.length) return;
-    setExerciseIndex(index);
+    setExerciseIndex(blockForIndex(blocks, index)?.start ?? index);
     setStage("exercise");
     setShowOverview(false);
   }
@@ -235,8 +220,11 @@ export default function AtCapacityWorkoutRunner({
   function toggleSet(item: ExerciseSessionItem, setIndex: number) {
     const wasCompleted = sets[item.id]?.[setIndex]?.completed;
     onToggleSet(item.id, setIndex);
-    if (!wasCompleted && item.rest_seconds && item.rest_seconds > 0) {
-      setRestRemaining(item.rest_seconds);
+    const block = blocks.find(block => block.exercises.some(exercise => exercise.item.id === item.id));
+    const roundComplete = block?.exercises.every(({ item: member }) => member.id === item.id || sets[member.id]?.[setIndex]?.completed);
+    const restSeconds = Math.max(0, ...(block?.exercises.map(({ item }) => item.rest_seconds || 0) || []));
+    if (!wasCompleted && roundComplete && block?.kind !== "amrap" && restSeconds > 0) {
+      setRestRemaining(restSeconds);
     }
   }
 
@@ -255,7 +243,7 @@ export default function AtCapacityWorkoutRunner({
       ? 100
       : Math.round(((exerciseIndex + 1) / exercises.length) * 100)
     : 0;
-  const upcomingIndex = nextWorkoutExerciseIndex(exerciseIndex, exercises.length);
+  const upcomingIndex = groupEnd + 1 < exercises.length ? groupEnd + 1 : null;
   const upcomingExercise = upcomingIndex === null ? null : exercises[upcomingIndex];
 
   return (
@@ -361,10 +349,14 @@ export default function AtCapacityWorkoutRunner({
 
           {stage === "exercise" && current && (
             <div className="pb-3">
+              {currentBlock && currentBlock.kind !== "exercise" && <h1 className="mb-4 text-2xl font-bold">{currentBlock.kind === "amrap" ? "AMRAP circuit" : currentBlock.kind === "superset" ? "Superset" : "Circuit"} · {currentBlock.exercises.length} exercises</h1>}
+              {currentBlock && currentBlock.exercises.length > 1 && <ol className="mb-5 space-y-2 rounded-xl bg-white/5 p-3">{currentBlock.exercises.map(({ item }, index) => <li key={item.id} className="flex items-start gap-3 text-sm"><span className="font-bold text-[#F060E0]">{index + 1}</span><span className="flex-1 font-semibold">{item.exercise?.name || "Exercise"}</span><span className="max-w-[45%] text-right text-xs text-white/55">{formatExercisePrescription(item)}</span></li>)}</ol>}
+              {currentBlock && (currentBlock.kind === "amrap" || currentBlock.kind === "circuit") && <WorkoutCircuitControls value={sets[current.item.id]?.[0]} duration={currentBlock.durationSeconds} editing={editingSavedSession} onChange={(field, value) => onUpdateSet(current.item.id, 0, field, value)} />}
+              {currentBlock?.exercises.map((current, offset) => <section key={current.item.id} aria-label={current.item.exercise?.name || "Exercise"} className="mb-8 border-b border-white/10 pb-6 last:border-0">
               {current.section && <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#F060E0]">{current.section}</p>}
               <div className="mt-2 flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold text-white/40">Exercise {exerciseIndex + 1} of {exercises.length}</p>
+                  <p className="text-xs font-semibold text-white/40">Exercise {groupStart + offset + 1} of {exercises.length}</p>
                   <h1 className="mt-1 text-3xl font-black leading-tight tracking-[-0.035em]">{current.item.exercise?.name || "Exercise"}</h1>
                 </div>
                 <span className="shrink-0 rounded-xl bg-[#E040D0]/12 px-3 py-2 text-xs font-bold text-[#F060E0]">
@@ -386,7 +378,7 @@ export default function AtCapacityWorkoutRunner({
                   onClick={() => {
                     void openExerciseDemo(current.item.exercise?.video_url, current.item.exercise?.name);
                   }}
-                  className="mt-4 flex min-h-24 w-full items-center justify-center gap-2 rounded-2xl border border-[#E040D0]/20 bg-[linear-gradient(135deg,rgba(224,64,208,0.15),rgba(255,255,255,0.025))] text-sm font-bold text-[#F060E0]"
+                  className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#E040D0]/20 bg-[linear-gradient(135deg,rgba(224,64,208,0.15),rgba(255,255,255,0.025))] text-sm font-bold text-[#F060E0]"
                 >
                   <span className="grid h-10 w-10 place-items-center rounded-full bg-[#E040D0] text-white"><Icon name="play" /></span>
                   Watch exercise demo
@@ -498,6 +490,7 @@ export default function AtCapacityWorkoutRunner({
                   </button>
                 )}
               </div>
+              </section>)}
             </div>
           )}
 
@@ -524,7 +517,7 @@ export default function AtCapacityWorkoutRunner({
                       type="button"
                       key={item.id}
                       onClick={() => {
-                        setExerciseIndex(index);
+                        setExerciseIndex(blockForIndex(blocks, index)?.start ?? index);
                         setStage("exercise");
                       }}
                       className="flex w-full items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.035] p-4 text-left"
@@ -535,7 +528,7 @@ export default function AtCapacityWorkoutRunner({
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold">{item.exercise?.name || "Exercise"}</p>
                         <p className="mt-0.5 text-xs text-white/40">
-                          {exerciseSets.filter((set) => set.completed).length}/{exerciseSets.length} sets complete
+                          {exerciseSets.filter((set) => set.completed).length}/{exerciseSets.length} sets complete{exerciseSets[0]?.circuit_rounds !== undefined ? ` · ${exerciseSets[0].circuit_rounds} circuit rounds` : ""}
                         </p>
                       </div>
                       <Icon name="back" className="h-4 w-4 rotate-180 text-white/30" />
@@ -625,7 +618,7 @@ export default function AtCapacityWorkoutRunner({
               <Icon name="back" className="h-4 w-4" /> Previous
             </button>
             <button type="button" onClick={next} className="min-h-12 rounded-2xl bg-white px-4 text-sm font-black text-black">
-              {exerciseIndex === exercises.length - 1 ? "Review workout" : "Next exercise"}
+              {groupEnd === exercises.length - 1 ? "Review workout" : "Next block"}
             </button>
           </div>
         </footer>
