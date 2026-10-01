@@ -25,6 +25,9 @@ struct NativeWorkoutExercise: Codable, Identifiable {
     let restSeconds: Int?
     let notes: String?
     let demoURL: String?
+    var groupID: String? = nil
+    var groupKind: String? = nil
+    var durationSeconds: Int? = nil
     let usesSetLogging: Bool
 }
 
@@ -34,6 +37,9 @@ struct NativeWorkoutSet: Codable, Identifiable, Equatable {
     var reps: String
     var notes: String
     var completed: Bool
+    var circuitRounds: Int? = nil
+    var circuitEndsAt: Double? = nil
+    var circuitRemainingSeconds: Int? = nil
 
     var id: Int { setNumber }
 
@@ -42,6 +48,9 @@ struct NativeWorkoutSet: Codable, Identifiable, Equatable {
         case weight
         case reps
         case notes
+        case circuitRounds = "circuit_rounds"
+        case circuitEndsAt = "circuit_ends_at"
+        case circuitRemainingSeconds = "circuit_remaining_seconds"
         case completed
     }
 }

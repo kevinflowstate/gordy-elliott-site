@@ -4,6 +4,9 @@ export interface WorkoutSetData {
   reps: string;
   notes: string;
   completed: boolean;
+  circuit_rounds?: number;
+  circuit_ends_at?: number;
+  circuit_remaining_seconds?: number;
 }
 
 export function workoutSetProgress(sets: WorkoutSetData[] | undefined) {

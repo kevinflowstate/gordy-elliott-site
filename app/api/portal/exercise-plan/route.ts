@@ -44,7 +44,7 @@ export async function GET() {
   const { data: items } = sessionIds.length
     ? await admin
         .from("client_exercise_session_items")
-        .select("*, exercise:exercises(id, name, muscle_group, equipment, description)")
+        .select("*, exercise:exercises(id, name, muscle_group, equipment, description, video_url)")
         .in("session_id", sessionIds)
         .order("order_index", { ascending: true })
     : { data: [] };

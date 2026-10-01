@@ -168,6 +168,7 @@ function buildSessionDrafts(session: ExerciseSession, existingLogs: ExerciseLog[
     const existing = existingLogs.find((log) => log.exercise_item_id === item.id)?.sets_data;
     if (Array.isArray(existing) && existing.length > 0) {
       drafts[item.id] = existing.map((set, index) => ({
+        ...(typeof set.circuit_rounds === "number" ? { circuit_rounds: set.circuit_rounds } : {}),
         set_number: typeof set.set_number === "number" ? set.set_number : index + 1,
         weight: typeof set.weight === "string" ? set.weight : String(set.weight || ""),
         reps: typeof set.reps === "string" ? set.reps : String(set.reps || ""),
@@ -433,7 +434,7 @@ export default function PortalExercisePlanPage() {
     }
   }, [selectedDate, allLogs, plan, manuallyPicked, calendarSessionsByDate, initDrafts]);
 
-  function updateSet(itemId: string, setIdx: number, field: keyof SetData, value: string | boolean) {
+  function updateSet(itemId: string, setIdx: number, field: keyof SetData, value: string | boolean | number) {
     setDraftSets((prev) => {
       const sets = [...(prev[itemId] || [])];
       sets[setIdx] = { ...sets[setIdx], [field]: value };

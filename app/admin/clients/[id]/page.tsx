@@ -256,7 +256,7 @@ export default function ClientDetailPage() {
   const [nudgeMessage, setNudgeMessage] = useState("");
   const [exercisePlans, setExercisePlans] = useState<ClientExercisePlan[]>([]);
   const [nutritionPlans, setNutritionPlans] = useState<ClientNutritionPlan[]>([]);
-  const [recentExerciseLogs, setRecentExerciseLogs] = useState<Array<{ id: string; exercise_item_id: string; session_id: string | null; log_date: string; sets_data: Array<{ set_number: number; weight: string; reps: string; notes: string }>; completed: boolean }>>([]);
+  const [recentExerciseLogs, setRecentExerciseLogs] = useState<Array<{ id: string; exercise_item_id: string; session_id: string | null; log_date: string; sets_data: Array<{ set_number: number; weight: string; reps: string; notes: string; circuit_rounds?: number }>; completed: boolean }>>([]);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [showExerciseBuilder, setShowExerciseBuilder] = useState(false);
   const [exerciseBuilderMode, setExerciseBuilderMode] = useState<"edit" | "create">("edit");
@@ -3781,7 +3781,7 @@ export default function ClientDetailPage() {
 interface TrainingTabContentProps {
   client: AdminClient;
   exercisePlans: ClientExercisePlan[];
-  recentExerciseLogs: Array<{ id: string; exercise_item_id: string; session_id: string | null; log_date: string; sets_data: Array<{ set_number: number; weight: string; reps: string; notes: string }>; completed: boolean }>;
+  recentExerciseLogs: Array<{ id: string; exercise_item_id: string; session_id: string | null; log_date: string; sets_data: Array<{ set_number: number; weight: string; reps: string; notes: string; circuit_rounds?: number }>; completed: boolean }>;
   activePlan: TrainingPlan | undefined;
   plans: TrainingPlan[];
   expandedPhases: Set<string>;
@@ -3841,7 +3841,7 @@ function TrainingTabContent({
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
 
   // Training logs for the selected week
-  const [weekLogs, setWeekLogs] = useState<Array<{ id: string; exercise_item_id: string; session_id: string | null; log_date: string; sets_data: Array<{ set_number: number; weight: string; reps: string; notes: string }>; completed: boolean }>>([]);
+  const [weekLogs, setWeekLogs] = useState<Array<{ id: string; exercise_item_id: string; session_id: string | null; log_date: string; sets_data: Array<{ set_number: number; weight: string; reps: string; notes: string; circuit_rounds?: number }>; completed: boolean }>>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [weeklyPlanner, setWeeklyPlanner] = useState<WeeklyTrainingAssignment[]>([]);
   const [plannerWeekStart, setPlannerWeekStart] = useState<string | null>(null);
@@ -4437,7 +4437,7 @@ function TrainingTabContent({
                                   key={set.set_number}
                                   className="text-[11px] px-2 py-0.5 rounded-lg bg-[rgba(0,0,0,0.04)] text-text-secondary"
                                 >
-                                  Set {set.set_number}: {set.weight ? `${set.weight}kg` : "—"} x {set.reps || "—"}
+                                  Set {set.set_number}: {set.weight ? `${set.weight}kg` : "—"} x {set.reps || "—"}{set.circuit_rounds !== undefined ? ` · ${set.circuit_rounds} circuit rounds` : ""}
                                 </span>
                               ))}
                             </div>
