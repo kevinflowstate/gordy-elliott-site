@@ -53,19 +53,19 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { data: linkData } = await admin.auth.admin.generateLink({
+    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
       type: "recovery",
       email: appUser.email,
     });
-    const resetUrl = linkData?.properties?.hashed_token
-      ? buildAccountRecoveryUrl(linkData.properties.hashed_token, "reset")
-      : linkData?.properties?.action_link || null;
-
-    if (resetUrl) {
-      await sendPasswordResetEmail(appUser.email, appUser.full_name || "there", resetUrl);
+    if (linkError || !linkData?.properties?.hashed_token || linkData.user?.id !== appUser.id) {
+      throw new Error("Account link generation failed");
     }
+    const setup = linkData.user.user_metadata?.requires_password_setup === true;
+    const resetUrl = buildAccountRecoveryUrl(linkData.properties.hashed_token, setup ? "setup" : "reset");
+    await sendPasswordResetEmail(appUser.email, appUser.full_name || "there", resetUrl, setup);
   } catch (error) {
     console.log("[PASSWORD_RESET] Reset email failed:", error instanceof Error ? error.message : error);
+    return NextResponse.json({ error: "We couldn't send a fresh link right now. Please try again shortly." }, { status: 503 });
   }
 
   return NextResponse.json(GENERIC_RESPONSE);

@@ -75,20 +75,21 @@ export async function sendPreparedMigrationWelcomeEmail(
   return assertEmailAccepted(result);
 }
 
-export async function sendPasswordResetEmail(to: string, name: string, resetUrl: string) {
+export async function sendPasswordResetEmail(to: string, name: string, resetUrl: string, setup = false) {
   const firstName = name.split(" ")[0] || "there";
-  const resend = await getResend(); return resend.emails.send({
+  const resend = await getResend(); const result = await resend.emails.send({
     from: FROM,
     to,
-    subject: "Reset your AT CAPACITY password",
+    subject: setup ? "Your fresh AT CAPACITY setup link" : "Reset your AT CAPACITY password",
     html: wrap(`
       <h2 style="margin: 0 0 8px; font-size: 20px; color: #111;">Hey ${escapeHtml(firstName)},</h2>
       <p style="color: #555; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
-        Use the button below to reset your portal password. If you didn&apos;t ask for this, you can ignore this email.
+        ${setup ? "Use the button below to finish setting up your account and choose a password." : "Use the button below to reset your portal password."} If you didn&apos;t ask for this, you can ignore this email.
       </p>
-      ${button(resetUrl, "Reset Password")}
+      ${button(resetUrl, setup ? "Finish Account Setup" : "Reset Password")}
     `),
   });
+  return assertEmailAccepted(result);
 }
 
 export async function sendCheckinReplyEmail(to: string, clientName: string, replyText: string) {

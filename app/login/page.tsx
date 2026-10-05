@@ -17,7 +17,8 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [resetMode, setResetMode] = useState(false);
+  const setupRecovery = searchParams.get("access") === "setup" || callbackError === "setup_link_invalid";
+  const [resetMode, setResetMode] = useState(setupRecovery);
   const [resetEmail, setResetEmail] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState("");
@@ -108,13 +109,13 @@ function LoginForm() {
             <span className="text-accent-bright">AT</span> CAPACITY
           </div>
           <h1 className="font-heading text-2xl font-black mb-2">Client Portal</h1>
-          <p className="text-text-secondary text-sm">{resetMode ? "Reset your password" : "Sign in to access your dashboard"}</p>
+          <p className="text-text-secondary text-sm">{resetMode ? (setupRecovery ? "Get a fresh account setup link" : "Reset your password") : "Sign in to access your dashboard"}</p>
         </div>
 
         <form onSubmit={resetMode ? handlePasswordReset : handleSubmit} className="bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-[20px] p-8">
           {callbackError === "setup_link_invalid" && !error && (
             <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-300 text-sm">
-              That setup link has expired or is invalid. Please ask Gordy to resend your setup email.
+              This link may already have been used or may have expired. Enter your email below for a fresh link, or <Link href="/auth/confirm?error=setup_link_invalid" className="underline font-semibold">continue an existing sign-in</Link>.
             </div>
           )}
           {resetMessage && (
@@ -147,7 +148,7 @@ function LoginForm() {
                 disabled={resetLoading}
                 className="w-full h-11 gradient-accent rounded-xl flex items-center justify-center text-white font-semibold text-sm disabled:opacity-60 transition-opacity"
               >
-                {resetLoading ? "Sending..." : "Send Reset Link"}
+                {resetLoading ? "Sending..." : setupRecovery ? "Send Fresh Link" : "Send Reset Link"}
               </button>
             </>
           ) : (

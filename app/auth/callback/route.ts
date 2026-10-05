@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { safeLocalRedirect } from '@/lib/safe-redirect';
+import { recoveryConfirmationUrl, recoveryDestination, isRecoveryType } from '@/lib/recovery-links';
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -9,6 +10,13 @@ export async function GET(request: Request) {
   const tokenHash = searchParams.get('token_hash');
   const type = searchParams.get('type') as 'recovery' | 'magiclink' | 'signup' | 'invite' | 'email';
   const redirect = safeLocalRedirect(searchParams.get('redirect'));
+
+  // Email scanners and browser previews must not consume a single-use setup token.
+  if (!code && isRecoveryType(type)) {
+    return NextResponse.redirect(recoveryConfirmationUrl(origin, tokenHash, type, redirect), {
+      headers: { 'Cache-Control': 'no-store', 'Referrer-Policy': 'strict-origin' },
+    });
+  }
 
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -50,4 +58,35 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.redirect(`${origin}${redirect}`);
+}
+
+export async function POST(request: Request) {
+  const origin = new URL(request.url).origin;
+  // Only the explicit same-origin confirmation form may redeem password links.
+  if (request.headers.get('origin') !== origin) {
+    return new NextResponse('Please open your setup link and try again.', { status: 403 });
+  }
+  const form = await request.formData().catch(() => null);
+  const tokenHash = form?.get('token_hash');
+  const type = form?.get('type');
+  const destination = recoveryDestination(typeof form?.get('redirect') === 'string' ? String(form?.get('redirect')) : null);
+  if (typeof tokenHash !== 'string' || !/^[a-f0-9]{32,128}$/i.test(tokenHash) || !isRecoveryType(type)) {
+    return NextResponse.redirect(new URL('/auth/confirm?error=setup_link_invalid', origin), 303);
+  }
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: {
+      getAll: () => cookieStore.getAll(),
+      setAll: (values) => values.forEach(({ name, value, options }) => cookieStore.set(name, value, options)),
+    } },
+  );
+  const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+  // Do not silently use a possibly different signed-in account. The recovery page
+  // names that account and lets the person explicitly choose to continue with it.
+  const target = error ? '/auth/confirm?error=setup_link_invalid' : destination;
+  return NextResponse.redirect(new URL(target, origin), {
+    status: 303,
+    headers: { 'Cache-Control': 'no-store', 'Referrer-Policy': 'strict-origin' },
+  });
 }
