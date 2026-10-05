@@ -58,10 +58,20 @@ export async function sendMigrationWelcomeEmail(
   setupUrl: string,
   idempotencyKey: string,
 ) {
+  return sendPreparedMigrationWelcomeEmail(prepareMigrationWelcomeEmail(to, name, setupUrl), idempotencyKey);
+}
+
+export function prepareMigrationWelcomeEmail(to: string, name: string, setupUrl: string) {
+  return { from: FROM, to, ...buildMigrationWelcomeEmail(name, setupUrl) };
+}
+
+export async function sendPreparedMigrationWelcomeEmail(
+  message: ReturnType<typeof prepareMigrationWelcomeEmail>,
+  idempotencyKey: string,
+) {
   if (!idempotencyKey.trim()) throw new Error("Migration email requires an idempotency key");
   const resend = await getResend();
-  const message = buildMigrationWelcomeEmail(name, setupUrl);
-  const result = await resend.emails.send({ from: FROM, to, ...message }, { idempotencyKey });
+  const result = await resend.emails.send(message, { idempotencyKey });
   return assertEmailAccepted(result);
 }
 
