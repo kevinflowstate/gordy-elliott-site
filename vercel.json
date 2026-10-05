@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/terra-nutrition-sync",
       "schedule": "15 */2 * * *"
+    },
+    {
+      "path": "/api/cron/support-notifications",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

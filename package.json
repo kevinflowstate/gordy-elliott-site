@@ -47,7 +47,8 @@
     "ios:build": "npm run ios:sync && xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath ${IOS_DERIVED_DATA_PATH:-.ios-derived-data} CODE_SIGNING_ALLOWED=NO build",
     "ios:preflight": "node scripts/ios-release-preflight.mjs",
     "ios:archive": "npm run ios:sync && npm run ios:preflight && node scripts/archive-ios.mjs",
-    "ios:upload": "npm run ios:preflight && node scripts/upload-ios.mjs"
+    "ios:upload": "npm run ios:preflight && node scripts/upload-ios.mjs",
+    "test:support": "tsx --test tests/support-reports.test.ts tests/support-api.test.ts tests/support-notifications.test.ts"
   },
   "dependencies": {
     "@capacitor/app": "^8.0.1",
@@ -70,10 +71,12 @@
     "react-dom": "19.2.3",
     "recharts": "^3.8.1",
     "resend": "6.14.0",
+    "sharp": "0.35.3",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.4.2",
+    "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

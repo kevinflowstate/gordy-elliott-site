@@ -18,8 +18,13 @@ export default function SupportPage() {
 
         <div className="mt-10 space-y-6">
           <section className="border-t border-white/10 pt-6">
-            <h2 className="font-heading text-xl font-bold">Coaching and app help</h2>
-            <p className="mt-3 text-[15px] leading-7 text-[#c3c4cd]">Sign in and open DM to message Gordy directly. Include the page you were using and what happened if you are reporting a problem.</p>
+            <h2 className="font-heading text-xl font-bold">Report an app problem</h2>
+            <p className="mt-3 text-[15px] leading-7 text-[#c3c4cd]">Send technical problems directly to the app support team. You can report an issue even if you cannot sign in.</p>
+            <Link href="/support/report" className="mt-4 inline-flex min-h-12 items-center rounded-lg bg-[#e040d0] px-5 font-semibold text-white no-underline">Report an app problem</Link>
+          </section>
+          <section className="border-t border-white/10 pt-6">
+            <h2 className="font-heading text-xl font-bold">Coaching questions</h2>
+            <p className="mt-3 text-[15px] leading-7 text-[#c3c4cd]">Sign in and open DM to message Gordy about your coaching, training or nutrition.</p>
             <Link href="/login" className="mt-4 inline-flex min-h-12 items-center rounded-lg bg-[#e040d0] px-5 font-semibold text-white no-underline">Open client login</Link>
           </section>
 

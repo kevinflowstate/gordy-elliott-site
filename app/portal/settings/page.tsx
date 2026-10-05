@@ -556,6 +556,7 @@ function SettingsContent() {
         <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
           <Link href="/privacy" className="font-semibold text-accent-bright no-underline">Privacy policy</Link>
           <Link href="/support" className="font-semibold text-accent-bright no-underline">Support</Link>
+          <Link href="/support/report" className="font-semibold text-accent-bright no-underline">Report an app problem</Link>
           {nativeVersion && <span className="text-text-muted">Version {nativeVersion}</span>}
         </div>
       </div>
