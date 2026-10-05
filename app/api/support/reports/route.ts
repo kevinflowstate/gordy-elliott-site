@@ -1,6 +1,5 @@
 import { createHmac } from "node:crypto";
 import { NextResponse } from "next/server";
-import sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateSupportInput } from "@/lib/support-contract";
 
@@ -136,6 +135,7 @@ export async function POST(request: Request) {
           { status: 400 },
         );
       try {
+        const { default: sharp } = await import("sharp");
         const processor = sharp(Buffer.from(await file.arrayBuffer()), {
           limitInputPixels: 20_000_000,
         });
