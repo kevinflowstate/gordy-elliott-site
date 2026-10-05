@@ -22,6 +22,13 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        source: "/auth/:path*",
+        headers: [
+          { key: "Cache-Control", value: "no-store" },
+          { key: "Referrer-Policy", value: "strict-origin" },
+        ],
+      },
+      {
         source: "/sw.js",
         headers: [
           {
