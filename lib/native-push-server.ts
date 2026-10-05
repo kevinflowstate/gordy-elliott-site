@@ -1,7 +1,7 @@
 import "server-only";
 
 import { connect, constants, type ClientHttp2Session } from "node:http2";
-import { createPrivateKey, sign } from "node:crypto";
+import { createApnsProviderToken } from "@/lib/apns-provider-token";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { PushChannelResult, PushMessage } from "@/lib/push-contract";
 import {
@@ -24,13 +24,8 @@ type ApnsConfig = {
   topic: string;
 };
 
-let cachedProviderToken: { value: string; createdAt: number; cacheKey: string } | null = null;
 const APNS_REQUEST_TIMEOUT_MS = 10_000;
 const APNS_RESPONSE_LIMIT = 2_048;
-
-function base64Url(value: string | Buffer) {
-  return Buffer.from(value).toString("base64url");
-}
 
 function loadApnsConfig(): ApnsConfig | null {
   const keyId = process.env.APNS_KEY_ID?.trim();
@@ -39,25 +34,6 @@ function loadApnsConfig(): ApnsConfig | null {
   const topic = process.env.APNS_BUNDLE_ID?.trim() || NATIVE_PUSH_APP_ID;
   if (!keyId || !teamId || !privateKey) return null;
   return { keyId, teamId, privateKey, topic };
-}
-
-function providerToken(config: ApnsConfig) {
-  const now = Math.floor(Date.now() / 1000);
-  const cacheKey = `${config.teamId}:${config.keyId}`;
-  if (cachedProviderToken && cachedProviderToken.cacheKey === cacheKey && now - cachedProviderToken.createdAt < 50 * 60) {
-    return cachedProviderToken.value;
-  }
-
-  const header = base64Url(JSON.stringify({ alg: "ES256", kid: config.keyId }));
-  const claims = base64Url(JSON.stringify({ iss: config.teamId, iat: now }));
-  const unsignedToken = `${header}.${claims}`;
-  const signature = sign("sha256", Buffer.from(unsignedToken), {
-    key: createPrivateKey(config.privateKey),
-    dsaEncoding: "ieee-p1363",
-  });
-  const value = `${unsignedToken}.${base64Url(signature)}`;
-  cachedProviderToken = { value, createdAt: now, cacheKey };
-  return value;
 }
 
 function endpointFor(environment: NativePushEnvironment) {
@@ -71,6 +47,7 @@ async function deliverToDevice(
   device: NativeDevice,
   message: PushMessage,
   config: ApnsConfig,
+  providerToken: string,
 ) {
   const payload = JSON.stringify(createApnsPayload(message));
 
@@ -78,7 +55,7 @@ async function deliverToDevice(
     const request = client.request({
       ":method": "POST",
       ":path": `/3/device/${device.token}`,
-      authorization: `bearer ${providerToken(config)}`,
+      authorization: `bearer ${providerToken}`,
       "apns-topic": config.topic,
       "apns-push-type": "alert",
       "apns-priority": "10",
@@ -128,6 +105,7 @@ async function deliverToEnvironment(
   devices: NativeDevice[],
   message: PushMessage,
   config: ApnsConfig,
+  providerToken: string,
 ) {
   const client = connect(endpointFor(environment));
   client.on("error", () => {
@@ -138,7 +116,7 @@ async function deliverToEnvironment(
     return await Promise.all(
       devices.map(async (device) => {
         try {
-          return { device, delivery: await deliverToDevice(client, device, message, config) };
+          return { device, delivery: await deliverToDevice(client, device, message, config, providerToken) };
         } catch (deliveryError) {
           return {
             device,
@@ -182,6 +160,16 @@ export async function sendNativePushToUser(userId: string, message: PushMessage)
     };
   }
 
+  let providerToken: string;
+  try {
+    providerToken = createApnsProviderToken(config);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "APNs signing configuration is invalid.";
+    console.error("Native push configuration invalid:", reason);
+    // A server credential fault is not evidence that a client's token is bad.
+    return { sent: 0, failed: devices.length, subscriptionCount: devices.length, reason };
+  }
+
   const grouped = devices.reduce<Map<NativePushEnvironment, NativeDevice[]>>((groups, device) => {
     const group = groups.get(device.environment) || [];
     group.push(device);
@@ -190,7 +178,7 @@ export async function sendNativePushToUser(userId: string, message: PushMessage)
   }, new Map());
   const settled = (await Promise.all(
     [...grouped.entries()].map(([environment, environmentDevices]) =>
-      deliverToEnvironment(environment, environmentDevices, message, config),
+      deliverToEnvironment(environment, environmentDevices, message, config, providerToken),
     ),
   )).flat();
 

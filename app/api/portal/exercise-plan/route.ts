@@ -1,3 +1,4 @@
+import { createExerciseSectionDivider } from "@/lib/exercise-section";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
@@ -54,16 +55,7 @@ export async function GET() {
   for (const item of items || []) {
     const list = itemsBySession.get(item.session_id) || [];
     if (item.section_label) {
-      list.push({
-        ...item,
-        id: `section-${item.id}`,
-        exercise_id: "__section__",
-        order_index: item.order_index - 0.5,
-        sets: 0,
-        reps: "",
-        section_label: item.section_label,
-        exercise: null,
-      });
+      list.push(createExerciseSectionDivider(item));
     }
     list.push(item);
     itemsBySession.set(item.session_id, list);

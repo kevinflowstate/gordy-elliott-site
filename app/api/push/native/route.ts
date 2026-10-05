@@ -59,8 +59,8 @@ export async function POST(request: Request) {
     environment,
     last_seen_at: now,
     disabled_at: null,
-    failure_count: 0,
-    last_failure: null,
+    // Existing delivery failures survive app launches/re-registration. New rows
+    // receive the database defaults; only a successful delivery clears errors.
     updated_at: now,
   }, { onConflict: "token,app_id,environment" });
 
