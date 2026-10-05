@@ -48,7 +48,7 @@
     "ios:preflight": "node scripts/ios-release-preflight.mjs",
     "ios:archive": "npm run ios:sync && npm run ios:preflight && node scripts/archive-ios.mjs",
     "ios:upload": "npm run ios:preflight && node scripts/upload-ios.mjs",
-    "test:support": "tsx --test tests/support-reports.test.ts tests/support-api.test.ts"
+    "test:support": "tsx --test tests/support-reports.test.ts tests/support-api.test.ts tests/support-notifications.test.ts"
   },
   "dependencies": {
     "@capacitor/app": "^8.0.1",
