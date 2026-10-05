@@ -1,3 +1,4 @@
+import { createExerciseSectionDivider } from "@/lib/exercise-section";
 import { requireAdmin } from "@/lib/admin-auth";
 import { dbError } from "@/lib/api-errors";
 import { normalisePrescriptionType } from "@/lib/exercise-prescriptions";
@@ -93,21 +94,7 @@ export async function GET() {
     const list = itemsBySession.get(item.session_id) || [];
     // If this item has a section_label, insert a section divider before it
     if (item.section_label) {
-      list.push({
-        id: `section-${item.id}`,
-        session_id: item.session_id,
-        exercise_id: "__section__",
-        order_index: item.order_index - 0.5,
-        sets: 0,
-        reps: "",
-        rest_seconds: null,
-        tempo: null,
-        notes: null,
-        section_label: item.section_label,
-        superset_group: null,
-        exercise: null,
-        created_at: item.created_at,
-      });
+      list.push(createExerciseSectionDivider(item));
     }
     list.push(item);
     itemsBySession.set(item.session_id, list);

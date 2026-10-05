@@ -7,6 +7,7 @@ export interface WorkoutSetData {
   circuit_rounds?: number;
   circuit_ends_at?: number;
   circuit_remaining_seconds?: number;
+  circuit_duration_seconds?: number;
 }
 
 export function workoutSetProgress(sets: WorkoutSetData[] | undefined) {

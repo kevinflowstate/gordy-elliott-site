@@ -1,4 +1,5 @@
 import { getSiteUrl } from "./site-url";
+import { assertEmailAccepted, buildMigrationWelcomeEmail } from "./migration-welcome-email";
 
 function escapeHtml(str: string): string {
   return str
@@ -26,12 +27,13 @@ function wrap(content: string): string {
 }
 
 function button(href: string, label: string): string {
-  return `<a href="${href}" style="display: inline-block; background: #E040D0; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">${label}</a>`;
+  return `<a href="${escapeHtml(href)}" style="display: inline-block; background: #E040D0; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">${label}</a>`;
 }
 
 export async function sendWelcomeEmail(to: string, name: string, setupUrl: string) {
   const firstName = name.split(" ")[0];
-  const resend = await getResend(); return resend.emails.send({
+  const resend = await getResend();
+  const result = await resend.emails.send({
     from: FROM,
     to,
     subject: "Start your AT CAPACITY setup",
@@ -43,6 +45,24 @@ export async function sendWelcomeEmail(to: string, name: string, setupUrl: strin
       ${button(setupUrl, "Set Up Your Account")}
     `),
   });
+  assertEmailAccepted(result);
+  return result;
+}
+
+// This dated migration message is deliberately separate from normal invitations.
+// The caller retains a durable per-client send ledger as provider deduplication
+// alone is time-limited. Reuse the same key and payload for a retry.
+export async function sendMigrationWelcomeEmail(
+  to: string,
+  name: string,
+  setupUrl: string,
+  idempotencyKey: string,
+) {
+  if (!idempotencyKey.trim()) throw new Error("Migration email requires an idempotency key");
+  const resend = await getResend();
+  const message = buildMigrationWelcomeEmail(name, setupUrl);
+  const result = await resend.emails.send({ from: FROM, to, ...message }, { idempotencyKey });
+  return assertEmailAccepted(result);
 }
 
 export async function sendPasswordResetEmail(to: string, name: string, resetUrl: string) {

@@ -1,4 +1,4 @@
-import { buildWorkoutBlocks } from "@/lib/workout-groups";
+import { buildWorkoutBlocks, emomMinuteParity } from "@/lib/workout-groups";
 import { formatExercisePrescription, shouldUseSetLogging } from "@/lib/exercise-prescriptions";
 import { getExerciseDemoUrl } from "@/lib/exercise-demo";
 import type { WorkoutSetData } from "@/lib/workout-runner";
@@ -84,6 +84,7 @@ export interface NativeWorkoutLaunchPayload {
       groupID: string;
       groupKind: string;
       durationSeconds: number | null;
+      emomMinuteParity: "odd" | "even" | null;
     }>;
   };
   date: string;
@@ -115,6 +116,7 @@ export function buildNativeWorkoutLaunchPayload(options: NativeWorkoutLaunchOpti
     groupID: block.id,
     groupKind: block.kind,
     durationSeconds: block.durationSeconds,
+    emomMinuteParity: block.kind === "emom" ? emomMinuteParity(`${item.prescription_text || ""} ${item.notes || ""}`) : null,
   })));
 
   return {

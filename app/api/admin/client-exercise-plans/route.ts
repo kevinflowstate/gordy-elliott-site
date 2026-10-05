@@ -1,3 +1,4 @@
+import { createExerciseSectionDivider } from "@/lib/exercise-section";
 import { requireAdmin } from "@/lib/admin-auth";
 import { dbError } from "@/lib/api-errors";
 import { notifyClientProfile } from "@/lib/client-notifications";
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
   const { data: items } = sessionIds.length
     ? await admin
         .from("client_exercise_session_items")
-        .select("*, exercise:exercises(id, name, muscle_group, equipment, description)")
+        .select("*, exercise:exercises(id, name, muscle_group, equipment, description, video_url)")
         .in("session_id", sessionIds)
         .order("order_index", { ascending: true })
     : { data: [] };
@@ -50,16 +51,7 @@ export async function GET(request: Request) {
   for (const item of items || []) {
     const list = itemsBySession.get(item.session_id) || [];
     if (item.section_label) {
-      list.push({
-        ...item,
-        id: `section-${item.id}`,
-        exercise_id: "__section__",
-        order_index: item.order_index - 0.5,
-        sets: 0,
-        reps: "",
-        section_label: item.section_label,
-        exercise: null,
-      });
+      list.push(createExerciseSectionDivider(item));
     }
     list.push(item);
     itemsBySession.set(item.session_id, list);

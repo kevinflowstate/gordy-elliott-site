@@ -58,7 +58,7 @@ final class NativeWorkoutViewModel: ObservableObject {
     }
     var nextIndex: Int { currentRange.upperBound + 1 }
     var circuitExercise: NativeWorkoutExercise? {
-        guard let first = currentExercises.first, first.groupKind == "amrap" || first.groupKind == "circuit" else { return nil }
+        guard let first = currentExercises.first, first.groupKind == "amrap" || first.groupKind == "circuit" || first.groupKind == "emom" else { return nil }
         return first
     }
 
@@ -127,7 +127,7 @@ final class NativeWorkoutViewModel: ObservableObject {
         }
         let groupRest = currentExercises.compactMap(\.restSeconds).max() ?? restSeconds ?? 0
         if sets[exerciseID]?[index].completed == true, roundComplete,
-           currentExercise?.groupKind != "amrap", groupRest > 0 {
+           currentExercise?.groupKind != "amrap", currentExercise?.groupKind != "emom", groupRest > 0 {
             restEndsAt = Date().addingTimeInterval(TimeInterval(groupRest))
         }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -412,10 +412,10 @@ struct NativeWorkoutView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                         if let section = first.section { Text(section.uppercased()).font(.caption.bold()).foregroundColor(NativeWorkoutPalette.pink) }
-                        if model.currentExercises.count > 1 || first.groupKind == "amrap" {
-                            Text(first.groupKind == "amrap" ? "AMRAP circuit" : model.currentExercises.count == 2 ? "Superset" : "Circuit")
+                        if model.currentExercises.count > 1 || first.groupKind == "amrap" || first.groupKind == "emom" {
+                            Text(first.groupKind == "amrap" ? "AMRAP circuit" : first.groupKind == "emom" ? "EMOM circuit" : model.currentExercises.count == 2 ? "Superset" : "Circuit")
                                 .font(.title.bold())
-                            Text("\(model.currentExercises.count) exercises · complete in order")
+                            Text(first.groupKind == "emom" ? "\(model.currentExercises.count) exercises · follow the minute prescription" : "\(model.currentExercises.count) exercises · complete in order")
                                 .font(.subheadline).foregroundColor(.white.opacity(0.6))
                         }
                         if model.currentExercises.count > 1 {
@@ -977,19 +977,28 @@ private struct NativeCircuitControls: View {
     @State private var minutes = ""
 
     private var value: NativeWorkoutSet? { model.sets[exercise.id]?.first }
+    private var isEMOM: Bool { exercise.groupKind == "emom" }
     private func update(_ change: (inout NativeWorkoutSet) -> Void) {
         model.updateSet(exerciseID: exercise.id, index: 0, update: change)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            if isEMOM {
+                Text("Start the prescribed exercise each minute. Rest for the remainder of that minute.")
+                    .font(.subheadline).foregroundColor(.white.opacity(0.65))
+            }
             if model.launch.mode != "edit" {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     let now = context.date.timeIntervalSince1970 * 1000
                     let end = value?.circuitEndsAt ?? 0
                     let remaining = end > 0 ? max(0, Int(ceil((end - now) / 1000))) : (value?.circuitRemainingSeconds ?? exercise.durationSeconds)
                     let running = end > now
+                    let total = exercise.durationSeconds ?? value?.circuitDurationSeconds
                     VStack(alignment: .leading, spacing: 12) {
+                        if isEMOM, let total, total > 0, let remaining, remaining > 0 {
+                            minuteCue(total: total, remaining: remaining)
+                        }
                         if let remaining {
                             Text(String(format: "%d:%02d", remaining / 60, remaining % 60))
                                 .font(.system(size: 34, weight: .bold, design: .monospaced))
@@ -1000,7 +1009,9 @@ private struct NativeCircuitControls: View {
                             TextField("Timer minutes (optional)", text: $minutes)
                                 .keyboardType(.numberPad)
                                 .onChange(of: minutes) { text in
-                                    if let n = Int(text), n > 0, n <= 120 { update { $0.circuitRemainingSeconds = n * 60 } }
+                                    if let n = Int(text), n > 0, n <= 120 {
+                                        update { $0.circuitDurationSeconds = n * 60; $0.circuitRemainingSeconds = n * 60 }
+                                    }
                                 }
                                 .accessibilityLabel("Circuit timer minutes")
                         }
@@ -1008,20 +1019,22 @@ private struct NativeCircuitControls: View {
                             if running {
                                 update { $0.circuitRemainingSeconds = remaining; $0.circuitEndsAt = nil }
                             } else {
-                                update { $0.circuitEndsAt = Date().timeIntervalSince1970 * 1000 + Double(remaining ?? 0) * 1000 }
+                                update {
+                                    if total == nil { $0.circuitDurationSeconds = remaining }
+                                    $0.circuitEndsAt = Date().timeIntervalSince1970 * 1000 + Double(remaining ?? 0) * 1000
+                                }
                             }
                         }
                         .buttonStyle(.borderedProminent)
                         .disabled(value == nil || (remaining ?? 0) <= 0)
                         Button("Reset timer") {
-                            update { $0.circuitEndsAt = nil; $0.circuitRemainingSeconds = exercise.durationSeconds }
-                            minutes = ""
+                            update { $0.circuitEndsAt = nil; $0.circuitRemainingSeconds = total }
                         }
                         .font(.caption)
                     }
                 }
             }
-            HStack {
+            if !isEMOM { HStack {
                 Button("−") { update { $0.circuitRounds = max(0, ($0.circuitRounds ?? 0) - 1) } }
                     .accessibilityLabel("Remove circuit round")
                     .disabled((value?.circuitRounds ?? 0) == 0)
@@ -1029,11 +1042,28 @@ private struct NativeCircuitControls: View {
                 Button("+ Round") { update { $0.circuitRounds = min(9999, ($0.circuitRounds ?? 0) + 1) } }
                     .disabled(value == nil)
             }
-            .buttonStyle(.bordered)
-            Text("Count one round after every exercise. Log individual results below.")
+            .buttonStyle(.bordered) }
+            Text(isEMOM ? "Log each exercise’s results below. The timer tracks minutes, not completed rounds." : "Count one round after every exercise. Log individual results below.")
                 .font(.caption).foregroundColor(.white.opacity(0.55))
         }
         .padding(16)
         .background(NativeWorkoutPalette.pink.opacity(0.09), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func minuteCue(total: Int, remaining: Int) -> some View {
+        let elapsed = max(0, total - remaining)
+        let minute = elapsed / 60 + 1
+        let seconds = min(60 - elapsed % 60, remaining)
+        let parity = minute % 2 == 1 ? "odd" : "even"
+        let active = model.currentExercises.filter { $0.emomMinuteParity == parity }.map(\.name)
+        return VStack(alignment: .leading, spacing: 6) {
+            Text("Minute \(minute) of \((total + 59) / 60) · \(seconds)s until next minute")
+                .font(.subheadline.bold())
+            Text(active.isEmpty ? "Follow this minute’s prescription below" : active.joined(separator: " + "))
+                .font(.subheadline).foregroundColor(NativeWorkoutPalette.pink)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
     }
 }

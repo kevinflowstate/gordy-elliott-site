@@ -8,7 +8,7 @@ import {
   workoutSetProgress,
   type WorkoutSetData,
 } from "@/lib/workout-runner";
-import { buildWorkoutBlocks, blockForIndex } from "@/lib/workout-groups";
+import { buildWorkoutBlocks, blockForIndex, emomMinuteParity } from "@/lib/workout-groups";
 import WorkoutCircuitControls from "./WorkoutCircuitControls";
 import type { ExerciseSession, ExerciseSessionItem } from "@/lib/types";
 
@@ -223,7 +223,7 @@ export default function AtCapacityWorkoutRunner({
     const block = blocks.find(block => block.exercises.some(exercise => exercise.item.id === item.id));
     const roundComplete = block?.exercises.every(({ item: member }) => member.id === item.id || sets[member.id]?.[setIndex]?.completed);
     const restSeconds = Math.max(0, ...(block?.exercises.map(({ item }) => item.rest_seconds || 0) || []));
-    if (!wasCompleted && roundComplete && block?.kind !== "amrap" && restSeconds > 0) {
+    if (!wasCompleted && roundComplete && block?.kind !== "amrap" && block?.kind !== "emom" && restSeconds > 0) {
       setRestRemaining(restSeconds);
     }
   }
@@ -349,9 +349,9 @@ export default function AtCapacityWorkoutRunner({
 
           {stage === "exercise" && current && (
             <div className="pb-3">
-              {currentBlock && currentBlock.kind !== "exercise" && <h1 className="mb-4 text-2xl font-bold">{currentBlock.kind === "amrap" ? "AMRAP circuit" : currentBlock.kind === "superset" ? "Superset" : "Circuit"} · {currentBlock.exercises.length} exercises</h1>}
+              {currentBlock && currentBlock.kind !== "exercise" && <h1 className="mb-4 text-2xl font-bold">{currentBlock.kind === "amrap" ? "AMRAP circuit" : currentBlock.kind === "emom" ? "EMOM circuit" : currentBlock.kind === "superset" ? "Superset" : "Circuit"} · {currentBlock.exercises.length} exercises</h1>}
               {currentBlock && currentBlock.exercises.length > 1 && <ol className="mb-5 space-y-2 rounded-xl bg-white/5 p-3">{currentBlock.exercises.map(({ item }, index) => <li key={item.id} className="flex items-start gap-3 text-sm"><span className="font-bold text-[#F060E0]">{index + 1}</span><span className="flex-1 font-semibold">{item.exercise?.name || "Exercise"}</span><span className="max-w-[45%] text-right text-xs text-white/55">{formatExercisePrescription(item)}</span></li>)}</ol>}
-              {currentBlock && (currentBlock.kind === "amrap" || currentBlock.kind === "circuit") && <WorkoutCircuitControls value={sets[current.item.id]?.[0]} duration={currentBlock.durationSeconds} editing={editingSavedSession} onChange={(field, value) => onUpdateSet(current.item.id, 0, field, value)} />}
+              {currentBlock && (currentBlock.kind === "amrap" || currentBlock.kind === "circuit" || currentBlock.kind === "emom") && <WorkoutCircuitControls value={sets[current.item.id]?.[0]} duration={currentBlock.durationSeconds} editing={editingSavedSession} emomExercises={currentBlock.kind === "emom" ? currentBlock.exercises.map(({ item }) => ({ name: item.exercise?.name || "Exercise", parity: emomMinuteParity(`${item.prescription_text || ""} ${item.notes || ""}`) })) : undefined} onChange={(field, value) => onUpdateSet(current.item.id, 0, field, value)} />}
               {currentBlock?.exercises.map((current, offset) => <section key={current.item.id} aria-label={current.item.exercise?.name || "Exercise"} className="mb-8 border-b border-white/10 pb-6 last:border-0">
               {current.section && <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#F060E0]">{current.section}</p>}
               <div className="mt-2 flex items-start justify-between gap-4">

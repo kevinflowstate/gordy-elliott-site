@@ -15,6 +15,8 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Dot } from
 import PhotoGallery from "@/components/portal/PhotoGallery";
 import { normalizeCheckinConfig } from "@/lib/checkin-form";
 import { formatExercisePrescription } from "@/lib/exercise-prescriptions";
+import { getExerciseDemoUrl } from "@/lib/exercise-demo";
+import { openExerciseDemo } from "@/lib/exercise-demo-client";
 import { useToast } from "@/components/ui/Toast";
 import { titleCaseProvider } from "@/lib/wearable-insights";
 import { legacyProfileForProgramme, PROGRAMME_TYPES, programmeConfig } from "@/lib/programmes";
@@ -4156,7 +4158,7 @@ function TrainingTabContent({
                         {session.day_number}
                       </span>
                       <span className="font-medium text-text-primary text-sm flex-1 text-left">{session.name}</span>
-                      <span className="text-xs text-text-muted">{session.items.length} exercises</span>
+                      <span className="text-xs text-text-muted">{session.items.filter((item) => item.exercise_id !== "__section__").length} exercises</span>
                       <svg
                         className={`w-4 h-4 text-text-muted transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
                         fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -4166,15 +4168,26 @@ function TrainingTabContent({
                     </button>
                     {isExpanded && session.items.length > 0 && (
                       <div className="border-t border-[rgba(0,0,0,0.04)] px-4 pb-3 pt-2 space-y-1.5">
-                        {session.items.map((item) => (
-                          <div key={item.id} className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-[rgba(0,0,0,0.02)] transition-colors">
+                        {session.items.map((item) => item.exercise_id === "__section__" ? (
+                          <h4 key={item.id} className="px-2 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                            {item.section_label || "Section"}
+                          </h4>
+                        ) : (
+                          <div key={item.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 py-1.5 px-2 rounded-lg hover:bg-[rgba(0,0,0,0.02)] transition-colors">
                             <div className="flex-1 min-w-0">
                               <span className="text-sm text-text-primary">{item.exercise?.name || "Exercise"}</span>
-                              {item.section_label && (
-                                <span className="text-[10px] text-text-muted ml-2">{item.section_label}</span>
-                              )}
                             </div>
-                            <div className="flex items-center gap-2 text-xs text-text-secondary flex-shrink-0">
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary sm:max-w-[65%]">
+                              {getExerciseDemoUrl(item.exercise?.video_url, item.exercise?.name) && (
+                                <button
+                                  type="button"
+                                  onClick={() => void openExerciseDemo(item.exercise?.video_url, item.exercise?.name)}
+                                  aria-label={`Watch ${item.exercise?.name || "exercise"} demo`}
+                                  className="text-[#E040D0] hover:text-[#b830a8] font-medium cursor-pointer"
+                                >
+                                  Video
+                                </button>
+                              )}
                               <span>{formatExercisePrescription(item)}</span>
                               {item.rest_seconds && (
                                 <span className="text-text-muted">{item.rest_seconds}s rest</span>
