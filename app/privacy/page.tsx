@@ -14,6 +14,10 @@ const sections: Array<{
   icoPolicyLink?: boolean;
 }> = [
   {
+    title: "Technical support reports",
+    body: "When you report an app problem, AT CAPACITY stores the contact details, problem description, page path, device or app version and optional screenshot you submit, together with the submission time. Reports and screenshots are private to Gordy and authorised Flowstate support staff, who use them to investigate and resolve the problem. An email submitted without signing in is not treated as verified account ownership. Screenshots are stored privately and displayed through short-lived links. Please crop unrelated health or personal information from screenshots. Limited pseudonymous request information is used to prevent repeated or abusive submissions. You can ask for support records to be corrected or deleted through the support contact; necessary investigation records may be retained for as long as reasonably required to resolve and document the issue.",
+  },
+  {
     title: "Who is responsible and your legal rights",
     body: "Gordy Elliott is the data controller for AT CAPACITY. Flowstate operates and supports the platform on his behalf. Core coaching information is processed to provide the coaching service you have agreed to; optional calendar, wearable, cycle and notification features are processed with your consent; and limited security and abuse-prevention records are processed for the legitimate interest of protecting the service. Where health information is involved, AT CAPACITY relies on the explicit consent collected in the app. You may ask to access, correct or erase your information, restrict or object to processing where applicable, withdraw consent for an optional feature, or request a portable copy. Withdrawing consent does not affect processing that was lawful before withdrawal. You may also complain to the UK Information Commissioner’s Office.",
     icoPolicyLink: true,
@@ -84,7 +88,7 @@ export default function PrivacyPage() {
       <article className="mx-auto max-w-3xl">
         <Link href="/" className="text-sm font-semibold text-[#f06be3] no-underline">AT CAPACITY</Link>
         <h1 className="mt-6 font-heading text-4xl font-bold">Privacy Policy</h1>
-        <p className="mt-3 text-sm text-[#aeb0bb]">Effective 4 September 2026</p>
+        <p className="mt-3 text-sm text-[#aeb0bb]">Effective 5 October 2026</p>
         <p className="mt-8 text-base leading-7 text-[#d3d4dc]">
           This policy explains how AT CAPACITY by Gordy Elliott handles information when you use the website, PWA or iOS app.
         </p>
