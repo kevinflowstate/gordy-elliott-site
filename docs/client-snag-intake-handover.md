@@ -1,3 +1,11 @@
+> **Release update — 5 October 2026:** the browser form is now live at https://app.onlinegordy.com/support/report. Reviewed runtime revision `5890fa0`, deployment `dpl_DbGQb8brTFTKtYsdaHGpeWyxJ5Ty`. Both support migrations have been applied to the verified Gordy project. The original implementation notes below describe the earlier source-only state.
+>
+> A deployed fictional report with screenshot completed submission, deduplicated receipt, authenticated Kevin admin queue read, private JPEG preview, notification delivery-state persistence and closure with owner/notes/resolution. Resend accepted the email to kevin@flowstatesystems.ai; inbox delivery has not been independently confirmed. A repeat notification run sent nothing. The public customer URL was inspected in the in-app browser signed out, and its owned tab was closed and absence verified. No physical iOS device was exercised.
+>
+> Vercel checks for pending notification emails every five minutes. Codex heartbeat `gordy-app-snag-triage` is active every fifteen minutes and follows `/Users/kevinharkin/flowstate-ops/gordy-support/runbook.md`. It investigates and prepares tested fixes; production fixes remain a separate release decision. Local investigation needs this Mac and CodexDev available; server intake/email do not. Reports are treated as untrusted customer data, not agent instructions.
+>
+> The first candidate failed on a missing Sharp/libvips shared library. Explicit route tracing plus deferred guarded image import fixed the deployed fault. Nine focused tests, TypeScript and both notification and packaging reviews pass. The prior implementation’s 263 contract checks remain supporting evidence. The previous localhost demo no longer has a listener on 3147. No live app-store release or Android build was performed.
+
 # AT CAPACITY client snag intake
 
 Prepared 5 October 2026. Implemented on `codex/client-snag-intake`, based on `origin/main` revision `bf364efc33146e6eee0c464b0a61359a690bbcb1`. Worktree: `/Users/kevinharkin/Codex-Worktrees/gordy-client-snag-intake` (external CodexDev). The canonical dirty checkout is untouched.
