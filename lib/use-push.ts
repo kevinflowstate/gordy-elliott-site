@@ -1,95 +1,75 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { Capacitor } from "@capacitor/core";
 import { normalizeVapidKey } from "@/lib/vapid";
+import { readyPushServiceWorker, syncWebPushRegistration, vapidKeyBytes } from "@/lib/web-push-registration";
+import { postPushRegistration } from "@/lib/push-registration-client";
 
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = window.atob(base64);
-  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+function hasWebPushSupport() {
+  return !Capacitor.isNativePlatform() && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
 }
 
-function buffersMatch(a: ArrayBuffer | null, b: Uint8Array) {
-  if (!a) return false;
-  const left = new Uint8Array(a);
-  if (left.length !== b.length) return false;
-  return left.every((value, index) => value === b[index]);
-}
-
-async function syncSubscription(subscription: PushSubscription) {
-  const res = await fetch("/api/push/subscribe", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(subscription.toJSON()),
-  });
-  return res.ok;
+async function syncRegistration(create: boolean) {
+  const key = normalizeVapidKey(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY);
+  if (!key) return false;
+  const registration = await readyPushServiceWorker(navigator.serviceWorker);
+  return syncWebPushRegistration(registration, vapidKeyBytes(key), create,
+    (subscription) => postPushRegistration("/api/push/subscribe", subscription));
 }
 
 export function usePush() {
-  const [permission, setPermission] = useState<NotificationPermission>(() => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      return Notification.permission;
-    }
-    return "default";
-  });
+  const [permission, setPermission] = useState<NotificationPermission>("default");
   const [subscribed, setSubscribed] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const [error, setError] = useState(false);
+
+  const refresh = useCallback(async () => {
+    if (!hasWebPushSupport()) { setChecking(false); return; }
+    const current = Notification.permission;
+    setPermission(current);
+    if (current !== "granted") { setSubscribed(false); setChecking(false); return; }
+    try {
+      const synced = await syncRegistration(false);
+      setSubscribed(synced);
+      setError(!synced);
+    } catch {
+      setSubscribed(false);
+      setError(true);
+    } finally {
+      setChecking(false);
+    }
+  }, []);
 
   useEffect(() => {
-    // Check if already subscribed
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.ready.then((reg) => {
-        reg.pushManager.getSubscription().then(async (sub) => {
-          const vapidKey = normalizeVapidKey(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY);
-          const currentKey = vapidKey ? urlBase64ToUint8Array(vapidKey) : null;
-          if (sub && currentKey && !buffersMatch(sub.options.applicationServerKey, currentKey)) {
-            await sub.unsubscribe();
-            setSubscribed(false);
-            return;
-          }
-
-          setSubscribed(!!sub);
-          // Browser permission alone is not enough: after login/device changes,
-          // make sure the server has the active endpoint for this user.
-          if (sub && Notification.permission === "granted") {
-            await syncSubscription(sub);
-          }
-        });
-      });
-    }
-  }, []);
+    void refresh();
+    const onVisible = () => { if (document.visibilityState === "visible") void refresh(); };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [refresh]);
 
   const subscribe = useCallback(async () => {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    if (!hasWebPushSupport()) return false;
+    setError(false);
+    try {
+      // Keep the permission request within the client's explicit button click.
+      const result = await Notification.requestPermission();
+      setPermission(result);
+      if (result !== "granted") { setSubscribed(false); return false; }
+      const synced = await syncRegistration(true);
+      setSubscribed(synced);
+      setError(!synced);
+      return synced;
+    } catch {
+      setSubscribed(false);
+      setError(true);
       return false;
     }
-
-    const perm = await Notification.requestPermission();
-    setPermission(perm);
-    if (perm !== "granted") return false;
-
-    const reg = await navigator.serviceWorker.ready;
-    const vapidKey = normalizeVapidKey(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY);
-    if (!vapidKey) return false;
-    const applicationServerKey = urlBase64ToUint8Array(vapidKey);
-
-    let existing = await reg.pushManager.getSubscription();
-    if (existing && !buffersMatch(existing.options.applicationServerKey, applicationServerKey)) {
-      await existing.unsubscribe();
-      existing = null;
-    }
-    const sub = existing || await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey,
-    });
-
-    // Send subscription to server
-    if (await syncSubscription(sub)) {
-      setSubscribed(true);
-      return true;
-    }
-    return false;
   }, []);
 
-  return { permission, subscribed, subscribe };
+  return { permission, subscribed, subscribe, refresh, checking, error };
 }

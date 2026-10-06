@@ -5,7 +5,9 @@ import { PushNotifications } from "@capacitor/push-notifications";
 import { NATIVE_PUSH_TOKEN_STORAGE_KEY } from "@/lib/native-push-client-contract";
 
 export function rememberNativePushToken(token: string) {
-  localStorage.setItem(NATIVE_PUSH_TOKEN_STORAGE_KEY, token);
+  try { localStorage.setItem(NATIVE_PUSH_TOKEN_STORAGE_KEY, token); } catch {
+    // Token registration must still reach the server when local storage is unavailable.
+  }
 }
 
 export async function unregisterNativePushDevice(options: { notifyServer?: boolean } = {}) {
