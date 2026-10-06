@@ -140,6 +140,8 @@ export default function AdminInboxClient() {
   function selectClient(clientId: string) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("client", clientId);
+    params.delete("message");
+    params.delete("checkin");
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
@@ -325,6 +327,8 @@ export default function AdminInboxClient() {
               <InboxThread
                 key={selectedClientId}
                 messages={thread?.clientId === selectedClientId ? thread.messages : []}
+                targetMessageId={searchParams.get("message")}
+                targetCheckinId={searchParams.get("checkin")}
                 currentRole="admin"
                 onSend={handleSend}
                 onSendAudio={handleSendAudio}

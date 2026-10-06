@@ -135,7 +135,7 @@ export default function CheckInPage() {
   const [saveMessage, setSaveMessage] = useState("");
   const [templateName, setTemplateName] = useState<string | null>(null);
   const [openCoachTasks, setOpenCoachTasks] = useState<ClientTask[]>([]);
-  const [latestReply, setLatestReply] = useState<{ text: string; date: string | null } | null>(null);
+  const [latestReply, setLatestReply] = useState<{ id: string; messageId?: string | null; text: string; date: string | null } | null>(null);
   const [priorityMessage, setPriorityMessage] = useState("");
   const [supportAsk, setSupportAsk] = useState("");
   const [syncedMetricIds, setSyncedMetricIds] = useState<string[]>([]);
@@ -198,9 +198,9 @@ export default function CheckInPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (!d) return;
-        const withReply = (d.checkins || []).find((c: { admin_reply?: string; replied_at?: string; created_at: string }) => c.admin_reply);
+        const withReply = (d.checkins || []).find((c: { id: string; reply_message_id?: string | null; admin_reply?: string; replied_at?: string; created_at: string }) => c.admin_reply);
         if (withReply?.admin_reply) {
-          setLatestReply({ text: withReply.admin_reply, date: withReply.replied_at || withReply.created_at });
+          setLatestReply({ id: withReply.id, messageId: withReply.reply_message_id, text: withReply.admin_reply, date: withReply.replied_at || withReply.created_at });
         }
       })
       .catch(() => {});
@@ -531,6 +531,7 @@ export default function CheckInPage() {
         <div className="mb-6 rounded-2xl border border-[#E040D0]/20 bg-[#E040D0]/5 px-4 py-4">
           <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#E040D0]">Last reply from Gordy</div>
           <p className="mt-2 text-sm leading-relaxed text-text-primary">{latestReply.text}</p>
+          {latestReply.messageId && <Link href={`/portal/inbox?message=${latestReply.messageId}`} className="mt-3 inline-flex min-h-11 items-center text-xs font-semibold text-accent-bright">Continue in DMs →</Link>}
           {latestReply.date && (
             <div className="mt-2 text-[10px] uppercase tracking-[0.12em] text-text-muted">
               Sent {new Date(latestReply.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}

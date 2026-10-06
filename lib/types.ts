@@ -128,6 +128,7 @@ export interface CheckIn {
   questions?: string;
   responses?: Record<string, string>;
   admin_reply?: string;
+  reply_message_id?: string | null;
   replied_at?: string;
   created_at: string;
   client?: ClientProfile;
@@ -199,6 +200,8 @@ export interface InboxMessage {
   sender_role: UserRole;
   message: string | null;
   message_type?: 'text' | 'audio' | 'image' | 'file';
+  checkin_id?: string | null;
+  checkin_context?: import("@/lib/checkin-message").CheckinMessageContext | null;
   audio_url?: string | null;
   audio_bucket?: string | null;
   audio_path?: string | null;

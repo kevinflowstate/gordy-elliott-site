@@ -2588,6 +2588,7 @@ export default function ClientDetailPage() {
                           {sentReplies[c.id] && !c.admin_reply && <span className="text-emerald-400/60 ml-2">Just sent</span>}
                         </div>
                         <p className="text-xs text-text-secondary leading-relaxed">{sentReplies[c.id] || c.admin_reply}</p>
+                        {(c.reply_message_id || sentReplies[c.id]) && <Link href={`/admin/inbox?client=${client.id}&checkin=${c.id}`} className="mt-2 inline-flex min-h-11 items-center text-xs font-semibold text-[#E040D0]">Continue in DMs →</Link>}
                       </div>
                     ) : (
                       <div className="mt-3 pt-3 border-t border-[rgba(0,0,0,0.06)]">

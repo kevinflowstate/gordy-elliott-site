@@ -1,5 +1,6 @@
 "use client";
 
+import CheckinReplyCard from "@/components/inbox/CheckinReplyCard";
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 import { useEffect, useRef, useState } from "react";
@@ -10,6 +11,8 @@ import type { InboxMessage, UserRole } from "@/lib/types";
 
 interface InboxThreadProps {
   messages: InboxMessage[];
+  targetMessageId?: string | null;
+  targetCheckinId?: string | null;
   currentRole: UserRole;
   onSend: (message: string) => Promise<void>;
   onSendAudio?: (audio: Blob, durationSeconds: number) => Promise<void>;
@@ -38,6 +41,8 @@ function formatTime(timestamp: string) {
 
 export default function InboxThread({
   messages,
+  targetMessageId,
+  targetCheckinId,
   currentRole,
   onSend,
   onSendAudio,
@@ -57,6 +62,8 @@ export default function InboxThread({
   const [draft, setDraft] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const targetedRef = useRef<string | null>(null);
+  const [highlightedMessage, setHighlightedMessage] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -79,9 +86,23 @@ export default function InboxThread({
   const canSend = draft.trim().length > 0 && !sending;
   const latestMessageId = messages.at(-1)?.id;
 
+  const target = messages.find((message) => targetMessageId
+    ? message.id === targetMessageId : targetCheckinId && message.checkin_id === targetCheckinId)?.id;
+
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [latestMessageId]);
+    if (target && targetedRef.current !== target) {
+      document.getElementById(`dm-${target}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      targetedRef.current = target;
+      setHighlightedMessage(target);
+      const timeout = window.setTimeout(() => setHighlightedMessage(null), 4000);
+      return () => window.clearTimeout(timeout);
+    }
+  }, [target]);
+
+  useEffect(() => {
+    // Do not let background polling pull a deep-linked reply out of view.
+    if (!targetMessageId && !targetCheckinId) bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [targetMessageId, targetCheckinId, latestMessageId]);
 
   useEffect(() => {
     if (!recording) return;
@@ -297,8 +318,8 @@ export default function InboxThread({
           messages.map((message) => {
             const isOwn = viewerUserId ? message.sender_user_id === viewerUserId : message.sender_role === currentRole;
             return (
-              <div key={message.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[84%] rounded-2xl px-4 py-3 sm:max-w-[72%] ${
+              <div key={message.id} id={`dm-${message.id}`} data-highlighted={highlightedMessage === message.id || undefined} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                <div className={`min-w-0 max-w-[84%] rounded-2xl px-4 py-3 sm:max-w-[72%] ${highlightedMessage === message.id ? "ring-2 ring-accent-bright/60 ring-offset-2 ring-offset-bg-primary" : ""} ${
                   isOwn
                     ? "bg-accent-bright text-black"
                     : "border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.045)] text-text-primary"
@@ -306,6 +327,9 @@ export default function InboxThread({
                   <div className={`mb-1 text-[11px] font-semibold ${isOwn ? "text-black/65" : "text-text-muted"}`}>
                     {isOwn ? "You" : message.sender_name || (message.sender_role === "admin" ? "Gordy" : "Client")}
                   </div>
+                  {message.checkin_id && message.checkin_context && (
+                    <CheckinReplyCard checkinId={message.checkin_id} context={message.checkin_context} isOwn={isOwn} />
+                  )}
                   {message.message_type === "audio" ? (
                     message.audio_url ? (
                       <div className="min-w-[13rem]">
@@ -351,7 +375,7 @@ export default function InboxThread({
                       </a>
                     ) : <div className="text-sm">Attachment unavailable. Refresh to try again.</div>
                   ) : (
-                    <div className="whitespace-pre-wrap text-sm leading-relaxed">{message.message}</div>
+                    <div className="whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">{message.message}</div>
                   )}
                   <div className={`mt-2 flex items-center gap-3 text-[10px] ${isOwn ? "text-black/55" : "text-text-muted"}`}>
                     <span>{formatTime(message.created_at)}</span>
