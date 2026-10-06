@@ -16,6 +16,7 @@ import {
   nativePushEnvironmentFromUserAgent,
 } from "@/lib/native-push-client-contract";
 import { rememberNativePushToken } from "@/lib/native-push-client";
+import { postPushRegistration } from "@/lib/push-registration-client";
 import { safeLocalRedirect } from "@/lib/safe-redirect";
 import { isNativeAppRoute, resolveNativeAppLink } from "@/lib/native-app-links";
 import { ANDROID_NOTIFICATION_CHANNEL } from "@/lib/fcm-contract";
@@ -42,18 +43,21 @@ async function syncNativePushToken(token: string) {
   rememberNativePushToken(token);
   if (!window.location.pathname.startsWith("/portal")) return;
 
+  publishNativePushStatus("registering");
   try {
-    const response = await fetch("/api/push/native", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        token,
-        platform: Capacitor.getPlatform(),
-        environment: Capacitor.getPlatform() === "android" ? "production" : nativePushEnvironmentFromUserAgent(navigator.userAgent),
-      }),
+    const saved = await postPushRegistration("/api/push/native", {
+      token,
+      platform: Capacitor.getPlatform(),
+      environment: Capacitor.getPlatform() === "android" ? "production" : nativePushEnvironmentFromUserAgent(navigator.userAgent),
     });
-    if (response.ok) pendingNativePushToken = null;
+    if (saved) {
+      pendingNativePushToken = null;
+      publishNativePushStatus("registered");
+    } else {
+      publishNativePushStatus("error");
+    }
   } catch {
+    publishNativePushStatus("error");
     // Keep the token in memory and retry after the next authenticated navigation.
   }
 }
@@ -101,6 +105,8 @@ export default function NativeAppBridge() {
     }, 450);
 
     let disposed = false;
+    let pushRegistrationTimer: number | undefined;
+    let registeringPush = false;
     let removeDeepLinkListener: (() => Promise<void>) | undefined;
     const removePushListeners: Array<() => Promise<void>> = [];
     let navigatingUrl: string | undefined;
@@ -155,12 +161,14 @@ export default function NativeAppBridge() {
     };
 
     const registerForNativePush = async (requestPermission: boolean) => {
+      if (registeringPush || disposed) return;
       if (!Capacitor.isPluginAvailable("PushNotifications")) {
         publishNativePushStatus("error");
         return;
       }
 
       try {
+        registeringPush = true;
         if (Capacitor.getPlatform() === "android") {
           await PushNotifications.createChannel({
             id: ANDROID_NOTIFICATION_CHANNEL,
@@ -171,7 +179,7 @@ export default function NativeAppBridge() {
           });
         }
         let permission = await PushNotifications.checkPermissions();
-        if (requestPermission && permission.receive === "prompt") {
+        if (requestPermission && (permission.receive === "prompt" || permission.receive === "prompt-with-rationale")) {
           permission = await PushNotifications.requestPermissions();
         }
 
@@ -180,10 +188,18 @@ export default function NativeAppBridge() {
           return;
         }
 
-        publishNativePushStatus("granted");
+        publishNativePushStatus("registering");
+        window.clearTimeout(pushRegistrationTimer);
+        pushRegistrationTimer = window.setTimeout(() => {
+          if (!disposed && document.documentElement.dataset.nativePushStatus === "registering") {
+            publishNativePushStatus("error");
+          }
+        }, 20_000);
         await PushNotifications.register();
       } catch {
         publishNativePushStatus("error");
+      } finally {
+        registeringPush = false;
       }
     };
 
@@ -197,10 +213,11 @@ export default function NativeAppBridge() {
 
     if (Capacitor.isPluginAvailable("PushNotifications")) {
       trackPushListener(PushNotifications.addListener("registration", ({ value }) => {
-        publishNativePushStatus("granted");
+        window.clearTimeout(pushRegistrationTimer);
         void syncNativePushToken(value);
       }));
       trackPushListener(PushNotifications.addListener("registrationError", () => {
+        window.clearTimeout(pushRegistrationTimer);
         publishNativePushStatus("error");
       }));
       trackPushListener(PushNotifications.addListener("pushNotificationActionPerformed", ({ notification }) => {
@@ -213,6 +230,10 @@ export default function NativeAppBridge() {
       publishNativePushStatus("error");
     }
     window.addEventListener(NATIVE_PUSH_REQUEST_EVENT, requestNativePush);
+    // Re-check after the client enables notifications in their phone settings.
+    trackPushListener(App.addListener("appStateChange", ({ isActive }) => {
+      if (isActive) void registerForNativePush(false);
+    }));
     window.addEventListener(NATIVE_WORKOUT_PENDING_EVENT, handlePendingNativeWorkout);
 
     const openExternalLinks = (event: MouseEvent) => {
@@ -255,6 +276,7 @@ export default function NativeAppBridge() {
 
     return () => {
       window.clearTimeout(splashTimer);
+      window.clearTimeout(pushRegistrationTimer);
       disposed = true;
       document.documentElement.classList.remove("native-app");
       document.removeEventListener("click", openExternalLinks);
