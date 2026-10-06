@@ -38,7 +38,11 @@ The installed ARM64 JDK archive came from Amazon's [official download](https://c
 
 Dedicated Firebase project `at-capacity-gordy` (number `160097237776`) was created on 6 October 2026 under Kevin's existing Google account after explicit Firebase terms approval. Firebase confirms the Spark no-cost plan; the automatically attached Google Cloud billing link was removed before Firebase activation. Analytics is disabled. Android app `AT CAPACITY Android` is registered as `com.gordyelliott.atcapacity` (Firebase app ID `1:160097237776:android:60ea0889bce7fb7f384395`). Gordy's ownership access will need arranging separately. Do not use the other similarly named Cloud project `at-capacity-503314` or enable billing for messaging.
 
-Client configuration download and the restricted server notification credential are still pending. Both browser download methods failed; Kevin has been asked to download `google-services.json` from the verified app settings. No service-account private key or production FCM environment value has been created.
+Client configuration was downloaded by Kevin and validated against the registered package/project. It is stored outside Git at `/Volumes/CodexDev/Projects/AT-CAPACITY-Releases/android/firebase/google-services.json` and supplied through `ANDROID_GOOGLE_SERVICES_FILE`.
+
+After explicit approval, service account `at-capacity-android-push@at-capacity-gordy.iam.gserviceaccount.com` was created with only the project-scoped `roles/firebasecloudmessaging.admin` role. Its private JSON is stored with owner-only permissions outside Git. `FCM_SERVICE_ACCOUNT_JSON` is saved as an encrypted, sensitive **Production** environment variable in the verified `gordy-elliott-site` Vercel project; it takes effect on the next deployment. A Google FCM dry run reached the provider and rejected a deliberately synthetic token as unregistered, without sending any notification. This verifies authentication/provider access, not installed-device delivery. The migration and backend changes below are still pending deployment.
+
+The setup and remaining delivery steps are:
 
 1. Register Android package `com.gordyelliott.atcapacity` in that project.
 2. Download `google-services.json` and keep it outside Git. Set `ANDROID_GOOGLE_SERVICES_FILE` to the file; sync copies it to ignored `android/app/google-services.json`.
@@ -48,6 +52,12 @@ Client configuration download and the restricted server notification credential 
 6. Test permission denial, permission grant, foreground/background delivery, notification tap, sign-out and account switching using a dedicated fixture. FCM defaults to the `coaching_updates` channel with the ATC notification icon. No Firebase Analytics SDK is added.
 
 Release builds fail closed without Firebase and upload signing, including when Gradle is invoked directly. Debug compilation without Firebase is only scaffold verification.
+
+## Verified signed bundle
+
+`/Volumes/CodexDev/Projects/AT-CAPACITY-Releases/android/AT-CAPACITY-1.0.0-1.aab` was built from source revision `c9f3215e7d5c82a0adb99e51612d37e7902cd635` on 6 October 2026. Version `1.0.0`, code `1`; SHA256 `255fd8226d75627c999be7c967e3aa9cfcdf513078b10713cc8b10800eb27ed7`. `jarsigner` verifies the bundle, and its certificate matches the saved public upload certificate. Bundle resources contain the correct Firebase project/app IDs and do not contain the private server credential. Android lint with the real Firebase configuration passes with zero errors and 24 warnings. The external `build-receipt.json` records this binary's source revision and untested/unsubmitted status.
+
+The bundle has not been installed on a phone or uploaded to Play. Complete the gates below before treating it as submission-ready. Preserve and securely back up the existing upload key; do not regenerate it.
 
 ## Links and platform behaviour
 
@@ -81,8 +91,8 @@ Useful requirements: [target API](https://support.google.com/googleplay/android-
 
 - Gordy completes owner-only identity/phone/website verification so Create app unlocks.
 - SDK licence and external build tools installed; debug APK and Android lint pass (verified 6 October 2026: API36/min24, package/version inspected, debug signature verified, 13 focused Android/push tests pass). Android lint has 24 non-blocking tooling/asset/backup warnings. Voice-note microphone permissions are declared; runtime recording still requires installed-device verification.
-- Firebase client/server project configured; migration and backend deployment verified.
-- Signed AAB inspected; Play signing certificate associated with the production domain.
+- Firebase client/server project configured (verified); apply the migration and verify the backend deployment before device testing.
+- Signed AAB and upload certificate inspected (verified); associate the future Play app-signing certificate with the production domain.
 - Installed Android walkthrough: login/setup, training groups/timers/video, nutrition, AI/reporting, coach messages/upload, optional integration authorisation, keyboard/back, offline page, notification lifecycle and deletion instructions.
 - Physical Android phone smoke test; emulator alone does not prove real-device push/background behaviour.
 - Real Android screenshots/feature graphic prepared; truthful forms and working reviewer login checked.
