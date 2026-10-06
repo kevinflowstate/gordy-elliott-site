@@ -28,8 +28,9 @@ mkdirSync(resolve("android"), { recursive: true });
 writeFileSync(resolve("android/local.properties"), `sdk.dir=${env.ANDROID_HOME}\n`);
 const sync = spawnSync(process.execPath, ["scripts/sync-android.mjs"], { env, stdio: "inherit" });
 if (sync.status !== 0) process.exit(sync.status || 1);
-const task = mode === "release" ? "bundleRelease" : mode === "lint" ? "lintDebug" : "assembleDebug";
-const result = spawnSync(resolve("android/gradlew"), [task, "--no-daemon", "--max-workers=2", "--console=plain"], {
+// The bundle is for Play; the matching APK enables physical-device QA before upload.
+const tasks = mode === "release" ? ["bundleRelease", "assembleRelease"] : [mode === "lint" ? "lintDebug" : "assembleDebug"];
+const result = spawnSync(resolve("android/gradlew"), [...tasks, "--no-daemon", "--max-workers=2", "--console=plain"], {
   cwd: resolve("android"), env, stdio: "inherit",
 });
 process.exit(result.status ?? 1);

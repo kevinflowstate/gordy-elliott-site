@@ -27,7 +27,7 @@ Two Gradle workers, 1536 MB heap and no persistent daemon keep resource use boun
 - `npm run android:build`: compile the debug APK (Firebase may be absent; such a build does not prove push works).
 - `npm run android:lint`: Android lint.
 - `npm run android:key`: generate a private upload key once; existing files are never overwritten. Back up the keystore and signing configuration securely before release.
-- `npm run android:bundle`: validate Firebase/signing, sync and generate the signed release AAB.
+- `npm run android:bundle`: validate Firebase/signing, sync and generate the signed release AAB plus a matching installable release APK for physical-device QA.
 - `npm run test:android`: Android token, payload, certificate, privacy/reporting, migration/RLS and provider-selection contracts.
 
 SDK command-line tools, platform36 and build tools36 were installed on CodexDev on 6 October 2026 after Kevin authorised licence acceptance. The compatibility path `Java/temurin-21` now points to the full Amazon Corretto 21.0.12.1 JDK at `Java/amazon-corretto-21.jdk/Contents/Home`. The previously reused extension runtime lacked `jlink` and could not compile Android; its original files are untouched. Build checks require `javac`, `jlink` and Java modules. No full Android Studio installation is needed for CLI compilation.
@@ -40,7 +40,7 @@ Dedicated Firebase project `at-capacity-gordy` (number `160097237776`) was creat
 
 Client configuration was downloaded by Kevin and validated against the registered package/project. It is stored outside Git at `/Volumes/CodexDev/Projects/AT-CAPACITY-Releases/android/firebase/google-services.json` and supplied through `ANDROID_GOOGLE_SERVICES_FILE`.
 
-After explicit approval, service account `at-capacity-android-push@at-capacity-gordy.iam.gserviceaccount.com` was created with only the project-scoped `roles/firebasecloudmessaging.admin` role. Its private JSON is stored with owner-only permissions outside Git. `FCM_SERVICE_ACCOUNT_JSON` is saved as an encrypted, sensitive **Production** environment variable in the verified `gordy-elliott-site` Vercel project; it takes effect on the next deployment. A Google FCM dry run reached the provider and rejected a deliberately synthetic token as unregistered, without sending any notification. This verifies authentication/provider access, not installed-device delivery. The migration and backend changes below are still pending deployment.
+After explicit approval, service account `at-capacity-android-push@at-capacity-gordy.iam.gserviceaccount.com` was created with only the project-scoped `roles/firebasecloudmessaging.admin` role. Its private JSON is stored with owner-only permissions outside Git. `FCM_SERVICE_ACCOUNT_JSON` is saved as an encrypted, sensitive **Production** environment variable in the verified `gordy-elliott-site` Vercel project; it takes effect on the next deployment. A Google FCM dry run reached the provider and rejected a deliberately synthetic token as unregistered, without sending any notification. This verifies authentication/provider access, not installed-device delivery. The Android device migration was applied to production on 6 October 2026; all 15 existing iPhone device records were preserved, RLS remained enabled, and browser roles still lack table access. Backend deployment is tracked separately in the release handover.
 
 The setup and remaining delivery steps are:
 
@@ -91,7 +91,7 @@ Useful requirements: [target API](https://support.google.com/googleplay/android-
 
 - Gordy completes owner-only identity/phone/website verification so Create app unlocks.
 - SDK licence and external build tools installed; debug APK and Android lint pass (verified 6 October 2026: API36/min24, package/version inspected, debug signature verified, 13 focused Android/push tests pass). Android lint has 24 non-blocking tooling/asset/backup warnings. Voice-note microphone permissions are declared; runtime recording still requires installed-device verification.
-- Firebase client/server project configured (verified); apply the migration and verify the backend deployment before device testing.
+- Firebase client/server project and production migration configured (verified); verify the backend deployment before device testing.
 - Signed AAB and upload certificate inspected (verified); associate the future Play app-signing certificate with the production domain.
 - Installed Android walkthrough: login/setup, training groups/timers/video, nutrition, AI/reporting, coach messages/upload, optional integration authorisation, keyboard/back, offline page, notification lifecycle and deletion instructions.
 - Physical Android phone smoke test; emulator alone does not prove real-device push/background behaviour.
