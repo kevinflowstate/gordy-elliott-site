@@ -18,6 +18,7 @@ import {
 import { rememberNativePushToken } from "@/lib/native-push-client";
 import { safeLocalRedirect } from "@/lib/safe-redirect";
 import { isNativeAppRoute, resolveNativeAppLink } from "@/lib/native-app-links";
+import { ANDROID_NOTIFICATION_CHANNEL } from "@/lib/fcm-contract";
 import {
   NATIVE_WORKOUT_PENDING_EVENT,
   NATIVE_WORKOUT_SYNCED_EVENT,
@@ -47,7 +48,8 @@ async function syncNativePushToken(token: string) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         token,
-        environment: nativePushEnvironmentFromUserAgent(navigator.userAgent),
+        platform: Capacitor.getPlatform(),
+        environment: Capacitor.getPlatform() === "android" ? "production" : nativePushEnvironmentFromUserAgent(navigator.userAgent),
       }),
     });
     if (response.ok) pendingNativePushToken = null;
@@ -159,6 +161,15 @@ export default function NativeAppBridge() {
       }
 
       try {
+        if (Capacitor.getPlatform() === "android") {
+          await PushNotifications.createChannel({
+            id: ANDROID_NOTIFICATION_CHANNEL,
+            name: "Coaching updates",
+            description: "Messages and reminders from AT CAPACITY",
+            importance: 4,
+            visibility: 0,
+          });
+        }
         let permission = await PushNotifications.checkPermissions();
         if (requestPermission && permission.receive === "prompt") {
           permission = await PushNotifications.requestPermissions();
@@ -231,6 +242,16 @@ export default function NativeAppBridge() {
 
     document.addEventListener("click", openExternalLinks);
     document.addEventListener("click", provideHapticFeedback);
+
+    if (Capacitor.getPlatform() === "android") {
+      trackPushListener(App.addListener("backButton", ({ canGoBack }) => {
+        if (canGoBack && !["/portal", "/login"].includes(window.location.pathname)) {
+          window.history.back();
+        } else {
+          void App.minimizeApp();
+        }
+      }));
+    }
 
     return () => {
       window.clearTimeout(splashTimer);

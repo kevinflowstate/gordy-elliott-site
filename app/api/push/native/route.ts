@@ -4,7 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   defaultNativePushEnvironment,
   NATIVE_PUSH_APP_ID,
-  normalizeApnsToken,
+  normalizeNativePushPlatform,
+  normalizeNativePushToken,
   normalizeNativePushEnvironment,
 } from "@/lib/native-push-contract";
 
@@ -38,8 +39,10 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json().catch(() => null);
-  const token = normalizeApnsToken(body?.token);
-  if (!token) return NextResponse.json({ error: "A valid APNs token is required" }, { status: 400 });
+  const platform = normalizeNativePushPlatform(body?.platform);
+  if (!platform) return NextResponse.json({ error: "A valid device platform is required" }, { status: 400 });
+  const token = normalizeNativePushToken(body?.token, platform);
+  if (!token) return NextResponse.json({ error: "A valid notification token is required" }, { status: 400 });
 
   // Older TestFlight builds do not include the build marker, so production remains
   // the backward-compatible fallback until all review devices are on build 2.
@@ -48,12 +51,15 @@ export async function POST(request: Request) {
   if (suppliedEnvironment != null && !normalizedEnvironment) {
     return NextResponse.json({ error: "A valid APNs environment is required" }, { status: 400 });
   }
-  const environment = normalizedEnvironment || defaultNativePushEnvironment();
+  const environment = normalizedEnvironment || (platform === "android" ? "production" : defaultNativePushEnvironment());
+  if (platform === "android" && environment !== "production") {
+    return NextResponse.json({ error: "Android uses the production FCM environment" }, { status: 400 });
+  }
   const now = new Date().toISOString();
   const admin = createAdminClient();
   const { error } = await admin.from("native_push_devices").upsert({
     user_id: user.id,
-    platform: "ios",
+    platform,
     token,
     app_id: NATIVE_PUSH_APP_ID,
     environment,
@@ -74,8 +80,10 @@ export async function DELETE(request: Request) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json().catch(() => null);
-  const token = normalizeApnsToken(body?.token);
-  if (!token) return NextResponse.json({ error: "A valid APNs token is required" }, { status: 400 });
+  const platform = normalizeNativePushPlatform(body?.platform);
+  if (!platform) return NextResponse.json({ error: "A valid device platform is required" }, { status: 400 });
+  const token = normalizeNativePushToken(body?.token, platform);
+  if (!token) return NextResponse.json({ error: "A valid notification token is required" }, { status: 400 });
 
   const admin = createAdminClient();
   const { error } = await admin
@@ -83,6 +91,7 @@ export async function DELETE(request: Request) {
     .delete()
     .eq("user_id", user.id)
     .eq("token", token)
+    .eq("platform", platform)
     .eq("app_id", NATIVE_PUSH_APP_ID);
 
   if (error) return databaseFailure("removal", error);

@@ -8,6 +8,10 @@ export function isNativeAppRoute(pathname: string) {
   return (
     pathname === "/login" ||
     pathname === "/auth/callback" ||
+    pathname === "/auth/confirm" ||
+    pathname === "/support" ||
+    pathname === "/support/report" ||
+    pathname === "/account-deletion" ||
     pathname === "/portal" ||
     pathname.startsWith("/portal/")
   );

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">AT CAPACITY</string>
+    <string name="title_activity_main">AT CAPACITY</string>
+    <string name="package_name">com.gordyelliott.atcapacity</string>
+    <string name="custom_url_scheme">com.gordyelliott.atcapacity</string>
+</resources>

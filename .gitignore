@@ -11,4 +11,9 @@ native-shell/runtime-config.js
 ios/App/App/public/runtime-config.js
 output/
 outputs/
+.android-build/
+*.jks
+*.keystore
+*.p12
+android/app/google-services.json
 supabase/.temp/
