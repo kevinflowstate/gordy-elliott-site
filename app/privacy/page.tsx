@@ -66,7 +66,7 @@ const sections: Array<{
   },
   {
     title: "Who receives information",
-    body: "Information is available to Gordy and authorised service providers needed to operate AT CAPACITY, including Vercel for hosting and application processing, Supabase for authentication and database services, Resend for email, Apple Push Notification service and web-push providers for notifications you enable, Terra for optional wearable connections, Composio for optional calendar connections, and the AI providers described above for non-Google coaching information. Information is not sold. Providers receive only the information needed to deliver their service.",
+    body: "Information is available to Gordy and authorised service providers needed to operate AT CAPACITY, including Vercel for hosting and application processing, Supabase for authentication and database services, Resend for email, Apple Push Notification service, Google Firebase Cloud Messaging and web-push providers for notifications you enable, Terra for optional wearable connections, Composio for optional calendar connections, and the AI providers described above for non-Google coaching information. Information is not sold. Providers receive only the information needed to deliver their service.",
   },
   {
     title: "Retention and deletion",

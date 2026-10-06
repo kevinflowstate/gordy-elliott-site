@@ -36,7 +36,8 @@ export default function SupportPage() {
           <section className="border-t border-white/10 pt-6">
             <h2 className="font-heading text-xl font-bold">Privacy and account deletion</h2>
             <p className="mt-3 text-[15px] leading-7 text-[#c3c4cd]">You can disconnect apps or permanently delete your account from Settings after signing in.</p>
-            <Link href="/privacy" className="mt-3 inline-block text-[#f06be3]">Read the privacy policy</Link>
+            <Link href="/account-deletion" className="mt-3 inline-block text-[#f06be3]">Account deletion options</Link>
+            <Link href="/privacy" className="mt-3 ml-5 inline-block text-[#f06be3]">Read the privacy policy</Link>
           </section>
         </div>
       </article>

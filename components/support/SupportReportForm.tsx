@@ -8,6 +8,7 @@ import {
 } from "@/lib/support-contract";
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
+import { AI_CONTENT_REPORT_KEY, aiReportDescription } from "@/lib/ai-content-report";
 
 export type SupportSubmit = (
   form: FormData,
@@ -20,6 +21,8 @@ export default function SupportReportForm({
   const [key, setKey] = useState("");
   const [device, setDevice] = useState("");
   const [page, setPage] = useState("");
+  const [area, setArea] = useState("");
+  const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [error, setError] = useState("");
@@ -29,6 +32,16 @@ export default function SupportReportForm({
   } | null>(null);
   useEffect(() => {
     setKey(crypto.randomUUID());
+    if (new URLSearchParams(window.location.search).get("source") === "ai") {
+      setArea("Other");
+      setPage("/portal/ai");
+      try {
+        const raw = sessionStorage.getItem(AI_CONTENT_REPORT_KEY);
+        sessionStorage.removeItem(AI_CONTENT_REPORT_KEY);
+        const draft = raw ? aiReportDescription(JSON.parse(raw)) : null;
+        if (draft) setDescription(draft);
+      } catch { /* Clients can describe the reply themselves. */ }
+    }
     const platform = Capacitor.getPlatform();
     if (Capacitor.isNativePlatform())
       void App.getInfo()
@@ -166,7 +179,7 @@ export default function SupportReportForm({
       </div>
       <label className="block text-sm font-semibold">
         Where did it happen?
-        <select name="area" required defaultValue="" className={control}>
+        <select name="area" required value={area} onChange={(event) => setArea(event.target.value)} className={control}>
           <option value="" disabled>
             Choose an area
           </option>
@@ -182,6 +195,8 @@ export default function SupportReportForm({
         </span>
         <textarea
           name="description"
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
           required
           maxLength={4000}
           rows={4}

@@ -3,6 +3,7 @@ import "server-only";
 import { connect, constants, type ClientHttp2Session } from "node:http2";
 import { createApnsProviderToken } from "@/lib/apns-provider-token";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendAndroidPushToUser } from "@/lib/fcm-server";
 import type { PushChannelResult, PushMessage } from "@/lib/push-contract";
 import {
   createApnsPayload,
@@ -134,20 +135,21 @@ async function deliverToEnvironment(
   }
 }
 
-export async function sendNativePushToUser(userId: string, message: PushMessage): Promise<PushChannelResult> {
+async function sendApnsToUser(userId: string, message: PushMessage): Promise<PushChannelResult> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("native_push_devices")
     .select("id, token, environment, failure_count")
     .eq("user_id", userId)
     .eq("app_id", NATIVE_PUSH_APP_ID)
+    .eq("platform", "ios")
     .is("disabled_at", null);
 
   if (error) return { sent: 0, failed: 0, subscriptionCount: 0, reason: error.message };
 
   const devices = (data || []) as NativeDevice[];
   if (devices.length === 0) {
-    return { sent: 0, failed: 0, subscriptionCount: 0, reason: "No native notification device is registered." };
+    return { sent: 0, failed: 0, subscriptionCount: 0 };
   }
 
   const config = loadApnsConfig();
@@ -212,5 +214,20 @@ export async function sendNativePushToUser(userId: string, message: PushMessage)
     failed: settled.filter(({ delivery }) => !delivery.ok).length,
     subscriptionCount: devices.length,
     reason: reasons.length ? reasons.join("; ") : undefined,
+  };
+}
+
+export async function sendNativePushToUser(userId: string, message: PushMessage): Promise<PushChannelResult> {
+  const results = await Promise.all([
+    sendApnsToUser(userId, message),
+    sendAndroidPushToUser(userId, message),
+  ]);
+  const reasons = [...new Set(results.flatMap((result) => result.reason ? [result.reason] : []))];
+  const subscriptionCount = results.reduce((total, result) => total + result.subscriptionCount, 0);
+  return {
+    sent: results.reduce((total, result) => total + result.sent, 0),
+    failed: results.reduce((total, result) => total + result.failed, 0),
+    subscriptionCount,
+    reason: reasons.length ? reasons.join("; ") : subscriptionCount === 0 ? "No native notification device is registered." : undefined,
   };
 }

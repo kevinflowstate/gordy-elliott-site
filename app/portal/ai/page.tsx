@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import AIComposerTextarea from "@/components/ui/AIComposerTextarea";
+import { AI_CONTENT_REPORT_KEY } from "@/lib/ai-content-report";
 
 interface Message {
   role: "user" | "assistant";
@@ -228,6 +229,16 @@ export default function ShiftAIPage() {
               {msg.role === "assistant" && msg.action && (
                 <Link href={msg.action.href} className="mt-3 inline-flex min-h-10 items-center rounded-xl bg-accent/15 px-4 py-2 text-sm font-semibold text-accent-bright no-underline">
                   {msg.action.label}
+                </Link>
+              )}
+              {msg.role === "assistant" && (
+                <Link href="/support/report?source=ai" className="mt-2 inline-flex min-h-10 items-center text-xs text-text-muted hover:text-text-primary"
+                  onClick={() => {
+                    try {
+                      sessionStorage.setItem(AI_CONTENT_REPORT_KEY, JSON.stringify({ reply: msg.content.slice(0, 2500), createdAt: Date.now() }));
+                    } catch { /* The form remains available if private storage is blocked. */ }
+                  }}>
+                  Report this reply
                 </Link>
               )}
             </div>

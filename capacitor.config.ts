@@ -19,6 +19,11 @@ const config: CapacitorConfig = {
     allowsLinkPreview: false,
     scheme: "App",
   },
+  android: {
+    backgroundColor: "#0A0A0A",
+    allowMixedContent: false,
+    webContentsDebuggingEnabled: false,
+  },
   plugins: {
     PushNotifications: {
       presentationOptions: ["badge", "sound", "banner", "list"],

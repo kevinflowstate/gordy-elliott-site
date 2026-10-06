@@ -15,7 +15,7 @@ export async function unregisterNativePushDevice(options: { notifyServer?: boole
     await fetch("/api/push/native", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ token, platform: Capacitor.getPlatform() === "android" ? "android" : "ios" }),
     }).catch(() => null);
   }
 

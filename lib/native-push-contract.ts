@@ -4,6 +4,19 @@ import type { PushMessage } from "@/lib/push-contract";
 
 export const NATIVE_PUSH_APP_ID = appIdentity.bundleId;
 export type NativePushEnvironment = "sandbox" | "production";
+export type NativePushPlatform = "ios" | "android";
+
+export function normalizeNativePushPlatform(value: unknown): NativePushPlatform | null {
+  // Released iPhone builds omit platform; retain their registration contract.
+  return value == null || value === "ios" ? "ios" : value === "android" ? "android" : null;
+}
+
+export function normalizeNativePushToken(value: unknown, platform: NativePushPlatform) {
+  if (platform === "ios") return normalizeApnsToken(value);
+  if (typeof value !== "string") return null;
+  const token = value.trim();
+  return /^[A-Za-z0-9_:\-]{32,4096}$/.test(token) ? token : null;
+}
 
 export function normalizeNativePushEnvironment(value: unknown): NativePushEnvironment | null {
   return value === "sandbox" || value === "production" ? value : null;
