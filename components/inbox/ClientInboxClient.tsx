@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import InboxThread from "@/components/inbox/InboxThread";
 import { useToast } from "@/components/ui/Toast";
 import { hasUnreadIncomingMessages } from "@/lib/inbox-client";
@@ -15,6 +16,7 @@ interface ThreadResponse {
 }
 
 export default function ClientInboxClient() {
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [thread, setThread] = useState<ThreadResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -172,6 +174,8 @@ export default function ClientInboxClient() {
       ) : (
         <InboxThread
           messages={thread?.messages ?? []}
+          targetMessageId={searchParams.get("message")}
+          targetCheckinId={searchParams.get("checkin")}
           currentRole="client"
           onSend={handleSend}
           onSendAudio={handleSendAudio}

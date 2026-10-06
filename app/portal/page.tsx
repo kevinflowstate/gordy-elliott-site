@@ -551,7 +551,7 @@ export default function PortalDashboard() {
           </Link>
 
           <Link
-            href={isAiOnly ? "/portal/ai" : "/portal/checkin"}
+            href={isAiOnly ? "/portal/ai" : latestReply?.reply_message_id ? `/portal/inbox?message=${latestReply.reply_message_id}` : "/portal/checkin"}
             className="app-hero-tile flex min-h-[78px] flex-col justify-between rounded-2xl px-3.5 py-3 no-underline"
           >
             <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">{isAiOnly ? "AT CAPACITY AI" : "Gordy's Messages"}</div>
