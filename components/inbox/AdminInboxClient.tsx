@@ -33,11 +33,10 @@ export default function AdminInboxClient() {
   const searchParams = useSearchParams();
   const clientParam = searchParams.get("client");
   const [conversations, setConversations] = useState<InboxConversation[]>([]);
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(clientParam);
+  const selectedClientId = clientParam || conversations[0]?.client_id || null;
   const [thread, setThread] = useState<ThreadResponse | null>(null);
   const [query, setQuery] = useState("");
   const [loadingList, setLoadingList] = useState(true);
-  const [loadingThread, setLoadingThread] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -70,7 +69,6 @@ export default function AdminInboxClient() {
       if (!res.ok) throw new Error("Could not load DM conversations.");
       const data = await res.json();
       setConversations(data.conversations || []);
-      setSelectedClientId((current) => current || data.conversations?.[0]?.client_id || null);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load DM conversations.");
@@ -84,7 +82,6 @@ export default function AdminInboxClient() {
     threadAbortController.current?.abort();
     const controller = new AbortController();
     threadAbortController.current = controller;
-    setLoadingThread(true);
     try {
       const res = await fetch(`/api/inbox/thread?client_id=${encodeURIComponent(clientId)}`, {
         signal: controller.signal,
@@ -108,7 +105,6 @@ export default function AdminInboxClient() {
     } finally {
       if (threadAbortController.current === controller) {
         threadAbortController.current = null;
-        setLoadingThread(false);
       }
     }
   }, []);
@@ -141,13 +137,11 @@ export default function AdminInboxClient() {
     };
   }, [selectedClientId, loadThread]);
 
-  useEffect(() => {
-    if (clientParam === selectedClientId) return;
+  function selectClient(clientId: string) {
     const params = new URLSearchParams(searchParams.toString());
-    if (selectedClientId) params.set("client", selectedClientId);
-    else params.delete("client");
-    router.replace(params.toString() ? `${pathname}?${params.toString()}` : pathname, { scroll: false });
-  }, [clientParam, pathname, router, searchParams, selectedClientId]);
+    params.set("client", clientId);
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  }
 
   async function handleSend(message: string) {
     if (!selectedClientId) return;
@@ -296,7 +290,7 @@ export default function AdminInboxClient() {
                   <button
                     key={conversation.client_id}
                     type="button"
-                    onClick={() => setSelectedClientId(conversation.client_id)}
+                    onClick={() => selectClient(conversation.client_id)}
                     className={`w-full border-b border-[rgba(255,255,255,0.05)] px-4 py-3 text-left transition-colors ${
                       isSelected ? "bg-accent/10" : "hover:bg-[rgba(255,255,255,0.035)]"
                     }`}
@@ -325,11 +319,12 @@ export default function AdminInboxClient() {
 
         <section className="min-w-0">
           {selectedClientId && selectedConversation ? (
-            loadingThread && !thread ? (
+            thread?.clientId !== selectedClientId && !error ? (
               <div className="p-6 text-sm text-text-muted">Loading conversation...</div>
             ) : (
               <InboxThread
-                messages={thread?.messages ?? []}
+                key={selectedClientId}
+                messages={thread?.clientId === selectedClientId ? thread.messages : []}
                 currentRole="admin"
                 onSend={handleSend}
                 onSendAudio={handleSendAudio}
