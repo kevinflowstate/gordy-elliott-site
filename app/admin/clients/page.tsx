@@ -70,6 +70,7 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<ClientFilter>("all");
   const [programmeFilter, setProgrammeFilter] = useState<ProgrammeFilter>("all");
+  const [search, setSearch] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
@@ -130,7 +131,12 @@ export default function ClientsPage() {
     return client.lifecycle_status === "active" && client.status === "green";
   });
   const filtered = programmeFilter === "all" ? statusFiltered : statusFiltered.filter((c) => c.programme_type === programmeFilter);
-  const sortedFiltered = [...filtered].sort((a, b) => {
+  const searchTerms = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const searched = filtered.filter((client) => {
+    const searchable = `${client.name} ${client.email}`.toLowerCase();
+    return searchTerms.every((term) => searchable.includes(term));
+  });
+  const sortedFiltered = [...searched].sort((a, b) => {
     const statusDiff = STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status];
     if (statusDiff !== 0) return statusDiff;
     return PROGRAMME_PRIORITY[a.programme_type] - PROGRAMME_PRIORITY[b.programme_type];
@@ -350,6 +356,28 @@ export default function ClientsPage() {
         </div>
       )}
 
+      <div className="mb-5">
+        <label htmlFor="client-search" className="mb-2 block text-sm font-semibold text-text-primary">Search clients</label>
+        <div className="relative max-w-xl">
+          <input
+            id="client-search"
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by name or email"
+            className="w-full rounded-xl border border-[rgba(0,0,0,0.12)] bg-bg-card px-4 py-3 pr-20 text-sm text-text-primary placeholder:text-text-muted focus:border-[#E040D0] focus:outline-none focus:ring-2 focus:ring-[#E040D0]/15"
+          />
+          {search && (
+            <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-text-secondary hover:text-text-primary cursor-pointer">
+              Clear
+            </button>
+          )}
+        </div>
+        <p className="mt-2 text-xs text-text-muted" role="status">
+          Showing {sortedFiltered.length} of {allClients.length} clients
+        </p>
+      </div>
+
       {/* Status filters */}
       <div className="flex gap-2 mb-3 flex-wrap items-center">
         <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted mr-1">Status</div>
@@ -395,15 +423,15 @@ export default function ClientsPage() {
       <div className="space-y-3">
         {sortedFiltered.length === 0 ? (
           <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl px-6 py-10 text-center">
-            <div className="text-sm font-semibold text-text-primary">No clients match these filters.</div>
+            <div className="text-sm font-semibold text-text-primary">No clients match your search and filters.</div>
             <div className="mt-1 text-xs text-text-muted">
-              Clear a filter to widen the view, or add a new client from the Add Client button above.
+              Try another name or email, or clear the search and filters to see all clients.
             </div>
             <button
-              onClick={() => { setFilter("all"); setProgrammeFilter("all"); }}
+              onClick={() => { setSearch(""); setFilter("all"); setProgrammeFilter("all"); }}
               className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[rgba(0,0,0,0.08)] px-3 py-2 text-xs font-semibold text-text-secondary hover:text-text-primary hover:border-[rgba(0,0,0,0.15)] cursor-pointer"
             >
-              Reset filters
+              Reset search and filters
             </button>
           </div>
         ) : (

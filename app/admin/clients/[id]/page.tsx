@@ -1398,6 +1398,16 @@ export default function ClientDetailPage() {
               </span>
             </div>
             <div className="flex max-w-full flex-wrap items-center gap-2 sm:justify-end">
+              <Link
+                href={`/admin/inbox?client=${encodeURIComponent(client.id)}`}
+                aria-label={`DM ${client.name}`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#E040D0] bg-[#E040D0]/10 hover:bg-[#E040D0]/15 border border-[#E040D0]/20 rounded-lg transition-colors no-underline"
+              >
+                <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 10h8M8 14h5M5 4h14a2 2 0 012 2v12a2 2 0 01-2 2H8l-5 2V6a2 2 0 012-2z" />
+                </svg>
+                DM
+              </Link>
               <button
                 onClick={() => setConsultationOpen(true)}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
