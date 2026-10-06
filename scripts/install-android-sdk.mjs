@@ -10,7 +10,9 @@ if (!process.argv.includes("--accept-license")) {
 }
 if (process.arch !== "arm64" || process.platform !== "darwin") throw new Error("This installer is pinned to the Mac mini ARM64 toolchain");
 const env = androidEnvironment();
-if (!existsSync(join(env.JAVA_HOME, "bin", "javac"))) throw new Error("JDK21 must be installed on CodexDev first");
+for (const required of ["bin/javac", "bin/jlink", "jmods/java.base.jmod"]) {
+  if (!existsSync(join(env.JAVA_HOME, required))) throw new Error(`A full JDK21 must be installed on CodexDev first: missing ${required}`);
+}
 const tools = join(env.ANDROID_HOME, "cmdline-tools", "latest");
 if (!existsSync(join(tools, "bin", "sdkmanager"))) {
   const archive = join(env.TMPDIR, "commandlinetools-mac_arm64-15859902_latest.zip");

@@ -30,11 +30,15 @@ Two Gradle workers, 1536 MB heap and no persistent daemon keep resource use boun
 - `npm run android:bundle`: validate Firebase/signing, sync and generate the signed release AAB.
 - `npm run test:android`: Android token, payload, certificate, privacy/reporting, migration/RLS and provider-selection contracts.
 
-Install SDK command-line tools, platform36 and build tools36 on CodexDev after authorised SDK licence acceptance. The current JDK21 link reuses the existing external Temurin21 runtime from `antigravity-extensions/redhat.java-1.54.0-darwin-arm64/jre/21.0.10-macosx-aarch64`; if that extension is removed, replace the link with a maintained external JDK21 installation. No full Android Studio installation is needed for CLI compilation.
+SDK command-line tools, platform36 and build tools36 were installed on CodexDev on 6 October 2026 after Kevin authorised licence acceptance. The compatibility path `Java/temurin-21` now points to the full Amazon Corretto 21.0.12.1 JDK at `Java/amazon-corretto-21.jdk/Contents/Home`. The previously reused extension runtime lacked `jlink` and could not compile Android; its original files are untouched. Build checks require `javac`, `jlink` and Java modules. No full Android Studio installation is needed for CLI compilation.
+
+The installed ARM64 JDK archive came from Amazon's [official download](https://corretto.aws/downloads/resources/21.0.12.12.1/amazon-corretto-21.0.12.12.1-macosx-aarch64.tar.gz), with SHA256 `8594556550766865662411ef3a7a71a66df9a9065f28a7b318a5352bda91b6a4` verified against the [official release](https://github.com/corretto/corretto-21/releases/tag/21.0.12.12.1). Installation evidence is outside Git at `Projects/AT-CAPACITY-Releases/android/java-install.json` on CodexDev.
 
 ## Required Firebase configuration
 
-Use a Gordy-owned Firebase project. Do not repurpose an unrelated client project or enable billing for messaging.
+Dedicated Firebase project `at-capacity-gordy` (number `160097237776`) was created on 6 October 2026 under Kevin's existing Google account after explicit Firebase terms approval. Firebase confirms the Spark no-cost plan; the automatically attached Google Cloud billing link was removed before Firebase activation. Analytics is disabled. Android app `AT CAPACITY Android` is registered as `com.gordyelliott.atcapacity` (Firebase app ID `1:160097237776:android:60ea0889bce7fb7f384395`). Gordy's ownership access will need arranging separately. Do not use the other similarly named Cloud project `at-capacity-503314` or enable billing for messaging.
+
+Client configuration download and the restricted server notification credential are still pending. Both browser download methods failed; Kevin has been asked to download `google-services.json` from the verified app settings. No service-account private key or production FCM environment value has been created.
 
 1. Register Android package `com.gordyelliott.atcapacity` in that project.
 2. Download `google-services.json` and keep it outside Git. Set `ANDROID_GOOGLE_SERVICES_FILE` to the file; sync copies it to ignored `android/app/google-services.json`.
@@ -76,7 +80,7 @@ Useful requirements: [target API](https://support.google.com/googleplay/android-
 ## Submission gates
 
 - Gordy completes owner-only identity/phone/website verification so Create app unlocks.
-- SDK licence and external build tools installed; debug APK and Android lint pass.
+- SDK licence and external build tools installed; debug APK and Android lint pass (verified 6 October 2026: API36/min24, package/version inspected, debug signature verified, 13 focused Android/push tests pass). Android lint has 24 non-blocking tooling/asset/backup warnings. Voice-note microphone permissions are declared; runtime recording still requires installed-device verification.
 - Firebase client/server project configured; migration and backend deployment verified.
 - Signed AAB inspected; Play signing certificate associated with the production domain.
 - Installed Android walkthrough: login/setup, training groups/timers/video, nutrition, AI/reporting, coach messages/upload, optional integration authorisation, keyboard/back, offline page, notification lifecycle and deletion instructions.

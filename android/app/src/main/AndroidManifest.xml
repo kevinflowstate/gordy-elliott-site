@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Required by WebView getUserMedia for existing DM voice notes. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
     <application
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
@@ -27,7 +34,8 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="app.onlinegordy.com" />
+                <data android:scheme="https" />
+                <data android:host="app.onlinegordy.com" />
                 <data android:pathPrefix="/portal" />
                 <data android:path="/login" />
                 <data android:path="/auth/callback" />
@@ -61,8 +69,4 @@
         <meta-data android:name="firebase_analytics_collection_enabled" android:value="false" />
     </application>
 
-    <!-- Permissions -->
-
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

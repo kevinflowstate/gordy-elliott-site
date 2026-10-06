@@ -16,7 +16,11 @@ if (mode === "release") {
   const result = spawnSync(process.execPath, ["scripts/android-release-preflight.mjs"], { env, stdio: "inherit" });
   if (result.status !== 0) process.exit(result.status || 1);
 }
-if (!existsSync(join(env.JAVA_HOME, "bin", "javac"))) throw new Error(`Install JDK 21 on CodexDev: ${env.JAVA_HOME}`);
+for (const required of ["bin/javac", "bin/jlink", "jmods/java.base.jmod"]) {
+  if (!existsSync(join(env.JAVA_HOME, required))) {
+    throw new Error(`Install a full JDK 21 on CodexDev; ${required} is missing from ${env.JAVA_HOME}`);
+  }
+}
 if (!existsSync(join(env.ANDROID_HOME, "platforms", "android-36", "android.jar"))) {
   throw new Error("Install Android SDK platform 36 using sdkmanager on CodexDev first.");
 }
