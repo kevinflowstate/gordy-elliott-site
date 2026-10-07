@@ -175,7 +175,7 @@ final class NativeWorkoutViewModel: ObservableObject {
             entries: launch.session.exercises.map { exercise in
                 NativeWorkoutSyncEntry(
                     exerciseItemID: exercise.id,
-                    setsData: sets[exercise.id] ?? []
+                    setsData: exercise.setsForSync(sets[exercise.id] ?? [])
                 )
             }
         )
@@ -371,20 +371,22 @@ struct NativeWorkoutView: View {
                                     .foregroundColor(NativeWorkoutPalette.pink)
                                     .frame(width: 34, height: 34)
                                     .background(NativeWorkoutPalette.pink.opacity(0.13), in: Circle())
-                                VStack(alignment: .leading, spacing: 3) {
+                                VStack(alignment: .leading, spacing: 6) {
                                     if let section = exercise.section {
                                         Text(section.uppercased())
                                             .font(.system(size: 9, weight: .bold))
                                             .tracking(1)
                                             .foregroundColor(.white.opacity(0.3))
                                     }
-                                    Text(exercise.name)
-                                        .font(.subheadline.weight(.bold))
+                                    if model.groupRange(at: index).lowerBound == index, let label = exercise.groupLabel {
+                                        Text(label).font(.caption.bold()).foregroundColor(NativeWorkoutPalette.pink)
+                                    }
+                                    NativeWorkoutExerciseHeading(exercise: exercise)
+                                    if exercise.logsCircuitRounds, let rounds = model.sets[exercise.id]?.first?.circuitRounds {
+                                        Text("\(rounds) circuit rounds").font(.caption).foregroundColor(.white.opacity(0.5))
+                                    }
                                 }
-                                Spacer()
-                                Text(exercise.prescription + ((model.sets[exercise.id]?.first?.circuitRounds).map { " · \($0) rounds" } ?? ""))
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundColor(.white.opacity(0.42))
+                                .frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .padding(13)
                             .background(NativeWorkoutPalette.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -413,7 +415,7 @@ struct NativeWorkoutView: View {
                     VStack(alignment: .leading, spacing: 18) {
                         if let section = first.section { Text(section.uppercased()).font(.caption.bold()).foregroundColor(NativeWorkoutPalette.pink) }
                         if model.currentExercises.count > 1 || first.groupKind == "amrap" || first.groupKind == "emom" {
-                            Text(first.groupKind == "amrap" ? "AMRAP circuit" : first.groupKind == "emom" ? "EMOM circuit" : model.currentExercises.count == 2 ? "Superset" : "Circuit")
+                            Text(first.groupLabel ?? "Circuit")
                                 .font(.title.bold())
                             Text(first.groupKind == "emom" ? "\(model.currentExercises.count) exercises · follow the minute prescription" : "\(model.currentExercises.count) exercises · complete in order")
                                 .font(.subheadline).foregroundColor(.white.opacity(0.6))
@@ -421,11 +423,7 @@ struct NativeWorkoutView: View {
                         if model.currentExercises.count > 1 {
                             VStack(spacing: 10) {
                                 ForEach(model.currentExercises) { member in
-                                    HStack(alignment: .top) {
-                                        Text(member.name).font(.subheadline.bold())
-                                        Spacer()
-                                        Text(member.prescription).font(.caption).foregroundColor(.white.opacity(0.6))
-                                    }
+                                    NativeWorkoutExerciseHeading(exercise: member)
                                 }
                             }
                             .padding(12)
@@ -492,20 +490,12 @@ struct NativeWorkoutView: View {
                 .accessibilityLabel("Watch \(exercise.name) demo")
                 .padding(.bottom, 12)
             }
-            HStack(alignment: .top, spacing: 10) {
-                Text(exercise.name)
-                    .font(.system(size: 31, weight: .black, design: .rounded))
-                    .tracking(-1)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 8)
-                Text(exercise.prescription + ((model.sets[exercise.id]?.first?.circuitRounds).map { " · \($0) rounds" } ?? ""))
-                    .font(.caption.weight(.bold))
-                    .foregroundColor(NativeWorkoutPalette.pink)
-                    .padding(.horizontal, 11)
-                    .padding(.vertical, 8)
-                    .background(NativeWorkoutPalette.pink.opacity(0.12), in: RoundedRectangle(cornerRadius: 11))
-            }
+            NativeWorkoutExerciseHeading(exercise: exercise, prominent: true)
             .padding(.top, 5)
+            if exercise.logsCircuitRounds, let rounds = model.sets[exercise.id]?.first?.circuitRounds {
+                Text("\(rounds) circuit rounds")
+                    .font(.caption.bold()).foregroundColor(NativeWorkoutPalette.pink).padding(.top, 8)
+            }
 
             if let notes = exercise.notes, !notes.isEmpty {
                 Text(notes)
@@ -604,8 +594,8 @@ struct NativeWorkoutView: View {
                                         .frame(width: 38, height: 38)
                                         .background(done ? NativeWorkoutPalette.green : Color.white.opacity(0.07), in: Circle())
                                     VStack(alignment: .leading, spacing: 3) {
-                                        Text(exercise.name).font(.subheadline.weight(.bold))
-                                        Text("\(exerciseSets.filter(\.completed).count)/\(exerciseSets.count) sets complete" + (exerciseSets.first?.circuitRounds.map { " · \($0) circuit rounds" } ?? ""))
+                                        NativeWorkoutExerciseHeading(exercise: exercise)
+                                        Text("\(exerciseSets.filter(\.completed).count)/\(exerciseSets.count) sets complete" + (exercise.logsCircuitRounds ? exerciseSets.first?.circuitRounds.map { " · \($0) circuit rounds" } ?? "" : ""))
                                             .font(.caption)
                                             .foregroundColor(.white.opacity(0.38))
                                     }
@@ -736,6 +726,62 @@ struct NativeWorkoutView: View {
                 .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 17, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 17).stroke(Color.white.opacity(0.1)))
         }
+    }
+}
+
+private struct NativeWorkoutExerciseHeading: View {
+    let exercise: NativeWorkoutExercise
+    var prominent = false
+    var allowsInlineBadge = true
+    @Environment(\.sizeCategory) private var sizeCategory
+    @ScaledMetric(relativeTo: .title) private var titleSize: CGFloat = 31
+
+    private var inlineBadge: Bool {
+        allowsInlineBadge && NativeWorkoutPrescriptionLayout.usesInlineBadge(
+            name: exercise.name,
+            prescription: exercise.prescription,
+            accessibilityText: sizeCategory.isAccessibilityCategory
+        )
+    }
+
+    private var name: some View {
+        Text(exercise.name)
+            .font(prominent ? .system(size: titleSize, weight: .black, design: .rounded) : .subheadline.weight(.bold))
+            .tracking(prominent ? -1 : 0)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
+    }
+
+    private var badge: some View {
+        Text(exercise.prescription)
+            .font(.caption.weight(.semibold))
+            .foregroundColor(NativeWorkoutPalette.pink)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(NativeWorkoutPalette.pink.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
+            .frame(width: 100, alignment: .trailing)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if inlineBadge {
+                HStack(alignment: .top, spacing: 10) { name; badge }
+            } else {
+                name
+                if !exercise.prescription.isEmpty {
+                    Text(exercise.prescription)
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.65))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .multilineTextAlignment(.leading)
+        .layoutPriority(1)
     }
 }
 
@@ -899,9 +945,8 @@ private struct NativeWorkoutOverviewView: View {
                                         .frame(width: 42, height: 42)
                                         .background(isCurrent ? NativeWorkoutPalette.pink : Color.white.opacity(0.06), in: Circle())
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text(exercise.name)
-                                            .font(.subheadline.weight(.bold))
-                                        Text("\(exercise.prescription) · \(completed)/\(exerciseSets.count) sets")
+                                        NativeWorkoutExerciseHeading(exercise: exercise, allowsInlineBadge: false)
+                                        Text("\(completed)/\(exerciseSets.count) sets complete")
                                             .font(.caption)
                                             .foregroundColor(.white.opacity(0.38))
                                     }
@@ -965,8 +1010,38 @@ private let nativeWorkoutPreviewLaunch = NativeWorkoutLaunch(
 
 struct NativeWorkoutView_Previews: PreviewProvider {
     static var previews: some View {
-        NativeWorkoutView(launch: nativeWorkoutPreviewLaunch, onClose: {}, onPending: { _ in })
-            .previewDisplayName("Native workout")
+        Group {
+            NativeWorkoutView(launch: nativeWorkoutPreviewLaunch, onClose: {}, onPending: { _ in })
+                .previewDisplayName("Native workout")
+            prescriptionLayoutPreview
+                .previewLayout(.fixed(width: 320, height: 620))
+                .previewDisplayName("Small iPhone prescriptions")
+            prescriptionLayoutPreview
+                .environment(\.sizeCategory, .accessibilityExtraExtraExtraLarge)
+                .previewLayout(.fixed(width: 320, height: 900))
+                .previewDisplayName("Accessibility prescriptions")
+        }
+    }
+
+    private static var prescriptionLayoutPreview: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                NativeWorkoutExerciseHeading(exercise: NativeWorkoutExercise(
+                    id: "reported-bike", name: "Air Bike",
+                    prescription: "arms and legs moving together ; Time 3 min 0 sec",
+                    section: nil, restSeconds: nil, notes: nil, demoURL: nil, usesSetLogging: false
+                ), prominent: true)
+                NativeWorkoutExerciseHeading(exercise: NativeWorkoutExercise(
+                    id: "long-name", name: "Single Leg Romanian Deadlift with Dumbbells",
+                    prescription: "3 x 10", section: nil, restSeconds: nil, notes: nil, demoURL: nil, usesSetLogging: true
+                ))
+                NativeWorkoutExerciseHeading(exercise: nativeWorkoutPreviewLaunch.session.exercises[0], prominent: true)
+            }
+            .padding(16)
+        }
+        .foregroundColor(.white)
+        .background(NativeWorkoutPalette.background)
+        .preferredColorScheme(.dark)
     }
 }
 #endif
@@ -992,7 +1067,7 @@ private struct NativeCircuitControls: View {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     let now = context.date.timeIntervalSince1970 * 1000
                     let end = value?.circuitEndsAt ?? 0
-                    let remaining = end > 0 ? max(0, Int(ceil((end - now) / 1000))) : (value?.circuitRemainingSeconds ?? exercise.durationSeconds)
+                    let remaining = value?.circuitTimeRemaining(at: now, duration: exercise.durationSeconds) ?? exercise.durationSeconds
                     let running = end > now
                     let total = exercise.durationSeconds ?? value?.circuitDurationSeconds
                     VStack(alignment: .leading, spacing: 12) {
@@ -1017,18 +1092,15 @@ private struct NativeCircuitControls: View {
                         }
                         Button(running ? "Pause timer" : "Start timer") {
                             if running {
-                                update { $0.circuitRemainingSeconds = remaining; $0.circuitEndsAt = nil }
+                                update { $0.pauseCircuit(at: Date().timeIntervalSince1970 * 1_000, duration: exercise.durationSeconds) }
                             } else {
-                                update {
-                                    if total == nil { $0.circuitDurationSeconds = remaining }
-                                    $0.circuitEndsAt = Date().timeIntervalSince1970 * 1000 + Double(remaining ?? 0) * 1000
-                                }
+                                update { $0.startCircuit(at: Date().timeIntervalSince1970 * 1_000, duration: exercise.durationSeconds) }
                             }
                         }
                         .buttonStyle(.borderedProminent)
                         .disabled(value == nil || (remaining ?? 0) <= 0)
                         Button("Reset timer") {
-                            update { $0.circuitEndsAt = nil; $0.circuitRemainingSeconds = total }
+                            update { $0.resetCircuit(duration: total) }
                         }
                         .font(.caption)
                     }
@@ -1051,13 +1123,10 @@ private struct NativeCircuitControls: View {
     }
 
     private func minuteCue(total: Int, remaining: Int) -> some View {
-        let elapsed = max(0, total - remaining)
-        let minute = elapsed / 60 + 1
-        let seconds = min(60 - elapsed % 60, remaining)
-        let parity = minute % 2 == 1 ? "odd" : "even"
-        let active = model.currentExercises.filter { $0.emomMinuteParity == parity }.map(\.name)
+        let progress = NativeWorkoutMinuteProgress(duration: total, remaining: remaining)
+        let active = model.currentExercises.filter { $0.emomMinuteParity == progress.parity }.map(\.name)
         return VStack(alignment: .leading, spacing: 6) {
-            Text("Minute \(minute) of \((total + 59) / 60) · \(seconds)s until next minute")
+            Text("Minute \(progress.minute) of \(progress.minuteCount) · \(progress.secondsRemaining)s until next minute")
                 .font(.subheadline.bold())
             Text(active.isEmpty ? "Follow this minute’s prescription below" : active.joined(separator: " + "))
                 .font(.subheadline).foregroundColor(NativeWorkoutPalette.pink)

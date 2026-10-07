@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { buildFallbackCheckinConfig, normalizeCheckinConfig } from "@/lib/checkin-form";
+import { loadCoachCheckinReplies } from "@/lib/checkin-replies";
 import { NextResponse } from "next/server";
 
 function getWeekStartIso(date = new Date()) {
@@ -23,7 +24,7 @@ export async function GET() {
   const admin = createAdminClient();
   const { data: profile } = await admin
     .from("client_profiles")
-    .select("id, checkin_day, last_checkin, checkin_form_id")
+    .select("id, tier, checkin_day, last_checkin, checkin_form_id")
     .eq("user_id", user.id)
     .single();
 
@@ -71,8 +72,12 @@ export async function GET() {
     .limit(1)
     .maybeSingle();
 
+  const replies = await loadCoachCheckinReplies(admin, profile.id, profile.tier || "coached");
+
   return NextResponse.json({
     currentWeekCheckin: currentWeekCheckin || null,
+    checkinReplies: replies.replies,
+    repliesUnavailable: replies.unavailable,
     checkinDay: profile.checkin_day || null,
     lastCheckin: profile.last_checkin || null,
     config: effectiveConfig,

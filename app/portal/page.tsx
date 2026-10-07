@@ -10,6 +10,7 @@ import type { WeeklyCapacityResult } from "@/lib/weekly-capacity";
 import { getNextCalendarOccurrence } from "@/lib/calendar-occurrence";
 import { isFounderExperience } from "@/lib/client-experience";
 import { getImmediateTodayPriority } from "@/lib/today-priority";
+import { coachCheckinReplies, coachCheckinReplyHref } from "@/lib/checkin-replies";
 import MonthlyCallPrompt from "@/components/portal/MonthlyCallPrompt";
 
 type Tier = "coached" | "premium" | "vip" | "ai_only";
@@ -373,7 +374,7 @@ export default function PortalDashboard() {
   const planPct = totalPlanItems > 0 ? Math.round((completedPlanItems / totalPlanItems) * 100) : 0;
   const nextCheckinDate = getNextCheckinDate(checkinDay);
   const checkinToday = isToday(nextCheckinDate);
-  const latestReply = checkins.find((checkin) => checkin.admin_reply);
+  const latestReply = coachCheckinReplies(checkins)[0];
   const checkinStreak = useMemo(() => computeCheckinStreak(checkins), [checkins]);
   const tier: Tier = (profile?.tier as Tier) || "coached";
   const isAiOnly = tier === "ai_only";
@@ -551,7 +552,7 @@ export default function PortalDashboard() {
           </Link>
 
           <Link
-            href={isAiOnly ? "/portal/ai" : latestReply?.reply_message_id ? `/portal/inbox?message=${latestReply.reply_message_id}` : "/portal/checkin"}
+            href={isAiOnly ? "/portal/ai" : latestReply ? coachCheckinReplyHref(latestReply) : "/portal/checkin#coach-replies"}
             className="app-hero-tile flex min-h-[78px] flex-col justify-between rounded-2xl px-3.5 py-3 no-underline"
           >
             <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">{isAiOnly ? "AT CAPACITY AI" : "Gordy's Messages"}</div>

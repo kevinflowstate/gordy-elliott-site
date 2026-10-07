@@ -196,6 +196,15 @@ export function mergeDailySummary(
       ? existing
       : incoming;
   const fallbackSleep = preferIncomingSleep ? existing : incoming;
+  const existingMfp = existing?.providers.includes("myfitnesspal") || false;
+  const incomingMfp = incoming.providers.includes("myfitnesspal");
+  const nutritionValue = (key: "nutrition_calories" | "protein_g" | "carbs_g" | "fat_g" | "water_ml") => {
+    // Imported whole-day totals are authoritative, never added to another
+    // feed's totals. An unrelated provider must not overwrite MFP values.
+    if (incomingMfp) return incoming[key] ?? (existingMfp ? existing?.[key] ?? null : null);
+    if (existingMfp) return existing?.[key] ?? null;
+    return incoming[key] ?? existing?.[key] ?? null;
+  };
   const mergedBase = {
     ...incoming,
     providers: Array.from(new Set([...(existing?.providers || []), ...incoming.providers])),
@@ -211,11 +220,11 @@ export function mergeDailySummary(
     total_calories_burned: incoming.total_calories_burned ?? existing?.total_calories_burned ?? null,
     training_load: incoming.training_load ?? existing?.training_load ?? null,
     workout_count: incoming.workout_count ?? existing?.workout_count ?? null,
-    nutrition_calories: incoming.nutrition_calories ?? existing?.nutrition_calories ?? null,
-    protein_g: incoming.protein_g ?? existing?.protein_g ?? null,
-    carbs_g: incoming.carbs_g ?? existing?.carbs_g ?? null,
-    fat_g: incoming.fat_g ?? existing?.fat_g ?? null,
-    water_ml: incoming.water_ml ?? existing?.water_ml ?? null,
+    nutrition_calories: nutritionValue("nutrition_calories"),
+    protein_g: nutritionValue("protein_g"),
+    carbs_g: nutritionValue("carbs_g"),
+    fat_g: nutritionValue("fat_g"),
+    water_ml: nutritionValue("water_ml"),
   };
 
   return {

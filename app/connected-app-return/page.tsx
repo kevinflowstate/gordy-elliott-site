@@ -6,6 +6,7 @@ const supportedProviders = new Set(["garmin", "oura", "fitbit", "myfitnesspal", 
 
 export default function ConnectedAppReturnPage() {
   const [showFallback, setShowFallback] = useState(false);
+  const [fallbackHref, setFallbackHref] = useState("/login?redirect=%2Fportal%2Fconnected-apps");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -14,13 +15,21 @@ export default function ConnectedAppReturnPage() {
     const provider = supportedProviders.has(requestedProvider) ? requestedProvider : "";
     const appParams = new URLSearchParams({ terra: status });
     if (provider) appParams.set("provider", provider);
+    for (const key of ["attempt", "user_id"]) {
+      const value = params.get(key);
+      if (value) appParams.set(key, value);
+    }
+    const nextFallbackHref = `/login?redirect=${encodeURIComponent(`/portal/connected-apps?${appParams}`)}`;
     window.location.replace(`atcapacity://portal/connected-apps?${appParams}`);
 
     const legacyTimeout = window.setTimeout(() => {
       window.location.replace(`shiftcoaching://portal/connected-apps?${appParams}`);
     }, 600);
 
-    const timeout = window.setTimeout(() => setShowFallback(true), 1_500);
+    const timeout = window.setTimeout(() => {
+      setFallbackHref(nextFallbackHref);
+      setShowFallback(true);
+    }, 1_500);
     return () => {
       window.clearTimeout(legacyTimeout);
       window.clearTimeout(timeout);
@@ -37,7 +46,7 @@ export default function ConnectedAppReturnPage() {
         </p>
         {showFallback && (
           <a
-            href="/login?redirect=%2Fportal%2Fconnected-apps"
+            href={fallbackHref}
             className="mt-6 inline-flex rounded-xl gradient-accent px-5 py-3 text-sm font-semibold text-white no-underline"
           >
             Continue to AT CAPACITY

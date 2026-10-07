@@ -77,6 +77,7 @@ export interface AdminClient {
   calendar_connections?: CalendarConnection[];
   calendar_events?: SyncedCalendarEvent[];
   daily_metrics?: Array<{
+    manual_steps?: number | null;
     id: string;
     tracked_date: string;
     sleep_hours: number | null;
@@ -490,7 +491,7 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
       .limit(1),
     admin
       .from("client_daily_metrics")
-      .select("id, tracked_date, sleep_hours, water_liters, energy_level, stress_level, nutrition_score, training_completed, notes")
+      .select("id, tracked_date, sleep_hours, water_liters, manual_steps, energy_level, stress_level, nutrition_score, training_completed, notes")
       .eq("client_id", id)
       .lte("tracked_date", new Date().toISOString().slice(0, 10))
       .order("tracked_date", { ascending: false })

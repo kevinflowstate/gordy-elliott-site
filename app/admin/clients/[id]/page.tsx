@@ -18,7 +18,10 @@ import { formatExercisePrescription } from "@/lib/exercise-prescriptions";
 import { getExerciseDemoUrl } from "@/lib/exercise-demo";
 import { openExerciseDemo } from "@/lib/exercise-demo-client";
 import { useToast } from "@/components/ui/Toast";
-import { titleCaseProvider } from "@/lib/wearable-insights";
+import { sanitizeWearableRecovery, titleCaseProvider } from "@/lib/wearable-insights";
+import { dateKeyInTimeZone } from "@/lib/founder-dashboard";
+import { nutritionWeek, nutritionWeekCount, type NutritionLogDay } from "@/lib/nutrition-history";
+import { resolveDailySteps } from "@/lib/daily-steps";
 import { legacyProfileForProgramme, PROGRAMME_TYPES, programmeConfig } from "@/lib/programmes";
 import CapacityBaselinePanel from "@/components/admin/CapacityBaselinePanel";
 import CompliancePanel from "@/components/admin/CompliancePanel";
@@ -178,6 +181,7 @@ function formatWearableDate(value: string | null | undefined): string {
 }
 
 function recoveryBadgeClass(status: string | null | undefined): string {
+  if (status === "unknown" || !status) return "border-[rgba(0,0,0,0.08)] bg-bg-primary text-text-muted";
   if (status === "reduce_intensity") return "border-red-500/30 bg-red-500/10 text-red-400";
   if (status === "watch") return "border-amber-500/30 bg-amber-500/10 text-amber-400";
   return "border-emerald-500/30 bg-emerald-500/10 text-emerald-400";
@@ -1026,7 +1030,8 @@ export default function ClientDetailPage() {
   const actualCheckins = client.checkins.length;
   const missedCheckins = Math.max(0, expectedCheckins - actualCheckins);
   const hasConsultationData = !!client.consultation_data && Object.keys(client.consultation_data).length > 0;
-  const latestWearableSummary = client.wearable_summaries?.[0] || null;
+  const latestWearableSummary = client.wearable_summaries?.[0] ? sanitizeWearableRecovery(client.wearable_summaries[0]) : null;
+  const currentWearableRecovery = latestWearableSummary?.summary_date === dateKeyInTimeZone(new Date(), "Europe/London") && latestWearableSummary.recovery_status !== "unknown";
   const activeWearableConnections = (client.wearable_connections || []).filter((connection) => connection.status === "connected");
   const activeCalendarConnections = (client.calendar_connections || []).filter((connection) => connection.status === "connected");
   const upcomingCalendarEvents = client.calendar_events || [];
@@ -1715,7 +1720,7 @@ export default function ClientDetailPage() {
           </div>
           {latestWearableSummary ? (
             <span className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] ${recoveryBadgeClass(latestWearableSummary.recovery_status)}`}>
-              {latestWearableSummary.recovery_status.replace(/_/g, " ")}
+              {latestWearableSummary.recovery_status === "unknown" ? "Recovery unavailable" : `${currentWearableRecovery ? "" : "Historical · "}${latestWearableSummary.recovery_status.replace(/_/g, " ")}`}
             </span>
           ) : (
             <span className="inline-flex rounded-full border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-1.5 text-xs font-semibold text-text-muted">
@@ -1729,29 +1734,30 @@ export default function ClientDetailPage() {
             <div className="mt-4 grid gap-3 sm:grid-cols-5">
               <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-3">
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Readiness</div>
-                <div className="mt-1 text-xl font-heading font-bold text-text-primary">{latestWearableSummary.readiness_score ?? "—"}/100</div>
+                <div className="mt-1 text-xl font-heading font-bold text-text-primary">{latestWearableSummary.readiness_score === null ? "Unavailable" : `${latestWearableSummary.readiness_score}/100`}</div>
               </div>
               <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-3">
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Sleep</div>
                 <div className="mt-1 text-xl font-heading font-bold text-text-primary">
-                  {latestWearableSummary.sleep_minutes ? `${Math.floor(latestWearableSummary.sleep_minutes / 60)}h ${latestWearableSummary.sleep_minutes % 60}m` : "—"}
+                  {latestWearableSummary.sleep_minutes !== null ? `${Math.floor(latestWearableSummary.sleep_minutes / 60)}h ${latestWearableSummary.sleep_minutes % 60}m` : "—"}
                 </div>
               </div>
               <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-3">
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">HRV</div>
-                <div className="mt-1 text-xl font-heading font-bold text-text-primary">{latestWearableSummary.hrv_ms ? `${Math.round(latestWearableSummary.hrv_ms)} ms` : "—"}</div>
+                <div className="mt-1 text-xl font-heading font-bold text-text-primary">{latestWearableSummary.hrv_ms !== null ? `${Math.round(latestWearableSummary.hrv_ms)} ms` : "—"}</div>
               </div>
               <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-3">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Steps</div>
-                <div className="mt-1 text-xl font-heading font-bold text-text-primary">{latestWearableSummary.steps ? latestWearableSummary.steps.toLocaleString("en-GB") : "—"}</div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Synced steps</div>
+                <div className="mt-1 text-xl font-heading font-bold text-text-primary">{latestWearableSummary.steps !== null ? latestWearableSummary.steps.toLocaleString("en-GB") : "—"}</div>
               </div>
               <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-3">
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Protein</div>
-                <div className="mt-1 text-xl font-heading font-bold text-text-primary">{latestWearableSummary.protein_g ? `${Math.round(latestWearableSummary.protein_g)}g` : "—"}</div>
+                <div className="mt-1 text-xl font-heading font-bold text-text-primary">{latestWearableSummary.protein_g !== null ? `${Math.round(latestWearableSummary.protein_g)}g` : "—"}</div>
               </div>
             </div>
             <p className="mt-3 rounded-xl border border-[#E040D0]/15 bg-[#E040D0]/5 px-3 py-2 text-sm text-text-secondary">
-              {latestWearableSummary.insight}
+              {latestWearableSummary.insight || "There is insufficient sleep or heart data to assess recovery. Nutrition and activity values remain available."}
+              <span className="mt-1 block text-xs text-text-muted">Data date: {latestWearableSummary.summary_date}</span>
             </p>
           </>
         ) : (
@@ -1764,7 +1770,7 @@ export default function ClientDetailPage() {
           <div className="mt-4 flex flex-wrap gap-2">
             {activeWearableConnections.map((connection) => (
               <span key={connection.id} className="rounded-full border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-1 text-xs text-text-secondary">
-                {titleCaseProvider(connection.provider)} · {formatWearableDate(connection.last_sync_at)}
+                {titleCaseProvider(connection.provider)} · Last sync: {formatWearableDate(connection.last_sync_at)}
               </span>
             ))}
           </div>
@@ -2204,20 +2210,24 @@ export default function ClientDetailPage() {
               )}
             </div>
 
-            {client.daily_metrics?.some((entry) => entry.notes) && (
+            {client.daily_metrics?.some((entry) => entry.notes || entry.manual_steps !== null && entry.manual_steps !== undefined) && (
               <div className="mt-4 rounded-2xl border border-[#E040D0]/20 bg-bg-card p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-heading font-bold text-text-primary">Daily Tracker notes</h3>
+                  <h3 className="text-sm font-heading font-bold text-text-primary">Daily Tracker notes and steps</h3>
                   <span className="rounded-full bg-[#E040D0]/10 px-2.5 py-1 text-[10px] font-semibold text-[#E040D0]">Client shared</span>
                 </div>
                 <p className="mt-1 text-xs text-text-muted">Context the client added alongside their daily numbers.</p>
                 <div className="mt-3 space-y-2">
-                  {client.daily_metrics.filter((entry) => entry.notes).slice(0, 4).map((entry) => (
+                  {client.daily_metrics.filter((entry) => entry.notes || entry.manual_steps !== null && entry.manual_steps !== undefined).slice(0, 4).map((entry) => (
                     <div key={entry.id} className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-3">
                       <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#E040D0]">
                         {new Date(`${entry.tracked_date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
                       </div>
-                      <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-text-secondary">{entry.notes}</p>
+                      {(() => {
+                        const steps = resolveDailySteps(entry.manual_steps, client.wearable_summaries?.find((summary) => summary.summary_date === entry.tracked_date)?.steps);
+                        return steps.value === null ? null : <p className="mt-1 text-xs text-text-secondary">{steps.value.toLocaleString("en-GB")} steps · {steps.source === "manual" ? "Manual entry" : "Connected app"}</p>;
+                      })()}
+                      {entry.notes && <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-text-secondary">{entry.notes}</p>}
                     </div>
                   ))}
                 </div>
@@ -4390,7 +4400,8 @@ function TrainingTabContent({
           <select
             value={selectedWeek}
             onChange={(e) => setSelectedWeek(Number(e.target.value))}
-            className="text-sm text-text-primary bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#E040D0]/40 cursor-pointer"
+            aria-label="Nutrition calendar week"
+            className="w-full min-w-0 text-sm text-text-primary bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#E040D0]/40 cursor-pointer sm:w-auto"
           >
             {Array.from({ length: totalWeeks }, (_, i) => {
               const wk = totalWeeks - i;
@@ -4499,48 +4510,36 @@ function NutritionTabContent({
 }: NutritionTabContentProps) {
   const activeNutPlan = nutritionPlans.find((p) => p.status === "active");
 
-  // Week selector
-  const startDate = new Date(client.start_date);
-  const now = new Date();
-  const totalWeeks = Math.max(1, Math.ceil((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 7)));
+  // Calendar weeks are anchored to Monday using date-only arithmetic.
+  const totalWeeks = nutritionWeekCount(client.start_date);
   const [selectedWeek, setSelectedWeek] = useState(totalWeeks);
-
-  // Meal tracking for selected week
-  const [mealTracking, setMealTracking] = useState<Array<{ id: string; meal_id: string; tracked_date: string; completed: boolean }>>([]);
-  const [trackingLoading, setTrackingLoading] = useState(false);
-
-  const getWeekRange = (weekNum: number) => {
-    const weekStart = new Date(startDate);
-    weekStart.setDate(weekStart.getDate() + (weekNum - 1) * 7);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-    return {
-      from: weekStart.toISOString().split("T")[0],
-      to: weekEnd.toISOString().split("T")[0],
-    };
-  };
+  type NutritionLogs = { days: NutritionLogDay[]; latestDataDate: string | null; connection: { status: string; last_sync_at: string | null } | null };
+  type MealTick = { id: string; meal_id: string; tracked_date: string; completed: boolean };
+  const [logResult, setLogResult] = useState<{ key: string; mealTracking: MealTick[]; nutritionLogs: NutritionLogs | null; error: string | null } | null>(null);
+  const getWeekRange = (weekNum: number) => nutritionWeek(client.start_date, weekNum);
+  const { from: weekFrom, to: weekTo, dates: weekDates } = getWeekRange(selectedWeek);
+  const requestKey = `${client.id}:${weekFrom}:${weekTo}`;
+  const currentResult = logResult?.key === requestKey ? logResult : null;
+  const trackingLoading = currentResult === null;
+  const mealTracking = currentResult?.mealTracking || [];
+  const nutritionLogs = currentResult?.nutritionLogs || null;
+  const trackingError = currentResult?.error || null;
 
   useEffect(() => {
-    const { from, to } = getWeekRange(selectedWeek);
-    setTrackingLoading(true);
-    fetch(`/api/admin/client-meal-tracking?clientId=${client.id}&from=${from}&to=${to}`)
-      .then((r) => r.json())
-      .then((data) => setMealTracking(data.tracking || []))
-      .catch(() => setMealTracking([]))
-      .finally(() => setTrackingLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client.id, selectedWeek]);
-
-  const { from: weekFrom, to: weekTo } = getWeekRange(selectedWeek);
-
-  // Build list of dates in the selected week
-  const weekDates: string[] = [];
-  const wkStart = new Date(weekFrom + "T00:00:00");
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(wkStart);
-    d.setDate(d.getDate() + i);
-    weekDates.push(d.toISOString().split("T")[0]);
-  }
+    const controller = new AbortController();
+    const query = `clientId=${client.id}&from=${weekFrom}&to=${weekTo}`;
+    Promise.all([
+      fetch(`/api/admin/client-meal-tracking?${query}`, { signal: controller.signal }),
+      fetch(`/api/admin/client-nutrition-logs?${query}`, { signal: controller.signal }),
+    ]).then(async ([tracking, nutrition]) => {
+      if (!tracking.ok || !nutrition.ok) throw new Error("Could not load nutrition logs. Try another week or reload.");
+      const [mealData, nutritionData] = await Promise.all([tracking.json(), nutrition.json()]);
+      if (!controller.signal.aborted) setLogResult({ key: requestKey, mealTracking: mealData.tracking || [], nutritionLogs: nutritionData, error: null });
+    }).catch((error) => {
+      if (!controller.signal.aborted) setLogResult({ key: requestKey, mealTracking: [], nutritionLogs: null, error: error instanceof Error ? error.message : "Could not load nutrition logs." });
+    });
+    return () => controller.abort();
+  }, [client.id, weekFrom, weekTo, requestKey]);
 
   return (
     <div className="space-y-6">
@@ -4649,7 +4648,7 @@ function NutritionTabContent({
 
       {/* ── Section 2: Nutrition Logs ── */}
       <div>
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-heading font-bold text-text-primary">Nutrition Logs</h2>
           <select
             value={selectedWeek}
@@ -4662,20 +4661,60 @@ function NutritionTabContent({
               const label = new Date(from + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
               return (
                 <option key={wk} value={wk}>
-                  Week {wk} ({label})
+                  Calendar week {wk} · Mon {label}
                 </option>
               );
             })}
           </select>
         </div>
 
-        {trackingLoading ? (
+        <p className="mb-3 text-xs text-text-muted">Monday–Sunday · {weekFrom} to {weekTo}. Week 1 contains the programme start date.</p>
+        {!trackingLoading && !trackingError && nutritionLogs && (
+          <div className="mb-5 overflow-hidden rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card">
+            <div className="p-4">
+              <h3 className="text-sm font-semibold text-text-primary">MyFitnessPal daily totals</h3>
+              <p className="mt-1 text-xs text-text-muted">
+                Latest nutrition day: {nutritionLogs.latestDataDate || "No imported totals"} · Last connection sync: {formatWearableDate(nutritionLogs.connection?.last_sync_at)}
+              </p>
+              <p className="mt-2 text-xs text-text-secondary">Imported totals stand alone. Meal ticks below track adherence and are never added to these totals. Today may still be in progress; partial days have missing values, shown as —.</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="border-y border-[rgba(0,0,0,0.06)]">
+                  <th className="px-4 py-3 text-left text-xs">Imported / recorded plan target</th>
+                  {weekDates.map((date) => <th key={date} className="whitespace-nowrap px-3 py-3 text-center text-xs">{new Date(`${date}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", timeZone: "UTC" })}</th>)}
+                </tr></thead>
+                <tbody>
+                  {([{ key: "calories", label: "Calories", unit: "kcal" }, { key: "protein", label: "Protein", unit: "g" }, { key: "carbs", label: "Carbs", unit: "g" }, { key: "fat", label: "Fat", unit: "g" }] as const).map((metric) => (
+                    <tr key={metric.key} className="border-b border-[rgba(0,0,0,0.04)]">
+                      <th className="px-4 py-3 text-left font-medium">{metric.label} ({metric.unit})</th>
+                      {weekDates.map((date) => {
+                        const day = nutritionLogs.days.find((item) => item.date === date);
+                        const value = day?.imported?.[metric.key];
+                        const target = day?.targets?.[metric.key];
+                        return <td key={date} className="whitespace-nowrap px-3 py-3 text-center">
+                          <span className="font-semibold text-text-primary">{value === null || value === undefined ? "—" : Math.round(value).toLocaleString("en-GB")}</span>
+                          <span className="text-text-muted"> / {target === null || target === undefined ? "—" : Math.round(target).toLocaleString("en-GB")}</span>
+                        </td>;
+                      })}
+                    </tr>
+                  ))}
+                  <tr><th className="px-4 py-3 text-left text-xs font-medium">Data status</th>{nutritionLogs.days.map((day) => <td key={day.date} className="px-3 py-3 text-center text-xs text-text-muted">{!day.imported ? "No import" : day.isToday ? `Today · ${day.partial ? "partial" : "in progress"}` : day.partial ? "Partial" : "Imported"}</td>)}</tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="px-4 py-3 text-xs text-text-muted">Targets use the recorded plan assigned for each date. Historical target edits were not recorded, so these are a reference rather than confirmed historical targets. No assigned plan means no target comparison.</p>
+          </div>
+        )}
+        {trackingError ? (
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 text-sm text-text-secondary" role="alert">{trackingError}</div>
+        ) : trackingLoading ? (
           <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-6 text-center">
             <p className="text-sm text-text-muted">Loading logs...</p>
           </div>
         ) : !activeNutPlan ? (
           <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
-            <p className="text-sm text-text-muted">Assign a nutrition plan to view logs.</p>
+            <p className="text-sm text-text-muted">No assigned meal plan. Imported nutrition totals are shown above.</p>
           </div>
         ) : (
           <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
@@ -4718,7 +4757,7 @@ function NutritionTabContent({
             </div>
             {mealTracking.length === 0 && (
               <div className="px-4 py-4 text-center border-t border-[rgba(0,0,0,0.04)]">
-                <p className="text-xs text-text-muted">No nutrition logged for Week {selectedWeek} ({weekFrom} to {weekTo}).</p>
+                <p className="text-xs text-text-muted">No meal-completion ticks for calendar week {selectedWeek} ({weekFrom} to {weekTo}).</p>
               </div>
             )}
           </div>

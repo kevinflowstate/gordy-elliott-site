@@ -1,4 +1,4 @@
-export type RecoveryStatus = "good" | "watch" | "reduce_intensity";
+export type RecoveryStatus = "good" | "watch" | "reduce_intensity" | "unknown";
 
 export type WearableDailySummary = {
   id?: string;
@@ -70,6 +70,25 @@ export function hasWearableHealthSignals(summary: WearableDailySummary) {
   return hasWearableProvider && healthValues.some((value) => typeof value === "number" && Number.isFinite(value));
 }
 
+// Sleep duration and sleep score describe the same recovery domain. Require
+// another actual recovery measure; activity/nutrition and missing penalties
+// cannot establish readiness. Zero sleep scores are valid; zero heart values
+// and durations are provider placeholders, not physiological measurements.
+type RecoverySignals = Pick<WearableDailySummary, "sleep_minutes" | "sleep_score" | "hrv_ms" | "resting_hr_bpm">;
+
+export function hasSufficientRecoverySignals(summary: RecoverySignals) {
+  const positive = (value: number | null) => typeof value === "number" && Number.isFinite(value) && value > 0;
+  const sleep = positive(summary.sleep_minutes) || (
+    typeof summary.sleep_score === "number" && Number.isFinite(summary.sleep_score) && summary.sleep_score >= 0 && summary.sleep_score <= 100
+  );
+  return Number(sleep) + Number(positive(summary.hrv_ms)) + Number(positive(summary.resting_hr_bpm)) >= 2;
+}
+
+export function sanitizeWearableRecovery<T extends RecoverySignals & Pick<WearableDailySummary, "readiness_score" | "recovery_status" | "flags" | "insight">>(summary: T): T {
+  if (hasSufficientRecoverySignals(summary)) return summary;
+  return { ...summary, readiness_score: null, recovery_status: "unknown", flags: [], insight: null };
+}
+
 function roundScore(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
@@ -78,10 +97,13 @@ export function buildWearableInsight(
   summary: Omit<WearableDailySummary, "readiness_score" | "recovery_status" | "flags" | "insight">,
   baselines?: { resting_hr_bpm?: number | null; hrv_ms?: number | null },
 ): Pick<WearableDailySummary, "readiness_score" | "recovery_status" | "flags" | "insight"> {
+  if (!hasSufficientRecoverySignals(summary)) {
+    return { readiness_score: null, recovery_status: "unknown", flags: [], insight: null };
+  }
   const flags: string[] = [];
   let score = 82;
 
-  const durationSleepPenalty = summary.sleep_minutes === null
+  const durationSleepPenalty = summary.sleep_minutes === null || summary.sleep_minutes <= 0
     ? 0
     : summary.sleep_minutes < 240
       ? 20
@@ -90,7 +112,7 @@ export function buildWearableInsight(
         : summary.sleep_minutes < 360
           ? 6
           : 0;
-  const providerSleepPenalty = summary.sleep_score === null
+  const providerSleepPenalty = summary.sleep_score === null || summary.sleep_score < 0 || summary.sleep_score > 100
     ? 0
     : summary.sleep_score < 55
       ? 18
@@ -116,7 +138,7 @@ export function buildWearableInsight(
   }
 
   if (
-    summary.hrv_ms !== null &&
+    summary.hrv_ms !== null && summary.hrv_ms > 0 &&
     baselines?.hrv_ms &&
     summary.hrv_ms < baselines.hrv_ms * 0.8
   ) {
@@ -154,6 +176,7 @@ export function buildWearableInsight(
 export function formatWearableSummaryForPrompt(summary: WearableDailySummary | null | undefined) {
   if (!summary) return "No connected-app summary is available.";
 
+  summary = sanitizeWearableRecovery(summary);
   return JSON.stringify({
     date: summary.summary_date,
     providers: summary.providers,

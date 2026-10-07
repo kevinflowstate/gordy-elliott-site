@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { dateKeyInTimeZone } from "@/lib/founder-dashboard";
 import type { WearableConnection, WearableDailySummary } from "@/lib/wearable-insights";
-import { hasWearableHealthSignals, titleCaseProvider } from "@/lib/wearable-insights";
+import { sanitizeWearableRecovery, titleCaseProvider } from "@/lib/wearable-insights";
 
 type SignalCategory = "overview" | "sleep" | "activity" | "heart" | "nutrition";
 type MetricKey =
@@ -93,13 +93,10 @@ export default function HealthCapacityOverview({
   onManageConnections: () => void;
 }) {
   const orderedSummaries = useMemo(
-    () => [...summaries].sort((a, b) => b.summary_date.localeCompare(a.summary_date)),
+    () => summaries.map(sanitizeWearableRecovery).sort((a, b) => b.summary_date.localeCompare(a.summary_date)),
     [summaries],
   );
-  const healthSummaries = useMemo(
-    () => orderedSummaries.filter(hasWearableHealthSignals),
-    [orderedSummaries],
-  );
+  const healthSummaries = orderedSummaries;
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [category, setCategory] = useState<SignalCategory>("overview");
   const [showHistoricalLatest, setShowHistoricalLatest] = useState(false);
@@ -182,9 +179,9 @@ export default function HealthCapacityOverview({
               <RefreshIcon spinning={refreshing} />
             </div>
             <div className="mt-5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#f2b968]">Waiting for today&apos;s data</div>
-            <h2 className="mt-2 font-heading text-[2rem] font-bold tracking-tight text-white sm:text-[2.45rem]">Your latest complete health picture is from {dateLabel}</h2>
+            <h2 className="mt-2 font-heading text-[2rem] font-bold tracking-tight text-white sm:text-[2.45rem]">Your latest available health data is from {dateLabel}</h2>
             <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-white/55">
-              We will show today&apos;s Capacity score as soon as fresh sleep and activity data arrives. An older score will never be presented as today&apos;s result.
+              We will show today&apos;s Capacity score as soon as enough fresh recovery data arrives. An older score will never be presented as today&apos;s result.
             </p>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
               <button
@@ -298,7 +295,7 @@ export default function HealthCapacityOverview({
             <p className="mx-auto mt-3 max-w-xl text-[14px] leading-[1.65] text-white/58 sm:mx-0 sm:text-[15px]">
               {isToday
                 ? selected.insight || status.fallbackInsight
-                : `This is the coaching signal calculated from the complete data received for ${dateLabel}.`}
+                : `These are the signals received for ${dateLabel}. Recovery is unavailable when there is insufficient sleep or heart data.`}
             </p>
             <div className="mt-5 flex flex-wrap items-center justify-center gap-3 sm:justify-start">
               <Link
@@ -600,6 +597,15 @@ function HealthOverviewSkeleton() {
 }
 
 function recoveryPresentation(status: WearableDailySummary["recovery_status"]) {
+  if (status === "unknown") {
+    return {
+      label: "Recovery unavailable",
+      shortLabel: "No recovery score",
+      headline: "More recovery data needed",
+      tone: "text-white/65",
+      fallbackInsight: "Nutrition and activity are available below. A recovery score needs enough actual sleep or heart signals.",
+    };
+  }
   if (status === "reduce_intensity") {
     return {
       label: "Recovery under pressure",
@@ -628,6 +634,7 @@ function recoveryPresentation(status: WearableDailySummary["recovery_status"]) {
 }
 
 function historicalRecoveryHeadline(status: WearableDailySummary["recovery_status"]) {
+  if (status === "unknown") return "Recovery data was incomplete";
   if (status === "reduce_intensity") return "Recovery was under pressure";
   if (status === "watch") return "Some signals needed care";
   return "Recovery looked steady";

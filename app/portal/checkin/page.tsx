@@ -6,6 +6,8 @@ import { useToast } from "@/components/ui/Toast";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import type { CheckinFormConfig, ClientTask, ProgressMetric } from "@/lib/types";
 import { buildFallbackCheckinConfig, normalizeCheckinConfig } from "@/lib/checkin-form";
+import { checkinDate } from "@/lib/checkin-message";
+import { canReadCoachCheckinReplies, coachCheckinReplyHref, type CoachCheckinReply } from "@/lib/checkin-replies";
 import type { WearableDailySummary } from "@/lib/wearable-insights";
 import PhotoUpload from "@/components/portal/PhotoUpload";
 
@@ -116,6 +118,68 @@ function ChoiceButton({
   );
 }
 
+function CoachReplies({ replies, unavailable, currentWeekId, currentWeekSubmitted }: {
+  replies: CoachCheckinReply[];
+  unavailable: boolean;
+  currentWeekId: string | null;
+  currentWeekSubmitted: boolean;
+}) {
+  const latest = replies[0];
+  const hasCurrentReply = currentWeekId && replies.some((reply) => reply.id === currentWeekId);
+
+  function replyContent(reply: CoachCheckinReply) {
+    return (
+      <>
+        <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-text-primary">{reply.admin_reply}</p>
+        <div className="mt-3 text-xs text-text-muted">
+          Check-in submitted {checkinDate(reply.created_at)}
+          {reply.replied_at && <> · Replied {checkinDate(reply.replied_at)}</>}
+        </div>
+        {reply.reply_message_id && (
+          <Link href={coachCheckinReplyHref(reply)} className="mt-3 inline-flex min-h-11 items-center text-xs font-semibold text-accent-bright">
+            Continue in DMs →
+          </Link>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <section id="coach-replies" aria-labelledby="coach-replies-heading" className="mb-6 scroll-mt-24 rounded-2xl border border-[#E040D0]/20 bg-[#E040D0]/5 px-4 py-4">
+      <h2 id="coach-replies-heading" className="text-sm font-semibold text-[#E040D0]">Replies from Gordy</h2>
+      {unavailable ? (
+        <p className="mt-2 text-sm text-text-secondary">We couldn&apos;t load your coach replies. Please refresh to try again.</p>
+      ) : (
+        <>
+          {currentWeekSubmitted && !hasCurrentReply && (
+            <p className="mt-2 text-sm text-text-secondary">Your check-in is saved. Gordy&apos;s reply for this week will appear here when it&apos;s ready.</p>
+          )}
+          {!latest && !currentWeekSubmitted && (
+            <p className="mt-2 text-sm text-text-secondary">No coach replies yet. Replies to your check-ins will appear here.</p>
+          )}
+          {latest && (
+            <article id={`coach-reply-${latest.id}`} className="mt-3 scroll-mt-24">
+              <h3 className="text-xs font-semibold text-text-secondary">{latest.id === currentWeekId ? "This week’s reply" : "Latest reply"}</h3>
+              {replyContent(latest)}
+            </article>
+          )}
+          {replies.length > 1 && (
+            <div className="mt-4 space-y-3 border-t border-[#E040D0]/15 pt-4">
+              <h3 className="text-xs font-semibold text-text-secondary">Earlier replies</h3>
+              {replies.slice(1).map((reply) => (
+                <details key={reply.id} id={`coach-reply-${reply.id}`} open={reply.id === currentWeekId} className="scroll-mt-24 rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-card px-3 py-2">
+                  <summary className="min-h-11 cursor-pointer content-center text-sm font-semibold text-text-primary">Check-in from {checkinDate(reply.created_at)}</summary>
+                  {replyContent(reply)}
+                </details>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
 export default function CheckInPage() {
   const { toast } = useToast();
   const [config, setConfig] = useState<CheckinFormConfig | null>(null);
@@ -131,11 +195,13 @@ export default function CheckInPage() {
   const [loadError, setLoadError] = useState("");
   const [currentWeekSubmitted, setCurrentWeekSubmitted] = useState(false);
   const [currentWeekSavedAt, setCurrentWeekSavedAt] = useState<string | null>(null);
+  const [currentWeekId, setCurrentWeekId] = useState<string | null>(null);
   const [checkinDay, setCheckinDay] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState("");
   const [templateName, setTemplateName] = useState<string | null>(null);
   const [openCoachTasks, setOpenCoachTasks] = useState<ClientTask[]>([]);
-  const [latestReply, setLatestReply] = useState<{ id: string; messageId?: string | null; text: string; date: string | null } | null>(null);
+  const [coachReplies, setCoachReplies] = useState<CoachCheckinReply[]>([]);
+  const [repliesUnavailable, setRepliesUnavailable] = useState(true);
   const [priorityMessage, setPriorityMessage] = useState("");
   const [supportAsk, setSupportAsk] = useState("");
   const [syncedMetricIds, setSyncedMetricIds] = useState<string[]>([]);
@@ -193,17 +259,6 @@ export default function CheckInPage() {
         setOpenCoachTasks(open);
       })
       .catch(() => setOpenCoachTasks([]));
-
-    fetch("/api/portal/dashboard")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!d) return;
-        const withReply = (d.checkins || []).find((c: { id: string; reply_message_id?: string | null; admin_reply?: string; replied_at?: string; created_at: string }) => c.admin_reply);
-        if (withReply?.admin_reply) {
-          setLatestReply({ id: withReply.id, messageId: withReply.reply_message_id, text: withReply.admin_reply, date: withReply.replied_at || withReply.created_at });
-        }
-      })
-      .catch(() => {});
   }, [tier]);
 
   useEffect(() => {
@@ -219,9 +274,12 @@ export default function CheckInPage() {
           setConfig(normalizedConfig);
           setCheckinDay(stateData.checkinDay || null);
           setTemplateName(stateData.templateName || null);
+          setCoachReplies(stateData.checkinReplies || []);
+          setRepliesUnavailable(Boolean(stateData.repliesUnavailable));
           setLoadError("");
           if (stateData.currentWeekCheckin) {
             const existing = stateData.currentWeekCheckin;
+            setCurrentWeekId(existing.id);
             setMood(existing.mood || null);
             const existingResponses = existing.responses || {};
             setResponses(existingResponses);
@@ -269,6 +327,20 @@ export default function CheckInPage() {
     loadConfig();
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!config || !tierLoaded) return;
+    function revealReply() {
+      const id = window.location.hash.slice(1);
+      if (id !== "coach-replies" && !id.startsWith("coach-reply-")) return;
+      const target = document.getElementById(id);
+      if (target instanceof HTMLDetailsElement) target.open = true;
+      target?.scrollIntoView({ block: "start" });
+    }
+    revealReply();
+    window.addEventListener("hashchange", revealReply);
+    return () => window.removeEventListener("hashchange", revealReply);
+  }, [config, tierLoaded]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -468,6 +540,10 @@ export default function CheckInPage() {
         )}
       </div>
 
+      {tierLoaded && canReadCoachCheckinReplies(tier) && (
+        <CoachReplies replies={coachReplies} unavailable={repliesUnavailable} currentWeekId={currentWeekId} currentWeekSubmitted={currentWeekSubmitted} />
+      )}
+
       <div className="mb-6 grid gap-3 sm:grid-cols-2">
         <div className="app-card-quiet app-rise app-rise-1 rounded-2xl p-4">
           <div className="text-[11px] uppercase tracking-[0.16em] text-text-muted">Check-in Rhythm</div>
@@ -523,20 +599,6 @@ export default function CheckInPage() {
               Back to your dashboard
             </Link>
           </div>
-        </div>
-      )}
-
-      {/* VIP: latest coach reply visible during check-in so the thread feels connected */}
-      {tier === "vip" && latestReply && (
-        <div className="mb-6 rounded-2xl border border-[#E040D0]/20 bg-[#E040D0]/5 px-4 py-4">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#E040D0]">Last reply from Gordy</div>
-          <p className="mt-2 text-sm leading-relaxed text-text-primary">{latestReply.text}</p>
-          {latestReply.messageId && <Link href={`/portal/inbox?message=${latestReply.messageId}`} className="mt-3 inline-flex min-h-11 items-center text-xs font-semibold text-accent-bright">Continue in DMs →</Link>}
-          {latestReply.date && (
-            <div className="mt-2 text-[10px] uppercase tracking-[0.12em] text-text-muted">
-              Sent {new Date(latestReply.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-            </div>
-          )}
         </div>
       )}
 

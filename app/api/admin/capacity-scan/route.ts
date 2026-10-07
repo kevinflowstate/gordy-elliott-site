@@ -20,6 +20,7 @@ import { persistStormWarning } from "@/lib/storm-warning-server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { CalendarEvent } from "@/lib/types";
 import { NextResponse } from "next/server";
+import { sanitizeWearableRecovery } from "@/lib/wearable-insights";
 
 export async function GET() {
   const auth = await requireAdmin();
@@ -151,7 +152,7 @@ export async function GET() {
     for (const row of rows || []) if (!map.has(row.client_id)) map.set(row.client_id, row);
     return map;
   };
-  const latestSummary = firstByClient(summariesRes.data);
+  const latestSummary = firstByClient((summariesRes.data || []).map(sanitizeWearableRecovery));
   const latestConnection = firstByClient(connectionsRes.data);
   const latestDailyMetric = firstByClient(dailyMetricsRes.data);
   const activity = new Map((activityRes.data || []).map((row) => [row.client_id, row]));

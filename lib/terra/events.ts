@@ -7,6 +7,22 @@ export const TERRA_LAUNCH_PROVIDERS = [
 ] as const;
 
 export const TERRA_CONSENT_VERSION = "wearable_connection_v2";
+export const TERRA_PENDING_TIMEOUT_MS = 15 * 60 * 1000;
+
+export function isTerraConnectionAttemptExpired(
+  connection: { status: string; consented_at?: string | null; updated_at?: string | null },
+  now = Date.now(),
+) {
+  if (connection.status !== "pending") return false;
+  const startedAt = Date.parse(connection.consented_at || connection.updated_at || "");
+  return !Number.isFinite(startedAt) || now - startedAt >= TERRA_PENDING_TIMEOUT_MS;
+}
+
+export function matchesTerraConnectionAttempt(consentedAt: string | null | undefined, attempt: unknown) {
+  if (typeof attempt !== "string" || !consentedAt) return false;
+  const expected = Date.parse(consentedAt);
+  return Number.isFinite(expected) && expected === Date.parse(attempt);
+}
 
 export type TerraLaunchProvider = (typeof TERRA_LAUNCH_PROVIDERS)[number];
 export type TerraEventAction = "healthcheck" | "connect" | "disconnect" | "error" | "data" | "ignore";
@@ -66,7 +82,21 @@ export function classifyTerraEvent(eventType: unknown, authStatus?: unknown): Te
 
 export function canApplyTerraEvent(action: TerraEventAction, status: TerraConnectionStatus) {
   if (action === "data") return status === "pending" || status === "connected";
-  if (action === "connect") return status === "pending" || status === "connected";
+  if (action === "connect") return status === "pending" || status === "connected" || status === "error";
   if (action === "error") return status !== "disconnected";
   return action === "disconnect";
+}
+
+export function canApplyTerraUserEvent(
+  action: TerraEventAction,
+  status: TerraConnectionStatus,
+  storedUserId: string | null,
+  eventUserIds: string[],
+) {
+  if (!canApplyTerraEvent(action, status)) return false;
+  // Retained historical data from the previous account does not confirm a new authorisation.
+  if (status === "pending" && action === "data" && storedUserId && eventUserIds.includes(storedUserId)) return false;
+  // Late revocations/errors for an earlier Terra user must not break its replacement.
+  if ((action === "error" || action === "disconnect") && storedUserId && eventUserIds.length && !eventUserIds.includes(storedUserId)) return false;
+  return true;
 }

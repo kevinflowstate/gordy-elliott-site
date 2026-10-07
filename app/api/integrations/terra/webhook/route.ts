@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { parseTerraReferenceId, verifyTerraWebhookRequest } from "@/lib/terra/client";
 import {
-  canApplyTerraEvent,
+  canApplyTerraUserEvent,
   classifyTerraEvent,
   normaliseTerraProvider,
   normaliseTerraScopes,
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ ok: true, ignored: true, reason: "connection_not_consented" });
   }
-  if (!canApplyTerraEvent(action, connection.status as TerraConnectionStatus)) {
+  if (!canApplyTerraUserEvent(action, connection.status as TerraConnectionStatus, connection.terra_user_id, terraUserIds)) {
     return NextResponse.json({ ok: true, ignored: true, reason: "connection_state_rejects_event" });
   }
 

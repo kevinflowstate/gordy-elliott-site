@@ -5,7 +5,7 @@ import { trackAIUsage } from "@/lib/ai-usage";
 import { rateLimit } from "@/lib/rate-limit";
 import { getCyclePhase, isCycleEligible, toDateKey, type CycleSettings } from "@/lib/cycle-tracking";
 import { formatExercisePrescription } from "@/lib/exercise-prescriptions";
-import { formatWearableSummaryForPrompt, type WearableConnection, type WearableDailySummary } from "@/lib/wearable-insights";
+import { formatWearableSummaryForPrompt, sanitizeWearableRecovery, type WearableConnection, type WearableDailySummary } from "@/lib/wearable-insights";
 import { getPortalAIAction } from "@/lib/portal-ai-action";
 import { claimProgrammeAIInteraction, getShiftAILimit, releaseProgrammeAIInteraction } from "@/lib/programme-ai";
 import { monthStartKey, normalizeProgrammeType } from "@/lib/programmes";
@@ -314,7 +314,7 @@ export async function POST(req: NextRequest) {
       .limit(7),
   ]);
   const wearableConnections = (wearableConnectionsRes.data || []) as Pick<WearableConnection, "provider" | "status" | "last_sync_at">[];
-  const wearableSummaries = (wearableSummariesRes.data || []) as WearableDailySummary[];
+  const wearableSummaries = ((wearableSummariesRes.data || []) as WearableDailySummary[]).map(sanitizeWearableRecovery);
   const latestWearableSummary = wearableSummaries[0] || null;
   const wearableContext = JSON.stringify({
     connected_providers: wearableConnections.map((connection) => ({
@@ -651,7 +651,7 @@ SPECIFIC QUESTION TYPES:
 - Education Hub questions → Answer from the published Education Hub library above. Name the relevant module and lesson in plain English and direct the client to Education in the portal. Do not describe Education content as their workout or active training plan. If a listed lesson says video/resource but has no URL, do not pretend there is a playable video; say the lesson exists but the resource may need Gordy to attach it.
 - "How have I been doing?" → Ground the answer in RECENT TRAINING ADHERENCE numbers (sessions_completed / distinct_days_logged) + LATEST CHECK-IN mood + any COACHING PLAN PHASES items that are done vs open. No vague praise. Celebrate real numbers only.
 - Cycle questions → Use CYCLE TRACKING CONTEXT only when it is enabled. Treat phases and symptoms as readiness context for training, recovery, and adherence decisions. Never diagnose, never claim hormones are the only cause, and suggest a GP check for severe or unusual pain, bleeding, or symptoms.
-- Connected app / wearable questions → Use CONNECTED APP RECOVERY CONTEXT as performance guidance only. You may suggest lowering intensity, keeping technique crisp, prioritising sleep, hydration, or protein, but you must not automatically change the assigned plan or claim a medical diagnosis. If recovery_status is reduce_intensity, say not to chase PBs today.
+- Connected app / wearable questions → Use CONNECTED APP RECOVERY CONTEXT as performance guidance only. You may suggest lowering intensity, keeping technique crisp, prioritising sleep, hydration, or protein, but you must not automatically change the assigned plan or claim a medical diagnosis. Unknown recovery means there is insufficient recovery data; never infer readiness from nutrition, steps, or a recent connection sync. Only use a summary dated today for today’s recovery guidance; label older signals by date. If today’s recovery_status is reduce_intensity, say not to chase PBs today.
 - Advice or change requests → Ask 1-2 concise clarifying questions before giving a final recommendation if the request is broad, ambiguous, or asks to change training/nutrition. If the data already gives a direct factual answer, answer directly and add one useful follow-up question rather than blocking the client.
 
 VOICE & FORMAT:

@@ -1,32 +1,20 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { coachingDateKey as todayKey, isValidTrackerDate, parseManualSteps } from "@/lib/daily-steps";
 
 type DailyMetric = {
   id: string;
   tracked_date: string;
   sleep_hours: number | null;
   water_liters: number | null;
+  manual_steps: number | null;
   energy_level: number | null;
   stress_level: number | null;
   nutrition_score: number | null;
   training_completed: boolean;
   notes: string | null;
 };
-
-function todayKey() {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/London",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const year = parts.find((part) => part.type === "year")?.value;
-  const month = parts.find((part) => part.type === "month")?.value;
-  const day = parts.find((part) => part.type === "day")?.value;
-  if (!year || !month || !day) throw new Error("Could not resolve today's coaching date");
-  return `${year}-${month}-${day}`;
-}
 
 function toNumber(value: unknown) {
   if (value === "" || value === null || value === undefined) return null;
@@ -58,10 +46,15 @@ async function getClientProfile() {
   return { admin, profile };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const context = await getClientProfile();
   if (context.error) return context.error;
   const { admin, profile } = context;
+  const latestDate = todayKey();
+  const selectedDate = new URL(request.url).searchParams.get("date") || latestDate;
+  if (!isValidTrackerDate(selectedDate, latestDate)) {
+    return NextResponse.json({ error: "Choose a valid date up to today." }, { status: 400 });
+  }
 
   const { data, error } = await admin
     .from("client_daily_metrics")
@@ -83,6 +76,16 @@ export async function GET() {
 
   if (wearableError) return NextResponse.json({ error: wearableError.message }, { status: 500 });
 
+  // Date selection can reach beyond the recent slice, including days never manually logged.
+  const [{ data: selectedEntry, error: selectedEntryError }, { data: selectedWearable, error: selectedWearableError }, { data: selectedSessions, error: selectedSessionError }] = await Promise.all([
+    admin.from("client_daily_metrics").select("*").eq("client_id", profile.id).eq("tracked_date", selectedDate).maybeSingle(),
+    admin.from("client_wearable_daily_summaries").select("*").eq("client_id", profile.id).eq("summary_date", selectedDate).maybeSingle(),
+    admin.from("client_exercise_session_summaries").select("log_date").eq("client_id", profile.id).eq("log_date", selectedDate).limit(1),
+  ]);
+  if (selectedEntryError || selectedWearableError || selectedSessionError) {
+    return NextResponse.json({ error: selectedEntryError?.message || selectedWearableError?.message || selectedSessionError?.message }, { status: 500 });
+  }
+
   const { data: completedSessions, error: completedSessionsError } = await admin
     .from("client_exercise_session_summaries")
     .select("log_date")
@@ -93,17 +96,19 @@ export async function GET() {
 
   if (completedSessionsError) return NextResponse.json({ error: completedSessionsError.message }, { status: 500 });
 
-  const trainingDates = [...new Set((completedSessions || []).map((session) => session.log_date))];
+  const trainingDates = [...new Set([...(completedSessions || []), ...(selectedSessions || [])].map((session) => session.log_date))];
   const completedTrainingDates = new Set(trainingDates);
   const entries = ((data || []) as DailyMetric[]).map((entry) => ({
     ...entry,
     training_completed: entry.training_completed || completedTrainingDates.has(entry.tracked_date),
   }));
   return NextResponse.json({
+    selectedEntry: selectedEntry ? { ...selectedEntry, training_completed: selectedEntry.training_completed || completedTrainingDates.has(selectedDate) } : null,
+    selectedWearable: selectedWearable || null,
     today: entries.find((entry) => entry.tracked_date === todayKey()) || null,
     entries,
     trainingDates,
-    wearableSummary: (wearableSummaries || []).find((entry) => entry.summary_date === todayKey()) || wearableSummaries?.[0] || null,
+    wearableSummary: (wearableSummaries || []).find((entry) => entry.summary_date === todayKey()) || null,
     wearableSummaries: wearableSummaries || [],
   });
 }
@@ -112,12 +117,27 @@ export async function POST(request: Request) {
   const context = await getClientProfile();
   if (context.error) return context.error;
   const { admin, profile } = context;
-  const body = await request.json();
-  const trackedDate = typeof body.tracked_date === "string" && body.tracked_date ? body.tracked_date : todayKey();
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid tracker data." }, { status: 400 });
+  }
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json({ error: "Invalid tracker data." }, { status: 400 });
+  }
+  const latestDate = todayKey();
+  const trackedDate = body.tracked_date === undefined ? latestDate : body.tracked_date;
+  if (!isValidTrackerDate(trackedDate, latestDate)) {
+    return NextResponse.json({ error: "Choose a valid date up to today." }, { status: 400 });
+  }
+  const manualSteps = parseManualSteps(body.manual_steps);
+  if (manualSteps.error) return NextResponse.json({ error: manualSteps.error }, { status: 400 });
 
   const payload = {
     client_id: profile.id,
     tracked_date: trackedDate,
+    ...(Object.hasOwn(body, "manual_steps") ? { manual_steps: manualSteps.value } : {}),
     sleep_hours: toNumber(body.sleep_hours),
     water_liters: toNumber(body.water_liters),
     energy_level: toScale(body.energy_level),

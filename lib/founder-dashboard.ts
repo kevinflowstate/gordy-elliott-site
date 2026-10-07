@@ -56,5 +56,5 @@ export function calendarWindowLoad(events: CalendarEvent[], startDate: Date, len
 }
 
 export function isCurrentWearableSummary(summaryDate: string, now = new Date()) {
-  return summaryDate.slice(0, 10) === localDateKey(now);
+  return summaryDate.slice(0, 10) === dateKeyInTimeZone(now, "Europe/London");
 }

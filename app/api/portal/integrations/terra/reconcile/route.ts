@@ -1,6 +1,7 @@
-import { getTerraReferenceId, getTerraUsersByReferenceId } from "@/lib/terra/client";
+import { getTerraReferenceId, getTerraUsersByReferenceId, selectTerraUserForConnection } from "@/lib/terra/client";
 import {
   normaliseTerraProvider,
+  matchesTerraConnectionAttempt,
   normaliseTerraScopes,
   TERRA_CONSENT_VERSION,
 } from "@/lib/terra/events";
@@ -29,29 +30,36 @@ export async function POST(request: Request) {
 
   const { data: connection, error: connectionError } = await admin
     .from("client_wearable_connections")
-    .select(PUBLIC_CONNECTION_FIELDS)
+    .select(`${PUBLIC_CONNECTION_FIELDS}, terra_user_id`)
     .eq("client_id", profile.id)
     .eq("provider", provider)
     .maybeSingle();
   if (connectionError) return NextResponse.json({ error: connectionError.message }, { status: 500 });
   if (!connection) return NextResponse.json({ error: "Connection not found" }, { status: 404 });
+  // Never let an earlier browser return update a newer attempt.
+  if (body.attempt && !matchesTerraConnectionAttempt(connection.consented_at, body.attempt)) {
+    return NextResponse.json({ reconciled: false, staleAttempt: true }, { status: 409 });
+  }
+  const { terra_user_id: previousTerraUserId, ...publicConnection } = connection;
   if (connection.consent_version !== TERRA_CONSENT_VERSION || !connection.consented_at) {
     return NextResponse.json({ error: "Health-data consent is required before connecting." }, { status: 400 });
   }
   if (connection.status === "disconnected") {
-    return NextResponse.json({ connection, reconciled: false });
+    return NextResponse.json({ connection: publicConnection, reconciled: false });
   }
   if (connection.status === "connected") {
-    return NextResponse.json({ connection, reconciled: false });
+    return NextResponse.json({ connection: publicConnection, reconciled: false });
   }
 
   try {
     const referenceId = getTerraReferenceId(profile.id);
     const users = await getTerraUsersByReferenceId(referenceId);
-    const terraUser = users.find((candidate) => (
-      candidate.active !== false && normaliseTerraProvider(candidate.provider) === provider
-    ));
-    if (!terraUser) return NextResponse.json({ connection, reconciled: false });
+    const terraUser = selectTerraUserForConnection(users, provider, referenceId, {
+      previousTerraUserId,
+      expectedTerraUserId: typeof body.userId === "string" ? body.userId : null,
+      attemptStartedAt: connection.consented_at,
+    });
+    if (!terraUser) return NextResponse.json({ connection: publicConnection, reconciled: false });
 
     const now = new Date().toISOString();
     const scopes = normaliseTerraScopes(terraUser.scopes);
@@ -69,14 +77,15 @@ export async function POST(request: Request) {
       })
       .eq("id", connection.id)
       .eq("client_id", profile.id)
+      .eq("consented_at", connection.consented_at)
       .in("status", ["pending", "error"])
       .select(PUBLIC_CONNECTION_FIELDS)
       .maybeSingle();
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
-    return NextResponse.json({ connection: updated || connection, reconciled: Boolean(updated) });
+    return NextResponse.json({ connection: updated || publicConnection, reconciled: Boolean(updated) });
   } catch {
     return NextResponse.json(
-      { connection, reconciled: false, retryable: true },
+      { connection: publicConnection, reconciled: false, retryable: true },
       { status: 202 },
     );
   }

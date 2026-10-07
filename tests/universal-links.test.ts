@@ -88,7 +88,7 @@ test("account recovery links retain the bearer token on the verified HTTPS callb
   assert.match(callback, /\/portal\/settings\?reset=true/);
 });
 
-test("Build 10 is the only configured native candidate", async () => {
+test("The native candidate build agrees with the release identity", async () => {
   const [identitySource, project] = await Promise.all([
     readFile("config/app-identity.json", "utf8"),
     readFile("ios/App/App.xcodeproj/project.pbxproj", "utf8"),
@@ -97,7 +97,7 @@ test("Build 10 is the only configured native candidate", async () => {
 
   const configuredBuilds = [...project.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map((match) => match[1]);
 
-  assert.equal(identity.build, "10");
+  assert.match(identity.build, /^[1-9]\d*$/);
   assert.equal(configuredBuilds.length, 2);
   assert.deepEqual([...new Set(configuredBuilds)], [identity.build]);
 });
