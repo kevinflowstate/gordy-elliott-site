@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { CalendarEvent, RecurrenceType } from "@/lib/types";
 import CalendarConnections from "@/components/portal/CalendarConnections";
 import MonthlyCallPrompt from "@/components/portal/MonthlyCallPrompt";
 import { getNextCalendarOccurrence } from "@/lib/calendar-occurrence";
+import { getCalendarMonthDates } from "@/lib/calendar-month";
 
 const recurrenceLabels: Record<RecurrenceType, { label: string; color: string }> = {
   none: { label: "One-off", color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
@@ -23,36 +24,12 @@ function formatTime(time: string): string {
   return `${hour}:${m.toString().padStart(2, "0")} ${period}`;
 }
 
-function getEventDates(event: CalendarEvent, year: number, month: number): Date[] {
-  const dates: Date[] = [];
-  const baseDate = new Date(event.event_date);
-
-  if (event.recurrence === "none") {
-    if (baseDate.getFullYear() === year && baseDate.getMonth() === month) {
-      dates.push(baseDate);
-    }
-    return dates;
-  }
-
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  for (let day = 1; day <= daysInMonth; day++) {
-    const d = new Date(year, month, day);
-    if (event.recurrence === "weekly" && d.getDay() === (event.recurrence_day ?? baseDate.getDay())) {
-      if (d >= baseDate) dates.push(d);
-    } else if (event.recurrence === "biweekly" && d.getDay() === (event.recurrence_day ?? baseDate.getDay())) {
-      const diffWeeks = Math.round((d.getTime() - baseDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
-      if (diffWeeks >= 0 && diffWeeks % 2 === 0) dates.push(d);
-    } else if (event.recurrence === "monthly" && d.getDate() === baseDate.getDate()) {
-      if (d >= baseDate) dates.push(d);
-    }
-  }
-  return dates;
-}
-
 export default function PortalCalendarPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [mobileView, setMobileView] = useState<"month" | "agenda">("month");
+  const dayDetailsRef = useRef<HTMLDivElement>(null);
   const [tier, setTier] = useState<string>("coached");
   const [tierLoaded, setTierLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -98,6 +75,12 @@ export default function PortalCalendarPage() {
 
   useEffect(() => { loadEvents(); }, [loadEvents]);
 
+  useEffect(() => {
+    if (selectedDay && window.matchMedia("(max-width: 639px)").matches) {
+      dayDetailsRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [selectedDay]);
+
   const activeEvents = events.filter(e => e.is_active);
 
   // Up next
@@ -112,7 +95,7 @@ export default function PortalCalendarPage() {
 
   const dayEventsMap = new Map<string, CalendarEvent[]>();
   for (const event of activeEvents) {
-    const dates = getEventDates(event, viewYear, viewMonth);
+    const dates = getCalendarMonthDates(event, viewYear, viewMonth);
     for (const d of dates) {
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       if (!dayEventsMap.has(key)) dayEventsMap.set(key, []);
@@ -121,10 +104,12 @@ export default function PortalCalendarPage() {
   }
 
   function prevMonth() {
+    setSelectedDay(null);
     if (viewMonth === 0) { setViewMonth(11); setViewYear(viewYear - 1); }
     else setViewMonth(viewMonth - 1);
   }
   function nextMonth() {
+    setSelectedDay(null);
     if (viewMonth === 11) { setViewMonth(0); setViewYear(viewYear + 1); }
     else setViewMonth(viewMonth + 1);
   }
@@ -377,11 +362,11 @@ export default function PortalCalendarPage() {
         </div>
       )}
 
-      {/* Calendar — desktop grid + mobile agenda list */}
+      {/* Month view and mobile agenda */}
       <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden mb-6">
         {/* Month navigation */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(0,0,0,0.06)]">
-          <button onClick={prevMonth} aria-label="Previous month" className="p-2 text-text-muted hover:text-text-primary transition-colors rounded-lg hover:bg-white/5 cursor-pointer">
+        <div className="flex items-center justify-between px-3 py-3 sm:px-5 sm:py-4 border-b border-[rgba(0,0,0,0.06)]">
+          <button onClick={prevMonth} aria-label="Previous month" type="button" className="min-h-11 min-w-11 p-2 text-text-muted hover:text-text-primary transition-colors rounded-lg hover:bg-white/5 cursor-pointer">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
@@ -389,15 +374,28 @@ export default function PortalCalendarPage() {
           <h2 className="text-sm font-heading font-bold text-text-primary">
             {monthNames[viewMonth]} {viewYear}
           </h2>
-          <button onClick={nextMonth} aria-label="Next month" className="p-2 text-text-muted hover:text-text-primary transition-colors rounded-lg hover:bg-white/5 cursor-pointer">
+          <button onClick={nextMonth} aria-label="Next month" type="button" className="min-h-11 min-w-11 p-2 text-text-muted hover:text-text-primary transition-colors rounded-lg hover:bg-white/5 cursor-pointer">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
         </div>
 
-        {/* Desktop: full month grid */}
-        <div className="hidden sm:block">
+        <div className="flex gap-1 border-b border-[rgba(0,0,0,0.06)] p-2 sm:hidden" role="group" aria-label="Calendar view">
+          {(["month", "agenda"] as const).map((view) => (
+            <button
+              key={view}
+              type="button"
+              aria-pressed={mobileView === view}
+              onClick={() => setMobileView(view)}
+              className={`min-h-11 flex-1 rounded-xl px-3 text-sm font-semibold transition-colors ${mobileView === view ? "bg-accent/15 text-accent-bright" : "text-text-secondary hover:bg-white/5"}`}
+            >
+              {view === "month" ? "Month" : "Agenda"}
+            </button>
+          ))}
+        </div>
+
+        <div className={`${mobileView === "month" ? "block" : "hidden"} sm:block`}>
           <div className="grid grid-cols-7 border-b border-[rgba(0,0,0,0.06)]">
             {dayNames.map((d) => (
               <div key={d} className="text-center py-2 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
@@ -408,7 +406,7 @@ export default function PortalCalendarPage() {
 
           <div className="grid grid-cols-7">
             {Array.from({ length: firstDay }).map((_, i) => (
-                <div key={`empty-${i}`} className="h-20 border-b border-r border-[rgba(0,0,0,0.02)] bg-[rgba(0,0,0,0.03)]" />
+                <div key={`empty-${i}`} className="h-16 sm:h-20 border-b border-r border-[rgba(0,0,0,0.02)] bg-[rgba(0,0,0,0.03)]" />
             ))}
 
             {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -422,8 +420,13 @@ export default function PortalCalendarPage() {
               return (
                 <button
                   key={key}
+                  type="button"
+                  aria-label={`${new Date(viewYear, viewMonth, dayNum).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}, ${dayEvents.length === 0 ? "no events" : `${dayEvents.length} ${dayEvents.length === 1 ? "event" : "events"}`}`}
+                  aria-pressed={isSelected}
+                  aria-current={isToday ? "date" : undefined}
+                  aria-controls="calendar-day-details"
                   onClick={() => setSelectedDay(isSelected ? null : key)}
-                  className={`h-20 border-b border-r border-[rgba(0,0,0,0.02)] p-1.5 text-left transition-all cursor-pointer relative ${
+                  className={`h-16 sm:h-20 border-b border-r border-[rgba(0,0,0,0.02)] p-1.5 text-left transition-all cursor-pointer relative ${
                     isSelected ? "bg-accent/10 border-accent/20" : hasEvents ? "hover:bg-[rgba(0,0,0,0.03)]" : "hover:bg-[rgba(0,0,0,0.02)]"
                   }`}
                 >
@@ -442,20 +445,26 @@ export default function PortalCalendarPage() {
                           {ev.title}
                         </div>
                       ))}
-                      <div className="mx-auto h-1.5 w-1.5 rounded-full bg-accent sm:hidden" />
+                      <div className="flex items-center justify-center gap-0.5 sm:hidden" aria-hidden="true">
+                        {dayEvents.slice(0, 3).map((event) => <span key={event.id} className="h-1 w-1 rounded-full bg-accent" />)}
+                        {dayEvents.length > 3 && <span className="text-[9px] leading-none text-accent-bright">+</span>}
+                      </div>
                       {dayEvents.length > 2 && (
-                        <div className="text-[9px] text-text-muted px-1">+{dayEvents.length - 2} more</div>
+                        <div className="hidden text-[9px] text-text-muted px-1 sm:block">+{dayEvents.length - 2} more</div>
                       )}
                     </div>
                   )}
                 </button>
               );
             })}
+            {Array.from({ length: (7 - ((firstDay + daysInMonth) % 7)) % 7 }).map((_, index) => (
+              <div key={`trailing-${index}`} className="h-16 border-b border-r border-[rgba(0,0,0,0.02)] bg-[rgba(0,0,0,0.03)] sm:h-20" />
+            ))}
           </div>
         </div>
 
         {/* Mobile: agenda list of days in the viewed month (only days with events, plus today) */}
-        <div className="sm:hidden">
+        <div className={`${mobileView === "agenda" ? "block" : "hidden"} sm:hidden`}>
           {(() => {
             const mobileDays: { key: string; dayNum: number; dayName: string; events: CalendarEvent[]; isToday: boolean }[] = [];
             for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
@@ -490,6 +499,8 @@ export default function PortalCalendarPage() {
                     <li key={key}>
                       <button
                         type="button"
+                        aria-pressed={isSelected}
+                        aria-controls="calendar-day-details"
                         onClick={() => setSelectedDay(isSelected ? null : key)}
                         className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors cursor-pointer ${
                           isSelected ? "bg-accent/10" : "hover:bg-[rgba(0,0,0,0.03)]"
@@ -528,7 +539,7 @@ export default function PortalCalendarPage() {
 
       {/* Selected day detail */}
       {selectedDay && (
-        <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mb-6">
+        <div ref={dayDetailsRef} id="calendar-day-details" role="region" aria-label="Selected day" aria-live="polite" className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mb-6">
           <h3 className="text-sm font-heading font-bold text-text-primary mb-3">
             {new Date(selectedDay + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </h3>

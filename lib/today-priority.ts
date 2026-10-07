@@ -1,6 +1,7 @@
+import { dateKeyInTimeZone } from "@/lib/founder-dashboard";
 import { calendarEventOccursOnDate } from "@/lib/calendar-occurrence";
 import type { CalendarEvent } from "@/lib/types";
-import type { WearableDailySummary } from "@/lib/wearable-insights";
+import { sanitizeWearableRecovery, type WearableDailySummary } from "@/lib/wearable-insights";
 
 export type ImmediateTodayPriority = {
   label: string;
@@ -8,14 +9,6 @@ export type ImmediateTodayPriority = {
   href: string;
   cta: string;
 };
-
-function localDateKey(date: Date) {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
-}
 
 export function getImmediateTodayPriority({
   calendarEvents,
@@ -31,8 +24,8 @@ export function getImmediateTodayPriority({
   const timedEventsToday = calendarEvents.filter(
     (event) => !event.all_day && calendarEventOccursOnDate(event, now),
   ).length;
-  const recovery = wearableSummary?.summary_date === localDateKey(now)
-    ? wearableSummary.recovery_status
+  const recovery = wearableSummary?.summary_date === dateKeyInTimeZone(now, "Europe/London")
+    ? sanitizeWearableRecovery(wearableSummary).recovery_status
     : null;
   const actionHref = todayTraining ? "/portal/exercise-plan" : "/portal/daily-tracker";
   const actionCta = todayTraining ? "Review today's session" : "Open daily tracker";

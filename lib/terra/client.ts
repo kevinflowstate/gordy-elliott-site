@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { getSiteUrl } from "@/lib/site-url";
-import { getTerraWidgetProvider, type TerraLaunchProvider } from "@/lib/terra/events";
+import { getTerraWidgetProvider, normaliseTerraProvider, type TerraLaunchProvider } from "@/lib/terra/events";
 
 export type TerraWidgetSession = {
   url: string;
@@ -15,6 +15,8 @@ export type TerraUser = {
   provider: string;
   reference_id?: string | null;
   active?: boolean;
+  is_authenticated?: boolean;
+  created_at?: string | null;
   last_webhook_update?: string | null;
   scopes?: string | string[] | null;
   [key: string]: unknown;
@@ -59,6 +61,7 @@ export type TerraDataType = "activity" | "daily" | "nutrition" | "sleep";
 type TerraWidgetSessionOptions = {
   fetchImpl?: TerraFetch;
   nativeReturn?: boolean;
+  attemptStartedAt?: string;
 };
 
 export async function generateTerraWidgetSession(
@@ -70,6 +73,7 @@ export async function generateTerraWidgetSession(
   const siteUrl = getSiteUrl();
   const fetchImpl = options.fetchImpl || fetch;
   const returnParams = new URLSearchParams({ provider });
+  if (options.attemptStartedAt) returnParams.set("attempt", options.attemptStartedAt);
   const successUrl = options.nativeReturn
     ? `${siteUrl}/connected-app-return?${new URLSearchParams({ ...Object.fromEntries(returnParams), status: "success" })}`
     : `${siteUrl}/portal/connected-apps?${new URLSearchParams({ ...Object.fromEntries(returnParams), terra: "success" })}`;
@@ -113,10 +117,19 @@ export async function generateTerraWidgetSession(
   });
 
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
+  if (!response.ok || data?.status === "error") {
     throw new Error(data?.message || data?.error || "Terra could not create a connection session.");
   }
 
+  let widgetUrl: URL;
+  try {
+    widgetUrl = new URL(data.url);
+  } catch {
+    throw new Error("Terra did not return a valid connection session. Please try again.");
+  }
+  if (widgetUrl.protocol !== "https:" || widgetUrl.hostname !== "widget.tryterra.co") {
+    throw new Error("Terra did not return a valid connection session. Please try again.");
+  }
   return data as TerraWidgetSession;
 }
 
@@ -172,9 +185,10 @@ export async function getTerraUsersByReferenceId(
   const data = await response.json().catch(() => ({}));
 
   if (response.status === 404) return [];
-  if (!response.ok) {
+  if (!response.ok || data?.status === "error") {
     throw new Error(data?.message || data?.error || "Terra could not verify this connection.");
   }
+  if (data?.is_authenticated === false) return [];
 
   const candidate = data?.user ?? data?.users ?? data;
   const users = Array.isArray(candidate) ? candidate : candidate && typeof candidate === "object" ? [candidate] : [];
@@ -183,8 +197,31 @@ export async function getTerraUsersByReferenceId(
     && typeof user === "object"
     && typeof user.user_id === "string"
     && typeof user.provider === "string"
-    && (user.reference_id === undefined || user.reference_id === null || user.reference_id === referenceId)
-  ));
+    && user.reference_id === referenceId
+  )).map((user) => data?.is_authenticated === true ? { ...user, is_authenticated: true } : user);
+}
+
+// A redirect identifies a candidate; only Terra's server response verifies it.
+export function selectTerraUserForConnection(
+  users: TerraUser[],
+  provider: TerraLaunchProvider,
+  referenceId: string,
+  options: { previousTerraUserId?: string | null; expectedTerraUserId?: string | null; attemptStartedAt?: string | null } = {},
+) {
+  const candidates = users.filter((user) => {
+    if (user.reference_id !== referenceId || normaliseTerraProvider(user.provider) !== provider) return false;
+    if (user.active === false || user.is_authenticated === false) return false;
+    if (user.active !== true && user.is_authenticated !== true) return false;
+    if (options.expectedTerraUserId && user.user_id !== options.expectedTerraUserId) return false;
+    if (!options.expectedTerraUserId && user.user_id === options.previousTerraUserId) return false;
+    if (!options.expectedTerraUserId && user.created_at && options.attemptStartedAt) {
+      const createdAt = Date.parse(user.created_at);
+      const startedAt = Date.parse(options.attemptStartedAt);
+      if (!Number.isFinite(createdAt) || createdAt < startedAt - 60_000) return false;
+    }
+    return true;
+  });
+  return candidates.length === 1 ? candidates[0] : null;
 }
 
 export async function requestTerraData(

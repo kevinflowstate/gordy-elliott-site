@@ -163,48 +163,50 @@ export default function WearableConnectionsPanel({
         </div>
       )}
 
-      {!consentAccepted && (
-        <section className="mt-6 overflow-hidden rounded-[26px] border border-[#e440d0]/20 bg-[#e440d0]/[0.055]">
-          <div className="p-5 sm:p-6">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#e440d0]/12 text-[#ef68db]">
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="m9 12 2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold tracking-tight text-white">Your permission comes first</h2>
-                <p className="mt-1 text-sm leading-6 text-white/52">
-                  Terra securely passes the health categories you approve to AT CAPACITY. Gordy uses them for coaching context;
-                  they never change your programme automatically.
-                </p>
-              </div>
+      <section aria-labelledby="health-consent-heading" className="mt-6 overflow-hidden rounded-[26px] border border-[#e440d0]/20 bg-[#e440d0]/[0.055]">
+        <div className="p-5 sm:p-6">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#e440d0]/12 text-[#ef68db]">
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="m9 12 2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </div>
-            <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-[18px] border border-white/[0.08] bg-black/15 p-4">
-              <input
-                type="checkbox"
-                checked={consentAccepted}
-                onChange={(event) => onConsentChange(event.target.checked)}
-                className="mt-0.5 h-5 w-5 shrink-0 accent-[#e440d0]"
-              />
-              <span className="text-sm font-medium leading-6 text-white/76">
-                I consent to AT CAPACITY receiving health data from the service I choose. I have read the{" "}
-                <Link href="/privacy" className="text-[#ef68db] underline underline-offset-2">Privacy Notice</Link>
-                {" "}and{" "}
-                <a
-                  href="https://tryterra.co/end-user-privacy"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-[#ef68db] underline underline-offset-2"
-                >
-                  Terra Privacy Policy
-                </a>.
-              </span>
-            </label>
+            <div>
+              <h2 id="health-consent-heading" className="text-lg font-semibold tracking-tight text-white">Your permission comes first</h2>
+              <p className="mt-1 text-sm leading-6 text-white/52">
+                Terra securely passes the health categories you approve to AT CAPACITY. Gordy uses them for coaching context;
+                they never change your programme automatically.
+              </p>
+            </div>
           </div>
-        </section>
-      )}
+          <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-[18px] border border-white/[0.08] bg-black/15 p-4">
+            <input
+              type="checkbox"
+              checked={consentAccepted}
+              onChange={(event) => onConsentChange(event.target.checked)}
+              aria-describedby="health-consent-status"
+              className="mt-0.5 h-5 w-5 shrink-0 accent-[#e440d0] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#ef68db]"
+            />
+            <span className="text-sm font-medium leading-6 text-white/76">
+              I consent to AT CAPACITY receiving health data from the service I choose. I have read the{" "}
+              <Link href="/privacy" className="text-[#ef68db] underline underline-offset-2">Privacy Notice</Link>
+              {" "}and{" "}
+              <a
+                href="https://tryterra.co/end-user-privacy"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[#ef68db] underline underline-offset-2"
+              >
+                Terra Privacy Policy
+              </a>.
+            </span>
+          </label>
+          <p id="health-consent-status" role="status" className="mt-3 text-sm leading-6 text-white/60">
+            {consentAccepted ? "Permission confirmed. Choose Connect for the service you want to add." : "Tick the checkbox to enable Connect."}
+          </p>
+        </div>
+      </section>
 
       <section className="mt-7">
         <div className="flex items-end justify-between gap-4">
@@ -281,7 +283,7 @@ function ProviderRow({
           <p className="mt-1 text-xs leading-5 text-white/43 sm:text-sm">{provider.description}</p>
           {connection && (
             <p className="mt-1.5 text-[11px] text-white/28">
-              {connected ? `Last received ${formatDate(connection.last_sync_at)}` : errored ? "Connection needs attention" : pending ? "Finishing connection…" : "Not connected"}
+              {connected ? connection.last_sync_at ? `Last received ${formatDate(connection.last_sync_at)}` : "Connected. Waiting for the first data update." : errored ? "Connection wasn't completed. Reconnect to try again." : pending ? "Awaiting authorisation and verification. You can retry if you closed the provider window." : "Not connected"}
             </p>
           )}
         </div>
@@ -304,12 +306,12 @@ function ProviderRow({
           <button
             type="button"
             onClick={() => onConnect(provider.id)}
-            disabled={!consentAccepted || !available || connecting === provider.id}
+            disabled={!consentAccepted || !available || connecting !== null}
             className="min-h-10 min-w-[100px] rounded-full bg-[#f7f4f7] px-4 text-xs font-bold text-[#171419] transition hover:bg-[#ffffff] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/25"
           >
             <CyclingStatusText
               active={connecting === provider.id}
-              idle={errored ? "Reconnect" : "Connect"}
+              idle={errored || pending ? "Reconnect" : "Connect"}
               messages={["Starting…", "Creating session…", "Opening Terra…", "Nearly there…"]}
             />
           </button>

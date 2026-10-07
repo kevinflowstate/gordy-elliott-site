@@ -1,5 +1,5 @@
 import { generateTerraWidgetSession, getTerraConfig, getTerraReferenceId } from "@/lib/terra/client";
-import { normaliseTerraProvider, TERRA_CONSENT_VERSION } from "@/lib/terra/events";
+import { normaliseTerraProvider, matchesTerraConnectionAttempt, TERRA_CONSENT_VERSION } from "@/lib/terra/events";
 import { createMockWearableSummary } from "@/lib/wearable-mock";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -50,11 +50,16 @@ export async function POST(request: Request) {
   if (existingConnectionError) {
     return NextResponse.json({ error: existingConnectionError.message }, { status: 500 });
   }
+  if (existingConnection?.status === "connected") {
+    return NextResponse.json({ error: "This app is already connected." }, { status: 409 });
+  }
 
+  const now = new Date().toISOString();
   let session;
   try {
     session = await generateTerraWidgetSession(profile.id, provider, {
       nativeReturn: body.native === true,
+      attemptStartedAt: now,
     });
   } catch (err) {
     return NextResponse.json(
@@ -64,7 +69,6 @@ export async function POST(request: Request) {
   }
 
   if (session.mock) {
-    const now = new Date().toISOString();
     const referenceId = getTerraReferenceId(profile.id);
     const terraUserId = `mock-${provider}-${profile.id}`;
     const { data: connection, error: connectionError } = await admin
@@ -106,14 +110,14 @@ export async function POST(request: Request) {
     });
   }
 
-  const now = new Date().toISOString();
   const { error: pendingConnectionError } = await admin
     .from("client_wearable_connections")
     .upsert({
       client_id: profile.id,
       provider,
       reference_id: getTerraReferenceId(profile.id),
-      status: existingConnection?.status === "connected" ? "connected" : "pending",
+      status: "pending",
+      connected_at: null,
       consent_version: TERRA_CONSENT_VERSION,
       consented_at: now,
       disconnected_at: null,
@@ -124,7 +128,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: pendingConnectionError.message }, { status: 500 });
   }
 
-  return NextResponse.json(session);
+  return NextResponse.json({ ...session, attemptStartedAt: now });
 }
 
 export async function PATCH(request: Request) {
@@ -138,6 +142,17 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "That connected app is not available." }, { status: 400 });
   }
 
+  const { data: connection, error: connectionError } = await admin
+    .from("client_wearable_connections")
+    .select("consented_at")
+    .eq("client_id", profile.id)
+    .eq("provider", provider)
+    .maybeSingle();
+  if (connectionError) return NextResponse.json({ error: connectionError.message }, { status: 500 });
+  if (!connection || !matchesTerraConnectionAttempt(connection.consented_at, body.attempt)) {
+    return NextResponse.json({ ok: false, staleAttempt: true }, { status: 409 });
+  }
+
   const { error } = await admin
     .from("client_wearable_connections")
     .update({
@@ -146,6 +161,7 @@ export async function PATCH(request: Request) {
     })
     .eq("client_id", profile.id)
     .eq("provider", provider)
+    .eq("consented_at", connection.consented_at)
     .eq("status", "pending");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

@@ -7,6 +7,7 @@ import HealthCapacityOverview from "@/components/portal/HealthCapacityOverview";
 import WearableConnectionsPanel, { wearableProviders } from "@/components/portal/WearableConnectionsPanel";
 import { useToast } from "@/components/ui/Toast";
 import type { WearableConnection, WearableDailySummary } from "@/lib/wearable-insights";
+import { matchesTerraConnectionAttempt } from "@/lib/terra/events";
 
 type IntegrationsPayload = {
   mockMode: boolean;
@@ -36,6 +37,9 @@ export default function ConnectedAppsPage() {
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [view, setView] = useState<"health" | "connections">("health");
   const handledReturn = useRef(false);
+  const consentTouched = useRef(false);
+  const verificationRun = useRef(0);
+  const disposed = useRef(false);
   const browserFinishedListener = useRef<PluginListenerHandle | null>(null);
 
   const requestHealthSync = useCallback(async () => {
@@ -54,7 +58,7 @@ export default function ConnectedAppsPage() {
       if (!res.ok) throw new Error(json.error || "Couldn't load connected apps");
       setData(json);
       setLoadError(null);
-      if (json.consentAccepted) setConsentAccepted(true);
+      if (!consentTouched.current) setConsentAccepted(json.consentAccepted);
       return json;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Couldn't load connected apps";
@@ -80,81 +84,118 @@ export default function ConnectedAppsPage() {
     return () => window.removeEventListener("popstate", syncView);
   }, []);
 
-  useEffect(() => () => {
-    void browserFinishedListener.current?.remove();
+  useEffect(() => {
+    disposed.current = false;
+    return () => {
+      disposed.current = true;
+      verificationRun.current += 1;
+      void browserFinishedListener.current?.remove();
+    };
   }, []);
+
+  const verifyConnection = useCallback(async (provider: string, attempt?: string, userId?: string) => {
+    if (disposed.current) return;
+    const run = ++verificationRun.current;
+    setConnecting(provider);
+    try {
+      for (let index = 0; index < 10; index += 1) {
+        if (run !== verificationRun.current) return;
+        if (index % 2 === 0 || index === 9) {
+          const response = await fetch("/api/portal/integrations/terra/reconcile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ provider, attempt, userId }),
+          });
+          const result = await response.json().catch(() => ({}));
+          if (run !== verificationRun.current) return;
+          if (result.staleAttempt) {
+            await load(false);
+            toast("This return belongs to an earlier connection attempt. Check the current status below.", "info");
+            return;
+          }
+          if (!response.ok) throw new Error(result.error || "The connection could not be verified yet. Please try again.");
+        }
+        const refreshed = await load(false);
+        if (run !== verificationRun.current || !refreshed) return;
+        const connection = refreshed.connections.find((item) => item.provider === provider);
+        if (attempt && !matchesTerraConnectionAttempt(connection?.consented_at, attempt)) return;
+        if (connection?.status === "connected") {
+          await requestHealthSync().catch(() => null);
+          if (run !== verificationRun.current) return;
+          toast(`${wearableProviders.find((item) => item.id === provider)?.name || "App"} connected. Data may take a moment to arrive.`);
+          return;
+        }
+        if (connection?.status === "error" || connection?.status === "disconnected") {
+          toast("That connection wasn't completed. Choose Reconnect to try again.", "error");
+          return;
+        }
+        if (index < 9) await new Promise((resolve) => setTimeout(resolve, 1_500));
+      }
+      if (run === verificationRun.current) toast("We haven't verified this connection yet. If you closed the provider window, choose Reconnect to try again.", "info");
+    } catch (error) {
+      if (run === verificationRun.current) toast(error instanceof Error ? error.message : "The connection could not be verified yet. Please try again.", "error");
+    } finally {
+      if (run === verificationRun.current) setConnecting(null);
+    }
+  }, [load, requestHealthSync, toast]);
+
+  function clearReturnParams() {
+    if (disposed.current || window.location.pathname !== "/portal/connected-apps") return;
+    const url = new URL(window.location.href);
+    for (const key of ["terra", "provider", "attempt", "user_id"]) url.searchParams.delete(key);
+    url.searchParams.set("view", "connections");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+  }
 
   useEffect(() => {
     if (handledReturn.current) return;
     const params = new URLSearchParams(window.location.search);
     const terraResult = params.get("terra");
     const provider = params.get("provider");
+    const attempt = params.get("attempt") || undefined;
+    const userId = params.get("user_id") || undefined;
     if (!terraResult) return;
     handledReturn.current = true;
+    setView("connections");
 
     if (terraResult === "failed") {
       void (async () => {
-        if (provider) {
-          await fetch("/api/portal/integrations/terra/session", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ provider }),
-          });
+        try {
+          if (provider && attempt) {
+            const response = await fetch("/api/portal/integrations/terra/session", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ provider, attempt }),
+            });
+            const result = await response.json().catch(() => ({}));
+            if (result.staleAttempt) {
+              await load(false);
+              toast("This return belongs to an earlier connection attempt. Check the current status below.", "info");
+              return;
+            }
+            if (!response.ok && response.status !== 409) throw new Error("Connection status could not be updated. Please refresh and try again.");
+          }
           await load(false);
+          toast("That connection wasn't completed. Check the current status below and reconnect when you're ready.", "error");
+        } catch (error) {
+          toast(error instanceof Error ? error.message : "Connection status could not be checked.", "error");
+        } finally {
+          clearReturnParams();
         }
-        toast("That connection wasn't completed. You can try again when you're ready.", "error");
-        window.history.replaceState({}, "", window.location.pathname);
       })();
       return;
     }
     if (terraResult !== "success" || !provider) return;
 
-    let cancelled = false;
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    let attempts = 0;
-    const poll = async () => {
-      if ([0, 2, 5, 9].includes(attempts)) {
-        await fetch("/api/portal/integrations/terra/reconcile", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ provider }),
-        }).catch(() => null);
-      }
-      const refreshed = await load(false);
-      if (cancelled || !refreshed) return;
-      const connection = refreshed.connections.find((item) => item.provider === provider);
-      if (connection?.status === "connected") {
-        await requestHealthSync().catch(() => null);
-        await new Promise((resolve) => setTimeout(resolve, 1_500));
-        await load(false);
-        toast(`${wearableProviders.find((item) => item.id === provider)?.name || "App"} connected`);
-        window.history.replaceState({}, "", window.location.pathname);
-        return;
-      }
-      if (connection?.status === "error" || attempts >= 9) {
-        toast(
-          connection?.status === "error"
-            ? "That connection could not be completed. Please try again."
-            : "Connection received. The first sync is still finishing.",
-          connection?.status === "error" ? "error" : "info",
-        );
-        window.history.replaceState({}, "", window.location.pathname);
-        return;
-      }
-      attempts += 1;
-      timeoutId = setTimeout(poll, 1_500);
-    };
-    void poll();
-
-    return () => {
-      cancelled = true;
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [load, requestHealthSync, toast]);
+    void verifyConnection(provider, attempt, userId).finally(clearReturnParams);
+  }, [load, verifyConnection, toast]);
 
   async function connect(provider: string) {
+    if (!consentAccepted || connecting) return;
+    handledReturn.current = false;
     setConnecting(provider);
     let listener: PluginListenerHandle | null = null;
+    let attemptStartedAt: string | undefined;
     try {
       const res = await fetch("/api/portal/integrations/terra/session", {
         method: "POST",
@@ -167,6 +208,8 @@ export default function ConnectedAppsPage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Couldn't start connection");
+      if (disposed.current) return;
+      attemptStartedAt = json.attemptStartedAt;
       setData((current) => current ? { ...current, consentAccepted: true } : current);
 
       if (json.mock) {
@@ -182,26 +225,9 @@ export default function ConnectedAppsPage() {
             await listener?.remove();
             if (browserFinishedListener.current === listener) browserFinishedListener.current = null;
             await new Promise((resolve) => setTimeout(resolve, 1_500));
-            if (handledReturn.current) return;
+            if (handledReturn.current || disposed.current) return;
 
-            await fetch("/api/portal/integrations/terra/reconcile", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ provider }),
-            }).catch(() => null);
-
-            const refreshed = await load(false);
-            const connection = refreshed?.connections.find((item) => item.provider === provider);
-            if (connection?.status === "connected") {
-              await requestHealthSync().catch(() => null);
-              await new Promise((resolve) => setTimeout(resolve, 1_500));
-              await load(false);
-            }
-            if (connection?.status !== "pending") return;
-            toast(
-              "Connection received. Verification is still finishing; check again in a moment.",
-              "info",
-            );
+            await verifyConnection(provider, attemptStartedAt);
           })();
         });
         browserFinishedListener.current = listener;
@@ -212,6 +238,14 @@ export default function ConnectedAppsPage() {
     } catch (err) {
       await listener?.remove();
       if (browserFinishedListener.current === listener) browserFinishedListener.current = null;
+      if (attemptStartedAt) {
+        await fetch("/api/portal/integrations/terra/session", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider, attempt: attemptStartedAt }),
+        }).catch(() => null);
+        await load(false);
+      }
       toast(err instanceof Error ? err.message : "Couldn't connect that app", "error");
     } finally {
       setConnecting(null);
@@ -295,12 +329,12 @@ export default function ConnectedAppsPage() {
       <WearableConnectionsPanel
         connections={data?.connections || []}
         consentAccepted={consentAccepted}
-        available={data?.available !== false}
+        available={Boolean(data?.available) && !loading}
         mockMode={Boolean(data?.mockMode)}
         whoopAvailable={Boolean(data?.providerAvailability?.whoop)}
         connecting={connecting}
         disconnecting={disconnecting}
-        onConsentChange={setConsentAccepted}
+        onConsentChange={(accepted) => { consentTouched.current = true; setConsentAccepted(accepted); }}
         onConnect={(provider) => void connect(provider)}
         onDisconnect={(connection) => void disconnect(connection)}
         onBack={closeConnections}

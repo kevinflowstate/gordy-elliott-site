@@ -30,6 +30,53 @@ struct NativeWorkoutExercise: Codable, Identifiable {
     var durationSeconds: Int? = nil
     var emomMinuteParity: String? = nil
     let usesSetLogging: Bool
+
+    var logsCircuitRounds: Bool {
+        groupKind == "amrap" || groupKind == "circuit"
+    }
+
+    var groupLabel: String? {
+        switch groupKind {
+        case "superset": return "Superset"
+        case "circuit": return "Circuit"
+        case "amrap": return "AMRAP circuit"
+        case "emom": return "EMOM circuit"
+        default: return nil
+        }
+    }
+
+    func setsForSync(_ sets: [NativeWorkoutSet]) -> [NativeWorkoutSet] {
+        guard groupKind == "emom" else { return sets }
+        return sets.map { value in
+            var value = value
+            value.circuitRounds = nil
+            return value
+        }
+    }
+}
+
+enum NativeWorkoutPrescriptionLayout {
+    // Longer names and accessibility text get the entire row; short badges have a width cap in the view.
+    static func usesInlineBadge(name: String, prescription: String, accessibilityText: Bool) -> Bool {
+        !accessibilityText && name.count <= 32 && prescription.count <= 18
+            && !prescription.isEmpty && !prescription.contains(where: { $0.isNewline })
+    }
+}
+
+struct NativeWorkoutMinuteProgress: Equatable {
+    let minute: Int
+    let minuteCount: Int
+    let secondsRemaining: Int
+    let parity: String
+
+    init(duration: Int, remaining: Int) {
+        let remaining = min(max(0, remaining), max(0, duration))
+        let elapsed = max(0, duration - remaining)
+        minuteCount = max(1, (duration + 59) / 60)
+        minute = remaining == 0 ? minuteCount : elapsed / 60 + 1
+        secondsRemaining = remaining == 0 ? 0 : min(60 - elapsed % 60, remaining)
+        parity = minute % 2 == 1 ? "odd" : "even"
+    }
 }
 
 struct NativeWorkoutSet: Codable, Identifiable, Equatable {
@@ -44,6 +91,29 @@ struct NativeWorkoutSet: Codable, Identifiable, Equatable {
     var circuitDurationSeconds: Int? = nil
 
     var id: Int { setNumber }
+
+    func circuitTimeRemaining(at milliseconds: Double, duration: Int?) -> Int? {
+        if let end = circuitEndsAt, end > 0 {
+            return max(0, Int(ceil((end - milliseconds) / 1_000)))
+        }
+        return circuitRemainingSeconds ?? duration
+    }
+
+    mutating func pauseCircuit(at milliseconds: Double, duration: Int?) {
+        circuitRemainingSeconds = circuitTimeRemaining(at: milliseconds, duration: duration)
+        circuitEndsAt = nil
+    }
+
+    mutating func startCircuit(at milliseconds: Double, duration: Int?) {
+        guard let remaining = circuitTimeRemaining(at: milliseconds, duration: duration), remaining > 0 else { return }
+        if circuitDurationSeconds == nil { circuitDurationSeconds = duration ?? remaining }
+        circuitEndsAt = milliseconds + Double(remaining) * 1_000
+    }
+
+    mutating func resetCircuit(duration: Int?) {
+        circuitEndsAt = nil
+        circuitRemainingSeconds = duration ?? circuitDurationSeconds
+    }
 
     enum CodingKeys: String, CodingKey {
         case setNumber = "set_number"

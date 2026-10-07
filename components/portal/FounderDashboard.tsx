@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { CalendarEvent, ClientProfile, ClientTask } from "@/lib/types";
-import type { WearableDailySummary } from "@/lib/wearable-insights";
+import { sanitizeWearableRecovery, type WearableDailySummary } from "@/lib/wearable-insights";
 import type { CapacityBaseline, CapacityMetrics } from "@/lib/capacity-baseline";
 import type { StormWarningClientState } from "@/lib/storm-warning";
 import type { EarlyWinView } from "@/lib/early-win";
@@ -75,7 +75,8 @@ function getUpcomingEvents(events: CalendarEvent[]) {
 }
 
 function capacityLanguage(summary: WearableDailySummary | null) {
-  if (!summary || summary.readiness_score === null) {
+  summary = summary ? sanitizeWearableRecovery(summary) : null;
+  if (!summary || summary.readiness_score === null || summary.recovery_status === "unknown") {
     return {
       score: null,
       load: 0,

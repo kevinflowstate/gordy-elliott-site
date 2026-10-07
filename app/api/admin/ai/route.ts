@@ -1,10 +1,11 @@
+import { dateKeyInTimeZone } from "@/lib/founder-dashboard";
 import { requireAdmin } from "@/lib/admin-auth";
 import { formatCoachingNotesForAdminPrompt } from "@/lib/coaching-notes";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { trackAIUsage } from "@/lib/ai-usage";
 import { rateLimit } from "@/lib/rate-limit";
-import type { WearableConnection, WearableDailySummary } from "@/lib/wearable-insights";
+import { sanitizeWearableRecovery, type WearableConnection, type WearableDailySummary } from "@/lib/wearable-insights";
 import { resolveClientLifecycleStatus } from "@/lib/client-attention";
 import { getShiftBrainContextResult } from "@/lib/brain-retrieval";
 import { NextRequest, NextResponse } from "next/server";
@@ -105,7 +106,7 @@ export async function POST(req: NextRequest) {
     .eq("status", "active");
 
   // Training adherence: count completed logs in last 14 days per client
-  const todayIso = new Date().toISOString().split("T")[0];
+  const todayIso = dateKeyInTimeZone(new Date(), "Europe/London");
   const twoWeeksAgoIso = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
   const { data: recentLogs } = await admin
     .from("client_exercise_logs")
@@ -185,7 +186,7 @@ export async function POST(req: NextRequest) {
   const latestWearableSummaryByClient = new Map<string, WearableDailySummary>();
   for (const summary of (recentWearableSummariesData || []) as WearableDailySummary[]) {
     if (!summary.client_id || latestWearableSummaryByClient.has(summary.client_id)) continue;
-    latestWearableSummaryByClient.set(summary.client_id, summary);
+    latestWearableSummaryByClient.set(summary.client_id, sanitizeWearableRecovery(summary));
   }
 
   type CoachingNotePromptRow = {
@@ -384,8 +385,8 @@ export async function POST(req: NextRequest) {
   const noPlanClients = clientSummaries.filter((c) => c.engagement_label === "no_training_plan_assigned");
   const lowMetricsClients = clientSummaries.filter((c) => (c.daily_metrics_7d?.days_logged || 0) <= 2);
   const connectedAppClients = clientSummaries.filter((c) => c.connected_apps.providers.length > 0);
-  const recoveryWatchClients = clientSummaries.filter((c) => c.latest_wearable_summary?.recovery_status === "watch");
-  const reduceIntensityClients = clientSummaries.filter((c) => c.latest_wearable_summary?.recovery_status === "reduce_intensity");
+  const recoveryWatchClients = clientSummaries.filter((c) => c.latest_wearable_summary?.date === todayIso && c.latest_wearable_summary.recovery_status === "watch");
+  const reduceIntensityClients = clientSummaries.filter((c) => c.latest_wearable_summary?.date === todayIso && c.latest_wearable_summary.recovery_status === "reduce_intensity");
   const unrepliedPriorityCheckins = clientSummaries.filter(
     (c) => c.latest_checkin && (c.latest_checkin.priority_message || c.latest_checkin.support_ask) && !c.latest_checkin.replied,
   );
@@ -494,7 +495,7 @@ SPECIFIC QUESTION TYPES:
 - "What's the main risk across the roster right now?" → Pick the single biggest risk pattern (e.g. "4 Premium clients with unreplied priority messages", "3 clients ghosting training", "7 clients with zero daily metrics this week"). One sentence. Then the top 3 named clients that embody it.
 - "Are clients completing daily metrics?" → Answer from daily_metrics_7d. Name the clients at <=2 days. Don't give a vague "most are fine".
 - "Who needs training adjusted because of sleep/recovery?" → Use latest_wearable_summary only. Name clients with recovery_status reduce_intensity first, then watch. Suggest intensity guidance only; do not claim the app has automatically changed their plan.
-- Connected app / wearable questions → Use connected_apps and latest_wearable_summary as coaching signals. Treat them as performance guidance, not diagnosis. Avoid medical claims and avoid telling Gordy the programme was automatically changed.
+- Connected app / wearable questions → Use connected_apps and latest_wearable_summary as coaching signals. Unknown recovery means insufficient recovery data; nutrition, steps, or a recent sync cannot establish readiness. Use only today’s summary for today’s recovery guidance and label older data by date. Treat them as performance guidance, not diagnosis. Avoid medical claims and avoid telling Gordy the programme was automatically changed.
 - "Biggest risk with this client?" → Combine status + days_since_checkin + training_adherence_14d + latest_checkin on that client's own record (already joined — do NOT cross-reference recentCheckins by name). Name the specific risk (e.g. "VIP, 11 days no login, 0 sessions in 14 days, priority_message flagged hip pain"). If engagement_label is "no_training_plan_assigned", say that explicitly — it's not ghosting, it's a plan gap.
 - "What should Gordy follow up on next?" → Lead with unrepliedPriorityCheckins (Gordy owes a reply), then VIP/Premium at-risk, then standard at-risk, then slipping with an assigned plan. Call out "no plan assigned" clients separately as a coach-action (assign a plan) rather than a follow-up.
 - "Are they engaging or ghosting?" → Use engagement_label directly — it is the source of truth. Never call a client without an active plan "ghosting". If engagement_label is "no_training_plan_assigned", the honest answer is "can't measure yet — no active training plan is assigned." Otherwise: ghosting = 0 sessions/14d (with a plan), slipping = 1-2 sessions/14d, steady = 3-5, strong = 6+.

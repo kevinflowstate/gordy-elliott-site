@@ -5,13 +5,15 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
-import type { WearableDailySummary } from "@/lib/wearable-insights";
+import { sanitizeWearableRecovery, type WearableDailySummary } from "@/lib/wearable-insights";
+import { coachingDateKey, isValidTrackerDate, parseManualSteps, resolveDailySteps } from "@/lib/daily-steps";
 
 type DailyMetric = {
   id: string;
   tracked_date: string;
   sleep_hours: number | null;
   water_liters: number | null;
+  manual_steps: number | null;
   energy_level: number | null;
   stress_level: number | null;
   nutrition_score: number | null;
@@ -42,9 +44,6 @@ declare global {
     webkitSpeechRecognition?: SpeechRecognitionConstructor;
   }
 }
-
-const today = new Date();
-const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
 function formatDate(date: string) {
   return new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
@@ -132,9 +131,11 @@ function TrackerCard({ title, hint, children }: { title: string; hint?: string; 
 }
 
 export default function DailyTrackerPage() {
+  const todayKey = coachingDateKey();
   const { toast } = useToast();
   const [entries, setEntries] = useState<DailyMetric[]>([]);
   const [loading, setLoading] = useState(true);
+  const [trackerLoadFailed, setTrackerLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [wearableSummary, setWearableSummary] = useState<WearableDailySummary | null>(null);
   const [wearableSummaries, setWearableSummaries] = useState<WearableDailySummary[]>([]);
@@ -145,11 +146,13 @@ export default function DailyTrackerPage() {
   const [syncedFields, setSyncedFields] = useState<string[]>([]);
   const speechRef = useRef<SpeechRecognitionLike | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
+  const loadSequence = useRef(0);
   const notesRef = useRef<HTMLTextAreaElement>(null);
   const [form, setForm] = useState({
     tracked_date: todayKey,
     sleep_hours: "",
     water_liters: "",
+    manual_steps: "",
     energy_level: "" as number | "",
     stress_level: "" as number | "",
     nutrition_score: "" as number | "",
@@ -159,6 +162,8 @@ export default function DailyTrackerPage() {
 
   const score = useMemo(() => scoreEntry(form), [form]);
   const trainingAutoCompleted = trainingDates.includes(form.tracked_date);
+  const manualSteps = parseManualSteps(form.manual_steps);
+  const selectedSteps = resolveDailySteps(manualSteps.value, wearableSummary?.summary_date === form.tracked_date ? wearableSummary.steps : null);
   const sevenDayEntries = entries.slice(0, 7);
   const sevenDayScore = useMemo(() => {
     const scores = sevenDayEntries.map(scoreEntry).filter((value): value is number => value !== null);
@@ -167,25 +172,27 @@ export default function DailyTrackerPage() {
   }, [sevenDayEntries]);
 
   const load = useCallback(async (selectedDate = todayKey) => {
+    const sequence = ++loadSequence.current;
     setLoading(true);
+    setTrackerLoadFailed(false);
     try {
-      const res = await fetch("/api/portal/daily-tracker");
+      const res = await fetch(`/api/portal/daily-tracker?date=${encodeURIComponent(selectedDate)}`);
       const data = await res.json();
+      if (sequence !== loadSequence.current) return;
       if (!res.ok) throw new Error(data.error || "Failed to load tracker");
       const nextEntries = (data.entries || []) as DailyMetric[];
-      const nextWearableSummaries = (data.wearableSummaries || []) as WearableDailySummary[];
+      const nextWearableSummaries = ((data.wearableSummaries || []) as WearableDailySummary[]).map(sanitizeWearableRecovery);
       const nextTrainingDates = Array.isArray(data.trainingDates)
         ? data.trainingDates.filter((date: unknown): date is string => typeof date === "string")
         : [];
       setEntries(nextEntries);
       setWearableSummaries(nextWearableSummaries);
       setTrainingDates(nextTrainingDates);
-      const selectedWearable = nextWearableSummaries.find((summary) => summary.summary_date === selectedDate)
-        || (selectedDate === todayKey ? data.wearableSummary : null)
-        || null;
+      const selectedWearable = data.selectedWearable?.summary_date === selectedDate
+        ? sanitizeWearableRecovery(data.selectedWearable as WearableDailySummary)
+        : nextWearableSummaries.find((summary) => summary.summary_date === selectedDate) || null;
       setWearableSummary(selectedWearable);
-      const selectedEntry = nextEntries.find((entry) => entry.tracked_date === selectedDate)
-        || (selectedDate === todayKey ? data.today : null);
+      const selectedEntry = data.selectedEntry as DailyMetric | null;
       if (selectedEntry) {
         setSyncedFields([
           selectedEntry.sleep_hours === null && selectedWearable?.sleep_minutes ? "sleep" : "",
@@ -193,6 +200,7 @@ export default function DailyTrackerPage() {
         ].filter(Boolean));
         setForm({
           tracked_date: selectedEntry.tracked_date,
+          manual_steps: selectedEntry.manual_steps?.toString() ?? "",
           sleep_hours: selectedEntry.sleep_hours?.toString()
             || (selectedWearable?.sleep_minutes ? (selectedWearable.sleep_minutes / 60).toFixed(1) : ""),
           water_liters: selectedEntry.water_liters?.toString()
@@ -208,20 +216,27 @@ export default function DailyTrackerPage() {
           selectedWearable?.sleep_minutes ? "sleep" : "",
           selectedWearable?.water_ml ? "water" : "",
         ].filter(Boolean));
-        setForm((previous) => ({
-          ...previous,
+        setForm({
           tracked_date: selectedDate,
+          manual_steps: "",
+          energy_level: "",
+          stress_level: "",
+          nutrition_score: "",
+          notes: "",
           sleep_hours: selectedWearable?.sleep_minutes ? (selectedWearable.sleep_minutes / 60).toFixed(1) : "",
           water_liters: selectedWearable?.water_ml ? (selectedWearable.water_ml / 1000).toFixed(1) : "",
           training_completed: nextTrainingDates.includes(selectedDate),
-        }));
+        });
       }
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to load tracker", "error");
+      if (sequence === loadSequence.current) {
+        setTrackerLoadFailed(true);
+        toast(err instanceof Error ? err.message : "Failed to load tracker", "error");
+      }
     } finally {
-      setLoading(false);
+      if (sequence === loadSequence.current) setLoading(false);
     }
-  }, [toast]);
+  }, [toast, todayKey]);
 
   useEffect(() => {
     load();
@@ -235,6 +250,14 @@ export default function DailyTrackerPage() {
   }, []);
 
   async function save() {
+    if (manualSteps.error) {
+      toast(manualSteps.error, "error");
+      return;
+    }
+    if (!isValidTrackerDate(form.tracked_date, todayKey)) {
+      toast("Choose a valid date up to today.", "error");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/portal/daily-tracker", {
@@ -253,50 +276,33 @@ export default function DailyTrackerPage() {
     }
   }
 
-  function selectEntry(entry: DailyMetric) {
-    const selectedWearable = wearableSummaries.find((summary) => summary.summary_date === entry.tracked_date) || null;
-    setWearableSummary(selectedWearable);
-    setSyncedFields([
-      entry.sleep_hours === null && selectedWearable?.sleep_minutes ? "sleep" : "",
-      entry.water_liters === null && selectedWearable?.water_ml ? "water" : "",
-    ].filter(Boolean));
+  function selectDate(date: string) {
+    if (saving || !isValidTrackerDate(date, todayKey)) return;
+    speechRef.current?.stop();
+    setListening(false);
+    setWearableSummary(null);
+    setSyncedFields([]);
     setForm({
-      tracked_date: entry.tracked_date,
-      sleep_hours: entry.sleep_hours?.toString()
-        || (selectedWearable?.sleep_minutes ? (selectedWearable.sleep_minutes / 60).toFixed(1) : ""),
-      water_liters: entry.water_liters?.toString()
-        || (selectedWearable?.water_ml ? (selectedWearable.water_ml / 1000).toFixed(1) : ""),
-      energy_level: entry.energy_level || "",
-      stress_level: entry.stress_level || "",
-      nutrition_score: entry.nutrition_score || "",
-      training_completed: Boolean(entry.training_completed),
-      notes: entry.notes || "",
+      tracked_date: date,
+      sleep_hours: "",
+      water_liters: "",
+      manual_steps: "",
+      energy_level: "",
+      stress_level: "",
+      nutrition_score: "",
+      training_completed: false,
+      notes: "",
     });
+    void load(date);
+  }
+
+  function selectEntry(entry: DailyMetric) {
+    selectDate(entry.tracked_date);
     window.requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
   function selectToday() {
-    const entry = entries.find((item) => item.tracked_date === todayKey);
-    if (entry) {
-      selectEntry(entry);
-      return;
-    }
-    const todayWearable = wearableSummaries.find((summary) => summary.summary_date === todayKey) || null;
-    setWearableSummary(todayWearable);
-    setSyncedFields([
-      todayWearable?.sleep_minutes ? "sleep" : "",
-      todayWearable?.water_ml ? "water" : "",
-    ].filter(Boolean));
-    setForm({
-      tracked_date: todayKey,
-      sleep_hours: todayWearable?.sleep_minutes ? (todayWearable.sleep_minutes / 60).toFixed(1) : "",
-      water_liters: todayWearable?.water_ml ? (todayWearable.water_ml / 1000).toFixed(1) : "",
-      energy_level: "",
-      stress_level: "",
-      nutrition_score: "",
-      training_completed: trainingDates.includes(todayKey),
-      notes: "",
-    });
+    selectDate(todayKey);
   }
 
   function toggleDictation() {
@@ -310,7 +316,9 @@ export default function DailyTrackerPage() {
     recognition.lang = "en-GB";
     recognition.continuous = false;
     recognition.interimResults = false;
+    const dictationSequence = loadSequence.current;
     recognition.onresult = (event) => {
+      if (dictationSequence !== loadSequence.current) return;
       const transcript = Array.from(event.results)
         .map((result) => result[0]?.transcript || "")
         .join(" ")
@@ -346,7 +354,7 @@ export default function DailyTrackerPage() {
             {form.tracked_date === todayKey ? "How today is going" : `Reviewing ${formatDate(form.tracked_date)}`}
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-text-secondary">
-            Log the simple stuff Gordy cares about: sleep, water, stress, energy, nutrition and whether training got done.
+            Log the simple stuff Gordy cares about: sleep, water, steps, stress, energy, nutrition and whether training got done.
           </p>
         </div>
         <div className="app-rise w-full rounded-2xl border border-[#E040D0]/25 bg-[linear-gradient(150deg,#251426_0%,#1a1320_55%,#140f18_100%)] px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_40px_-22px_rgba(0,0,0,0.85)] sm:w-auto">
@@ -364,7 +372,7 @@ export default function DailyTrackerPage() {
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#ef68db]">Connected health</div>
               <h2 className="mt-1 text-lg font-semibold tracking-tight text-white">Health &amp; Capacity</h2>
-              <p className="mt-1 text-xs leading-5 text-white/40">Latest wearable signals, separate from your manual entry.</p>
+              <p className="mt-1 text-xs leading-5 text-white/40">Synced data for {formatDate(wearableSummary.summary_date)}.</p>
             </div>
             <Link
               href="/portal/connected-apps"
@@ -380,16 +388,16 @@ export default function DailyTrackerPage() {
             />
             <SyncedMetric
               label="Sleep"
-              value={wearableSummary.sleep_minutes ? `${Math.floor(wearableSummary.sleep_minutes / 60)}h ${wearableSummary.sleep_minutes % 60}m` : "—"}
+              value={wearableSummary.sleep_minutes !== null ? `${Math.floor(wearableSummary.sleep_minutes / 60)}h ${wearableSummary.sleep_minutes % 60}m` : "—"}
             />
             <SyncedMetric
-              label="Steps"
-              value={wearableSummary.steps ? wearableSummary.steps.toLocaleString("en-GB") : "—"}
+              label="Synced steps"
+              value={wearableSummary.steps !== null ? wearableSummary.steps.toLocaleString("en-GB") : "—"}
             />
             {wearableSummary.providers.includes("myfitnesspal") && (
               <SyncedMetric
                 label="Protein"
-                value={wearableSummary.protein_g ? `${Math.round(wearableSummary.protein_g)}g` : "Awaiting MFP"}
+                value={wearableSummary.protein_g !== null ? `${Math.round(wearableSummary.protein_g)}g` : "Awaiting MFP"}
               />
             )}
           </div>
@@ -401,6 +409,7 @@ export default function DailyTrackerPage() {
         </section>
       )}
 
+      <fieldset disabled={loading || saving || trackerLoadFailed} aria-label="Daily tracker entry" className="contents">
       <div ref={formRef} className="scroll-mt-4">
       <TrackerCard
         title={form.tracked_date === todayKey ? "Today's basics" : formatDate(form.tracked_date)}
@@ -408,7 +417,7 @@ export default function DailyTrackerPage() {
       >
         <div className="space-y-4">
           {form.tracked_date !== todayKey && (
-            <button type="button" onClick={selectToday} className="text-sm font-semibold text-accent-bright">
+            <button type="button" disabled={saving} onClick={selectToday} className="text-sm font-semibold text-accent-bright">
               Back to today
             </button>
           )}
@@ -417,9 +426,32 @@ export default function DailyTrackerPage() {
             <input
               type="date"
               value={form.tracked_date}
-              onChange={(e) => setForm((prev) => ({ ...prev, tracked_date: e.target.value }))}
+              max={todayKey}
+              disabled={saving}
+              onChange={(e) => selectDate(e.target.value)}
               className="w-full min-w-0 rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-base text-text-primary outline-none focus:border-accent/50 sm:text-sm"
             />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-text-primary">Steps</span>
+            <input
+              inputMode="numeric"
+              value={form.manual_steps}
+              disabled={loading || saving}
+              onChange={(event) => setForm((previous) => ({ ...previous, manual_steps: event.target.value }))}
+              placeholder="e.g. 8000"
+              aria-describedby="steps-help steps-total"
+              aria-invalid={Boolean(manualSteps.error)}
+              className="w-full rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-text-primary outline-none placeholder:text-text-muted focus:border-accent/50"
+            />
+            <span id="steps-help" className="mt-2 block text-xs text-text-secondary">
+              Leave blank to use synced steps. A manual entry replaces the synced total for this date.
+            </span>
+            <span id="steps-total" className="mt-1 block text-xs text-text-secondary" aria-live="polite">
+              {manualSteps.error || (selectedSteps.value === null
+                ? "No steps logged for this date."
+                : `${selectedSteps.value.toLocaleString("en-GB")} steps · ${selectedSteps.source === "manual" ? "Manual" : "Synced"}`)}
+            </span>
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
             {syncedFields.includes("sleep") && wearableSummary?.summary_date === form.tracked_date && wearableSummary.sleep_minutes ? (
@@ -535,11 +567,17 @@ export default function DailyTrackerPage() {
       <button
         type="button"
         onClick={save}
-        disabled={saving}
+        disabled={saving || loading || trackerLoadFailed}
         className="w-full rounded-2xl gradient-accent px-5 py-4 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
       >
         <CyclingStatusText active={saving} idle="Save daily tracker" messages={["Saving...", "Updating today...", "Checking streak...", "Nearly there..."]} />
       </button>
+      </fieldset>
+      {trackerLoadFailed && (
+        <button type="button" onClick={() => load(form.tracked_date)} className="text-sm font-semibold text-accent-bright">
+          Retry loading this date
+        </button>
+      )}
 
       <section className="app-card rounded-[28px] p-5 sm:p-6">
         <div className="mb-4 flex items-center justify-between gap-3">
@@ -572,6 +610,10 @@ export default function DailyTrackerPage() {
                   <div className="text-sm font-semibold text-text-primary">{formatDate(entry.tracked_date)}</div>
                   <div className="mt-1 text-xs text-text-secondary">
                     {entry.sleep_hours ?? "—"}h sleep · {entry.water_liters ?? "—"}L water · energy {entry.energy_level ?? "—"}/10
+                    {(() => {
+                      const steps = resolveDailySteps(entry.manual_steps, wearableSummaries.find((summary) => summary.summary_date === entry.tracked_date)?.steps);
+                      return steps.value === null ? null : ` · ${steps.value.toLocaleString("en-GB")} steps (${steps.source === "manual" ? "manual" : "synced"})`;
+                    })()}
                   </div>
                 </div>
                 <div className="rounded-full border border-accent/20 bg-accent/10 px-3 py-1 text-sm font-semibold text-accent-bright">
