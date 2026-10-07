@@ -82,7 +82,9 @@ export function classifyTerraEvent(eventType: unknown, authStatus?: unknown): Te
 
 export function canApplyTerraEvent(action: TerraEventAction, status: TerraConnectionStatus) {
   if (action === "data") return status === "pending" || status === "connected";
-  if (action === "connect") return status === "pending" || status === "connected" || status === "error";
+  // Failed connections recover through a new attempt or server reconciliation,
+  // never an old/retried auth webhook that could overwrite a newer failure.
+  if (action === "connect") return status === "pending" || status === "connected";
   if (action === "error") return status !== "disconnected";
   return action === "disconnect";
 }

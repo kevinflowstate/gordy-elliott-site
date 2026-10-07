@@ -76,7 +76,7 @@ test("historical data and late prior-user revocations cannot complete or break a
   assert.equal(canApplyTerraUserEvent("error", "connected", "new-user", ["old-user"]), false);
   assert.equal(canApplyTerraUserEvent("disconnect", "connected", "new-user", ["old-user"]), false);
   assert.equal(canApplyTerraUserEvent("disconnect", "connected", "new-user", ["new-user"]), true);
-  assert.equal(canApplyTerraUserEvent("connect", "error", "old-user", ["new-user", "old-user"]), true);
+  assert.equal(canApplyTerraUserEvent("connect", "error", "old-user", ["new-user", "old-user"]), false);
   assert.equal(canApplyTerraUserEvent("connect", "disconnected", "old-user", ["new-user"]), false);
 });
 
