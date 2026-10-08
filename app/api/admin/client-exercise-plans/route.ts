@@ -211,7 +211,7 @@ export async function POST(request: Request) {
       p_plan: payload,
     });
     if (saveError || !planId) {
-      const safeErrors = ["Reload this plan", "Logged exercises", "Logged sessions"];
+      const safeErrors = ["Reload this plan", "Logged exercises", "Logged sessions", "Existing exercises"];
       const safeMessage = safeErrors.some((prefix) => saveError?.message?.startsWith(prefix))
         ? saveError!.message : "Couldn't save this training plan. Nothing was changed. Try again.";
       return dbError(saveError, safeMessage);

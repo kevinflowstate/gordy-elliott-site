@@ -27,6 +27,7 @@ async function fixture(){
  INSERT INTO client_exercise_session_summaries VALUES('${id(7)}','${session}'); INSERT INTO client_training_weekly_assignments VALUES('${id(8)}','${session}');
  `);
  await db.exec(await readFile(new URL('../supabase/migrations/20261008130000_preserve_client_exercise_plan_history.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261008134000_guard_exercise_identity_changes.sql',import.meta.url),'utf8'));
  return db;
 }
 const draft=()=>({id:plan,client_id:client,name:'Edited',status:'active',sessions:[{id:session,name:'Day 1',day_number:1,items:[{id:item,exercise_id:exercise,order_index:0,sets:4,reps:'8',prescription_type:'sets_reps'}]}]});
@@ -48,7 +49,7 @@ test('logged removal/replacement and stale saves fail atomically without touchin
  const db=await fixture();try{
   await assert.rejects(db.exec(`delete from client_exercise_session_items where id='${item}'`),/foreign key/);
   const removed=draft();removed.sessions[0].items=[];await assert.rejects(save(db,removed),/Logged exercises/);
-  const replaced=draft();replaced.sessions[0].items[0].exercise_id=id(12);await assert.rejects(save(db,replaced),/Logged exercises/);
+  const replaced=draft();replaced.sessions[0].items[0].exercise_id=id(12);await assert.rejects(save(db,replaced),/Existing exercises/);
   await assert.rejects(save(db,{...draft(),expected_updated_at:'2000-01-01T00:00:00Z'}),/Reload this plan/);
   await assert.rejects(save(db,{...draft(),sessions:[{...draft().sessions[0],items:[{...draft().sessions[0].items[0],id:null}]}]}),/Reload this plan/);
   assert.equal((await db.query<{name:string}>('select name from client_exercise_plans')).rows[0].name,'Original');
@@ -70,6 +71,14 @@ test('new plan replacement archives original atomically and retains its logged h
   const p={...draft(),id:null,sessions:[{...draft().sessions[0],id:id(20),items:[{...draft().sessions[0].items[0],id:id(21)}]}]};
   await save(db,p);assert.equal((await db.query<{status:string}>('select status from client_exercise_plans where id=$1',[plan])).rows[0].status,'archived');
   assert.equal((await db.query('select * from client_exercise_logs l join client_exercise_session_items i on i.id=l.exercise_item_id')).rows.length,1);
+ }finally{await db.close();}
+});
+test('an unlogged exercise still cannot change identity beneath a concurrent client log',async()=>{
+ const db=await fixture();try{
+  await db.exec('delete from client_exercise_logs');
+  const p=draft();p.sessions[0].items[0].exercise_id=id(12);
+  await assert.rejects(save(db,p),/Existing exercises/);
+  assert.equal((await db.query<{exercise_id:string}>('select exercise_id from client_exercise_session_items where id=$1',[item])).rows[0].exercise_id,exercise);
  }finally{await db.close();}
 });
 test('section labels survive explicit dividers and direct labels on exercise rows',()=>{
