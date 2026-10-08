@@ -1,3 +1,5 @@
+import { programmeSessionCanBePlanned, programmeDateDay } from "@/lib/exercise-programme";
+import type { ClientExercisePlan, ExerciseSession } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
@@ -106,6 +108,8 @@ export async function POST(request: Request) {
 
   const logDate = typeof date === "string" ? date : new Date().toISOString().split("T")[0];
 
+  if (programmeDateDay(logDate) === null) return NextResponse.json({ error: "Choose a valid workout date" }, { status: 400 });
+
   const admin = createAdminClient();
   const { data: items, error: itemError } = await admin
     .from("client_exercise_session_items")
@@ -121,7 +125,7 @@ export async function POST(request: Request) {
 
   const { data: session, error: sessionError } = await admin
     .from("client_exercise_sessions")
-    .select("id, plan_id")
+    .select("id, plan_id, day_number, week_number")
     .eq("id", sessionId)
     .maybeSingle();
   if (sessionError) return NextResponse.json({ error: "Session could not be validated" }, { status: 500 });
@@ -129,13 +133,16 @@ export async function POST(request: Request) {
 
   const { data: ownedPlan, error: planError } = await admin
     .from("client_exercise_plans")
-    .select("id")
+    .select("id, start_date, programme_weeks, programme_timezone")
     .eq("id", session.plan_id)
     .eq("client_id", profile.id)
     .maybeSingle();
   if (planError) return NextResponse.json({ error: "Training plan could not be validated" }, { status: 500 });
   if (!ownedPlan) return NextResponse.json({ error: "Exercise not found in your plan" }, { status: 404 });
 
+  if (ownedPlan.programme_weeks && !programmeSessionCanBePlanned({ ...ownedPlan, sessions: [session as ExerciseSession] } as ClientExercisePlan, session.id, logDate)) {
+    return NextResponse.json({ error: "This workout belongs to a different programme week. Reload your training plan." }, { status: 409 });
+  }
   const updatedAt = new Date().toISOString();
   const rows = entries.map((entry) => {
     const safeSets = entry.safeSets || [];

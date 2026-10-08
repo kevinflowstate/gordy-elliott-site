@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { programmeSessionsForDate, programmeSessionsForCalendarWeek, programmeScheduledSessionForDate, programmeSessionCanBePlanned, programmeWeek } from "@/lib/exercise-programme";
 import { createPortal } from "react-dom";
 import AtCapacityWorkoutRunner, { type WorkoutRunnerMode } from "@/components/portal/AtCapacityWorkoutRunner";
 import NativeWorkoutLauncher from "@/components/native/NativeWorkoutLauncher";
@@ -124,9 +125,17 @@ const WEEK_PATTERNS: Record<number, number[]> = {
   7: [0, 1, 2, 3, 4, 5, 6],
 };
 
-function buildVirtualSchedule(plan: ClientExercisePlan): Map<string, ExerciseSession> {
+function buildVirtualSchedule(plan: ClientExercisePlan, visibleWeekStart: Date): Map<string, ExerciseSession> {
   const map = new Map<string, ExerciseSession>();
   if (!plan.sessions?.length) return map;
+  if (plan.programme_weeks) {
+    for (const day of getWeekDays(visibleWeekStart)) {
+      const date = formatDate(day);
+      const session = programmeScheduledSessionForDate(plan, date);
+      if (session) map.set(date, session);
+    }
+    return map;
+  }
   const startRaw = plan.start_date || plan.created_at;
   const start = startRaw ? new Date(startRaw) : new Date();
   if (Number.isNaN(start.getTime())) return map;
@@ -196,6 +205,7 @@ function buildSessionDrafts(session: ExerciseSession, existingLogs: ExerciseLog[
 export default function PortalExercisePlanPage() {
   const [plan, setPlan] = useState<ClientExercisePlan | null>(null);
   const [loading, setLoading] = useState(true);
+  const [planLoadError, setPlanLoadError] = useState<string | null>(null);
   const [allLogs, setAllLogs] = useState<ExerciseLog[]>([]);
   const [weeklyAssignments, setWeeklyAssignments] = useState<WeeklyTrainingAssignment[]>([]);
   const [plannerLoadedWeek, setPlannerLoadedWeek] = useState<string | null>(null);
@@ -230,16 +240,39 @@ export default function PortalExercisePlanPage() {
   const [savedToast, setSavedToast] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Fetch plan once
+  // Changing dates loads only the needed programme weeks; retain historical session identities.
+  const initialProgrammeDateSet = useRef(false);
   useEffect(() => {
-    fetch("/api/portal/exercise-plan")
-      .then((r) => r.json())
-      .then((data) => {
-        setPlan(data.plan ?? null);
+    const controller = new AbortController();
+    const from = formatDate(weekStart);
+    const end = new Date(weekStart); end.setDate(end.getDate() + 6);
+    setLoading(true);
+    setPlanLoadError(null);
+    fetch(`/api/portal/exercise-plan?from=${from}&to=${formatDate(end)}`, { signal: controller.signal })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Your training plan could not load. Please refresh and try again.");
+        return data;
       })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        setPlan(data.plan ?? null);
+        if (data.plan?.programme_weeks && !initialProgrammeDateSet.current && data.today) {
+          initialProgrammeDateSet.current = true;
+          const today = new Date(`${data.today}T00:00:00`);
+          setSelectedDate(today);
+          setWeekStart(getWeekStart(today));
+        }
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError" && !controller.signal.aborted) {
+          setPlan(null); setActiveSession(null);
+          setPlanLoadError(error.message || "Your training plan could not load. Please refresh and try again.");
+        }
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [weekStart]);
 
   // Fetch logs for the visible week
   const fetchWeekLogs = useCallback(
@@ -344,8 +377,8 @@ export default function PortalExercisePlanPage() {
   }, [weekStart, fetchWeekPlanner]);
 
   const sortedSessions = useMemo(
-    () => [...(plan?.sessions || [])].sort((a, b) => (a.day_number || 0) - (b.day_number || 0)),
-    [plan?.sessions],
+    () => plan ? programmeSessionsForDate(plan, formatDate(selectedDate)).filter((session) => programmeSessionCanBePlanned(plan, session.id, formatDate(selectedDate))) : [],
+    [plan, selectedDate],
   );
   const plannerLoadedForVisibleWeek = plannerLoadedWeek === formatDate(weekStart);
   const visibleWeeklyAssignments = useMemo(
@@ -385,13 +418,13 @@ export default function PortalExercisePlanPage() {
     const map = new Map<string, ExerciseSession[]>();
     if (!plan || !plannerLoadedForVisibleWeek || visibleWeeklyAssignments.length > 0) return map;
 
-    const virtualSchedule = buildVirtualSchedule(plan);
+    const virtualSchedule = buildVirtualSchedule(plan, weekStart);
     for (const [date, session] of virtualSchedule.entries()) {
       map.set(date, [session]);
     }
 
     return map;
-  }, [plan, plannerLoadedForVisibleWeek, visibleWeeklyAssignments.length]);
+  }, [plan, weekStart, plannerLoadedForVisibleWeek, visibleWeeklyAssignments.length]);
 
   const calendarSessionsByDate = visibleWeeklyAssignments.length > 0 ? plannedSessionsByDate : fallbackSessionsByDate;
 
@@ -411,7 +444,7 @@ export default function PortalExercisePlanPage() {
     if (dayLogs.length > 0 && !manuallyPicked) {
       // Day already has a logged session — find which session
       const sessionId = dayLogs[0].session_id;
-      const session = plan.sessions.find((s) => s.id === sessionId) ?? plan.sessions[0];
+      const session = plan.sessions.find((s) => s.id === sessionId) ?? null;
       setActiveSession(session);
       setViewMode("readonly");
       setManuallyPicked(false);
@@ -522,6 +555,8 @@ export default function PortalExercisePlanPage() {
   }
 
   function navigateWeek(delta: number) {
+    setManuallyPicked(false);
+    setSessionOpen(false);
     setWeekStart((prev) => {
       const d = new Date(prev);
       d.setDate(d.getDate() + delta * 7);
@@ -563,7 +598,7 @@ export default function PortalExercisePlanPage() {
   ) {
     if (!plan) return;
     const existing = assignmentBySessionId.get(sessionId);
-    const nextRecurring = Boolean(plannedDate && (isRecurring ?? existing?.is_recurring));
+    const nextRecurring = Boolean(!plan.programme_weeks && plannedDate && (isRecurring ?? existing?.is_recurring));
     const nextRecurrenceStopped = Boolean(recurrenceStopped ?? existing?.recurrence_stopped);
 
     setPlannerSavingSessionId(sessionId);
@@ -617,6 +652,7 @@ export default function PortalExercisePlanPage() {
   const selectedDateStr = formatDate(selectedDate);
   const dayLogs = allLogs.filter((l) => l.log_date === selectedDateStr);
   const isPast = !isToday(selectedDate) && !isFuture(selectedDate);
+  const programmeNotStarted = Boolean(plan?.programme_weeks && plan.start_date && selectedDateStr < plan.start_date);
 
   // Keep the picker aligned with the active plan order.
   const weekSessions = sortedSessions;
@@ -631,9 +667,10 @@ export default function PortalExercisePlanPage() {
       .filter((l) => l.log_date >= weekStartStr && l.log_date <= weekEndStr && l.completed && l.session_id)
       .map((l) => `${l.log_date}:${l.session_id}`),
   ).size;
-  const totalPlanSessions = plan?.sessions?.length || 0;
-  const placedSessionsCount = sortedSessions.filter((session) => Boolean(assignmentBySessionId.get(session.id)?.planned_date)).length;
-  const unassignedSessions = sortedSessions.filter((session) => !assignmentBySessionId.get(session.id)?.planned_date);
+  const totalPlanSessions = plan ? programmeSessionsForCalendarWeek(plan, formatDate(weekStart)).length : 0;
+  const plannerSessions = plan ? programmeSessionsForCalendarWeek(plan, formatDate(weekStart)) : [];
+  const placedSessionsCount = plannerSessions.filter((session) => Boolean(assignmentBySessionId.get(session.id)?.planned_date)).length;
+  const unassignedSessions = plannerSessions.filter((session) => !assignmentBySessionId.get(session.id)?.planned_date);
   const nextSession = sortedSessions.length > 0
     ? getNextSession(sortedSessions, allLogs.filter((log) => log.log_date <= selectedDateStr))
     : null;
@@ -641,7 +678,6 @@ export default function PortalExercisePlanPage() {
 
   useEffect(() => {
     if (!plan?.id || resumePointerHandledRef.current === plan.id) return;
-    resumePointerHandledRef.current = plan.id;
     try {
       const raw = window.localStorage.getItem(activeSessionPointerKey(plan.id));
       const pointer = raw ? JSON.parse(raw) as {
@@ -652,6 +688,11 @@ export default function PortalExercisePlanPage() {
       } : null;
       const session = pointer?.sessionId ? plan.sessions.find((item) => item.id === pointer.sessionId) : null;
       const date = pointer?.date ? new Date(`${pointer.date}T00:00:00`) : null;
+      if (!session && date && !Number.isNaN(date.getTime()) && pointer?.startedAt && Date.now() - pointer.startedAt < 6 * 60 * 60 * 1000
+        && getWeekStart(date).getTime() !== weekStart.getTime()) {
+        setWeekStart(getWeekStart(date)); setSelectedDate(date); return;
+      }
+      resumePointerHandledRef.current = plan.id;
       const valid = session && date && !Number.isNaN(date.getTime()) && pointer?.startedAt && Date.now() - pointer.startedAt < 6 * 60 * 60 * 1000;
       if (!valid || !session || !date) {
         window.localStorage.removeItem(activeSessionPointerKey(plan.id));
@@ -673,7 +714,7 @@ export default function PortalExercisePlanPage() {
     } catch {
       window.localStorage.removeItem(activeSessionPointerKey(plan.id));
     }
-  }, [plan, initDrafts]);
+  }, [plan, initDrafts, weekStart]);
 
   useEffect(() => {
     if (!plan?.id || !activeSession || !sessionStartedAt || viewMode !== "log") return;
@@ -781,14 +822,6 @@ export default function PortalExercisePlanPage() {
     setRunnerOpen(true);
   }
 
-  function revealSessionPanel() {
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        sessionPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    });
-  }
-
   function dayChipClass(active: boolean, disabled: boolean) {
     return `min-w-10 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold transition-colors ${
       active
@@ -806,7 +839,7 @@ export default function PortalExercisePlanPage() {
           const dayStr = formatDate(day);
           const active = assignment?.planned_date === dayStr;
           const occupied = Boolean(plannedSessionsByDate.get(dayStr)?.some((plannedSession) => plannedSession.id !== session.id));
-          const disabled = saving || active || occupied;
+          const disabled = saving || active || occupied || Boolean(plan && !programmeSessionCanBePlanned(plan, session.id, dayStr));
           return (
             <button
               key={dayStr}
@@ -844,6 +877,14 @@ export default function PortalExercisePlanPage() {
     );
   }
 
+  if (planLoadError) {
+    return <div className="p-6"><h1 className="text-2xl font-bold text-text-primary mb-4">My Training Plan</h1>
+      <div role="alert" className="rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-sm text-text-secondary">{planLoadError}
+        <button type="button" onClick={() => setWeekStart(new Date(weekStart))} className="mt-4 block rounded-xl bg-[#E040D0] px-4 py-3 font-semibold text-white">Try again</button>
+      </div>
+    </div>;
+  }
+
   if (!plan) {
     return (
       <div className="p-6">
@@ -875,6 +916,7 @@ export default function PortalExercisePlanPage() {
             <div className="min-w-0">
               <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.24em] text-[#F7A8EE]">Training</div>
               <h1 className="text-2xl font-heading font-bold leading-tight text-white">{plan.name}</h1>
+              {plan.programme_weeks && <p className="mt-2 text-xs font-semibold text-[#E667D6]">Week {programmeWeek(plan, formatDate(selectedDate))} of {plan.programme_weeks}</p>}
               <p className="mt-1 text-xs text-white/65">{sessionsThisWeek} logged this week · {placedSessionsCount}/{totalPlanSessions} scheduled</p>
             </div>
             <span className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white/75">
@@ -918,6 +960,7 @@ export default function PortalExercisePlanPage() {
             <button
               type="button"
               onClick={() => setShowSessionPicker(true)}
+              disabled={sortedSessions.length === 0}
               className="min-h-12 rounded-xl border border-[#E040D0]/30 px-4 py-3 text-sm font-semibold text-[#F060E0]"
             >
               Choose workout
@@ -939,7 +982,7 @@ export default function PortalExercisePlanPage() {
               <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#E667D6]">Your Training Plan</div>
               <h2 className="mt-1 text-lg font-heading font-bold text-text-primary">Browse and schedule sessions</h2>
             </div>
-            <span className="rounded-full border border-white/[0.08] px-3 py-1 text-xs font-semibold text-text-secondary">{totalPlanSessions} session{totalPlanSessions === 1 ? "" : "s"}</span>
+            <span className="rounded-full border border-white/[0.08] px-3 py-1 text-xs font-semibold text-text-secondary">{sortedSessions.length} session{sortedSessions.length === 1 ? "" : "s"}</span>
           </div>
           {plannerLoading ? (
             <div className="mt-4 h-20 animate-pulse rounded-2xl bg-white/[0.04]" />
@@ -980,6 +1023,7 @@ export default function PortalExercisePlanPage() {
                             <button
                               type="button"
                               disabled={plannerSavingSessionId === session.id}
+                              hidden={Boolean(plan.programme_weeks)}
                               onClick={() => savePlannerAssignment(session.id, assignment.planned_date, !assignment.is_recurring, assignment.is_recurring)}
                               className="rounded-xl border border-white/[0.10] px-3 py-2 text-[11px] font-semibold text-text-secondary"
                             >
@@ -1224,6 +1268,7 @@ export default function PortalExercisePlanPage() {
                             <button
                               type="button"
                               disabled={saving}
+                              hidden={Boolean(plan.programme_weeks)}
                               onClick={() => savePlannerAssignment(session.id, assignment.planned_date, !assignment.is_recurring, assignment.is_recurring)}
                               className="rounded-xl border border-[rgba(0,0,0,0.08)] px-3 py-2 text-[11px] font-semibold text-text-secondary transition-colors hover:border-[#E040D0]/35 hover:text-[#E040D0] disabled:opacity-50"
                             >
@@ -1260,9 +1305,9 @@ export default function PortalExercisePlanPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
             </svg>
           </div>
-          <h2 className="text-lg font-heading font-bold text-text-primary">Rest day</h2>
+          <h2 className="text-lg font-heading font-bold text-text-primary">{programmeNotStarted ? "Your programme starts soon" : "Rest day"}</h2>
           <p className="mx-auto mt-1 max-w-xs text-sm text-text-secondary">
-            {isPast
+            {programmeNotStarted ? `Your first programme week starts on ${plan.start_date}.` : isPast
               ? "No session was scheduled for this day."
               : "Nothing scheduled. Recovery is part of the programme — take it."}
           </p>
@@ -1270,8 +1315,10 @@ export default function PortalExercisePlanPage() {
             <div className="mt-5 flex flex-col items-center justify-center gap-2 sm:flex-row">
               <button
                 type="button"
+                disabled={sortedSessions.length === 0}
                 onClick={() => {
-                  const next = getNextSession(plan.sessions, allLogs.filter((log) => log.log_date <= selectedDateStr));
+                  if (!sortedSessions.length) return;
+                  const next = getNextSession(sortedSessions, allLogs.filter((log) => log.log_date <= selectedDateStr));
                   pickSession(next);
                 }}
                 className="w-full rounded-xl gradient-accent px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 cursor-pointer sm:w-auto"
@@ -1281,6 +1328,7 @@ export default function PortalExercisePlanPage() {
               <button
                 type="button"
                 onClick={() => setShowSessionPicker(true)}
+              disabled={sortedSessions.length === 0}
                 className="w-full rounded-xl border border-[#E040D0]/30 px-5 py-2.5 text-sm font-semibold text-[#F060E0] transition-colors hover:bg-[#E040D0]/10 cursor-pointer sm:w-auto"
               >
                 Choose Workout
@@ -1690,7 +1738,7 @@ export default function PortalExercisePlanPage() {
           >
             <div className="flex shrink-0 items-start justify-between gap-4 border-b border-white/[0.08] p-4">
               <div className="min-w-0">
-                <h3 id="session-picker-title" className="text-lg font-bold text-white">Choose a workout</h3>
+                <h3 id="session-picker-title" className="text-lg font-bold text-white">Choose a workout{plan.programme_weeks ? ` · Week ${programmeWeek(plan, formatDate(selectedDate))}` : ""}</h3>
                 <p className="mt-1 text-xs leading-5 text-white/55">
                   Pick the session you want to do {isToday(selectedDate) ? "today" : "on this date"}. Choosing it opens the workout; it does not change your weekly schedule.
                 </p>

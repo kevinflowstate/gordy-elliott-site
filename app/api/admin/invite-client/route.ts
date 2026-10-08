@@ -1,3 +1,4 @@
+import { TrackedEmailError } from "@/lib/tracked-client-email";
 import { requireAdmin } from "@/lib/admin-auth";
 import { buildAccountRecoveryUrl } from "@/lib/account-links";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -132,13 +133,15 @@ export async function POST(request: Request) {
 
   // Send welcome email via unified template
   let emailSent = false;
+  let emailFailureStatus: "failed" | "unknown" = "failed";
   try {
     if (setupUrl) {
-      await sendWelcomeEmail(normalizedEmail, normalizedName, setupUrl);
+      await sendWelcomeEmail(normalizedEmail, normalizedName, setupUrl, profile.id);
       emailSent = true;
     }
   } catch (e) {
-    console.log("[INVITE] Email send failed (likely domain not verified):", e instanceof Error ? e.message : e);
+    if (e instanceof TrackedEmailError) emailFailureStatus = e.sendStatus;
+    console.log("[INVITE] Email acceptance failed:", e instanceof Error ? e.message : e);
   }
 
   return NextResponse.json({
@@ -146,6 +149,8 @@ export async function POST(request: Request) {
     userId: newUser.user.id,
     profileId: profile.id,
     emailSent,
+    emailStatus: emailSent ? "accepted" : emailFailureStatus,
+    emailDeliveryVerified: false,
     passwordSet: !mustSetPasswordOnFirstLogin,
     setupUrl: emailSent ? null : setupUrl, // Return URL if email didn't send, so Gordy can share manually
   });

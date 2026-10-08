@@ -1,3 +1,4 @@
+import { programmeWeek, programmeToday } from "@/lib/exercise-programme";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getShiftBrainContextResult } from "@/lib/brain-retrieval";
@@ -169,7 +170,7 @@ export async function POST(req: NextRequest) {
   // should consult first for "what training do I have?" questions.
   const { data: activeExercisePlans } = await admin
     .from("client_exercise_plans")
-    .select("id, name, description, status, start_date, end_date")
+    .select("id, name, description, status, start_date, end_date, programme_weeks, programme_timezone")
     .eq("client_id", profile?.id || "")
     .eq("status", "active")
     .order("created_at", { ascending: false })
@@ -179,11 +180,16 @@ export async function POST(req: NextRequest) {
   let exerciseSessions: Array<{ day_number: number; name: string; notes: string | null; items: Array<{ exercise_name: string; prescription: string; rest_seconds: number | null; notes: string | null }> }> = [];
   let exerciseSessionOrder: Array<{ id: string; day_number: number; name: string }> = [];
   if (activeExercisePlan?.id) {
-    const { data: sessions } = await admin
+    let sessionQuery = admin
       .from("client_exercise_sessions")
       .select("id, day_number, name, notes, items:client_exercise_session_items(sets, reps, prescription_type, prescription_text, rest_seconds, notes, order_index, exercise:exercises(name))")
       .eq("plan_id", activeExercisePlan.id)
       .order("day_number");
+    if (activeExercisePlan.programme_weeks) {
+      const week = programmeWeek({ ...activeExercisePlan, sessions: [] }, programmeToday(activeExercisePlan.programme_timezone));
+      sessionQuery = sessionQuery.eq("week_number", week);
+    }
+    const { data: sessions } = await sessionQuery;
     exerciseSessionOrder = (sessions || []).map((s: { id: string; day_number: number; name: string }) => ({
       id: s.id,
       day_number: s.day_number,
@@ -483,7 +489,7 @@ Help with quick questions: meal ideas, short workouts, sleep tips, finding Educa
   };
 
   const todayStr = formatPlannerDate(new Date());
-  const currentWeekStart = formatPlannerDate(getPlannerWeekStart(new Date()));
+  const currentWeekStart = formatPlannerDate(getPlannerWeekStart(new Date(`${programmeToday(activeExercisePlan?.programme_timezone)}T12:00:00`)));
 
   let weeklyPlannedSessions: Array<{
     date: string;
@@ -500,6 +506,7 @@ Help with quick questions: meal ideas, short workouts, sleep tips, finding Educa
       planId: activeExercisePlan.id,
       weekStart: currentWeekStart,
       sessionIds: exerciseSessionOrder.map((session) => session.id),
+      allowRecurring: !activeExercisePlan.programme_weeks,
     });
 
     if (!weeklyPlanner.error) {

@@ -1,3 +1,5 @@
+import { programmeSessionsForCalendarWeek, programmeSessionCanBePlanned } from "@/lib/exercise-programme";
+import type { ClientExercisePlan } from "@/lib/types";
 import { requireAdmin } from "@/lib/admin-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -22,7 +24,7 @@ export async function GET(request: Request) {
   const admin = createAdminClient();
   let planQuery = admin
     .from("client_exercise_plans")
-    .select("id")
+    .select("id, start_date, programme_weeks, programme_timezone")
     .eq("client_id", clientId)
     .eq("status", "active")
     .order("created_at", { ascending: false });
@@ -37,7 +39,7 @@ export async function GET(request: Request) {
 
   const { data: sessions, error: sessionError } = await admin
     .from("client_exercise_sessions")
-    .select("id")
+    .select("id, day_number, week_number")
     .eq("plan_id", plan.id)
     .order("day_number", { ascending: true });
 
@@ -47,7 +49,8 @@ export async function GET(request: Request) {
     clientId,
     planId: plan.id,
     weekStart,
-    sessionIds: (sessions || []).map((session: { id: string }) => session.id),
+    sessionIds: programmeSessionsForCalendarWeek({ ...plan, sessions: sessions || [] } as ClientExercisePlan, weekStart).map((session) => session.id),
+    allowRecurring: !plan.programme_weeks,
   });
 
   if (error) return NextResponse.json({ error }, { status: 500 });
@@ -97,6 +100,20 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
+  const { data: plan } = await admin.from("client_exercise_plans").select("id,start_date,programme_weeks,programme_timezone")
+    .eq("id", planId).eq("client_id", clientId).eq("status", "active").maybeSingle();
+  if (!plan) return NextResponse.json({ error: "Active training plan not found" }, { status: 404 });
+  if (plan.programme_weeks) {
+    const { data: sessions, error: sessionsError } = await admin.from("client_exercise_sessions")
+      .select("id,day_number,week_number").eq("plan_id", planId);
+    if (sessionsError) return NextResponse.json({ error: "Training sessions could not load" }, { status: 500 });
+    const programme = { ...plan, sessions: sessions || [] } as ClientExercisePlan;
+    if (assignments.some((assignment) => assignment.is_recurring
+      || !programmeSessionsForCalendarWeek(programme, assignment.week_start).some((session) => session.id === assignment.session_id)
+      || (assignment.planned_date && !programmeSessionCanBePlanned(programme, assignment.session_id, assignment.planned_date)))) {
+      return NextResponse.json({ error: "Choose dates in each session's programme week. Programme weeks have independent workouts." }, { status: 400 });
+    }
+  }
   const { error } = await admin.rpc("upsert_training_assignments_batch", {
     p_client_id: clientId,
     p_plan_id: planId,

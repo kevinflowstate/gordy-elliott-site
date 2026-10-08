@@ -1,3 +1,4 @@
+import { sendTrackedClientEmail } from "./tracked-client-email";
 import { getSiteUrl } from "./site-url";
 import { assertEmailAccepted, buildMigrationWelcomeEmail } from "./migration-welcome-email";
 
@@ -30,10 +31,10 @@ function button(href: string, label: string): string {
   return `<a href="${escapeHtml(href)}" style="display: inline-block; background: #E040D0; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">${label}</a>`;
 }
 
-export async function sendWelcomeEmail(to: string, name: string, setupUrl: string) {
+export async function sendWelcomeEmail(to: string, name: string, setupUrl: string, clientId?: string) {
   const firstName = name.split(" ")[0];
   const resend = await getResend();
-  const result = await resend.emails.send({
+  const result = await sendTrackedClientEmail(to, "setup", (key) => resend.emails.send({
     from: FROM,
     to,
     subject: "Start your AT CAPACITY setup",
@@ -44,7 +45,7 @@ export async function sendWelcomeEmail(to: string, name: string, setupUrl: strin
       </p>
       ${button(setupUrl, "Set Up Your Account")}
     `),
-  });
+  }, { idempotencyKey: key }), clientId);
   assertEmailAccepted(result);
   return result;
 }
@@ -57,8 +58,9 @@ export async function sendMigrationWelcomeEmail(
   name: string,
   setupUrl: string,
   idempotencyKey: string,
+  clientId?: string,
 ) {
-  return sendPreparedMigrationWelcomeEmail(prepareMigrationWelcomeEmail(to, name, setupUrl), idempotencyKey);
+  return sendPreparedMigrationWelcomeEmail(prepareMigrationWelcomeEmail(to, name, setupUrl), idempotencyKey, clientId);
 }
 
 export function prepareMigrationWelcomeEmail(to: string, name: string, setupUrl: string) {
@@ -68,16 +70,17 @@ export function prepareMigrationWelcomeEmail(to: string, name: string, setupUrl:
 export async function sendPreparedMigrationWelcomeEmail(
   message: ReturnType<typeof prepareMigrationWelcomeEmail>,
   idempotencyKey: string,
+  clientId?: string,
 ) {
   if (!idempotencyKey.trim()) throw new Error("Migration email requires an idempotency key");
   const resend = await getResend();
-  const result = await resend.emails.send(message, { idempotencyKey });
+  const result = await sendTrackedClientEmail(message.to, "migration", (key) => resend.emails.send(message, { idempotencyKey: key }), clientId, idempotencyKey);
   return assertEmailAccepted(result);
 }
 
-export async function sendPasswordResetEmail(to: string, name: string, resetUrl: string, setup = false) {
+export async function sendPasswordResetEmail(to: string, name: string, resetUrl: string, setup = false, clientId?: string) {
   const firstName = name.split(" ")[0] || "there";
-  const resend = await getResend(); const result = await resend.emails.send({
+  const resend = await getResend(); const result = await sendTrackedClientEmail(to, setup ? "setup" : "password_reset", (key) => resend.emails.send({
     from: FROM,
     to,
     subject: setup ? "Your fresh AT CAPACITY setup link" : "Reset your AT CAPACITY password",
@@ -88,7 +91,7 @@ export async function sendPasswordResetEmail(to: string, name: string, resetUrl:
       </p>
       ${button(resetUrl, setup ? "Finish Account Setup" : "Reset Password")}
     `),
-  });
+  }, { idempotencyKey: key }), clientId);
   return assertEmailAccepted(result);
 }
 
@@ -127,9 +130,9 @@ export async function sendCheckinReminderEmail(to: string, clientName: string, w
   });
 }
 
-export async function sendConsultationLinkEmail(to: string, clientName: string, consultationUrl: string) {
+export async function sendConsultationLinkEmail(to: string, clientName: string, consultationUrl: string, clientId?: string) {
   const firstName = clientName.split(" ")[0];
-  const resend = await getResend(); return resend.emails.send({
+  const resend = await getResend(); const result = await sendTrackedClientEmail(to, "consultation", (key) => resend.emails.send({
     from: FROM,
     to,
     subject: "Complete your AT CAPACITY consultation",
@@ -140,5 +143,7 @@ export async function sendConsultationLinkEmail(to: string, clientName: string, 
       </p>
       ${button(consultationUrl, "Complete Consultation")}
     `),
-  });
+  }, { idempotencyKey: key }), clientId);
+  assertEmailAccepted(result);
+  return result;
 }

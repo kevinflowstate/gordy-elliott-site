@@ -1,3 +1,4 @@
+import { TrackedEmailError } from "@/lib/tracked-client-email";
 import { requireAdmin } from "@/lib/admin-auth";
 import { buildAccountRecoveryUrl } from "@/lib/account-links";
 import { sendWelcomeEmail } from "@/lib/email-templates";
@@ -51,12 +52,14 @@ export async function POST(request: Request) {
 
   let emailSent = false;
   let emailId: string | null = null;
+  let failureStatus: "failed" | "unknown" = "failed";
   if (sendEmail) {
     try {
-      const accepted = await sendWelcomeEmail(user.email, user.full_name || "there", setupUrl);
+      const accepted = await sendWelcomeEmail(user.email, user.full_name || "there", setupUrl, profile.id);
       emailId = accepted.data!.id;
       emailSent = true;
     } catch (sendError) {
+      if (sendError instanceof TrackedEmailError) failureStatus = sendError.sendStatus;
       console.log("[CLIENT_SETUP_LINK] Email send failed:", sendError instanceof Error ? sendError.message : sendError);
     }
   }
@@ -66,7 +69,7 @@ export async function POST(request: Request) {
     setupUrl,
     emailSent,
     emailId,
-    emailStatus: emailSent ? "accepted" : sendEmail ? "failed" : "not_requested",
+    emailStatus: emailSent ? "accepted" : sendEmail ? failureStatus : "not_requested",
     emailDeliveryVerified: false,
   });
 }

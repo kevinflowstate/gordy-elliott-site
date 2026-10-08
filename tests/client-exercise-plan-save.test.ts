@@ -1,35 +1,9 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { exerciseRows } from "../lib/exercise-plan-save";
 import type { ExerciseSessionItem } from "../lib/types";
-const id=(n:number)=>`00000000-0000-4000-8000-${String(n).padStart(12,"0")}`;
-const client=id(1), exercise=id(2), plan=id(3), session=id(4), item=id(5);
-async function fixture(){
- const db=new PGlite();
- await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;
- CREATE TABLE client_profiles(id uuid primary key);
- CREATE TABLE client_exercise_plans(id uuid primary key default gen_random_uuid(),client_id uuid references client_profiles,
- template_id uuid,name text not null,description text,overview text,status text default 'active',start_date date,end_date date,updated_at timestamptz default now());
- CREATE TABLE client_exercise_sessions(id uuid primary key default gen_random_uuid(),plan_id uuid references client_exercise_plans on delete cascade,name text,day_number int,notes text);
- CREATE TABLE exercises(id uuid primary key);
- CREATE TABLE client_exercise_session_items(id uuid primary key default gen_random_uuid(),session_id uuid references client_exercise_sessions on delete cascade,exercise_id uuid references exercises,
- order_index int,sets int,reps text,prescription_type text,prescription_text text,rest_seconds int,tempo text,notes text,section_label text,superset_group text);
- CREATE TABLE client_exercise_logs(id uuid primary key,exercise_item_id uuid,session_id uuid,sets_data jsonb);
- CREATE TABLE client_exercise_session_summaries(id uuid primary key,session_id uuid references client_exercise_sessions on delete cascade);
- CREATE TABLE client_training_weekly_assignments(id uuid primary key,session_id uuid references client_exercise_sessions on delete cascade);
- INSERT INTO client_profiles VALUES('${client}'),('${id(11)}'); INSERT INTO exercises VALUES('${exercise}'),('${id(12)}');
- INSERT INTO client_exercise_plans(id,client_id,name,start_date,end_date) VALUES('${plan}','${client}','Original','2026-10-05','2026-12-20');
- INSERT INTO client_exercise_sessions VALUES('${session}','${plan}','Day 1',1,NULL);
- INSERT INTO client_exercise_session_items(id,session_id,exercise_id,order_index,sets,reps) VALUES('${item}','${session}','${exercise}',0,3,'10');
- INSERT INTO client_exercise_logs VALUES('${id(6)}','${item}','${session}','[{"weight":60,"reps":10}]');
- INSERT INTO client_exercise_session_summaries VALUES('${id(7)}','${session}'); INSERT INTO client_training_weekly_assignments VALUES('${id(8)}','${session}');
- `);
- await db.exec(await readFile(new URL('../supabase/migrations/20261008130000_preserve_client_exercise_plan_history.sql',import.meta.url),'utf8'));
- await db.exec(await readFile(new URL('../supabase/migrations/20261008134000_guard_exercise_identity_changes.sql',import.meta.url),'utf8'));
- return db;
-}
+import { fixture, id, client, exercise, plan, session, item } from "./helpers/client-plan-fixture";
 const draft=()=>({id:plan,client_id:client,name:'Edited',status:'active',sessions:[{id:session,name:'Day 1',day_number:1,items:[{id:item,exercise_id:exercise,order_index:0,sets:4,reps:'8',prescription_type:'sets_reps'}]}]});
 const save=(db:PGlite,p:unknown)=>db.query('select save_client_exercise_plan($1::jsonb) as id',[JSON.stringify(p)]);
 test('edits and repeated saves preserve logs, summaries, assignments, IDs and dates; only new exercises get new rows',async()=>{
