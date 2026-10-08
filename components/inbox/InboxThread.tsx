@@ -3,7 +3,7 @@
 import CheckinReplyCard from "@/components/inbox/CheckinReplyCard";
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { prepareInboxImage, type PreparedInboxImage } from "@/lib/inbox-image";
 import { nativeBuildSupportsVoiceNotes } from "@/lib/native-voice";
@@ -61,7 +61,9 @@ export default function InboxThread({
 }: InboxThreadProps) {
   const [draft, setDraft] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messageContentRef = useRef<HTMLDivElement>(null);
+  const followLatestRef = useRef(!targetMessageId && !targetCheckinId);
   const targetedRef = useRef<string | null>(null);
   const [highlightedMessage, setHighlightedMessage] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -90,19 +92,63 @@ export default function InboxThread({
     ? message.id === targetMessageId : targetCheckinId && message.checkin_id === targetCheckinId)?.id;
 
   useEffect(() => {
-    if (target && targetedRef.current !== target) {
-      document.getElementById(`dm-${target}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-      targetedRef.current = target;
-      setHighlightedMessage(target);
-      const timeout = window.setTimeout(() => setHighlightedMessage(null), 4000);
-      return () => window.clearTimeout(timeout);
-    }
+    if (!target || targetedRef.current === target) return;
+    const pane = scrollAreaRef.current;
+    const message = document.getElementById(`dm-${target}`);
+    if (!pane || !message || !pane.contains(message)) return;
+    followLatestRef.current = false;
+    pane.scrollTop += message.getBoundingClientRect().top - pane.getBoundingClientRect().top
+      - (pane.clientHeight - message.getBoundingClientRect().height) / 2;
+    targetedRef.current = target;
+    setHighlightedMessage(target);
+    const timeout = window.setTimeout(() => setHighlightedMessage(null), 4000);
+    return () => window.clearTimeout(timeout);
   }, [target]);
 
+  useLayoutEffect(() => {
+    const pane = scrollAreaRef.current;
+    if (pane && followLatestRef.current) pane.scrollTop = pane.scrollHeight;
+  }, [latestMessageId]);
+
+  useLayoutEffect(() => {
+    const input = textareaRef.current;
+    if (!input) return;
+    input.style.height = "auto";
+    input.style.height = `${Math.min(input.scrollHeight, 120)}px`;
+    if (!draft) input.scrollTop = 0;
+  }, [draft]);
+
   useEffect(() => {
-    // Do not let background polling pull a deep-linked reply out of view.
-    if (!targetMessageId && !targetCheckinId) bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [targetMessageId, targetCheckinId, latestMessageId]);
+    const pane = scrollAreaRef.current;
+    const content = messageContentRef.current;
+    const input = textareaRef.current;
+    if (!pane || !content) return;
+    let frame = 0;
+    const reconcile = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        if (followLatestRef.current) pane.scrollTop = pane.scrollHeight;
+      });
+    };
+    const resizeInput = () => {
+      if (input) {
+        input.style.height = "auto";
+        input.style.height = `${Math.min(input.scrollHeight, 120)}px`;
+      }
+      reconcile();
+    };
+    const observer = new ResizeObserver(reconcile);
+    observer.observe(pane);
+    observer.observe(content);
+    window.addEventListener("resize", resizeInput);
+    window.visualViewport?.addEventListener("resize", reconcile);
+    return () => {
+      observer.disconnect();
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", resizeInput);
+      window.visualViewport?.removeEventListener("resize", reconcile);
+    };
+  }, []);
 
   useEffect(() => {
     if (!recording) return;
@@ -156,6 +202,7 @@ export default function InboxThread({
     submittingRef.current = true;
     setLocalError(null);
     try {
+      followLatestRef.current = true;
       await onSend(message);
       setDraft("");
     } catch (err) {
@@ -223,6 +270,7 @@ export default function InboxThread({
     if (!audioDraft || !onSendAudio || sending) return;
     setLocalError(null);
     try {
+      followLatestRef.current = true;
       await onSendAudio(audioDraft.blob, audioDraft.duration);
       discardAudioDraft();
     } catch (err) {
@@ -259,6 +307,7 @@ export default function InboxThread({
     if (!imageDraft || !onSendImage || sending) return;
     setLocalError(null);
     try {
+      followLatestRef.current = true;
       await onSendImage(imageDraft.file);
       discardImageDraft();
     } catch (err) {
@@ -287,6 +336,7 @@ export default function InboxThread({
     if (!fileDraft || !onSendFile || sending) return;
     setLocalError(null);
     try {
+      followLatestRef.current = true;
       await onSendFile(fileDraft);
       discardFileDraft();
     } catch (err) {
@@ -295,15 +345,19 @@ export default function InboxThread({
   }
 
   return (
-    <div className="portal-dm-thread flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.025)] md:min-h-[min(72dvh,48rem)]">
+    <div className="portal-dm-thread flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.025)] flex-1">
       {(threadLabel || threadMeta) && (
-        <div className="border-b border-[rgba(255,255,255,0.06)] px-5 py-4">
+        <div className="shrink-0 border-b border-[rgba(255,255,255,0.06)] px-5 py-3">
           {threadLabel && <div className="text-sm font-semibold text-text-primary">{threadLabel}</div>}
           {threadMeta && <div className="mt-0.5 text-xs text-text-muted">{threadMeta}</div>}
         </div>
       )}
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-5 sm:px-5">
+      <div ref={scrollAreaRef} onScroll={(event) => {
+        const pane = event.currentTarget;
+        followLatestRef.current = pane.scrollHeight - pane.scrollTop - pane.clientHeight < 80;
+      }} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-5">
+        <div ref={messageContentRef} className="space-y-3">
         {messages.length === 0 ? (
           <div className="portal-dm-empty flex min-h-80 flex-col items-center justify-center text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent-bright">
@@ -388,11 +442,11 @@ export default function InboxThread({
             );
           })
         )}
-        <div ref={bottomRef} />
+        </div>
       </div>
 
       {(error || localError) && (
-        <div className="mx-4 mb-3 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+        <div className="mx-4 mb-3 shrink-0 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-400">
           {localError || error}
         </div>
       )}
@@ -438,7 +492,7 @@ export default function InboxThread({
             <button type="button" onClick={() => void sendFileDraft()} disabled={sending} className="min-h-10 rounded-xl bg-accent-bright px-3 text-xs font-bold text-black disabled:opacity-50">Send</button>
           </div>
         )}
-        <div className="flex items-end gap-2">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
           {onSendImage && (
             <button
               type="button"
@@ -484,18 +538,16 @@ export default function InboxThread({
               {recording ? `${recordingSeconds}s` : "Voice"}
             </button>
           )}
+        </div>
+        <div className="flex items-end gap-2">
           <textarea
             ref={textareaRef}
             value={draft}
-            onChange={(event) => {
-              setDraft(event.target.value);
-              event.currentTarget.style.height = "auto";
-              event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 120)}px`;
-            }}
+            onChange={(event) => setDraft(event.target.value)}
             placeholder={composerPlaceholder}
             rows={1}
             maxLength={4000}
-            className="min-h-11 max-h-[7.5rem] flex-1 resize-none overflow-y-auto rounded-xl border border-[rgba(255,255,255,0.08)] bg-bg-primary px-4 py-3 text-base leading-5 text-text-primary placeholder:text-text-muted focus:border-accent-bright focus:outline-none"
+            className="min-h-11 min-w-0 max-h-[7.5rem] flex-1 resize-none overflow-y-auto rounded-xl border border-[rgba(255,255,255,0.08)] bg-bg-primary px-4 py-3 text-base leading-5 text-text-primary placeholder:text-text-muted focus:border-accent-bright focus:outline-none"
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();

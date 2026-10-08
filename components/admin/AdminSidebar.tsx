@@ -42,7 +42,8 @@ export default function AdminSidebar() {
     <>
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="lg:hidden fixed top-4 left-4 z-[60] w-10 h-10 bg-[#0A0A0A] border border-[rgba(255,255,255,0.08)] rounded-xl flex items-center justify-center text-white cursor-pointer"
+        aria-label={collapsed ? "Close navigation" : "Open navigation"}
+        className="admin-mobile-menu-toggle lg:hidden fixed top-4 left-4 z-[60] w-10 h-10 bg-[#0A0A0A] border border-[rgba(255,255,255,0.08)] rounded-xl flex items-center justify-center text-white cursor-pointer"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={collapsed ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} />
