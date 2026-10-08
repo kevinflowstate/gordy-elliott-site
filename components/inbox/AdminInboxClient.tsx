@@ -32,6 +32,7 @@ export default function AdminInboxClient() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const clientParam = searchParams.get("client");
+  const mobileThreadOpen = Boolean(clientParam) && searchParams.get("view") !== "clients";
   const [conversations, setConversations] = useState<InboxConversation[]>([]);
   const selectedClientId = clientParam || conversations[0]?.client_id || null;
   const [thread, setThread] = useState<ThreadResponse | null>(null);
@@ -137,9 +138,23 @@ export default function AdminInboxClient() {
     };
   }, [selectedClientId, loadThread]);
 
+  useEffect(() => {
+    document.documentElement.classList.add("admin-dm-active");
+    return () => document.documentElement.classList.remove("admin-dm-active");
+  }, []);
+
+  function showClients() {
+    const params = new URLSearchParams(searchParams.toString());
+    // Keep the selected recipient and mounted draft while showing the list.
+    params.set("client", selectedClientId || "");
+    params.set("view", "clients");
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  }
+
   function selectClient(clientId: string) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("client", clientId);
+    params.delete("view");
     params.delete("message");
     params.delete("checkin");
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
@@ -244,8 +259,8 @@ export default function AdminInboxClient() {
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="admin-dm-page flex h-full min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+      <div className="portal-dm-page-header flex shrink-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-bright">Direct Messages</div>
           <h1 className="mt-2 text-2xl font-heading font-bold text-text-primary">DM</h1>
@@ -255,7 +270,7 @@ export default function AdminInboxClient() {
       </div>
 
       {bulkOpen && (
-        <section className="rounded-2xl border border-accent/20 bg-[linear-gradient(135deg,rgba(224,64,208,0.08),rgba(255,255,255,0.02))] p-5">
+        <section className="max-h-[60%] shrink-0 overflow-y-auto rounded-2xl border border-accent/20 bg-[linear-gradient(135deg,rgba(224,64,208,0.08),rgba(255,255,255,0.02))] p-5">
           <div className="flex flex-col gap-3 sm:flex-row">
             <select value={bulkAudience} onChange={(event) => setBulkAudience(event.target.value as typeof bulkAudience)} className="min-h-11 rounded-xl border border-white/10 bg-bg-primary px-3 text-sm font-semibold text-text-primary">
               <option value="all">Everyone</option><option value="capacity">CAPACITY</option><option value="shift">SHIFT</option><option value="in_person">IN PERSON</option>
@@ -269,8 +284,8 @@ export default function AdminInboxClient() {
         </section>
       )}
 
-      <div className="grid min-h-[min(76dvh,52rem)] overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.025)] lg:grid-cols-[21rem_1fr]">
-        <aside className="border-b border-[rgba(255,255,255,0.08)] lg:border-b-0 lg:border-r">
+      <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.025)] lg:grid-cols-[21rem_minmax(0,1fr)]">
+        <aside className={`${mobileThreadOpen ? "hidden lg:flex" : "flex"} min-h-0 flex-col overflow-hidden border-b border-[rgba(255,255,255,0.08)] lg:border-b-0 lg:border-r`}>
           <div className="border-b border-[rgba(255,255,255,0.06)] p-3">
             <input
               value={query}
@@ -280,7 +295,7 @@ export default function AdminInboxClient() {
             />
           </div>
 
-          <div className="max-h-[26rem] overflow-y-auto lg:max-h-[calc(min(76dvh,52rem)-4.5rem)]">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {loadingList ? (
               <div className="p-4 text-sm text-text-muted">Loading conversations...</div>
             ) : filteredConversations.length === 0 ? (
@@ -319,7 +334,10 @@ export default function AdminInboxClient() {
           </div>
         </aside>
 
-        <section className="min-w-0">
+        <section className={`${mobileThreadOpen ? "flex" : "hidden lg:flex"} min-h-0 min-w-0 flex-col overflow-hidden`}>
+          <button type="button" onClick={showClients} className="min-h-11 shrink-0 border-b border-white/10 px-4 py-2 text-left text-sm font-semibold text-accent-bright lg:hidden">
+            ← Back to clients
+          </button>
           {selectedClientId && selectedConversation ? (
             thread?.clientId !== selectedClientId && !error ? (
               <div className="p-6 text-sm text-text-muted">Loading conversation...</div>
@@ -343,7 +361,7 @@ export default function AdminInboxClient() {
               />
             )
           ) : (
-            <div className="flex min-h-96 items-center justify-center p-6 text-sm text-text-muted">
+            <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-sm text-text-muted">
               Select a client conversation.
             </div>
           )}

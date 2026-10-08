@@ -127,75 +127,94 @@ body {
     font-size: 16px;
   }
 
-  .portal-dm-thread {
-    min-height: 0;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-  }
-
-  html.portal-dm-active,
-  html.portal-dm-active body {
-    height: 100%;
-    overflow: hidden;
-    overscroll-behavior: none;
-  }
-
-  html.portal-dm-active .portal-shell,
-  html.portal-dm-active .portal-main {
-    height: 100dvh;
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  html.portal-dm-active .portal-main {
-    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
-  }
-
-  html.portal-dm-active .portal-page-frame {
-    display: flex;
-    height: calc(100dvh - max(1.25rem, env(safe-area-inset-top, 0px)) - 4.75rem - env(safe-area-inset-bottom, 0px));
-    min-height: 0;
-    flex-direction: column;
-    overflow: hidden;
-    padding-bottom: 0;
-  }
-
-  .portal-dm-page {
-    min-height: 0;
-    flex: 1;
-    overscroll-behavior: none;
-  }
-
-  .portal-dm-empty {
-    min-height: 0;
-    flex: 1;
-    padding: 1.5rem 0.75rem;
-  }
-
-  .portal-dm-composer {
-    position: sticky;
-    bottom: 0;
-    z-index: 20;
-    background: rgba(13, 11, 16, 0.98);
-  }
-
   html.portal-keyboard-open .portal-mobile-nav {
     opacity: 0;
     pointer-events: none;
     transform: translateY(110%);
   }
 
-  html.portal-dm-active.portal-keyboard-open .portal-shell,
-  html.portal-dm-active.portal-keyboard-open .portal-main {
-    height: var(--portal-visual-height, 100dvh);
-  }
+}
 
+/* DM routes own their viewport; only the message pane and client list scroll. */
+html.portal-dm-active body,
+html.admin-dm-active body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+html.portal-dm-active .portal-shell,
+html.admin-dm-active .admin-shell {
+  position: fixed;
+  top: var(--portal-visual-top, 0px);
+  left: 0;
+  width: 100%;
+  height: var(--portal-visual-height, 100dvh);
+  min-height: 0;
+  overflow: hidden;
+}
+
+html.portal-dm-active .portal-main,
+html.admin-dm-active .admin-main {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+html.portal-dm-active .portal-page-frame,
+html.admin-dm-active .admin-page-frame {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.portal-dm-page,
+.portal-dm-thread {
+  flex: 1;
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+
+.portal-dm-empty {
+  min-height: 0;
+  padding: 1.5rem 0.75rem;
+}
+
+.portal-dm-composer {
+  flex-shrink: 0;
+  background: var(--color-bg-primary);
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 1023px) {
+  html.portal-dm-active .portal-main {
+    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+  }
+  html.portal-dm-active .portal-page-frame {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  html.admin-dm-active .admin-page-frame {
+    padding-bottom: 0.75rem;
+  }
+  html:is(.portal-dm-active, .admin-dm-active).portal-keyboard-open .portal-dm-page-header {
+    display: none;
+  }
+  html.admin-dm-active.portal-keyboard-open .admin-page-frame {
+    padding-top: 0.75rem;
+  }
+  html.admin-dm-active.portal-keyboard-open .admin-mobile-menu-toggle {
+    display: none;
+  }
   html.portal-dm-active.portal-keyboard-open .portal-main {
     padding-bottom: 0;
   }
-
-  html.portal-dm-active.portal-keyboard-open .portal-page-frame {
-    height: calc(var(--portal-visual-height, 100dvh) - max(1.25rem, env(safe-area-inset-top, 0px)));
+  html:is(.portal-dm-active, .admin-dm-active).portal-keyboard-open .portal-dm-composer {
+    padding-bottom: 0.75rem;
   }
 }
 
