@@ -1,4 +1,6 @@
 import { createExerciseSectionDivider } from "@/lib/exercise-section";
+import { exerciseRows, validateTemplate } from "@/lib/exercise-plan-save";
+import type { ExerciseTemplate, ExerciseSession } from "@/lib/types";
 import { requireAdmin } from "@/lib/admin-auth";
 import { dbError } from "@/lib/api-errors";
 import { notifyClientProfile } from "@/lib/client-notifications";
@@ -193,98 +195,28 @@ export async function POST(request: Request) {
 
   // If plan object provided, save/update a client plan directly (for edits)
   if (plan && plan.client_id) {
-    // Archive existing active plans if creating new
-    if (!plan.id) {
-      await admin
-        .from("client_exercise_plans")
-        .update({ status: "archived" })
-        .eq("client_id", plan.client_id)
-        .eq("status", "active");
+    const validationError = validateTemplate(plan as ExerciseTemplate);
+    if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
+    const payload = {
+      ...plan,
+      sessions: (plan.sessions as ExerciseSession[]).map((session) => ({
+        id: session.id || null,
+        name: session.name.trim(),
+        day_number: session.day_number,
+        notes: session.notes || null,
+        items: exerciseRows(session.items, "", true),
+      })),
+    };
+    const { data: planId, error: saveError } = await admin.rpc("save_client_exercise_plan", {
+      p_plan: payload,
+    });
+    if (saveError || !planId) {
+      const safeErrors = ["Reload this plan", "Logged exercises", "Logged sessions"];
+      const safeMessage = safeErrors.some((prefix) => saveError?.message?.startsWith(prefix))
+        ? saveError!.message : "Couldn't save this training plan. Nothing was changed. Try again.";
+      return dbError(saveError, safeMessage);
     }
-
-    // Upsert plan
-    const { data: savedPlan, error: planError } = await admin
-      .from("client_exercise_plans")
-      .upsert({
-        id: plan.id || undefined,
-        client_id: plan.client_id,
-        template_id: plan.template_id || null,
-        name: plan.name,
-        description: plan.description || null,
-        overview: plan.overview?.trim() || null,
-        status: plan.status || "active",
-        start_date: plan.start_date || new Date().toISOString().split("T")[0],
-        end_date: plan.end_date || null,
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .maybeSingle();
-
-    if (planError || !savedPlan) return dbError(planError, "Couldn't save this training plan. Try again.");
-
-    // Delete existing sessions (cascade deletes items)
-    if (plan.id) {
-      await admin.from("client_exercise_sessions").delete().eq("plan_id", savedPlan.id);
-    }
-
-    // Insert sessions and items
-    for (const session of plan.sessions || []) {
-      const { data: newSession } = await admin
-        .from("client_exercise_sessions")
-        .insert({
-          plan_id: savedPlan.id,
-          name: session.name,
-          day_number: session.day_number,
-          notes: session.notes || null,
-        })
-        .select()
-        .maybeSingle();
-
-      if (!newSession) continue;
-
-      const sessionItems = session.items || [];
-      const realItems = sessionItems.filter(
-        (item: { exercise_id: string }) => item.exercise_id && item.exercise_id !== "__section__"
-      );
-      const sectionItems = sessionItems.filter(
-        (item: { exercise_id: string }) => !item.exercise_id || item.exercise_id === "__section__"
-      );
-
-      if (realItems.length > 0) {
-        await admin.from("client_exercise_session_items").insert(
-          realItems.map((item: { exercise_id: string; order_index: number; sets: number; reps: string; prescription_type?: string | null; prescription_text?: string | null; rest_seconds?: number; tempo?: string; notes?: string; section_label?: string; superset_group?: string }) => ({
-            session_id: newSession.id,
-            exercise_id: item.exercise_id,
-            order_index: item.order_index,
-            sets: item.sets,
-            reps: item.reps,
-            prescription_type: normalisePrescriptionType(item.prescription_type),
-            prescription_text: item.prescription_text || null,
-            rest_seconds: item.rest_seconds || null,
-            tempo: item.tempo || null,
-            notes: item.notes || null,
-            section_label: item.section_label || null,
-            superset_group: item.superset_group || null,
-          }))
-        );
-      }
-
-      // Attach section labels to the next real exercise
-      for (const section of sectionItems) {
-        const sIdx = (section as { order_index: number }).order_index;
-        const nextExercise = realItems.find(
-          (e: { order_index: number }) => e.order_index > sIdx
-        );
-        if (nextExercise) {
-          await admin
-            .from("client_exercise_session_items")
-            .update({ section_label: (section as { section_label?: string }).section_label || "Section" })
-            .eq("session_id", newSession.id)
-            .eq("exercise_id", (nextExercise as { exercise_id: string }).exercise_id)
-            .eq("order_index", (nextExercise as { order_index: number }).order_index);
-        }
-      }
-    }
+    const savedPlan = { id: planId as string };
 
     const notification = await notifyClientProfile(plan.client_id, {
       title: "Training plan updated",
@@ -299,38 +231,34 @@ export async function POST(request: Request) {
   return NextResponse.json({ error: "Provide template_id + client_id, or a plan object" }, { status: 400 });
 }
 
-// PATCH: Update plan status
+// PATCH: Metadata/status changes do not replace sessions or exercise history.
 export async function PATCH(request: Request) {
   const auth = await requireAdmin();
   if (!auth.authorized) return NextResponse.json({ error: auth.error }, { status: auth.status });
-
   const admin = createAdminClient();
   const body = await request.json();
-  const { id, status } = body;
-
-  if (!id || !status) return NextResponse.json({ error: "id and status are required" }, { status: 400 });
-
-  const { data: existingPlan } = await admin
-    .from("client_exercise_plans")
-    .select("client_id")
-    .eq("id", id)
-    .maybeSingle();
-
-  const { error } = await admin
-    .from("client_exercise_plans")
-    .update({ status, updated_at: new Date().toISOString() })
-    .eq("id", id);
-
+  const { id, status, description } = body;
+  if (!id || (status === undefined && description === undefined)) {
+    return NextResponse.json({ error: "id and status or description are required" }, { status: 400 });
+  }
+  if ((status !== undefined && !["active", "completed", "archived"].includes(status))
+    || (description !== undefined && description !== null && typeof description !== "string")) {
+    return NextResponse.json({ error: "Invalid plan status or description" }, { status: 400 });
+  }
+  const { data: existingPlan, error: readError } = await admin.from("client_exercise_plans")
+    .select("client_id,status").eq("id", id).maybeSingle();
+  if (readError) return dbError(readError, "Couldn't load that training plan.");
+  if (!existingPlan) return NextResponse.json({ error: "Training plan not found" }, { status: 404 });
+  const changes: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (status !== undefined) changes.status = status;
+  if (description !== undefined) changes.description = description?.trim() || null;
+  const { error } = await admin.from("client_exercise_plans").update(changes).eq("id", id);
   if (error) return dbError(error, "Couldn't update that training plan. Try again.");
-
-  if (status === "active" && existingPlan?.client_id) {
+  if (status === "active" && existingPlan.status !== "active") {
     await notifyClientProfile(existingPlan.client_id, {
-      title: "Training plan updated",
-      message: "Gordy made a training plan active for you.",
-      link: "/portal/exercise-plan",
-      tag: `training-plan-${id}`,
+      title: "Training plan updated", message: "Gordy made a training plan active for you.",
+      link: "/portal/exercise-plan", tag: `training-plan-${id}`,
     });
   }
-
   return NextResponse.json({ success: true });
 }

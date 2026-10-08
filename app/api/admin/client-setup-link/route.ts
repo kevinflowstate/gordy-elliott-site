@@ -50,9 +50,11 @@ export async function POST(request: Request) {
   }
 
   let emailSent = false;
+  let emailId: string | null = null;
   if (sendEmail) {
     try {
-      await sendWelcomeEmail(user.email, user.full_name || "there", setupUrl);
+      const accepted = await sendWelcomeEmail(user.email, user.full_name || "there", setupUrl);
+      emailId = accepted.data!.id;
       emailSent = true;
     } catch (sendError) {
       console.log("[CLIENT_SETUP_LINK] Email send failed:", sendError instanceof Error ? sendError.message : sendError);
@@ -63,5 +65,8 @@ export async function POST(request: Request) {
     success: true,
     setupUrl,
     emailSent,
+    emailId,
+    emailStatus: emailSent ? "accepted" : sendEmail ? "failed" : "not_requested",
+    emailDeliveryVerified: false,
   });
 }
