@@ -56,8 +56,16 @@ export async function trackClientEmailSend(
     throw new TrackedEmailError("unknown", "Email provider acceptance is uncertain; check delivery tracking before retrying");
   }
   if (result.error || !result.data?.id) {
-    await admin.from("client_email_attempts").update({ status: "failed" }).eq("id", attempt.id).is("provider_email_id", null);
-    throw new TrackedEmailError("failed", "Email provider rejected the send");
+    // The SDK returns application_error for interrupted fetches or unreadable
+    // responses. A server error/timeout may follow an accepted send, so only an
+    // explicit client-error rejection is definite.
+    const code = result.error?.statusCode;
+    const rejected = result.error?.name !== "application_error" && typeof code === "number"
+      && code >= 400 && code < 500 && code !== 408 && code !== 409;
+    const status = rejected ? "failed" : "unknown";
+    await admin.from("client_email_attempts").update({ status }).eq("id", attempt.id).is("provider_email_id", null);
+    throw new TrackedEmailError(status, rejected ? "Email provider rejected the send"
+      : "Email provider acceptance is uncertain; check delivery tracking before retrying");
   }
   try {
     const { error: completionError } = await admin.from("client_email_attempts").update({

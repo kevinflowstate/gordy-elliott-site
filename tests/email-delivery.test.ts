@@ -88,3 +88,20 @@ test("explicit rejection is failed, but transport uncertainty never claims rejec
   await assert.rejects(trackClientEmailSend(unknown.admin, "client@example.test", "setup", async () => { throw new Error("Network interrupted"); }, otherId), (error: unknown) => error instanceof TrackedEmailError && error.sendStatus === "unknown");
   assert.equal(unknown.state.status, "unknown");
 });
+
+
+test("SDK transport/response failures and server errors remain uncertain", async () => {
+  for (const error of [
+    { name: "application_error" as const, statusCode: null, message: "Unable to fetch data" },
+    { name: "application_error" as const, statusCode: 502, message: "Unreadable response" },
+    { name: "internal_server_error" as const, statusCode: 500, message: "Server error" },
+    { name: "application_error" as const, statusCode: 408, message: "Timeout" },
+    { name: "concurrent_idempotent_requests" as const, statusCode: 409, message: "Request still running" },
+  ]) {
+    const unknown = store();
+    await assert.rejects(trackClientEmailSend(unknown.admin, "client@example.test", "setup",
+      async () => ({ data: null, error, headers: null }), otherId),
+      (error: unknown) => error instanceof TrackedEmailError && error.sendStatus === "unknown");
+    assert.equal(unknown.state.status, "unknown");
+  }
+});
