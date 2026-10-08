@@ -44,7 +44,7 @@ export async function GET() {
         key: "email",
         label: "Resend email",
         status: emailReady,
-        detail: emailReady === "ok" ? "API key is configured. Domain verification is still the launch gate for branded sending." : "RESEND_API_KEY is missing.",
+        detail: emailReady === "ok" ? "Sending API key is configured. This check does not verify the sending domain or individual email delivery; check Resend for delivery and bounce status." : "RESEND_API_KEY is missing.",
       },
       {
         key: "push",

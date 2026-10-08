@@ -617,6 +617,7 @@ export default function ClientDetailPage() {
         body: JSON.stringify({
           plan: {
             id: exerciseBuilderMode === "edit" ? activeExPlan?.id : undefined,
+            expected_updated_at: exerciseBuilderMode === "edit" ? activeExPlan?.updated_at : undefined,
             client_id: client?.id,
             name: template.name,
             description: template.description,
@@ -1110,7 +1111,7 @@ export default function ClientDetailPage() {
       }
 
       if (sendEmail && data.emailSent) {
-        toast("Setup email sent");
+        toast("Setup email accepted by the email provider. Inbox delivery is not confirmed.");
       } else if (sendEmail) {
         toast("Email unavailable - setup link copied");
       } else {
