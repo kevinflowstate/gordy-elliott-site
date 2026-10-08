@@ -1,3 +1,4 @@
+import { TrackedEmailError } from "@/lib/tracked-client-email";
 import { requireAdmin } from "@/lib/admin-auth";
 import { notifyClientUser } from "@/lib/client-notifications";
 import { sendConsultationLinkEmail } from "@/lib/email-templates";
@@ -42,11 +43,13 @@ export async function POST(request: Request) {
   });
 
   let emailSent = false;
+  let emailFailureStatus: "failed" | "unknown" = "failed";
   if (!notification.suppressed) {
     try {
-      await sendConsultationLinkEmail(user.email, clientName, consultationUrl);
+      await sendConsultationLinkEmail(user.email, clientName, consultationUrl, profile.id);
       emailSent = true;
     } catch (sendError) {
+      if (sendError instanceof TrackedEmailError) emailFailureStatus = sendError.sendStatus;
       console.log("[CONSULTATION_LINK] Email send failed:", sendError instanceof Error ? sendError.message : sendError);
     }
   }
@@ -55,6 +58,8 @@ export async function POST(request: Request) {
     success: true,
     consultationUrl,
     emailSent,
+    emailStatus: emailSent ? "accepted" : emailFailureStatus,
+    emailDeliveryVerified: false,
     notification,
   });
 }

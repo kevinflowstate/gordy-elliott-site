@@ -3,8 +3,10 @@ import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
+import { Resend } from "resend";
+import { assertEmailAccepted } from "../lib/migration-welcome-email.ts";
 import { buildAccountRecoveryUrl } from "../lib/account-links.ts";
-import { prepareMigrationWelcomeEmail, sendMigrationWelcomeEmail, sendPreparedMigrationWelcomeEmail } from "../lib/email-templates.ts";
+import { prepareMigrationWelcomeEmail, sendPreparedMigrationWelcomeEmail } from "../lib/email-templates.ts";
 import { assertMigrationRetryWindow, validateLiveMigrationClient, validateMigrationCohort } from "../lib/migration-onboarding.ts";
 
 const args = Object.fromEntries(process.argv.slice(2).map((arg, index, all) => {
@@ -22,9 +24,11 @@ if (args["test-email"]) {
   if (args["test-email"] !== "delivered@resend.dev" || !apply || !confirmed) {
     throw new Error("Synthetic test requires --test-email=delivered@resend.dev --apply --confirm=ONBOARD_KAHUNAS_CLIENTS");
   }
-  const id = await sendMigrationWelcomeEmail("delivered@resend.dev", "Alex Example",
-    "https://app.onlinegordy.com/auth/callback?token_hash=synthetic-preview-only&type=recovery&redirect=%2Fportal%2Fsettings%3Fsetup%3Dtrue",
-    `${campaign}/synthetic/${randomUUID()}`);
+  // The provider's synthetic recipient has no client identity to track.
+  const synthetic = prepareMigrationWelcomeEmail("delivered@resend.dev", "Alex Example",
+    "https://app.onlinegordy.com/auth/callback?token_hash=synthetic-preview-only&type=recovery&redirect=%2Fportal%2Fsettings%3Fsetup%3Dtrue");
+  const id = assertEmailAccepted(await new Resend(process.env.RESEND_API_KEY).emails.send(synthetic,
+    { idempotencyKey: `${campaign}/synthetic/${randomUUID()}` }));
   console.log(JSON.stringify({ syntheticEmailAccepted: true, emailId: id, activated: 0 }));
   process.exit(0);
 }
@@ -183,7 +187,7 @@ try {
     saveLedger();
     let emailId;
     try {
-      emailId = await sendPreparedMigrationWelcomeEmail(entry.payload.message, entry.idempotencyKey);
+      emailId = await sendPreparedMigrationWelcomeEmail(entry.payload.message, entry.idempotencyKey, client.id);
     } catch {
       entry.status = "unknown_or_rejected";
       entry.lastAttemptAt = new Date().toISOString();

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { copyProgrammeWeek, programmeToday } from "@/lib/exercise-programme";
 import type { ExerciseTemplate, ExerciseSession, ExerciseSessionItem, Exercise } from "@/lib/types";
 import DndSortableList, { DragHandle } from "@/components/ui/DndSortableList";
 import { PRESCRIPTION_TYPES, normalisePrescriptionType } from "@/lib/exercise-prescriptions";
@@ -78,6 +79,12 @@ export default function ExerciseTemplateBuilder({
       ? existingTemplate.sessions.map((session) => ({ ...session, items: normaliseSupersetGroups(session.items, generateId) }))
       : [createEmptySession(0)]
   );
+  const [programmeWeeks, setProgrammeWeeks] = useState(existingTemplate?.programme_weeks || 0);
+  const [selectedWeek, setSelectedWeek] = useState(1);
+  const [copyTargets, setCopyTargets] = useState<number[]>([]);
+  const [startDate, setStartDate] = useState(existingTemplate?.start_date || programmeToday());
+  const [programmeTimezone, setProgrammeTimezone] = useState(existingTemplate?.programme_timezone || "Europe/London");
+  const visibleSessions = programmeWeeks ? sessions.filter((session) => session.week_number === selectedWeek) : sessions;
   const [exercisePickerTarget, setExercisePickerTarget] = useState<{ sessionId: string; sectionItemId?: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saved" | "error">("idle");
@@ -104,7 +111,8 @@ export default function ExerciseTemplateBuilder({
   }
 
   function addSession() {
-    setSessions((prev) => [...prev, createEmptySession(prev.length)]);
+    if (programmeWeeks && visibleSessions.length >= 7) return;
+    setSessions((prev) => [...prev, { ...createEmptySession(visibleSessions.length), ...(programmeWeeks ? { week_number: selectedWeek } : {}) }]);
   }
 
   function removeSession(sessionId: string) {
@@ -112,7 +120,8 @@ export default function ExerciseTemplateBuilder({
   }
 
   function reorderSessions(reordered: ExerciseSession[]) {
-    setSessions(reordered.map((s, i) => ({ ...s, day_number: i + 1 })));
+    const updated = reordered.map((s, i) => ({ ...s, day_number: i + 1 }));
+    setSessions((prev) => programmeWeeks ? [...prev.filter((s) => s.week_number !== selectedWeek), ...updated] : updated);
   }
 
   function addExerciseToSession(sessionId: string, exercise: Exercise, sectionItemId?: string) {
@@ -200,6 +209,7 @@ export default function ExerciseTemplateBuilder({
         category,
         is_active: true,
         sessions,
+        ...(isClientContext ? { programme_weeks: programmeWeeks || null, programme_timezone: programmeTimezone, start_date: startDate } : {}),
         created_at: existingTemplate?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -354,16 +364,78 @@ export default function ExerciseTemplateBuilder({
             </div>
           </div>
 
+          {isClientContext && (
+            <div className="rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-card/80 p-5 space-y-4">
+              <label className="flex items-center gap-3 text-sm font-semibold text-text-primary">
+                <input type="checkbox" checked={programmeWeeks > 0} disabled={Boolean(existingTemplate?.programme_weeks)}
+                  onChange={(event) => {
+                    if (event.target.checked) {
+                      setProgrammeWeeks(4);
+                      setSessions((prev) => prev.map((session) => ({ ...session, week_number: 1 })));
+                    } else {
+                      if (sessions.some((session) => (session.week_number || 1) > 1)) {
+                        setSaveError("Remove the other weeks before switching to a repeating plan."); setSaveState("error"); return;
+                      }
+                      setProgrammeWeeks(0); setSessions((prev) => prev.map((session) => ({ ...session, week_number: null })));
+                    }
+                    setSelectedWeek(1); setCopyTargets([]);
+                  }} />
+                Different training for each programme week
+              </label>
+              {programmeWeeks > 0 && (<>
+                <p className="text-xs leading-5 text-text-muted">Build one week, copy it into empty weeks, then adjust each independently. Week one starts on the date below. The final week repeats until you assign a new plan. Existing training or scheduling locks the start date and timezone.</p>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <label className="text-xs text-text-muted">Weeks
+                    <input aria-label="Programme weeks" type="number" min={1} max={52} value={programmeWeeks} className="mt-1 w-full rounded-lg border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-2 text-text-primary"
+                      onChange={(event) => {
+                        const count = Number(event.target.value);
+                        if (!Number.isInteger(count) || count < 1 || count > 52 || sessions.some((session) => (session.week_number || 1) > count)) return;
+                        setProgrammeWeeks(count); setSelectedWeek((week) => Math.min(week, count)); setCopyTargets([]);
+                      }} />
+                  </label>
+                  <label className="text-xs text-text-muted">Programme start
+                    <input aria-label="Programme start date" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-1 w-full rounded-lg border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-2 text-text-primary" />
+                  </label>
+                  <label className="text-xs text-text-muted">Timezone
+                    <input aria-label="Programme timezone" value={programmeTimezone} onChange={(event) => setProgrammeTimezone(event.target.value)} placeholder="Europe/London" className="mt-1 w-full rounded-lg border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-2 text-text-primary" />
+                  </label>
+                </div>
+                <div className="flex flex-wrap gap-2" aria-label="Programme week">
+                  {Array.from({ length: programmeWeeks }, (_, index) => index + 1).map((week) => (
+                    <button type="button" key={week} aria-pressed={selectedWeek === week} onClick={() => { setSelectedWeek(week); setCopyTargets([]); }}
+                      className={`rounded-lg border px-3 py-2 text-xs font-semibold ${selectedWeek === week ? "border-accent/40 bg-accent/15 text-accent-bright" : "border-[rgba(0,0,0,0.08)] text-text-muted"}`}>
+                      Week {week}{sessions.some((session) => session.week_number === week) ? "" : " · empty"}
+                    </button>
+                  ))}
+                </div>
+                {visibleSessions.length > 0 && (<div className="space-y-2 border-t border-[rgba(0,0,0,0.06)] pt-3">
+                  <p className="text-xs font-semibold text-text-secondary">Copy week {selectedWeek} into:</p>
+                  <div className="flex flex-wrap gap-3">
+                    {Array.from({ length: programmeWeeks }, (_, index) => index + 1).filter((week) => week !== selectedWeek).map((week) => {
+                      const populated = sessions.some((session) => session.week_number === week);
+                      return <label key={week} className={`flex items-center gap-1.5 text-xs ${populated ? "text-text-muted/50" : "text-text-secondary"}`}>
+                        <input type="checkbox" disabled={populated} checked={copyTargets.includes(week)} onChange={(event) => setCopyTargets((prev) => event.target.checked ? [...prev, week] : prev.filter((target) => target !== week))} />
+                        Week {week}{populated ? " (built)" : ""}
+                      </label>;
+                    })}
+                  </div>
+                  <button type="button" disabled={!copyTargets.length} onClick={() => { setSessions((prev) => copyProgrammeWeek(prev, selectedWeek, copyTargets)); setCopyTargets([]); }}
+                    className="rounded-lg bg-accent/15 px-3 py-2 text-xs font-semibold text-accent-bright disabled:opacity-40">Copy selected weeks</button>
+                </div>)}
+              </>)}
+            </div>
+          )}
+
           {/* Sessions */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <label className="text-xs font-semibold text-text-muted uppercase tracking-wider">
-                Sessions ({sessions.length})
+                {programmeWeeks ? `Week ${selectedWeek} sessions` : "Sessions"} ({visibleSessions.length})
               </label>
             </div>
 
             <DndSortableList
-              items={sessions}
+              items={visibleSessions}
               onReorder={reorderSessions}
               renderItem={(session, index, dragHandleProps) => (
                 <SessionCard
@@ -378,7 +450,7 @@ export default function ExerciseTemplateBuilder({
                   onUpdateItem={(itemId, updates) => updateItem(session.id, itemId, updates)}
                   onRemoveItem={(itemId) => removeItem(session.id, itemId)}
                   onReorderItems={(reordered) => reorderItems(session.id, reordered)}
-                  canRemove={sessions.length > 1}
+                  canRemove={visibleSessions.length > 1}
                 />
               )}
             />
@@ -388,6 +460,7 @@ export default function ExerciseTemplateBuilder({
           <button
             type="button"
             onClick={addSession}
+            disabled={Boolean(programmeWeeks && visibleSessions.length >= 7)}
             className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-[rgba(0,0,0,0.08)] hover:border-accent/30 rounded-2xl text-sm text-text-muted hover:text-accent-bright transition-colors cursor-pointer"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

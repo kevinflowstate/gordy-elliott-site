@@ -1,4 +1,6 @@
+import { loadExerciseSessionItems, loadExercisePlanSessions } from "@/lib/exercise-session-load";
 import { createExerciseSectionDivider } from "@/lib/exercise-section";
+import { programmeDateDay } from "@/lib/exercise-programme";
 import { exerciseRows, validateTemplate } from "@/lib/exercise-plan-save";
 import type { ExerciseTemplate, ExerciseSession } from "@/lib/types";
 import { requireAdmin } from "@/lib/admin-auth";
@@ -31,35 +33,27 @@ export async function GET(request: Request) {
   const planIds = plans.map((p) => p.id);
 
   // Fetch sessions
-  const { data: sessions } = await admin
-    .from("client_exercise_sessions")
-    .select("*")
-    .in("plan_id", planIds)
-    .order("day_number", { ascending: true });
+  const { data: sessions, error: sessionsError } = await loadExercisePlanSessions(admin, planIds);
+  if (sessionsError) return NextResponse.json({ error: "Couldn't load training sessions. Try again." }, { status: 500 });
 
   const sessionIds = (sessions || []).map((s) => s.id);
 
   // Fetch items joined with exercises
-  const { data: items } = sessionIds.length
-    ? await admin
-        .from("client_exercise_session_items")
-        .select("*, exercise:exercises(id, name, muscle_group, equipment, description, video_url)")
-        .in("session_id", sessionIds)
-        .order("order_index", { ascending: true })
-    : { data: [] };
+  const { data: items, error: itemsError } = await loadExerciseSessionItems(admin, sessionIds);
+  if (itemsError) return NextResponse.json({ error: "Couldn't load training exercises. Try again." }, { status: 500 });
 
   // Assemble nested structure (reconstruct section dividers from section_label)
   const itemsBySession = new Map<string, typeof items>();
   for (const item of items || []) {
     const list = itemsBySession.get(item.session_id) || [];
     if (item.section_label) {
-      list.push(createExerciseSectionDivider(item));
+      list.push(createExerciseSectionDivider({ ...item, section_label: item.section_label }));
     }
     list.push(item);
     itemsBySession.set(item.session_id, list);
   }
 
-  const sessionsByPlan = new Map<string, typeof sessions>();
+  const sessionsByPlan = new Map<string, Array<NonNullable<typeof sessions>[number] & { items: NonNullable<typeof items> }>>();
   for (const session of sessions || []) {
     const list = sessionsByPlan.get(session.plan_id) || [];
     list.push({
@@ -197,12 +191,21 @@ export async function POST(request: Request) {
   if (plan && plan.client_id) {
     const validationError = validateTemplate(plan as ExerciseTemplate);
     if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
+    if (plan.programme_weeks != null) {
+      if (!Number.isInteger(plan.programme_weeks) || plan.programme_weeks < 1 || plan.programme_weeks > 52
+        || programmeDateDay(plan.start_date || "") === null) {
+        return NextResponse.json({ error: "Choose a valid start date and 1 to 52 programme weeks." }, { status: 400 });
+      }
+      try { new Intl.DateTimeFormat("en-GB", { timeZone: plan.programme_timezone || "Europe/London" }); }
+      catch { return NextResponse.json({ error: "Choose a valid timezone, such as Europe/London." }, { status: 400 }); }
+    }
     const payload = {
       ...plan,
       sessions: (plan.sessions as ExerciseSession[]).map((session) => ({
         id: session.id || null,
         name: session.name.trim(),
         day_number: session.day_number,
+        week_number: session.week_number ?? null,
         notes: session.notes || null,
         items: exerciseRows(session.items, "", true),
       })),
@@ -211,7 +214,7 @@ export async function POST(request: Request) {
       p_plan: payload,
     });
     if (saveError || !planId) {
-      const safeErrors = ["Reload this plan", "Logged exercises", "Logged sessions", "Existing exercises"];
+      const safeErrors = ["Reload this plan", "Logged exercises", "Logged sessions", "Existing exercises", "Programme", "Build or copy", "Invalid programme"];
       const safeMessage = safeErrors.some((prefix) => saveError?.message?.startsWith(prefix))
         ? saveError!.message : "Couldn't save this training plan. Nothing was changed. Try again.";
       return dbError(saveError, safeMessage);

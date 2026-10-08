@@ -1,5 +1,8 @@
 "use client";
 
+import { normaliseWeekStart } from "@/lib/training-planner";
+import { programmeSessionsForCalendarWeek, programmeSessionCanBePlanned, programmeToday } from "@/lib/exercise-programme";
+
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -23,6 +26,9 @@ import { dateKeyInTimeZone } from "@/lib/founder-dashboard";
 import { nutritionWeek, nutritionWeekCount, type NutritionLogDay } from "@/lib/nutrition-history";
 import { resolveDailySteps } from "@/lib/daily-steps";
 import { legacyProfileForProgramme, PROGRAMME_TYPES, programmeConfig } from "@/lib/programmes";
+import ClientEmailStatus from "@/components/admin/ClientEmailStatus";
+import ClientPushStatus from "@/components/admin/ClientPushStatus";
+import { pushFeedback, type PushFeedbackResult } from "@/lib/push-feedback";
 import CapacityBaselinePanel from "@/components/admin/CapacityBaselinePanel";
 import CompliancePanel from "@/components/admin/CompliancePanel";
 import EarlyWinPanel from "@/components/admin/EarlyWinPanel";
@@ -37,7 +43,7 @@ import {
 } from "@/lib/client-attention";
 
 type TabId = "dashboard" | "checkins" | "training" | "nutrition" | "gallery" | "tasks";
-type PushResult = { sent?: number; failed?: number; subscriptionCount?: number; reason?: string; suppressed?: boolean };
+type PushResult = PushFeedbackResult;
 type ClientSexInput = "" | "female" | "male" | "prefer_not_to_say";
 type CoachingNoteSourceType = "call" | "zoom" | "loom" | "fathom" | "whatsapp" | "voice_note" | "email" | "other";
 type CoachingPriority = { title: string; detail?: string; urgency?: "low" | "medium" | "high" };
@@ -168,11 +174,7 @@ function formatConsultationValue(value: unknown): string {
 }
 
 function notificationFeedback(notification?: PushResult): string {
-  if (!notification) return "portal notification created";
-  if (notification.suppressed) return "notification held while this client is paused";
-  if ((notification.sent || 0) > 0) return "push sent";
-  if (notification.reason) return `portal notification created; push not delivered (${notification.reason})`;
-  return `portal notification created; no device push sent (${notification.subscriptionCount ?? 0} subscriptions)`;
+  return `portal notification created; ${pushFeedback(notification)}`;
 }
 
 function formatWearableDate(value: string | null | undefined): string {
@@ -310,6 +312,7 @@ export default function ClientDetailPage() {
   const [consultationLinkSending, setConsultationLinkSending] = useState(false);
   const [consultationLinkCopied, setConsultationLinkCopied] = useState(false);
   const [setupLinkSending, setSetupLinkSending] = useState(false);
+  const [emailStatusRefresh, setEmailStatusRefresh] = useState(0);
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [sex, setSex] = useState<ClientSexInput>("");
   const [cycleTrackingEnabled, setCycleTrackingEnabled] = useState(false);
@@ -597,7 +600,7 @@ export default function ClientDetailPage() {
     } finally { setAssigningExercise(false); }
   }
 
-  async function handleSaveScratchExercisePlan(template: { name: string; description?: string; overview?: string; sessions?: unknown[] }) {
+  async function handleSaveScratchExercisePlan(template: { name: string; description?: string; overview?: string; sessions?: unknown[]; programme_weeks?: number | null; programme_timezone?: string; start_date?: string }) {
     const activeExPlan = exercisePlans.find((p) => p.status === "active");
     if (exerciseBuilderMode === "create" && activeExPlan) {
       const ok = confirm(
@@ -622,6 +625,9 @@ export default function ClientDetailPage() {
             name: template.name,
             description: template.description,
             overview: template.overview,
+            programme_weeks: template.programme_weeks,
+            programme_timezone: template.programme_timezone,
+            start_date: template.start_date,
             status: "active",
             sessions: template.sessions,
           },
@@ -1078,11 +1084,12 @@ export default function ClientDetailPage() {
           return;
         }
       }
-      toast(data.emailSent ? "Consultation link emailed" : "Email unavailable - consultation link copied");
+      toast(data.emailSent ? "Consultation email accepted by the provider. Delivery is unconfirmed." : data.emailStatus === "unknown" ? "Email acceptance is uncertain — check delivery tracking before retrying. Consultation link copied." : "Email unavailable - consultation link copied");
     } catch {
       toast("Couldn't reach the consultation link API", "error");
     } finally {
       setConsultationLinkSending(false);
+      setEmailStatusRefresh((value) => value + 1);
     }
   }
 
@@ -1113,7 +1120,7 @@ export default function ClientDetailPage() {
       if (sendEmail && data.emailSent) {
         toast("Setup email accepted by the email provider. Inbox delivery is not confirmed.");
       } else if (sendEmail) {
-        toast("Email unavailable - setup link copied");
+        toast(data.emailStatus === "unknown" ? "Email acceptance is uncertain — check delivery tracking before retrying. Setup link copied." : "Email was not accepted — setup link copied");
       } else {
         toast("Setup link copied");
       }
@@ -1121,6 +1128,7 @@ export default function ClientDetailPage() {
       toast("Couldn't reach the setup link API", "error");
     } finally {
       setSetupLinkSending(false);
+      setEmailStatusRefresh((value) => value + 1);
     }
   }
 
@@ -2136,6 +2144,14 @@ export default function ClientDetailPage() {
           </div>
         );
       })()}
+
+      <details className="mb-5 rounded-xl border border-white/10 bg-bg-card p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-text-secondary">Email &amp; notification status</summary>
+        <div className="mt-3 grid gap-3 lg:grid-cols-2">
+          <ClientEmailStatus clientId={client.id} refreshKey={emailStatusRefresh} />
+          <ClientPushStatus clientId={client.id} />
+        </div>
+      </details>
 
       {/* Tab Navigation */}
       <div className="flex items-center gap-1 mb-6 border-b border-[rgba(0,0,0,0.06)]">
@@ -3616,16 +3632,12 @@ export default function ClientDetailPage() {
                       if (res.ok && (!nudgeIsPushTest || result.sent > 0)) {
                         const notification = nudgeIsPushTest ? result : result.notification || {};
                         setNudgeSent(true);
-                        setNudgeDelivery(notification.suppressed
-                          ? nudgeIsPushTest ? "Notifications are paused for this client." : "DM saved. Notifications are paused for this client."
-                          : notification.sent > 0
-                            ? nudgeIsPushTest ? "Device notification delivered." : "DM saved and device notification delivered."
-                            : nudgeIsPushTest ? "No device notification is currently enabled." : "DM saved. No device notification is currently enabled.");
+                        setNudgeDelivery(`${nudgeIsPushTest ? "" : "DM saved. "}${pushFeedback(notification)}. Ask the client to confirm the alert appeared.`);
                       } else if (nudgeIsPushTest && res.ok) {
                         const failureSummary = result.failed > 0
                           ? `${result.failed} device notification${result.failed === 1 ? "" : "s"} failed.`
                           : "No device notification was delivered.";
-                        alert(result.reason || failureSummary);
+                        alert(pushFeedback(result) || failureSummary);
                       } else {
                         alert(result.error || "The DM could not be sent.");
                       }
@@ -3709,6 +3721,9 @@ export default function ClientDetailPage() {
           category: "strength" as const,
           is_active: true,
           sessions: activeExPlan.sessions || [],
+          programme_weeks: activeExPlan.programme_weeks,
+          programme_timezone: activeExPlan.programme_timezone,
+          start_date: activeExPlan.start_date,
           created_at: activeExPlan.created_at,
           updated_at: activeExPlan.updated_at,
         } : undefined;
@@ -3872,6 +3887,8 @@ function TrainingTabContent({
   const [plannerLoading, setPlannerLoading] = useState(false);
   const [plannerSaving, setPlannerSaving] = useState<string | null>(null);
   const [plannerError, setPlannerError] = useState<string | null>(null);
+  const [planOverviewWeek, setPlanOverviewWeek] = useState(1);
+  const [programmePlannerDate, setProgrammePlannerDate] = useState(() => normaliseWeekStart(programmeToday(activeExPlan?.programme_timezone)));
 
   const getWeekRange = (weekNum: number) => {
     const weekStart = new Date(startDate);
@@ -3908,7 +3925,8 @@ function TrainingTabContent({
       return;
     }
 
-    const { from } = getWeekRange(selectedWeek);
+    const { from: logWeekFrom } = getWeekRange(selectedWeek);
+    const from = activeExPlan.programme_weeks ? normaliseWeekStart(programmePlannerDate) : logWeekFrom;
     const controller = new AbortController();
     setPlannerLoading(true);
     fetch(`/api/admin/client-training-planner?clientId=${client.id}&planId=${activeExPlan.id}&weekStart=${from}`, {
@@ -3929,7 +3947,7 @@ function TrainingTabContent({
       });
     return () => controller.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client.id, activeExPlan?.id, selectedWeek]);
+  }, [client.id, activeExPlan?.id, selectedWeek, programmePlannerDate]);
 
   async function savePlannerAssignment(
     sessionId: string,
@@ -4094,7 +4112,8 @@ function TrainingTabContent({
     return acc;
   }, {} as Record<string, WeeklyTrainingAssignment[]>);
   const plannedSessionIds = new Set(weeklyPlanner.filter((assignment) => assignment.planned_date).map((assignment) => assignment.session_id));
-  const plannerUnassigned = activeExPlan?.sessions.filter((session) => !plannedSessionIds.has(session.id)) || [];
+  const plannerSessions = activeExPlan ? programmeSessionsForCalendarWeek(activeExPlan, plannerWeekStart || weekFrom) : [];
+  const plannerUnassigned = plannerSessions.filter((session) => !plannedSessionIds.has(session.id));
 
   return (
     <div className="space-y-6">
@@ -4143,7 +4162,7 @@ function TrainingTabContent({
                 {activeExPlan.overview && (
                   <p className="mt-2 whitespace-pre-line text-sm text-text-secondary">{activeExPlan.overview}</p>
                 )}
-                <span className="text-xs text-[#E040D0] font-medium mt-1 inline-block">{activeExPlan.sessions.length} sessions · live for this client now</span>
+                <span className="text-xs text-[#E040D0] font-medium mt-1 inline-block">{activeExPlan.programme_weeks ? `${activeExPlan.programme_weeks} programme weeks · final week repeats` : `${activeExPlan.sessions.length} sessions`} · live for this client now</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -4166,9 +4185,17 @@ function TrainingTabContent({
               Edit tweaks this client&apos;s copy only (safe). Replace swaps in a different template (client sees it immediately on reload). Remove pauses access. Archive closes the block out.
             </p>
 
+            {activeExPlan.programme_weeks && (
+              <div className="mb-3 flex flex-wrap gap-2" aria-label="View programme week">
+                {Array.from({ length: activeExPlan.programme_weeks }, (_, index) => index + 1).map((week) => (
+                  <button type="button" key={week} aria-pressed={planOverviewWeek === week} onClick={() => setPlanOverviewWeek(week)}
+                    className={`rounded-lg border px-3 py-2 text-xs ${planOverviewWeek === week ? "border-[#E040D0]/40 text-[#E040D0]" : "border-[rgba(0,0,0,0.08)] text-text-muted"}`}>Week {week}</button>
+                ))}
+              </div>
+            )}
             {/* Sessions list */}
             <div className="space-y-2">
-              {activeExPlan.sessions.map((session) => {
+              {activeExPlan.sessions.filter((session) => !activeExPlan.programme_weeks || session.week_number === planOverviewWeek).map((session) => {
                 const isExpanded = expandedSessions.has(session.id);
                 return (
                   <div key={session.id} className="border border-[rgba(0,0,0,0.06)] rounded-xl overflow-hidden">
@@ -4244,11 +4271,15 @@ function TrainingTabContent({
 
       {activeExPlan && (
         <div>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <h2 className="text-lg font-heading font-bold text-text-primary">Weekly Plan</h2>
+            {activeExPlan.programme_weeks && <label className="ml-3 text-xs text-text-muted">Week containing
+              <input type="date" aria-label="Training planner week" value={programmePlannerDate} onChange={(event) => setProgrammePlannerDate(event.target.value)} className="ml-2 rounded-lg border border-[rgba(0,0,0,0.08)] bg-bg-primary px-2 py-1.5 text-text-primary" />
+            </label>}
             <div className="flex flex-wrap items-center justify-end gap-2">
               <button
                 type="button"
+                hidden={Boolean(activeExPlan.programme_weeks)}
                 onClick={() => void copyPreviousWeek()}
                 disabled={plannerLoading || Boolean(plannerSaving) || weeklyPlanner.some((assignment) => assignment.planned_date)}
                 className="min-h-10 rounded-xl border border-[rgba(0,0,0,0.08)] px-3 py-2 text-xs font-semibold text-text-secondary transition-colors hover:border-[#E040D0]/30 hover:text-[#E040D0] disabled:cursor-not-allowed disabled:opacity-40"
@@ -4257,6 +4288,7 @@ function TrainingTabContent({
               </button>
               <button
                 type="button"
+                hidden={Boolean(activeExPlan.programme_weeks)}
                 onClick={() => void repeatCurrentSchedule()}
                 disabled={plannerLoading || Boolean(plannerSaving) || !weeklyPlanner.some((assignment) => assignment.planned_date)}
                 className="min-h-10 rounded-xl bg-[#E040D0] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#b830a8] disabled:cursor-not-allowed disabled:opacity-40"
@@ -4301,7 +4333,7 @@ function TrainingTabContent({
                   </div>
                 )}
                 <div className="mt-5 divide-y divide-[rgba(0,0,0,0.06)] border-t border-[rgba(0,0,0,0.06)]">
-                  {activeExPlan.sessions.map((session) => {
+                  {plannerSessions.map((session) => {
                     const assignment = weeklyPlanner.find((item) => item.session_id === session.id);
                     const saving = plannerSaving === session.id;
                     return (
@@ -4323,7 +4355,7 @@ function TrainingTabContent({
                                 <button
                                   key={date}
                                   type="button"
-                                  disabled={Boolean(plannerSaving) || dayOccupied}
+                                  disabled={Boolean(plannerSaving) || dayOccupied || !programmeSessionCanBePlanned(activeExPlan, session.id, date)}
                                   onClick={() => void savePlannerAssignment(
                                     session.id,
                                     date,
@@ -4348,6 +4380,7 @@ function TrainingTabContent({
                             <button
                               type="button"
                               disabled={Boolean(plannerSaving)}
+                              hidden={Boolean(activeExPlan.programme_weeks)}
                               onClick={() => void savePlannerAssignment(
                                 session.id,
                                 assignment.planned_date,

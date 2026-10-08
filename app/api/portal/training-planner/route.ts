@@ -1,3 +1,5 @@
+import { programmeSessionsForCalendarWeek, programmeSessionCanBePlanned } from "@/lib/exercise-programme";
+import type { ClientExercisePlan } from "@/lib/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -27,7 +29,7 @@ async function getPortalClient() {
 async function getActivePlan(admin: ReturnType<typeof createAdminClient>, clientId: string, planId?: string | null) {
   let query = admin
     .from("client_exercise_plans")
-    .select("id, client_id, status")
+    .select("id, client_id, status, start_date, programme_weeks, programme_timezone")
     .eq("client_id", clientId)
     .eq("status", "active")
     .order("created_at", { ascending: false });
@@ -39,15 +41,16 @@ async function getActivePlan(admin: ReturnType<typeof createAdminClient>, client
   return { plan: plans?.[0] || null, error: null };
 }
 
-async function getPlanSessionIds(admin: ReturnType<typeof createAdminClient>, planId: string) {
+async function getPlanSessionIds(admin: ReturnType<typeof createAdminClient>, plan: ClientExercisePlan, weekStart: string) {
   const { data: sessions, error } = await admin
     .from("client_exercise_sessions")
-    .select("id")
-    .eq("plan_id", planId)
+    .select("id, day_number, week_number")
+    .eq("plan_id", plan.id)
     .order("day_number", { ascending: true });
 
   return {
-    sessionIds: (sessions || []).map((session: { id: string }) => session.id),
+    sessionIds: programmeSessionsForCalendarWeek({ ...plan, sessions: sessions || [] } as ClientExercisePlan, weekStart).map((session) => session.id),
+    sessions: sessions || [],
     error: error?.message || null,
   };
 }
@@ -64,7 +67,7 @@ export async function GET(request: Request) {
   if (planError) return NextResponse.json({ error: planError }, { status: 500 });
   if (!plan) return NextResponse.json({ assignments: [], plan_id: null, week_start: weekStart });
 
-  const { sessionIds, error: sessionError } = await getPlanSessionIds(portal.admin, plan.id);
+  const { sessionIds, error: sessionError } = await getPlanSessionIds(portal.admin, plan as ClientExercisePlan, weekStart);
   if (sessionError) return NextResponse.json({ error: sessionError }, { status: 500 });
 
   const { assignments, error } = await loadWeeklyTrainingAssignments(portal.admin, {
@@ -72,6 +75,7 @@ export async function GET(request: Request) {
     planId: plan.id,
     weekStart,
     sessionIds,
+    allowRecurring: !plan.programme_weeks,
   });
 
   if (error) return NextResponse.json({ error }, { status: 500 });
@@ -100,10 +104,13 @@ export async function POST(request: Request) {
   if (planError) return NextResponse.json({ error: planError }, { status: 500 });
   if (!plan) return NextResponse.json({ error: "Active plan not found" }, { status: 404 });
 
-  const { sessionIds, error: sessionError } = await getPlanSessionIds(portal.admin, plan.id);
+  const { sessionIds, sessions, error: sessionError } = await getPlanSessionIds(portal.admin, plan as ClientExercisePlan, weekStart);
   if (sessionError) return NextResponse.json({ error: sessionError }, { status: 500 });
   if (!sessionIds.includes(sessionId)) return NextResponse.json({ error: "Session not found on active plan" }, { status: 404 });
 
+  if (plan.programme_weeks && (isRecurring || (plannedDate && !programmeSessionCanBePlanned({ ...plan, sessions } as ClientExercisePlan, sessionId, plannedDate)))) {
+    return NextResponse.json({ error: "Choose a date in this session's programme week. Programme weeks have independent workouts and do not repeat individual sessions." }, { status: 400 });
+  }
   if (plannedDate) {
     const { data: existingDayAssignment, error: existingDayError } = await portal.admin
       .from("client_training_weekly_assignments")

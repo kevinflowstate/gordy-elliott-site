@@ -351,6 +351,7 @@ export interface ExerciseSession {
   plan_id?: string;
   name: string;
   day_number: number;
+  week_number?: number | null;
   notes?: string;
   items: ExerciseSessionItem[];
 }
@@ -363,6 +364,9 @@ export interface ExerciseTemplate {
   tags?: string[];
   category: string;
   duration_weeks?: number;
+  programme_weeks?: number | null;
+  programme_timezone?: string;
+  start_date?: string;
   is_active: boolean;
   sessions: ExerciseSession[];
   created_at: string;
@@ -379,6 +383,9 @@ export interface ClientExercisePlan {
   status: 'active' | 'completed' | 'archived';
   start_date?: string;
   end_date?: string;
+  programme_weeks?: number | null;
+  programme_timezone?: string;
+  current_week?: number | null;
   sessions: ExerciseSession[];
   created_at: string;
   updated_at: string;

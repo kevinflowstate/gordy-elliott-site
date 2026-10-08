@@ -91,11 +91,13 @@ export async function loadWeeklyTrainingAssignments(
     planId,
     weekStart,
     sessionIds,
+    allowRecurring = true,
   }: {
     clientId: string;
     planId: string;
     weekStart: string;
     sessionIds: string[];
+    allowRecurring?: boolean;
   },
 ): Promise<{ assignments: WeeklyTrainingAssignment[]; error: string | null }> {
   if (sessionIds.length === 0) return { assignments: [], error: null };
@@ -117,6 +119,8 @@ export async function loadWeeklyTrainingAssignments(
       .map((assignment) => assignment.planned_date)
       .filter((plannedDate): plannedDate is string => Boolean(plannedDate)),
   );
+
+  if (!allowRecurring) return { assignments: explicitAssignments, error: null };
 
   const { data: priorRows, error: priorError } = await supabase
     .from("client_training_weekly_assignments")

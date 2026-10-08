@@ -1,3 +1,4 @@
+import { programmeWeek, programmeToday } from "@/lib/exercise-programme";
 import { calendarEventOccursOn, dateKeyInTimeZone } from "@/lib/founder-dashboard";
 import { addDaysToKey, NON_MEETING_CATEGORIES } from "@/lib/storm-warning";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -106,7 +107,7 @@ export async function GET() {
       .order("tracked_date", { ascending: false }),
     admin
       .from("client_exercise_plans")
-      .select("id")
+      .select("id,start_date,programme_weeks,programme_timezone")
       .eq("client_id", profile.id)
       .eq("status", "active")
       .order("created_at", { ascending: false })
@@ -132,7 +133,7 @@ export async function GET() {
     ? await Promise.all([
         admin
           .from("client_exercise_sessions")
-          .select("id")
+          .select("id,week_number")
           .eq("plan_id", activePlanId),
         admin
           .from("client_training_weekly_assignments")
@@ -190,7 +191,10 @@ export async function GET() {
     calendarLastSyncAt: connection?.last_sync_at || null,
     calendarMeetingsByDay,
     sleepSignals: [...sleepByDate.values()],
-    activePlanSessions: sessionsRes.data?.length || 0,
+    activePlanSessions: (sessionsRes.data || []).filter((session) => {
+      const plan = activePlanRes.data?.[0];
+      return !plan?.programme_weeks || session.week_number === programmeWeek({ ...plan, sessions: [] }, programmeToday(plan.programme_timezone, now));
+    }).length,
     plannedSessions: assignmentsRes.data?.filter((assignment) => Boolean(assignment.planned_date)).length || 0,
   });
 

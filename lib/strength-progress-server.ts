@@ -1,3 +1,6 @@
+import { loadExerciseSessionItems, loadExercisePlanSessions } from "@/lib/exercise-session-load";
+import { programmeSessionsForCalendarWeek } from "@/lib/exercise-programme";
+import type { ClientExercisePlan } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { dateKeyInTimeZone } from "@/lib/founder-dashboard";
 import {
@@ -53,11 +56,8 @@ export async function loadAvailableStrengthExercises(
   const sessionIds = (sessions || []).map((session) => session.id);
   if (!sessionIds.length) return [];
 
-  const { data: items, error: itemError } = await admin
-    .from("client_exercise_session_items")
-    .select("exercise_id, exercise:exercises(id, name, muscle_group, equipment)")
-    .in("session_id", sessionIds);
-  if (itemError) throw new Error(itemError.message);
+  const { data: items, error: itemError } = await loadExerciseSessionItems(admin, sessionIds);
+  if (itemError) throw new Error(itemError);
 
   const exercises = new Map<string, ExerciseOption>();
   for (const item of items || []) {
@@ -96,7 +96,7 @@ export async function loadClientStrengthProgress(
       .order("created_at", { ascending: true }),
     admin
       .from("client_exercise_plans")
-      .select("id, status, created_at")
+      .select("id, status, created_at, start_date, programme_weeks, programme_timezone")
       .eq("client_id", clientId)
       .order("created_at", { ascending: false }),
     admin
@@ -125,22 +125,11 @@ export async function loadClientStrengthProgress(
   const planIds = plans.map((plan) => plan.id);
   const activePlan = plans.find((plan) => plan.status === "active") || null;
 
-  const { data: sessions, error: sessionError } = planIds.length
-    ? await admin
-        .from("client_exercise_sessions")
-        .select("id, plan_id, name")
-        .in("plan_id", planIds)
-    : { data: [], error: null };
-  if (sessionError) throw new Error(sessionError.message);
+  const { data: sessions, error: sessionError } = await loadExercisePlanSessions(admin, planIds);
+  if (sessionError) throw new Error(sessionError);
   const sessionIds = (sessions || []).map((session) => session.id);
-
-  const { data: items, error: itemError } = sessionIds.length
-    ? await admin
-        .from("client_exercise_session_items")
-        .select("id, exercise_id, session_id")
-        .in("session_id", sessionIds)
-    : { data: [], error: null };
-  if (itemError) throw new Error(itemError.message);
+  const { data: items, error: itemError } = await loadExerciseSessionItems(admin, sessionIds);
+  if (itemError) throw new Error(itemError);
   const itemExercise = new Map((items || []).map((item) => [item.id, item.exercise_id]));
 
   const exerciseIds = [...new Set([
@@ -182,7 +171,8 @@ export async function loadClientStrengthProgress(
           clientId,
           planId: activePlan.id,
           weekStart,
-          sessionIds: activeSessionIds,
+          sessionIds: programmeSessionsForCalendarWeek({ ...activePlan, sessions: (sessions || []).filter((session) => session.plan_id === activePlan.id) } as ClientExercisePlan, weekStart).map((session) => session.id),
+          allowRecurring: !activePlan.programme_weeks,
         })
       ))).flatMap((result) => {
         if (result.error) throw new Error(result.error);
