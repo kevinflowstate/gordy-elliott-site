@@ -21,10 +21,13 @@ import { formatExercisePrescription } from "@/lib/exercise-prescriptions";
 import { getExerciseDemoUrl } from "@/lib/exercise-demo";
 import { openExerciseDemo } from "@/lib/exercise-demo-client";
 import { useToast } from "@/components/ui/Toast";
-import { sanitizeWearableRecovery, titleCaseProvider } from "@/lib/wearable-insights";
 import { dateKeyInTimeZone } from "@/lib/founder-dashboard";
 import { nutritionWeek, nutritionWeekCount, type NutritionLogDay } from "@/lib/nutrition-history";
-import { resolveDailySteps } from "@/lib/daily-steps";
+import { dashboardWorkoutWeek, dashboardSavedWorkouts, dashboardWeightHistory, type DashboardSessionSummary } from "@/lib/admin-dashboard";
+import { addDaysToKey } from "@/lib/storm-warning";
+import DashboardWeightCard from "@/components/admin/DashboardWeightCard";
+import DashboardHabitOverview from "@/components/admin/DashboardHabitOverview";
+import DashboardRecoveryCard from "@/components/admin/DashboardRecoveryCard";
 import { legacyProfileForProgramme, PROGRAMME_TYPES, programmeConfig } from "@/lib/programmes";
 import ClientEmailStatus from "@/components/admin/ClientEmailStatus";
 import ClientPushStatus from "@/components/admin/ClientPushStatus";
@@ -179,14 +182,7 @@ function notificationFeedback(notification?: PushResult): string {
 
 function formatWearableDate(value: string | null | undefined): string {
   if (!value) return "Not synced";
-  return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-}
-
-function recoveryBadgeClass(status: string | null | undefined): string {
-  if (status === "unknown" || !status) return "border-[rgba(0,0,0,0.08)] bg-bg-primary text-text-muted";
-  if (status === "reduce_intensity") return "border-red-500/30 bg-red-500/10 text-red-400";
-  if (status === "watch") return "border-amber-500/30 bg-amber-500/10 text-amber-400";
-  return "border-emerald-500/30 bg-emerald-500/10 text-emerald-400";
+  return new Date(value).toLocaleDateString("en-GB", { timeZone: "Europe/London", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 interface PhotoGroup {
@@ -265,6 +261,8 @@ export default function ClientDetailPage() {
   const [exercisePlans, setExercisePlans] = useState<ClientExercisePlan[]>([]);
   const [nutritionPlans, setNutritionPlans] = useState<ClientNutritionPlan[]>([]);
   const [recentExerciseLogs, setRecentExerciseLogs] = useState<Array<{ id: string; exercise_item_id: string; session_id: string | null; log_date: string; sets_data: Array<{ set_number: number; weight: string; reps: string; notes: string; circuit_rounds?: number }>; completed: boolean }>>([]);
+  const [sessionSummaries, setSessionSummaries] = useState<DashboardSessionSummary[]>([]);
+  const [workoutSummaryError, setWorkoutSummaryError] = useState(false);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [showExerciseBuilder, setShowExerciseBuilder] = useState(false);
   const [exerciseBuilderMode, setExerciseBuilderMode] = useState<"edit" | "create">("edit");
@@ -399,10 +397,17 @@ export default function ClientDetailPage() {
           const nutData = await nutRes.json();
           setNutritionPlans(nutData.plans || []);
         }
-        const logsRes = await fetch(`/api/admin/client-exercise-logs?clientId=${id}`);
+        const today = dateKeyInTimeZone(new Date(), "Europe/London");
+        const logsRes = await fetch(`/api/admin/client-exercise-logs?clientId=${id}&from=${addDaysToKey(today, -13)}&to=${today}&summaries=1`);
         if (logsRes.ok) {
           const logsData = await logsRes.json();
           setRecentExerciseLogs(logsData.logs || []);
+          setSessionSummaries(logsData.summaries || []);
+          setWorkoutSummaryError(false);
+        } else {
+          setRecentExerciseLogs([]);
+          setSessionSummaries([]);
+          setWorkoutSummaryError(true);
         }
       }
     } finally {
@@ -1037,9 +1042,6 @@ export default function ClientDetailPage() {
   const actualCheckins = client.checkins.length;
   const missedCheckins = Math.max(0, expectedCheckins - actualCheckins);
   const hasConsultationData = !!client.consultation_data && Object.keys(client.consultation_data).length > 0;
-  const latestWearableSummary = client.wearable_summaries?.[0] ? sanitizeWearableRecovery(client.wearable_summaries[0]) : null;
-  const currentWearableRecovery = latestWearableSummary?.summary_date === dateKeyInTimeZone(new Date(), "Europe/London") && latestWearableSummary.recovery_status !== "unknown";
-  const activeWearableConnections = (client.wearable_connections || []).filter((connection) => connection.status === "connected");
   const activeCalendarConnections = (client.calendar_connections || []).filter((connection) => connection.status === "connected");
   const upcomingCalendarEvents = client.calendar_events || [];
   const priorityCheckin = client.checkins.find((checkin) => (
@@ -1132,28 +1134,11 @@ export default function ClientDetailPage() {
     }
   }
 
-  // Weight trend from check-ins
-  const checkinsWithWeight = client.checkins
-    .filter((c) => {
-      const w = c.responses?.weight || c.responses?.current_weight;
-      return w && !isNaN(parseFloat(w));
-    })
-    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-
-  const latestWeight = checkinsWithWeight.length > 0
-    ? parseFloat(checkinsWithWeight[checkinsWithWeight.length - 1].responses?.weight || checkinsWithWeight[checkinsWithWeight.length - 1].responses?.current_weight || "0")
-    : null;
-  const prevWeight = checkinsWithWeight.length > 1
-    ? parseFloat(checkinsWithWeight[checkinsWithWeight.length - 2].responses?.weight || checkinsWithWeight[checkinsWithWeight.length - 2].responses?.current_weight || "0")
-    : null;
-  const startWeightVal = client.start_weight || (checkinsWithWeight.length > 0 ? parseFloat(checkinsWithWeight[0].responses?.weight || checkinsWithWeight[0].responses?.current_weight || "0") : null);
-  const weightTrend = latestWeight && prevWeight ? latestWeight - prevWeight : null;
-
-  // Build trend chart data for weight and other progress metrics
-  const weightChartData = checkinsWithWeight.slice(-8).map((c) => ({
-    date: new Date(c.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
-    value: parseFloat(c.responses?.weight || c.responses?.current_weight || "0"),
-  }));
+  const weightHistory = dashboardWeightHistory(client.checkins);
+  const latestWeight = weightHistory.at(-1)?.value ?? null;
+  const prevWeight = weightHistory.at(-2)?.value ?? null;
+  const startWeightVal = client.start_weight || weightHistory[0]?.value || null;
+  const weightTrend = latestWeight !== null && prevWeight !== null ? latestWeight - prevWeight : null;
 
   // Build trend data for other enabled progress metrics from checkin config
   const otherMetricTrends: Array<{ metric: ProgressMetric; data: Array<{ date: string; value: number }> }> =
@@ -1716,264 +1701,106 @@ export default function ClientDetailPage() {
         </button>
       </div>
 
-      <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mb-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1.5">Connected Apps</div>
-            <h2 className="text-lg font-heading font-bold text-text-primary">Recovery and nutrition signals</h2>
-            <p className="mt-1 text-sm text-text-secondary">
-              {activeWearableConnections.length > 0
-                ? `${activeWearableConnections.map((connection) => titleCaseProvider(connection.provider)).join(", ")} connected.`
-                : "No wearable or nutrition app connected yet."}
-            </p>
-          </div>
-          {latestWearableSummary ? (
-            <span className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] ${recoveryBadgeClass(latestWearableSummary.recovery_status)}`}>
-              {latestWearableSummary.recovery_status === "unknown" ? "Recovery unavailable" : `${currentWearableRecovery ? "" : "Historical · "}${latestWearableSummary.recovery_status.replace(/_/g, " ")}`}
-            </span>
-          ) : (
-            <span className="inline-flex rounded-full border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-1.5 text-xs font-semibold text-text-muted">
-              Awaiting data
-            </span>
-          )}
-        </div>
+      {/* Week at a Glance — always visible; high-touch tiers get a stronger accent */}
+      {(() => {
+        const openTaskCount = tasks.filter((t) => !t.completed && t.source !== "client").length;
+        const now = Date.now();
+        const workoutWeek = dashboardWorkoutWeek(recentExerciseLogs, sessionSummaries);
+        const submittedThisWeek = client.checkins.some((c) => {
+          const day = dateKeyInTimeZone(new Date(c.created_at), "Europe/London");
+          return day >= workoutWeek.start && day <= workoutWeek.today;
+        });
+        const latestCheckin = client.checkins[0];
+        const sessionsLoggedThisWeek = workoutWeek.completed;
+        const latestReply = client.checkins.find((c) => c.admin_reply);
+        const pendingReplyCount = client.checkins.filter((c) => !c.admin_reply).length;
+        const replyAge = latestReply
+          ? (() => {
+              const stamp = latestReply.replied_at || latestReply.created_at;
+              const days = Math.floor((now - new Date(stamp).getTime()) / (1000 * 60 * 60 * 24));
+              if (days === 0) return "today";
+              if (days === 1) return "1 day ago";
+              if (days < 7) return `${days} days ago`;
+              return `${Math.floor(days / 7)} week${Math.floor(days / 7) === 1 ? "" : "s"} ago`;
+            })()
+          : null;
+        const isVip = client.tier === "vip";
+        const isPremium = client.tier === "premium";
+        const isHighTouch = isVip || isPremium;
+        const borderCls = isVip
+          ? "border-amber-500/25"
+          : isPremium
+            ? "border-sky-500/25"
+            : "border-[rgba(0,0,0,0.06)]";
+        const bgCls = isVip
+          ? "bg-[linear-gradient(135deg,rgba(245,158,11,0.08),rgba(0,0,0,0.02))]"
+          : isPremium
+            ? "bg-[linear-gradient(135deg,rgba(14,165,233,0.08),rgba(0,0,0,0.02))]"
+            : "bg-bg-card";
+        const eyebrowText = isVip
+          ? "VIP — Week at a Glance"
+          : isPremium
+            ? "Premium — Week at a Glance"
+            : "Week at a Glance";
+        const eyebrowCls = isVip ? "text-amber-500" : isPremium ? "text-sky-500" : "text-accent-bright";
 
-        {latestWearableSummary ? (
-          <>
-            <div className="mt-4 grid gap-3 sm:grid-cols-5">
-              <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-3">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Readiness</div>
-                <div className="mt-1 text-xl font-heading font-bold text-text-primary">{latestWearableSummary.readiness_score === null ? "Unavailable" : `${latestWearableSummary.readiness_score}/100`}</div>
-              </div>
-              <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-3">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Sleep</div>
-                <div className="mt-1 text-xl font-heading font-bold text-text-primary">
-                  {latestWearableSummary.sleep_minutes !== null ? `${Math.floor(latestWearableSummary.sleep_minutes / 60)}h ${latestWearableSummary.sleep_minutes % 60}m` : "—"}
+        return (
+          <div className={`mb-6 rounded-2xl border ${borderCls} ${bgCls} px-5 py-4`}>
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+              <div>
+                <div className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${eyebrowCls}`}>
+                  {eyebrowText}
+                </div>
+                <div className="mt-1 text-sm text-text-primary">
+                  {isVip
+                    ? "Priority account — keep reply cadence tight and coach priorities visible."
+                    : isPremium
+                      ? "Higher-touch client — closer oversight than standard coached."
+                      : "Quick scan of how this week is tracking for this client."}
                 </div>
               </div>
-              <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-3">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">HRV</div>
-                <div className="mt-1 text-xl font-heading font-bold text-text-primary">{latestWearableSummary.hrv_ms !== null ? `${Math.round(latestWearableSummary.hrv_ms)} ms` : "—"}</div>
-              </div>
-              <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-3">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Synced steps</div>
-                <div className="mt-1 text-xl font-heading font-bold text-text-primary">{latestWearableSummary.steps !== null ? latestWearableSummary.steps.toLocaleString("en-GB") : "—"}</div>
-              </div>
-              <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-3">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Protein</div>
-                <div className="mt-1 text-xl font-heading font-bold text-text-primary">{latestWearableSummary.protein_g !== null ? `${Math.round(latestWearableSummary.protein_g)}g` : "—"}</div>
-              </div>
-            </div>
-            <p className="mt-3 rounded-xl border border-[#E040D0]/15 bg-[#E040D0]/5 px-3 py-2 text-sm text-text-secondary">
-              {latestWearableSummary.insight || "There is insufficient sleep or heart data to assess recovery. Nutrition and activity values remain available."}
-              <span className="mt-1 block text-xs text-text-muted">Data date: {latestWearableSummary.summary_date}</span>
-            </p>
-          </>
-        ) : (
-          <div className="mt-4 rounded-xl border border-dashed border-[rgba(0,0,0,0.10)] bg-bg-primary px-4 py-3 text-sm text-text-secondary">
-            Ask the client to open Connected Apps in their portal. In preview mode, they can add a demo sync before Terra is live.
-          </div>
-        )}
-
-        {activeWearableConnections.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {activeWearableConnections.map((connection) => (
-              <span key={connection.id} className="rounded-full border border-[rgba(0,0,0,0.08)] bg-bg-primary px-3 py-1 text-xs text-text-secondary">
-                {titleCaseProvider(connection.provider)} · Last sync: {formatWearableDate(connection.last_sync_at)}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="mb-6 border-y border-[rgba(0,0,0,0.06)] py-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Connected Calendars</div>
-            <h2 className="mt-1 text-lg font-heading font-bold text-text-primary">Weekly load</h2>
-            <p className="mt-1 text-sm text-text-secondary">
-              {activeCalendarConnections.length > 0
-                ? `${activeCalendarConnections.map((connection) => connection.provider === "google_calendar" ? "Google Calendar" : "Outlook Calendar").join(", ")} connected.`
-                : "No calendar connected yet."}
-            </p>
-          </div>
-          <span className={`inline-flex w-fit rounded-full border px-3 py-1.5 text-xs font-semibold ${
-            activeCalendarConnections.length > 0
-              ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
-              : "border-[rgba(0,0,0,0.08)] bg-bg-primary text-text-muted"
-          }`}>
-            {upcomingCalendarEvents.length} event{upcomingCalendarEvents.length === 1 ? "" : "s"} in the synced window
-          </span>
-        </div>
-
-        {activeCalendarConnections.length > 0 ? (
-          <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-            <div className="space-y-2">
-              {activeCalendarConnections.map((connection) => (
-                <div key={connection.id} className="flex items-center justify-between gap-3 rounded-lg border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-3">
-                  <span className="text-sm font-semibold text-text-primary">
-                    {connection.provider === "google_calendar" ? "Google Calendar" : "Outlook Calendar"}
-                  </span>
-                  <span className="text-xs text-text-muted">{formatWearableDate(connection.last_sync_at)}</span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 xl:min-w-[560px]">
+                <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
+                  <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-text-muted">Check-in</div>
+                  <div className={`mt-1 text-xs font-semibold ${submittedThisWeek ? "text-emerald-400" : "text-amber-400"}`}>
+                    {submittedThisWeek ? "Submitted this week" : "Pending this week"}
+                  </div>
+                  {latestCheckin?.mood && (
+                    <div className="mt-1 text-[11px] text-text-muted">Last mood: {latestCheckin.mood}</div>
+                  )}
                 </div>
-              ))}
-            </div>
-            <div className="rounded-lg border border-[rgba(0,0,0,0.06)] bg-bg-card px-4 py-3">
-              <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Next up</div>
-              {upcomingCalendarEvents.length > 0 ? (
-                <div className="space-y-2">
-                  {upcomingCalendarEvents.slice(0, 5).map((event) => (
-                    <div key={event.id} className="flex min-w-0 items-center gap-3 text-sm">
-                      <span className="w-14 flex-none text-xs font-semibold text-accent-bright">
-                        {event.all_day ? "All day" : event.event_time}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-text-primary">{event.title}</span>
-                      <span className="flex-none text-xs text-text-muted">
-                        {new Date(`${event.event_date_key}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
-                      </span>
-                    </div>
-                  ))}
+                <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
+                  <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-text-muted">Workouts saved</div>
+                  <div className={`mt-1 text-lg font-heading font-bold ${sessionsLoggedThisWeek > 0 ? "text-emerald-400" : "text-text-muted"}`}>
+                    {workoutSummaryError ? "—" : sessionsLoggedThisWeek}
+                  </div>
+                  <div className="text-[11px] text-text-muted">{workoutSummaryError ? "Couldn’t load workouts" : `this week${workoutWeek.partial ? ` · ${workoutWeek.partial} partial` : ""}`}</div>
                 </div>
-              ) : (
-                <p className="text-sm text-text-muted">No events in the current seven-day window.</p>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="mt-4 rounded-lg border border-dashed border-[rgba(0,0,0,0.10)] bg-bg-card px-4 py-3 text-sm text-text-secondary">
-            Ask the client to open Calendar in their portal and connect Outlook or Google Calendar.
-          </div>
-        )}
-      </div>
-
-      {client.experience_mode === "founder_dashboard" && (
-        <CapacityBaselinePanel clientId={client.id} />
-      )}
-
-      {client.experience_mode === "founder_dashboard" && (
-        <EarlyWinPanel clientId={client.id} />
-      )}
-
-      {client.experience_mode === "founder_dashboard" && (
-        <CompliancePanel clientId={client.id} />
-      )}
-
-      {client.experience_mode === "founder_dashboard" && (
-        <Month4ReviewPanel clientId={client.id} />
-      )}
-
-      <div className="grid gap-4 mb-6 lg:grid-cols-2">
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
-          <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-3">Profile Details</div>
-          <label className="mb-2 block text-xs font-semibold text-text-secondary">Date of birth</label>
-          <input
-            type="date"
-            value={dateOfBirth}
-            onChange={async (e) => {
-              const value = e.target.value;
-              setDateOfBirth(value);
-              await saveDateOfBirth(value);
-            }}
-            className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-[#E040D0]/40"
-          />
-          {dobSaving && <div className="mt-2 text-xs text-text-muted">Saving...</div>}
-          <label className="mb-2 mt-4 block text-xs font-semibold text-text-secondary">Sex</label>
-          <select
-            value={sex}
-            onChange={async (e) => {
-              const nextSex = e.target.value as ClientSexInput;
-              const nextCycleEnabled = nextSex === "female" ? cycleTrackingEnabled : false;
-              setSex(nextSex);
-              setCycleTrackingEnabled(nextCycleEnabled);
-              await saveSexAndCycle(nextSex, nextCycleEnabled);
-            }}
-            className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-[#E040D0]/40"
-          >
-            <option value="">Not set</option>
-            <option value="female">Female</option>
-            <option value="male">Male</option>
-            <option value="prefer_not_to_say">Prefer not to say</option>
-          </select>
-          {sex === "female" && (
-            <button
-              type="button"
-              onClick={async () => {
-                const next = !cycleTrackingEnabled;
-                setCycleTrackingEnabled(next);
-                await saveSexAndCycle(sex, next);
-              }}
-              className={`mt-3 w-full rounded-xl border px-4 py-3 text-left transition-colors ${
-                cycleTrackingEnabled
-                  ? "border-emerald-500/30 bg-emerald-500/10"
-                  : "border-[rgba(0,0,0,0.08)] bg-bg-primary"
-              }`}
-            >
-              <span className="block text-sm font-semibold text-text-primary">Cycle tracking</span>
-              <span className="mt-1 block text-xs text-text-secondary">
-                {cycleTrackingEnabled ? "On - visible in the client portal." : "Off - hidden from the client portal."}
-              </span>
-            </button>
-          )}
-          {sexSaving && <div className="mt-2 text-xs text-text-muted">Saving cycle settings...</div>}
-        </div>
-
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider">Key Dates</div>
-              <div className="mt-1 text-xs text-text-muted">Birthday is separate. Add competitions, weddings, or other dates.</div>
-            </div>
-            {keyDatesSaving && <span className="text-xs text-text-muted">Saving...</span>}
-          </div>
-
-          <div className="space-y-2">
-            {keyDates.map((item, index) => (
-              <div key={item.id || `${item.label}-${item.date}-${index}`} className="flex items-center gap-2 rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-2">
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold text-text-primary">{item.label}</div>
-                  <div className="text-xs text-text-muted">{item.date}{item.recurring ? " · repeats yearly" : ""}</div>
+                <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
+                  <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                    {isHighTouch ? "Open priorities" : "Open tasks"}
+                  </div>
+                  <div className={`mt-1 text-lg font-heading font-bold ${openTaskCount === 0 ? "text-emerald-400" : "text-text-primary"}`}>
+                    {openTaskCount}
+                  </div>
+                  <div className="text-[11px] text-text-muted">set by Gordy</div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => saveKeyDates(keyDates.filter((_, i) => i !== index))}
-                  className="px-2 py-1 text-xs text-red-400 hover:text-red-300 transition-colors"
-                >
-                  Remove
-                </button>
+                <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
+                  <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-text-muted">Reply queue</div>
+                  <div className={`mt-1 text-xs font-semibold ${pendingReplyCount > 0 ? "text-amber-400" : "text-emerald-400"}`}>
+                    {pendingReplyCount === 0
+                      ? "Nothing pending"
+                      : `${pendingReplyCount} pending`}
+                  </div>
+                  <div className="text-[11px] text-text-muted">
+                    Last reply {replyAge || "—"}
+                  </div>
+                </div>
               </div>
-            ))}
-            {keyDates.length === 0 && (
-              <div className="rounded-xl border border-dashed border-[rgba(0,0,0,0.08)] px-3 py-3 text-xs text-text-muted">
-                No key dates saved.
-              </div>
-            )}
+            </div>
           </div>
-
-          <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_150px_auto]">
-            <input
-              type="text"
-              value={newKeyDate.label}
-              onChange={(e) => setNewKeyDate((prev) => ({ ...prev, label: e.target.value }))}
-              placeholder="Wedding, competition..."
-              className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40"
-            />
-            <input
-              type="date"
-              value={newKeyDate.date}
-              onChange={(e) => setNewKeyDate((prev) => ({ ...prev, date: e.target.value }))}
-              className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:border-[#E040D0]/40"
-            />
-            <button
-              type="button"
-              onClick={addKeyDate}
-              disabled={!newKeyDate.label.trim() || !newKeyDate.date || keyDatesSaving}
-              className="px-4 py-2.5 text-xs font-semibold text-white bg-[#E040D0] hover:bg-[#b830a8] rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Add
-            </button>
-          </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* Alert banners */}
       {client.status === "red" && (
@@ -2038,113 +1865,6 @@ export default function ClientDetailPage() {
         </div>
       )}
 
-      {/* Week at a Glance — always visible; high-touch tiers get a stronger accent */}
-      {(() => {
-        const openTaskCount = tasks.filter((t) => !t.completed && t.source !== "client").length;
-        const now = Date.now();
-        const weekStart = (() => {
-          const d = new Date();
-          const day = d.getDay();
-          const diff = day === 0 ? -6 : 1 - day;
-          d.setDate(d.getDate() + diff);
-          d.setHours(0, 0, 0, 0);
-          return d.getTime();
-        })();
-        const submittedThisWeek = client.checkins.some((c) => new Date(c.created_at).getTime() >= weekStart);
-        const latestCheckin = client.checkins[0];
-        const sessionsLoggedThisWeek = recentExerciseLogs.filter(
-          (log) => log.completed && new Date(log.log_date).getTime() >= weekStart,
-        ).length;
-        const latestReply = client.checkins.find((c) => c.admin_reply);
-        const pendingReplyCount = client.checkins.filter((c) => !c.admin_reply).length;
-        const replyAge = latestReply
-          ? (() => {
-              const stamp = latestReply.replied_at || latestReply.created_at;
-              const days = Math.floor((now - new Date(stamp).getTime()) / (1000 * 60 * 60 * 24));
-              if (days === 0) return "today";
-              if (days === 1) return "1 day ago";
-              if (days < 7) return `${days} days ago`;
-              return `${Math.floor(days / 7)} week${Math.floor(days / 7) === 1 ? "" : "s"} ago`;
-            })()
-          : null;
-        const isVip = client.tier === "vip";
-        const isPremium = client.tier === "premium";
-        const isHighTouch = isVip || isPremium;
-        const borderCls = isVip
-          ? "border-amber-500/25"
-          : isPremium
-            ? "border-sky-500/25"
-            : "border-[rgba(0,0,0,0.06)]";
-        const bgCls = isVip
-          ? "bg-[linear-gradient(135deg,rgba(245,158,11,0.08),rgba(0,0,0,0.02))]"
-          : isPremium
-            ? "bg-[linear-gradient(135deg,rgba(14,165,233,0.08),rgba(0,0,0,0.02))]"
-            : "bg-bg-card";
-        const eyebrowText = isVip
-          ? "VIP — Week at a Glance"
-          : isPremium
-            ? "Premium — Week at a Glance"
-            : "Week at a Glance";
-        const eyebrowCls = isVip ? "text-amber-500" : isPremium ? "text-sky-500" : "text-accent-bright";
-
-        return (
-          <div className={`mb-6 rounded-2xl border ${borderCls} ${bgCls} px-5 py-4`}>
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div>
-                <div className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${eyebrowCls}`}>
-                  {eyebrowText}
-                </div>
-                <div className="mt-1 text-sm text-text-primary">
-                  {isVip
-                    ? "Priority account — keep reply cadence tight and coach priorities visible."
-                    : isPremium
-                      ? "Higher-touch client — closer oversight than standard coached."
-                      : "Quick scan of how this week is tracking for this client."}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:min-w-[560px]">
-                <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
-                  <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-text-muted">Check-in</div>
-                  <div className={`mt-1 text-xs font-semibold ${submittedThisWeek ? "text-emerald-400" : "text-amber-400"}`}>
-                    {submittedThisWeek ? "Submitted this week" : "Pending this week"}
-                  </div>
-                  {latestCheckin?.mood && (
-                    <div className="mt-1 text-[11px] text-text-muted">Last mood: {latestCheckin.mood}</div>
-                  )}
-                </div>
-                <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
-                  <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-text-muted">Sessions logged</div>
-                  <div className={`mt-1 text-lg font-heading font-bold ${sessionsLoggedThisWeek > 0 ? "text-emerald-400" : "text-text-muted"}`}>
-                    {sessionsLoggedThisWeek}
-                  </div>
-                  <div className="text-[11px] text-text-muted">this week</div>
-                </div>
-                <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
-                  <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-text-muted">
-                    {isHighTouch ? "Open priorities" : "Open tasks"}
-                  </div>
-                  <div className={`mt-1 text-lg font-heading font-bold ${openTaskCount === 0 ? "text-emerald-400" : "text-text-primary"}`}>
-                    {openTaskCount}
-                  </div>
-                  <div className="text-[11px] text-text-muted">set by Gordy</div>
-                </div>
-                <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
-                  <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-text-muted">Reply queue</div>
-                  <div className={`mt-1 text-xs font-semibold ${pendingReplyCount > 0 ? "text-amber-400" : "text-emerald-400"}`}>
-                    {pendingReplyCount === 0
-                      ? "Nothing pending"
-                      : `${pendingReplyCount} pending`}
-                  </div>
-                  <div className="text-[11px] text-text-muted">
-                    Last reply {replyAge || "—"}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
       <details className="mb-5 rounded-xl border border-white/10 bg-bg-card p-4">
         <summary className="cursor-pointer text-sm font-semibold text-text-secondary">Email &amp; notification status</summary>
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
@@ -2154,12 +1874,12 @@ export default function ClientDetailPage() {
       </details>
 
       {/* Tab Navigation */}
-      <div className="flex items-center gap-1 mb-6 border-b border-[rgba(0,0,0,0.06)]">
+      <div className="flex items-center gap-1 mb-6 overflow-x-auto border-b border-[rgba(0,0,0,0.06)]">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-3 text-sm font-semibold transition-colors relative ${
+            className={`shrink-0 px-4 py-3 text-sm font-semibold transition-colors relative ${
               activeTab === tab.id
                 ? "text-[#E040D0]"
                 : "text-text-muted hover:text-text-secondary"
@@ -2175,7 +1895,68 @@ export default function ClientDetailPage() {
 
       {/* ── Dashboard Tab ── */}
       {activeTab === "dashboard" && (
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="space-y-6">
+          <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)]">
+            <DashboardRecoveryCard summaries={client.wearable_summaries || []} connections={client.wearable_connections || []} />
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider">Key Dates</div>
+              <div className="mt-1 text-xs text-text-muted">Birthday is separate. Add competitions, weddings, or other dates.</div>
+            </div>
+            {keyDatesSaving && <span className="text-xs text-text-muted">Saving...</span>}
+          </div>
+
+          <div className="space-y-2">
+            {keyDates.map((item, index) => (
+              <div key={item.id || `${item.label}-${item.date}-${index}`} className="flex items-center gap-2 rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-2">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-text-primary">{item.label}</div>
+                  <div className="text-xs text-text-muted">{item.date}{item.recurring ? " · repeats yearly" : ""}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => saveKeyDates(keyDates.filter((_, i) => i !== index))}
+                  className="px-2 py-1 text-xs text-red-400 hover:text-red-300 transition-colors"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            {keyDates.length === 0 && (
+              <div className="rounded-xl border border-dashed border-[rgba(0,0,0,0.08)] px-3 py-3 text-xs text-text-muted">
+                No key dates saved.
+              </div>
+            )}
+          </div>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_150px_auto]">
+            <input
+              type="text"
+              value={newKeyDate.label}
+              onChange={(e) => setNewKeyDate((prev) => ({ ...prev, label: e.target.value }))}
+              placeholder="Wedding, competition..."
+              className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40"
+            />
+            <input
+              type="date"
+              value={newKeyDate.date}
+              onChange={(e) => setNewKeyDate((prev) => ({ ...prev, date: e.target.value }))}
+              className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:border-[#E040D0]/40"
+            />
+            <button
+              type="button"
+              onClick={addKeyDate}
+              disabled={!newKeyDate.label.trim() || !newKeyDate.date || keyDatesSaving}
+              className="px-4 py-2.5 text-xs font-semibold text-white bg-[#E040D0] hover:bg-[#b830a8] rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Add
+            </button>
+          </div>
+        </div>
+          </div>
+          <DashboardHabitOverview entries={client.daily_metrics || []} summaries={client.wearable_summaries || []} workouts={dashboardSavedWorkouts(recentExerciseLogs, sessionSummaries)} />
+          <div className="grid min-w-0 gap-5 lg:grid-cols-3 [&>div]:min-w-0">
           {/* Left: Activity Log */}
           <div>
             <h3 className="text-sm font-heading font-bold text-text-primary mb-3">Activity</h3>
@@ -2226,30 +2007,6 @@ export default function ClientDetailPage() {
                 </div>
               )}
             </div>
-
-            {client.daily_metrics?.some((entry) => entry.notes || entry.manual_steps !== null && entry.manual_steps !== undefined) && (
-              <div className="mt-4 rounded-2xl border border-[#E040D0]/20 bg-bg-card p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-heading font-bold text-text-primary">Daily Tracker notes and steps</h3>
-                  <span className="rounded-full bg-[#E040D0]/10 px-2.5 py-1 text-[10px] font-semibold text-[#E040D0]">Client shared</span>
-                </div>
-                <p className="mt-1 text-xs text-text-muted">Context the client added alongside their daily numbers.</p>
-                <div className="mt-3 space-y-2">
-                  {client.daily_metrics.filter((entry) => entry.notes || entry.manual_steps !== null && entry.manual_steps !== undefined).slice(0, 4).map((entry) => (
-                    <div key={entry.id} className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-3 py-3">
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#E040D0]">
-                        {new Date(`${entry.tracked_date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
-                      </div>
-                      {(() => {
-                        const steps = resolveDailySteps(entry.manual_steps, client.wearable_summaries?.find((summary) => summary.summary_date === entry.tracked_date)?.steps);
-                        return steps.value === null ? null : <p className="mt-1 text-xs text-text-secondary">{steps.value.toLocaleString("en-GB")} steps · {steps.source === "manual" ? "Manual entry" : "Connected app"}</p>;
-                      })()}
-                      {entry.notes && <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-text-secondary">{entry.notes}</p>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Programme Timeline */}
             <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 mt-4">
@@ -2419,63 +2176,7 @@ export default function ClientDetailPage() {
           <div>
             <h3 className="text-sm font-heading font-bold text-text-primary mb-3">Client Data</h3>
 
-            {/* Weight card */}
-            <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 mb-3">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] text-text-muted font-semibold uppercase tracking-wider">Weight Tracker</span>
-                {checkinsWithWeight.length > 0 && (
-                  <span className="text-[10px] text-text-muted">
-                    Latest: {new Date(checkinsWithWeight[checkinsWithWeight.length - 1].created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-end gap-4">
-                <div>
-                  <div className="text-[10px] text-text-muted mb-0.5">Current</div>
-                  <div className="text-2xl font-heading font-bold text-text-primary">
-                    {latestWeight ? `${latestWeight}kg` : "—"}
-                  </div>
-                  {weightTrend !== null && (
-                    <div className={`text-xs font-semibold mt-0.5 ${weightTrend < 0 ? "text-emerald-400" : "text-red-400"}`}>
-                      {weightTrend < 0 ? "▼" : "▲"} {Math.abs(weightTrend).toFixed(1)}kg vs last
-                    </div>
-                  )}
-                </div>
-                {startWeightVal && latestWeight && startWeightVal !== latestWeight && (
-                  <div>
-                    <div className="text-[10px] text-text-muted mb-0.5">Total change</div>
-                    <div className={`text-lg font-heading font-bold ${latestWeight < startWeightVal ? "text-emerald-400" : "text-red-400"}`}>
-                      {latestWeight < startWeightVal ? "▼" : "▲"} {Math.abs(latestWeight - startWeightVal).toFixed(1)}kg
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Weight trend chart */}
-            {weightChartData.length >= 2 && (
-              <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 mb-3">
-                <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-3">Weight Trend</div>
-                <ResponsiveContainer width="100%" height={80}>
-                  <LineChart data={weightChartData} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
-                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--color-text-muted)" }} tickLine={false} axisLine={false} />
-                    <YAxis tick={{ fontSize: 9, fill: "var(--color-text-muted)" }} tickLine={false} axisLine={false} domain={["auto", "auto"]} />
-                    <Tooltip
-                      contentStyle={{ background: "var(--color-bg-card)", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 8, fontSize: 11 }}
-                      formatter={(v) => [`${v}kg`, "Weight"]}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="value"
-                      stroke="#E040D0"
-                      strokeWidth={2}
-                      dot={<Dot r={3} fill="#E040D0" stroke="#E040D0" />}
-                      activeDot={{ r: 4, fill: "#E040D0" }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            )}
+            <DashboardWeightCard history={weightHistory} startWeight={startWeightVal} />
 
             {/* Other metric trend charts */}
             {otherMetricTrends.map(({ metric, data }) => (
@@ -2530,6 +2231,139 @@ export default function ClientDetailPage() {
 
             {/* Coach Notes now lives in the middle column — keeping one source of truth. */}
           </div>
+          </div>
+          <div className="grid min-w-0 gap-4 lg:grid-cols-2 [&>div]:min-w-0">
+        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-5">
+          <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-3">Profile Details</div>
+          <label className="mb-2 block text-xs font-semibold text-text-secondary">Date of birth</label>
+          <input
+            type="date"
+            value={dateOfBirth}
+            onChange={async (e) => {
+              const value = e.target.value;
+              setDateOfBirth(value);
+              await saveDateOfBirth(value);
+            }}
+            className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-[#E040D0]/40"
+          />
+          {dobSaving && <div className="mt-2 text-xs text-text-muted">Saving...</div>}
+          <label className="mb-2 mt-4 block text-xs font-semibold text-text-secondary">Sex</label>
+          <select
+            value={sex}
+            onChange={async (e) => {
+              const nextSex = e.target.value as ClientSexInput;
+              const nextCycleEnabled = nextSex === "female" ? cycleTrackingEnabled : false;
+              setSex(nextSex);
+              setCycleTrackingEnabled(nextCycleEnabled);
+              await saveSexAndCycle(nextSex, nextCycleEnabled);
+            }}
+            className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-[#E040D0]/40"
+          >
+            <option value="">Not set</option>
+            <option value="female">Female</option>
+            <option value="male">Male</option>
+            <option value="prefer_not_to_say">Prefer not to say</option>
+          </select>
+          {sex === "female" && (
+            <button
+              type="button"
+              onClick={async () => {
+                const next = !cycleTrackingEnabled;
+                setCycleTrackingEnabled(next);
+                await saveSexAndCycle(sex, next);
+              }}
+              className={`mt-3 w-full rounded-xl border px-4 py-3 text-left transition-colors ${
+                cycleTrackingEnabled
+                  ? "border-emerald-500/30 bg-emerald-500/10"
+                  : "border-[rgba(0,0,0,0.08)] bg-bg-primary"
+              }`}
+            >
+              <span className="block text-sm font-semibold text-text-primary">Cycle tracking</span>
+              <span className="mt-1 block text-xs text-text-secondary">
+                {cycleTrackingEnabled ? "On - visible in the client portal." : "Off - hidden from the client portal."}
+              </span>
+            </button>
+          )}
+          {sexSaving && <div className="mt-2 text-xs text-text-muted">Saving cycle settings...</div>}
+        </div>
+      <div className="rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Connected Calendars</div>
+            <h2 className="mt-1 text-lg font-heading font-bold text-text-primary">Weekly load</h2>
+            <p className="mt-1 text-sm text-text-secondary">
+              {activeCalendarConnections.length > 0
+                ? `${activeCalendarConnections.map((connection) => connection.provider === "google_calendar" ? "Google Calendar" : "Outlook Calendar").join(", ")} connected.`
+                : "No calendar connected yet."}
+            </p>
+          </div>
+          <span className={`inline-flex w-fit rounded-full border px-3 py-1.5 text-xs font-semibold ${
+            activeCalendarConnections.length > 0
+              ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+              : "border-[rgba(0,0,0,0.08)] bg-bg-primary text-text-muted"
+          }`}>
+            {upcomingCalendarEvents.length} event{upcomingCalendarEvents.length === 1 ? "" : "s"} in the synced window
+          </span>
+        </div>
+
+        {activeCalendarConnections.length > 0 ? (
+          <div className="mt-4 space-y-3">
+            <div className="space-y-2">
+              {activeCalendarConnections.map((connection) => (
+                <div key={connection.id} className="flex items-center justify-between gap-3 rounded-lg border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-3">
+                  <span className="text-sm font-semibold text-text-primary">
+                    {connection.provider === "google_calendar" ? "Google Calendar" : "Outlook Calendar"}
+                  </span>
+                  <span className="text-xs text-text-muted">{formatWearableDate(connection.last_sync_at)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="rounded-lg border border-[rgba(0,0,0,0.06)] bg-bg-card px-4 py-3">
+              <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Next up</div>
+              {upcomingCalendarEvents.length > 0 ? (
+                <div className="space-y-2">
+                  {upcomingCalendarEvents.slice(0, 5).map((event) => (
+                    <div key={event.id} className="flex min-w-0 items-center gap-3 text-sm">
+                      <span className="w-14 flex-none text-xs font-semibold text-accent-bright">
+                        {event.all_day ? "All day" : event.event_time}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-text-primary">{event.title}</span>
+                      <span className="flex-none text-xs text-text-muted">
+                        {new Date(`${event.event_date_key}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-text-muted">No events in the current seven-day window.</p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4 rounded-lg border border-dashed border-[rgba(0,0,0,0.10)] bg-bg-card px-4 py-3 text-sm text-text-secondary">
+            Ask the client to open Calendar in their portal and connect Outlook or Google Calendar.
+          </div>
+        )}
+      </div>
+
+          </div>
+
+      {client.experience_mode === "founder_dashboard" && (
+        <CapacityBaselinePanel clientId={client.id} />
+      )}
+
+      {client.experience_mode === "founder_dashboard" && (
+        <EarlyWinPanel clientId={client.id} />
+      )}
+
+      {client.experience_mode === "founder_dashboard" && (
+        <CompliancePanel clientId={client.id} />
+      )}
+
+      {client.experience_mode === "founder_dashboard" && (
+        <Month4ReviewPanel clientId={client.id} />
+      )}
+
         </div>
       )}
 
@@ -4802,6 +4636,7 @@ function NutritionTabContent({
 }
 
 function ActivityTimeline({ clientId }: { clientId: string }) {
+  const [showAll, setShowAll] = useState(false);
   interface ActivityEvent {
     type: string;
     description: string;
@@ -4837,14 +4672,14 @@ function ActivityTimeline({ clientId }: { clientId: string }) {
   }
 
   return (
-    <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 max-h-[480px] overflow-y-auto">
+    <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-4 max-h-[320px] overflow-y-auto">
       <div className="relative border-l border-[rgba(0,0,0,0.08)] ml-3 space-y-0">
-        {events.map((event, i) => {
+        {(showAll ? events : events.slice(0, 5)).map((event, i) => {
           const ts = new Date(event.timestamp);
           const timeLabel = ts.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
           const dateLabel = ts.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
           return (
-            <div key={i} className="relative pl-5 pb-4 last:pb-0">
+            <div key={i} className="relative pl-5 pb-3 last:pb-0">
               <div className={`absolute -left-[5px] top-1 w-2.5 h-2.5 rounded-full border-2 border-bg-card ${event.color}`} />
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -4857,6 +4692,7 @@ function ActivityTimeline({ clientId }: { clientId: string }) {
           );
         })}
       </div>
+      {events.length > 5 && <button type="button" onClick={() => setShowAll((value) => !value)} className="mt-3 text-xs font-semibold text-accent-bright">{showAll ? "Show less" : `View all ${events.length} updates`}</button>}
     </div>
   );
 }

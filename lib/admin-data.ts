@@ -356,6 +356,7 @@ export async function getClients(): Promise<AdminClient[]> {
 
 export async function getClientById(id: string): Promise<AdminClient | null> {
   const admin = createAdminClient();
+  const todayKey = dateKeyInTimeZone(new Date(), "Europe/London");
 
   const { data: p, error } = await admin
     .from("client_profiles")
@@ -451,7 +452,7 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
       .from("client_wearable_daily_summaries")
       .select("*")
       .eq("client_id", id)
-      .lte("summary_date", new Date().toISOString().slice(0, 10))
+      .lte("summary_date", todayKey)
       .order("summary_date", { ascending: false })
       .limit(7),
     admin
@@ -464,7 +465,7 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
       .select("id, client_id, connection_id, provider, external_event_id, title, starts_at, ends_at, event_date_key, event_time, all_day, busy_status, meeting_url, is_cancelled, synced_at")
       .eq("client_id", id)
       .eq("is_cancelled", false)
-      .gte("event_date_key", dateKeyInTimeZone(new Date(), "Europe/London"))
+      .gte("event_date_key", todayKey)
       .order("starts_at", { ascending: true })
       .limit(50),
     admin
@@ -486,14 +487,14 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
       .select("log_date")
       .eq("client_id", id)
       .eq("completed", true)
-      .lte("log_date", new Date().toISOString().slice(0, 10))
+      .lte("log_date", todayKey)
       .order("log_date", { ascending: false })
       .limit(1),
     admin
       .from("client_daily_metrics")
       .select("id, tracked_date, sleep_hours, water_liters, manual_steps, energy_level, stress_level, nutrition_score, training_completed, notes")
       .eq("client_id", id)
-      .lte("tracked_date", new Date().toISOString().slice(0, 10))
+      .lte("tracked_date", todayKey)
       .order("tracked_date", { ascending: false })
       .limit(14),
     admin
@@ -501,7 +502,7 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
       .select("tracked_date")
       .eq("client_id", id)
       .eq("completed", true)
-      .lte("tracked_date", new Date().toISOString().slice(0, 10))
+      .lte("tracked_date", todayKey)
       .order("tracked_date", { ascending: false })
       .limit(1),
     admin
