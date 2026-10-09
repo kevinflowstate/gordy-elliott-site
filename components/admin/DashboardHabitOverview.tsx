@@ -40,7 +40,11 @@ export default function DashboardHabitOverview({ entries, summaries, workouts }:
   const selectedEntry = entries.find((entry) => entry.tracked_date === selected);
   const dateLabel = (day: string) => new Date(`${day}T12:00:00Z`).toLocaleDateString("en-GB", { timeZone: "Europe/London", weekday: "short", day: "numeric", month: "short" });
   return <section aria-label="Daily Habit Tracker" className="min-w-0 rounded-2xl border border-black/10 bg-bg-card p-4 sm:p-5">
-    <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-heading font-bold text-text-primary">Daily Habit Tracker</h3><span className="text-xs text-text-muted">Last 7 days</span></div>
+    <details className="group">
+      <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-accent-bright [&::-webkit-details-marker]:hidden">
+        <h3 className="text-sm font-heading font-bold text-text-primary">Daily Habit Tracker <span className="ml-2 font-normal text-xs text-text-muted">Last 7 days</span></h3>
+        <span className="flex items-center gap-2 text-xs font-semibold text-accent-bright"><span className="group-open:hidden">Show daily tracker</span><span className="hidden group-open:inline">Hide daily tracker</span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6" /></svg></span>
+      </summary>
     <p className="mt-1 text-xs text-text-muted">Select a day or a number for the full entry. A dash means no value recorded.</p>
     <div className="mt-4 overflow-x-auto rounded-xl focus-visible:outline-2 focus-visible:outline-accent-bright" tabIndex={0} role="region" aria-label="Seven-day daily tracker; scroll horizontally on smaller screens">
       <table className="w-full min-w-[640px] border-separate border-spacing-1 text-xs">
@@ -51,6 +55,7 @@ export default function DashboardHabitOverview({ entries, summaries, workouts }:
         })}</tr>)}</tbody>
       </table>
     </div>
+    </details>
     {selected && <DashboardDetail title={`Daily entry · ${dateLabel(selected)}`} onClose={() => setSelected(null)}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{dayMetrics(selected).map((metric) => <div key={metric.label} className="rounded-xl border border-black/5 bg-bg-primary p-3"><p className="text-xs text-text-muted">{metric.label}</p><p className="mt-1 text-lg font-semibold text-text-primary">{metric.value}</p><p className="mt-1 text-[10px] text-text-muted">{metric.source}</p></div>)}</div>
       <div className="mt-5"><h3 className="text-sm font-semibold text-text-primary">Client notes</h3><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-text-secondary">{selectedEntry?.notes || "No notes shared for this day."}</p></div>
