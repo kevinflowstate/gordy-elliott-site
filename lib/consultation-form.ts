@@ -1,3 +1,4 @@
+import { buildBoardroomConsultationConfig, BOARDROOM_EXCLUDED_FIELDS, isBoardroomConsultation } from "@/lib/boardroom-consultation";
 import type { FormQuestion } from "@/lib/types";
 
 export interface ConsultationFormConfig {
@@ -160,7 +161,12 @@ function normalizeQuestion(question: FormQuestion): FormQuestion {
   };
 }
 
-export function normalizeConsultationConfig(config: ConsultationFormConfig | null | undefined): ConsultationFormConfig {
+export function normalizeConsultationConfig(config: ConsultationFormConfig | null | undefined, programme?: string | null): ConsultationFormConfig {
+  if (isBoardroomConsultation(programme)) {
+    const fallback = buildBoardroomConsultationConfig();
+    if (!config) return fallback;
+    return { ...fallback, ...config, title: config.title || fallback.title, description: config.description || fallback.description, questions: (Array.isArray(config.questions) ? config.questions : fallback.questions).filter(q => !BOARDROOM_EXCLUDED_FIELDS.has(q.id)).map(normalizeQuestion) };
+  }
   const fallback = buildFallbackConsultationConfig();
   if (!config) return fallback;
 

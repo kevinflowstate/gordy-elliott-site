@@ -32,3 +32,17 @@ test("admin dashboard queries include the UK Monday entry while UTC is still Sun
     assert.equal(bounds.find((bound) => bound.table === table)?.value, "2026-10-05", `${table} must use the same day as the displayed tracker`);
   }
 });
+
+
+test("dashboard data hides disabled mood placeholders and keeps real fitness moods", async () => {
+  const admin = { from() {
+    const rows = [{ mood: "okay", form_config_snapshot: { mood_enabled: false } }, { mood: "great", form_config_snapshot: { mood_enabled: true } }, { mood: "good" }];
+    const builder = { select() { return builder; }, order() { return builder; }, limit() { return builder; }, then(resolve: (value: unknown) => unknown) { return Promise.resolve({ data: rows }).then(resolve); } };
+    return builder;
+  } };
+  const source = await readFile(new URL("../lib/admin-data.ts", import.meta.url), "utf8");
+  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const exports: { getRecentCheckins?: () => Promise<Array<{ mood: string | null }>> } = {};
+  new Function("require", "exports", compiled)((id: string) => id === "@/lib/supabase/admin" ? { createAdminClient: () => admin } : requireActual(id), exports);
+  assert.deepEqual((await exports.getRecentCheckins!()).map(checkin => checkin.mood), [null, "great", "good"]);
+});

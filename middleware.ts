@@ -1,3 +1,4 @@
+import { programmeShowsPortalPath } from "@/lib/programmes";
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { resolveClientLifecycleStatus } from '@/lib/client-attention';
@@ -164,7 +165,7 @@ export async function middleware(request: NextRequest) {
         const result = await withTimeout(
           adminSupabase
             .from('client_profiles')
-            .select('id, lifecycle_status, lifecycle_resumes_at, onboarding_status')
+            .select('id, programme_type, lifecycle_status, lifecycle_resumes_at, onboarding_status')
             .eq('user_id', user.id)
             .maybeSingle(),
           SUPABASE_OPERATION_TIMEOUT_MS,
@@ -249,6 +250,11 @@ export async function middleware(request: NextRequest) {
         const url = request.nextUrl.clone();
         url.pathname = '/portal';
         url.search = '';
+        return NextResponse.redirect(url);
+      }
+
+      if (clientProfile.programme_type === 'boardroom' && path.startsWith('/portal') && !programmeShowsPortalPath('boardroom', path)) {
+        const url = request.nextUrl.clone(); url.pathname = '/portal'; url.search = '';
         return NextResponse.redirect(url);
       }
 

@@ -1,8 +1,9 @@
 "use client";
 
+import { BOARDROOM_CONSULTATION_QUESTIONS } from "@/lib/boardroom-consultation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { CheckinFormConfig, CheckinFormTemplate, FormQuestion, ProgressMetric } from "@/lib/types";
+import type { CheckinFormConfig, CheckinFormTemplate, FormQuestion, ProgressMetric, ProgrammeType } from "@/lib/types";
 import {
   DEFAULT_CHECKIN_QUESTIONS,
   DEFAULT_PROGRESS_METRICS,
@@ -12,13 +13,12 @@ import {
 } from "@/lib/checkin-form";
 import {
   DEFAULT_CONSULTATION_QUESTIONS,
-  buildFallbackConsultationConfig,
   isConsultationSystemField,
   normalizeConsultationConfig,
 } from "@/lib/consultation-form";
 
 const NEW_TEMPLATE_ID = "__new__";
-type BuilderSection = "checkin" | "consultation";
+type BuilderSection = "checkin" | "consultation" | "boardroom_consultation";
 
 function generateId() {
   return `q_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
@@ -78,6 +78,7 @@ function buildSnapshot({
   questions,
   progressMetrics,
   makeDefault,
+  programmeType,
 }: {
   templateName: string;
   templateDescription: string;
@@ -85,6 +86,7 @@ function buildSnapshot({
   questions: FormQuestion[];
   progressMetrics: ProgressMetric[];
   makeDefault: boolean;
+  programmeType?: ProgrammeType;
 }) {
   return JSON.stringify({
     templateName,
@@ -93,6 +95,7 @@ function buildSnapshot({
     questions,
     progress_tracking: progressMetrics,
     makeDefault,
+    programmeType,
   });
 }
 
@@ -118,10 +121,11 @@ function BuilderTabs({
   disabled?: boolean;
 }) {
   return (
-    <div className="mt-5 inline-flex rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-card p-1">
+    <div className="mt-5 flex flex-wrap rounded-2xl border border-[rgba(0,0,0,0.08)] bg-bg-card p-1">
       {[
         { id: "checkin" as const, label: "Check-in Forms" },
         { id: "consultation" as const, label: "Consultation Form" },
+        { id: "boardroom_consultation" as const, label: "Boardroom Consultation" },
       ].map((item) => (
         <button
           key={item.id}
@@ -167,8 +171,9 @@ export default function CheckinFormsPage() {
   );
 }
 
-function ConsultationFormEditor() {
-  const fallback = normalizeConsultationConfig(buildFallbackConsultationConfig());
+function ConsultationFormEditor({ formType }: { formType: "consultation" | "boardroom_consultation" }) {
+  const programme = formType === "boardroom_consultation" ? "boardroom" : undefined;
+  const fallback = normalizeConsultationConfig(null, programme);
   const [title, setTitle] = useState(fallback.title || "Initial Consultation");
   const [description, setDescription] = useState(fallback.description || "");
   const [questions, setQuestions] = useState<FormQuestion[]>(fallback.questions);
@@ -181,10 +186,10 @@ function ConsultationFormEditor() {
   useEffect(() => {
     async function loadConsultationConfig() {
       try {
-        const res = await fetch("/api/admin/form-config?type=consultation");
+        const res = await fetch(`/api/admin/form-config?type=${formType}`);
         if (!res.ok) throw new Error("Failed to load consultation form");
         const data = await res.json();
-        const config = normalizeConsultationConfig(data.config);
+        const config = normalizeConsultationConfig(data.config, programme);
         setTitle(config.title || "Initial Consultation");
         setDescription(config.description || "");
         setQuestions(config.questions);
@@ -237,7 +242,7 @@ function ConsultationFormEditor() {
   }
 
   function resetToDefaults() {
-    const config = normalizeConsultationConfig(buildFallbackConsultationConfig());
+    const config = normalizeConsultationConfig(null, programme);
     setTitle(config.title || "Initial Consultation");
     setDescription(config.description || "");
     setQuestions(config.questions);
@@ -250,11 +255,11 @@ function ConsultationFormEditor() {
     setSaveMessage("");
 
     try {
-      const config = normalizeConsultationConfig({ title, description, questions });
+      const config = normalizeConsultationConfig({ title, description, questions }, programme);
       const res = await fetch("/api/admin/form-config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "consultation", config }),
+        body: JSON.stringify({ type: formType, config }),
       });
 
       if (!res.ok) {
@@ -263,7 +268,7 @@ function ConsultationFormEditor() {
       }
 
       const data = await res.json();
-      const savedConfig = normalizeConsultationConfig(data.config);
+      const savedConfig = normalizeConsultationConfig(data.config, programme);
       setTitle(savedConfig.title || "Initial Consultation");
       setDescription(savedConfig.description || "");
       setQuestions(savedConfig.questions);
@@ -284,7 +289,8 @@ function ConsultationFormEditor() {
   const currentSnapshot = useMemo(() => buildConsultationSnapshot({ title, description, questions }), [title, description, questions]);
   const hasUnsavedChanges = initialSnapshot !== "" && currentSnapshot !== initialSnapshot;
   const enabledQuestionCount = questions.filter((question) => question.enabled !== false).length;
-  const customQuestionCount = questions.filter((question) => !DEFAULT_CONSULTATION_QUESTIONS.find((defaultQuestion) => defaultQuestion.id === question.id)).length;
+  const consultationDefaults = programme === "boardroom" ? BOARDROOM_CONSULTATION_QUESTIONS : DEFAULT_CONSULTATION_QUESTIONS;
+  const customQuestionCount = questions.filter((question) => !consultationDefaults.find((defaultQuestion) => defaultQuestion.id === question.id)).length;
 
   if (loading) {
     return (
@@ -301,8 +307,8 @@ function ConsultationFormEditor() {
       <div className="mb-4 rounded-2xl border border-[#E040D0]/20 bg-[#E040D0]/8 p-5">
         <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#E040D0]">Consultation form</div>
         <div className="mt-2 text-sm text-text-secondary">
-          This controls the form clients complete during onboarding and through Gordy&apos;s direct consultation link.
-          Sex and cycle tracking stay protected: cycle tracking is still only offered when the client selects female.
+          This controls the form clients complete during onboarding and through Gordy&apos;s direct consultation link.{" "}
+          {programme === "boardroom" ? "Boardroom clients see only business questions, with no body or health fields." : "Sex and cycle tracking stay protected: cycle tracking is still only offered when the client selects female."}
         </div>
       </div>
 
@@ -508,12 +514,16 @@ function CheckinFormsInner() {
   const [progressMetrics, setProgressMetrics] = useState<ProgressMetric[]>(normalizeCheckinConfig(buildFallbackCheckinConfig()).progress_tracking || []);
   const [questionsOpen, setQuestionsOpen] = useState(true);
   const [progressOpen, setProgressOpen] = useState(true);
+  const [schemaSettings, setSchemaSettings] = useState<Pick<CheckinFormConfig, "checkin_day" | "mood_enabled" | "mood_options"> | null>(null);
+  const [programmeType, setProgrammeType] = useState<ProgrammeType | undefined>(undefined);
+  const [clientProgramme, setClientProgramme] = useState<ProgrammeType | undefined>(undefined);
   const [makeDefault, setMakeDefault] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [initialSnapshot, setInitialSnapshot] = useState("");
+  const [clientLoadFailed, setClientLoadFailed] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const searchParams = useSearchParams();
@@ -522,15 +532,15 @@ function CheckinFormsInner() {
   const clientOverrideName = searchParams.get("clientName");
   const baseTemplateId = searchParams.get("base");
   const [builderSection, setBuilderSection] = useState<BuilderSection>(
-    searchParams.get("section") === "consultation" && !clientOverrideId ? "consultation" : "checkin"
+    !clientOverrideId && ["consultation", "boardroom_consultation"].includes(searchParams.get("section") || "") ? searchParams.get("section") as BuilderSection : "checkin"
   );
 
   function changeBuilderSection(section: BuilderSection) {
-    if (clientOverrideId && section === "consultation") return;
+    if (clientOverrideId && section !== "checkin") return;
     setBuilderSection(section);
     const params = new URLSearchParams(searchParams.toString());
-    if (section === "consultation") {
-      params.set("section", "consultation");
+    if (section !== "checkin") {
+      params.set("section", section);
     } else {
       params.delete("section");
     }
@@ -540,6 +550,8 @@ function CheckinFormsInner() {
 
   function loadTemplateIntoEditor(template: CheckinFormTemplate) {
     const config = normalizeCheckinConfig(template.config);
+    setProgrammeType(config.programme_type);
+    setSchemaSettings(config);
     setSelectedTemplateId(template.id);
     setTemplateName(template.name);
     setTemplateDescription(template.description || "");
@@ -556,11 +568,14 @@ function CheckinFormsInner() {
       questions: config.questions,
       progressMetrics: config.progress_tracking || [],
       makeDefault: template.is_default,
+      programmeType: config.programme_type,
     }));
   }
 
   function resetEditorToDefaults(message?: string) {
-    const config = normalizeCheckinConfig(buildFallbackCheckinConfig());
+    const config = normalizeCheckinConfig(buildFallbackCheckinConfig(clientProgramme || programmeType));
+    setSchemaSettings(config);
+    setProgrammeType(config.programme_type);
     setSelectedTemplateId(NEW_TEMPLATE_ID);
     setTemplateName("New Check-in Form");
     setTemplateDescription("");
@@ -577,6 +592,7 @@ function CheckinFormsInner() {
       questions: config.questions,
       progressMetrics: config.progress_tracking || [],
       makeDefault: false,
+      programmeType: config.programme_type,
     }));
     if (message) setSaveMessage(message);
   }
@@ -588,20 +604,30 @@ function CheckinFormsInner() {
         if (!res.ok) throw new Error("Failed to load templates");
 
         const data = await res.json();
+        let resolvedProgramme: ProgrammeType | undefined;
+        if (clientOverrideId) {
+          const clientRes = await fetch(`/api/admin/clients/${clientOverrideId}`);
+          if (!clientRes.ok) throw new Error("Could not identify client's programme");
+          const clientData = await clientRes.json();
+          resolvedProgramme = clientData.client?.programme_type;
+          setClientProgramme(resolvedProgramme);
+          setProgrammeType(resolvedProgramme === "boardroom" ? "boardroom" : undefined);
+        }
         const loadedTemplates: CheckinFormTemplate[] = data.templates || [];
         setTemplates(loadedTemplates);
 
         // Per-client override flow: if ?base=X is supplied, load that template,
         // pre-title it "{ClientName} — Weekly Check-in", and let the coach branch it.
         const baseTemplate = baseTemplateId
-          ? loadedTemplates.find((template) => template.id === baseTemplateId)
+          ? loadedTemplates.find((template) => template.id === baseTemplateId && (template.config.programme_type === "boardroom") === (resolvedProgramme === "boardroom"))
           : null;
 
         if (baseTemplate && clientOverrideId && clientOverrideName) {
-          const config = normalizeCheckinConfig(baseTemplate.config);
+          const config = normalizeCheckinConfig(baseTemplate.config, resolvedProgramme);
           setSelectedTemplateId(NEW_TEMPLATE_ID);
           setTemplateName(`${clientOverrideName} — Weekly Check-in`);
           setTemplateDescription(`Client-specific form based on "${baseTemplate.name}".`);
+          setSchemaSettings(config);
           setTitle(config.title || "Weekly Check-in");
           setQuestions(config.questions);
           setProgressMetrics(config.progress_tracking || []);
@@ -613,10 +639,11 @@ function CheckinFormsInner() {
         }
 
         if (clientOverrideId && clientOverrideName) {
-          const config = normalizeCheckinConfig(buildFallbackCheckinConfig());
+          const config = buildFallbackCheckinConfig(resolvedProgramme);
           setSelectedTemplateId(NEW_TEMPLATE_ID);
           setTemplateName(`${clientOverrideName} — Weekly Check-in`);
           setTemplateDescription("Client-specific form built from scratch.");
+          setSchemaSettings(config);
           setTitle(config.title || "Weekly Check-in");
           setQuestions(config.questions);
           setProgressMetrics(config.progress_tracking || []);
@@ -637,6 +664,7 @@ function CheckinFormsInner() {
           resetEditorToDefaults();
         }
       } catch {
+        if (clientOverrideId) { setSaveMessage("Error: Could not load this client and their assigned form. Please refresh before editing."); setClientLoadFailed(true); return; }
         resetEditorToDefaults("Couldn't load saved templates, so a fresh draft is ready.");
       } finally {
         setLoading(false);
@@ -686,7 +714,8 @@ function CheckinFormsInner() {
   }
 
   function resetToDefaults() {
-    const config = normalizeCheckinConfig(buildFallbackCheckinConfig());
+    const config = normalizeCheckinConfig(buildFallbackCheckinConfig(clientProgramme || programmeType));
+    setSchemaSettings(config);
     setTitle(config.title || "Weekly Check-in");
     setQuestions(config.questions);
     setProgressMetrics(config.progress_tracking || []);
@@ -702,7 +731,8 @@ function CheckinFormsInner() {
     questions,
     progressMetrics,
     makeDefault,
-  }), [templateName, templateDescription, title, questions, progressMetrics, makeDefault]);
+    programmeType,
+  }), [templateName, templateDescription, title, questions, progressMetrics, makeDefault, programmeType]);
 
   const isNewDraft = selectedTemplateId === NEW_TEMPLATE_ID;
   const activeTemplate = isNewDraft ? null : templates.find((template) => template.id === selectedTemplateId) || null;
@@ -715,9 +745,10 @@ function CheckinFormsInner() {
 
   const config: CheckinFormConfig = {
     title,
-    checkin_day: "monday",
-    mood_enabled: true,
-    mood_options: [
+    programme_type: programmeType,
+    checkin_day: schemaSettings?.checkin_day || "monday",
+    mood_enabled: schemaSettings?.mood_enabled ?? programmeType !== "boardroom",
+    mood_options: schemaSettings?.mood_options || [
       { value: "great", label: "Great", color: "emerald" },
       { value: "good", label: "Good", color: "blue" },
       { value: "okay", label: "Okay", color: "amber" },
@@ -869,11 +900,13 @@ function CheckinFormsInner() {
     }
   }
 
-  if (builderSection === "consultation" && !clientOverrideId) {
+  if (clientLoadFailed) return <div className="max-w-3xl rounded-2xl border border-amber-500/20 bg-bg-card p-6"><h1 className="text-xl font-heading font-bold text-text-primary">Client form unavailable</h1><p className="mt-3 text-sm text-text-secondary">{saveMessage}</p></div>;
+
+  if (builderSection !== "checkin" && !clientOverrideId) {
     return (
       <div className="max-w-3xl">
         <BuilderHeader section={builderSection} onSectionChange={changeBuilderSection} disabled={saving || deleting} />
-        <ConsultationFormEditor />
+        <ConsultationFormEditor key={builderSection} formType={builderSection} />
       </div>
     );
   }
@@ -933,7 +966,7 @@ function CheckinFormsInner() {
               className="w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-[#E040D0]/40 transition-colors"
             >
               <option value={NEW_TEMPLATE_ID}>New form draft</option>
-              {templates.map((template) => (
+              {templates.filter(template => !clientOverrideId || (template.config.programme_type === "boardroom") === (clientProgramme === "boardroom")).map((template) => (
                 <option key={template.id} value={template.id}>
                   {getTemplateLabel(template)}{typeof template.assigned_client_count === "number" && template.assigned_client_count > 0 ? ` — ${template.assigned_client_count} client${template.assigned_client_count === 1 ? "" : "s"}` : ""}
                 </option>
@@ -963,6 +996,17 @@ function CheckinFormsInner() {
             </button>
           </div>
         </div>
+      </div>
+
+      <div className="mb-4 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-card p-5">
+        <label htmlFor="checkin-programme" className="block text-sm font-semibold text-text-primary">Check-in programme</label>
+        <select id="checkin-programme" disabled={Boolean(clientOverrideId) || !isNewDraft} value={programmeType === "boardroom" ? "boardroom" : "fitness"} onChange={event => {
+          const next = event.target.value === "boardroom" ? "boardroom" : undefined;
+          const draft = buildFallbackCheckinConfig(next); setSchemaSettings(draft); setProgrammeType(next); setQuestions(draft.questions); setProgressMetrics(draft.progress_tracking || []); setTitle(draft.title || "Weekly Check-in"); setMakeDefault(false);
+        }} className="mt-2 w-full rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary p-3 text-text-primary">
+          <option value="fitness">Fitness programmes</option><option value="boardroom">Capacity Boardroom</option>
+        </select>
+        {programmeType === "boardroom" && <p className="mt-2 text-xs text-text-muted">Personal business questions only. Saving and assigning to a client approves this form for their weekly check-in.</p>}
       </div>
 
       <div className="mb-4 grid gap-3 sm:grid-cols-4">
@@ -1010,7 +1054,7 @@ function CheckinFormsInner() {
               type="checkbox"
               checked={clientOverrideId ? false : makeDefault}
               onChange={(event) => setMakeDefault(event.target.checked)}
-              disabled={!!clientOverrideId}
+              disabled={!!clientOverrideId || programmeType === "boardroom"}
               className="h-4 w-4 rounded border-[rgba(0,0,0,0.2)] text-[#E040D0] focus:ring-[#E040D0]/40"
             />
             {clientOverrideId ? "Per-client overrides can't become Gordy&apos;s default form" : "Set this as Gordy&apos;s default check-in form"}
@@ -1057,6 +1101,13 @@ function CheckinFormsInner() {
                     placeholder="Question label"
                     className="w-full bg-transparent text-sm text-text-primary placeholder:text-text-muted focus:outline-none"
                   />
+                  {programmeType === "boardroom" && <div className="mt-2 space-y-2">
+                    <div className="flex flex-wrap gap-3">
+                      <select aria-label={`Question type for ${question.label || "new question"}`} value={question.type} onChange={event => setQuestions(previous => previous.map((item, index) => index === idx ? { ...item, type: event.target.value as FormQuestion["type"], options: event.target.value === "select" ? item.options || ["Yes", "No"] : undefined } : item))} className="rounded-lg bg-bg-card p-2 text-xs text-text-primary"><option value="textarea">Long answer</option><option value="text">Short answer</option><option value="select">Choice</option><option value="date">Date</option><option value="boolean">Yes/no</option></select>
+                      <label className="flex items-center gap-2 text-xs text-text-secondary"><input type="checkbox" checked={Boolean(question.required)} onChange={event => setQuestions(previous => previous.map((item, index) => index === idx ? { ...item, required: event.target.checked } : item))} />Required</label>
+                    </div>
+                    {question.type === "select" && <textarea aria-label={`Options for ${question.label}`} value={(question.options || []).join("\n")} onChange={event => setQuestions(previous => previous.map((item, index) => index === idx ? { ...item, options: event.target.value.split("\n") } : item))} className="w-full rounded-lg bg-bg-card p-2 text-xs text-text-primary" placeholder="One choice per line" />}
+                  </div>}
                   <div className="mt-0.5 text-[10px] text-text-muted">
                     {question.type === "select" ? question.options?.join(" / ") : question.type === "file" ? "Photo upload" : "Free text"}
                   </div>
@@ -1117,6 +1168,15 @@ function CheckinFormsInner() {
                     placeholder="Metric label"
                     className="w-full bg-transparent text-sm text-text-primary placeholder:text-text-muted focus:outline-none"
                   />
+                  {programmeType === "boardroom" && <div className="mt-2 flex flex-wrap items-center gap-3">
+                    <select aria-label={`Metric type for ${metric.label || "new metric"}`} value={metric.kind || "number"} onChange={event => {
+                      const kind = event.target.value as ProgressMetric["kind"];
+                      setProgressMetrics(previous => previous.map((item, index) => index === idx ? normalizeCheckinConfig({ ...config, programme_type: "boardroom", questions: [], progress_tracking: [{ ...item, kind, min: undefined, max: undefined, unit: undefined }] }).progress_tracking![0] : item));
+                    }} className="rounded-lg border border-[rgba(0,0,0,0.08)] bg-bg-card p-2 text-xs text-text-primary">
+                      <option value="money">Money (£)</option><option value="count">Count</option><option value="hours">Hours</option><option value="percentage">Percentage</option><option value="score">Score (1–10)</option><option value="number">Number</option>
+                    </select>
+                    <label className="flex items-center gap-2 text-xs text-text-secondary"><input type="checkbox" checked={Boolean(metric.required)} onChange={event => setProgressMetrics(previous => previous.map((item, index) => index === idx ? { ...item, required: event.target.checked } : item))} />Required</label>
+                  </div>}
                   <div className="mt-0.5 text-[10px] text-text-muted">
                     {metric.type === "scale" ? `Scale ${metric.min ?? 1}-${metric.max ?? 10}` : metric.type === "select" ? `Select: ${metric.options?.join(" / ") ?? ""}` : `Number${metric.unit ? ` (${metric.unit})` : ""}`}
                   </div>

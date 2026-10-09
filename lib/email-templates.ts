@@ -31,17 +31,18 @@ function button(href: string, label: string): string {
   return `<a href="${escapeHtml(href)}" style="display: inline-block; background: #E040D0; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;">${label}</a>`;
 }
 
-export async function sendWelcomeEmail(to: string, name: string, setupUrl: string, clientId?: string) {
+export async function sendWelcomeEmail(to: string, name: string, setupUrl: string, clientId?: string, programme?: string) {
+  const programmeName = programme === "boardroom" ? "CAPACITY BOARDROOM" : "AT CAPACITY";
   const firstName = name.split(" ")[0];
   const resend = await getResend();
   const result = await sendTrackedClientEmail(to, "setup", (key) => resend.emails.send({
     from: FROM,
     to,
-    subject: "Start your AT CAPACITY setup",
+    subject: `Start your ${programmeName} setup`,
     html: wrap(`
       <h2 style="margin: 0 0 8px; font-size: 20px; color: #111;">Welcome ${escapeHtml(firstName)},</h2>
       <p style="color: #555; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
-        Your AT CAPACITY account is ready to set up. Choose your password and complete the consultation; Gordy will then prepare your coaching plan and switch on full access.
+        Your ${programmeName} account is ready to set up. Choose your password and complete the consultation; Gordy will then prepare your coaching plan and switch on full access.
       </p>
       ${button(setupUrl, "Set Up Your Account")}
     `),
@@ -130,12 +131,13 @@ export async function sendCheckinReminderEmail(to: string, clientName: string, w
   });
 }
 
-export async function sendConsultationLinkEmail(to: string, clientName: string, consultationUrl: string, clientId?: string) {
+export async function sendConsultationLinkEmail(to: string, clientName: string, consultationUrl: string, clientId?: string, programme?: string) {
+  const programmeName = programme === "boardroom" ? "CAPACITY BOARDROOM" : "AT CAPACITY";
   const firstName = clientName.split(" ")[0];
   const resend = await getResend(); const result = await sendTrackedClientEmail(to, "consultation", (key) => resend.emails.send({
     from: FROM,
     to,
-    subject: "Complete your AT CAPACITY consultation",
+    subject: `Complete your ${programmeName} consultation`,
     html: wrap(`
       <h2 style="margin: 0 0 8px; font-size: 20px; color: #111;">Hey ${escapeHtml(firstName)},</h2>
       <p style="color: #555; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">

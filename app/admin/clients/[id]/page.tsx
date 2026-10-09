@@ -8,6 +8,9 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { AdminClient } from "@/lib/admin-data";
 import type { TrafficLight, CheckInMood, TrainingPlan, TrainingPlanPhase, CheckinFormConfig, CheckinFormTemplate, FormQuestion, ClientExercisePlan, ClientNutritionPlan, ProgressMetric, ClientTask, ProgrammeType, ClientKeyDate, NutritionTemplate, WeeklyTrainingAssignment } from "@/lib/types";
+import { BOARDROOM_CONSULTATION_QUESTIONS } from "@/lib/boardroom-consultation";
+import BoardroomClientWorkspace from "@/components/admin/BoardroomClientWorkspace";
+import { isBoardroom } from "@/lib/programmes";
 import TrainingPlanBuilder from "@/components/admin/TrainingPlanBuilder";
 import AssignActionChooser from "@/components/admin/AssignActionChooser";
 import ExerciseTemplateBuilder from "@/components/admin/ExerciseTemplateBuilder";
@@ -366,17 +369,17 @@ export default function ClientDetailPage() {
 
       if (templatesRes.ok) {
         const templatesData = await templatesRes.json();
-        const templates = templatesData.templates || [];
+        const templates = (templatesData.templates || []).filter((template: CheckinFormTemplate) => isBoardroom(template.config?.programme_type) === isBoardroom(loadedClient?.programme_type));
         setCheckinTemplates(templates);
+        setCheckinConfig(null);
         const selectedTemplate =
           templates.find((template: CheckinFormTemplate) => template.id === loadedClient?.checkin_form_id) ||
-          templates.find((template: CheckinFormTemplate) => template.is_default) ||
-          templates[0];
-        setCheckinConfig(selectedTemplate ? normalizeCheckinConfig(selectedTemplate.config) : null);
+          (!isBoardroom(loadedClient?.programme_type) ? templates.find((template: CheckinFormTemplate) => template.is_default) || templates[0] : undefined);
+        setCheckinConfig(selectedTemplate ? normalizeCheckinConfig(selectedTemplate.config, loadedClient?.programme_type) : null);
         if (!loadedClient?.checkin_form_id && selectedTemplate?.id) {
           setCheckinTemplateId(selectedTemplate.id);
         }
-      } else {
+      } else if (!isBoardroom(loadedClient?.programme_type)) {
         const fallbackConfigRes = await fetch("/api/admin/form-config?type=checkin");
         if (fallbackConfigRes.ok) {
           const cfgData = await fallbackConfigRes.json();
@@ -384,7 +387,7 @@ export default function ClientDetailPage() {
         }
       }
 
-      if (id) {
+      if (id && !isBoardroom(loadedClient?.programme_type)) {
         const [exRes, nutRes] = await Promise.all([
           fetch(`/api/admin/client-exercise-plans?clientId=${id}`),
           fetch(`/api/admin/client-nutrition-plans?clientId=${id}`),
@@ -808,7 +811,7 @@ export default function ClientDetailPage() {
         return;
       }
       const selectedTemplate = checkinTemplates.find((template) => template.id === templateId) || checkinTemplates.find((template) => template.is_default) || null;
-      setCheckinConfig(selectedTemplate ? normalizeCheckinConfig(selectedTemplate.config) : null);
+      setCheckinConfig(selectedTemplate ? normalizeCheckinConfig(selectedTemplate.config, client.programme_type) : null);
       setShowCheckinAssign(false);
       toast("Check-in form assigned");
     } catch {
@@ -925,6 +928,8 @@ export default function ClientDetailPage() {
         tier: legacyProfile.tier,
         experience_mode: legacyProfile.experience_mode,
       } : current);
+      await loadClient();
+      setActiveTab("dashboard");
       toast("Programme saved");
     } catch {
       setProgrammeType(previous);
@@ -1018,6 +1023,7 @@ export default function ClientDetailPage() {
     );
   }
 
+  const boardroom = isBoardroom(client.programme_type);
   const activePlans = plans.filter((p) => p.status === "active");
   const activePlan = activePlans.find((p) => p.phases.length > 0) || activePlans[0];
   const completedPlans = plans.filter((p) => p.status === "completed");
@@ -1214,19 +1220,15 @@ export default function ClientDetailPage() {
   }
 
   async function handleSavePlan(plan: TrainingPlan) {
-    const existingActive = plans.find((p) => p.status === "active" && p.id !== plan.id);
-    if (existingActive && !plans.find((p) => p.id === plan.id)) {
-      await fetch("/api/admin/training-plans", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "complete", plan_id: existingActive.id }),
-      });
-    }
-    await fetch("/api/admin/training-plans", {
+    const response = await fetch("/api/admin/business-plans", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ plan }),
     });
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      throw new Error(result.error || "Couldn’t save the business plan. Your draft is still here.");
+    }
     await loadClient();
     setBuilderMode("closed");
   }
@@ -1385,7 +1387,7 @@ export default function ClientDetailPage() {
                 {isClientPaused ? lifecycleLabel : sc.label}
               </span>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-[#E040D0]/25 bg-[#E040D0]/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-[#E040D0]">
-                {(client.programme_type || "capacity").replace("_", " ")}
+                {programmeConfig[client.programme_type || "capacity"].label}
               </span>
               {client.onboarding_status !== "active" && (
                 <span className="inline-flex items-center rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-500">
@@ -1417,6 +1419,7 @@ export default function ClientDetailPage() {
               >
                 {hasConsultationData ? "View Consultation" : "Link Consultation"}
               </button>
+              {!boardroom && <>
               <button
                 onClick={() => setAssignChooser("training")}
                 className="px-3 py-1.5 text-xs font-semibold text-white bg-[#E040D0] hover:bg-[#b830a8] rounded-lg transition-colors"
@@ -1429,6 +1432,7 @@ export default function ClientDetailPage() {
               >
                 Assign Nutrition
               </button>
+              </>}
               <button
                 onClick={() => setAssignChooser("checkin")}
                 className="px-3 py-1.5 text-xs font-semibold text-white bg-[#E040D0] hover:bg-[#b830a8] rounded-lg transition-colors"
@@ -1534,7 +1538,7 @@ export default function ClientDetailPage() {
       </div>
 
       {/* Stat Cards Row */}
-      <div className="grid grid-cols-2 gap-3 mb-6 sm:grid-cols-3 lg:grid-cols-8">
+      <div className={`grid grid-cols-2 gap-3 mb-6 ${boardroom ? "sm:grid-cols-3 xl:grid-cols-4" : "sm:grid-cols-3 lg:grid-cols-8"}`}>
         {/* Check-in Day */}
         <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-4">
           <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1.5">Check-in Day</div>
@@ -1649,6 +1653,7 @@ export default function ClientDetailPage() {
           <div className="text-[11px] text-text-muted">since {new Date(client.start_date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</div>
         </div>
 
+        {!boardroom && <>
         {/* Start Weight */}
         <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-4">
           <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1.5">Start Weight</div>
@@ -1676,6 +1681,7 @@ export default function ClientDetailPage() {
           )}
         </div>
 
+        </>}
         {/* Goal */}
         <div className="bg-bg-card border border-[#E040D0]/20 rounded-xl p-4 cursor-pointer hover:border-[#E040D0]/40 transition-colors" onClick={() => { setGoalPrimary(client.primary_goal || ""); setGoalTargetDate(client.target_date || ""); setGoalNotes(client.goal_notes || ""); setGoalsModalOpen(true); }}>
           <div className="text-[10px] text-[#E040D0] font-semibold uppercase tracking-wider mb-1.5">Goal</div>
@@ -1737,7 +1743,7 @@ export default function ClientDetailPage() {
           : isPremium
             ? "bg-[linear-gradient(135deg,rgba(14,165,233,0.08),rgba(0,0,0,0.02))]"
             : "bg-bg-card";
-        const eyebrowText = isVip
+        const eyebrowText = boardroom ? "Boardroom — Week at a Glance" : isVip
           ? "VIP — Week at a Glance"
           : isPremium
             ? "Premium — Week at a Glance"
@@ -1752,7 +1758,7 @@ export default function ClientDetailPage() {
                   {eyebrowText}
                 </div>
                 <div className="mt-1 text-sm text-text-primary">
-                  {isVip
+                  {boardroom ? "Business progress, client priorities and coaching replies." : isVip
                     ? "Priority account — keep reply cadence tight and coach priorities visible."
                     : isPremium
                       ? "Higher-touch client — closer oversight than standard coached."
@@ -1765,16 +1771,16 @@ export default function ClientDetailPage() {
                   <div className={`mt-1 text-xs font-semibold ${submittedThisWeek ? "text-emerald-400" : "text-amber-400"}`}>
                     {submittedThisWeek ? "Submitted this week" : "Pending this week"}
                   </div>
-                  {latestCheckin?.mood && (
+                  {!boardroom && latestCheckin?.mood && (
                     <div className="mt-1 text-[11px] text-text-muted">Last mood: {latestCheckin.mood}</div>
                   )}
                 </div>
                 <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
-                  <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-text-muted">Workouts saved</div>
+                  <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-text-muted">{boardroom ? "Plan actions" : "Workouts saved"}</div>
                   <div className={`mt-1 text-lg font-heading font-bold ${sessionsLoggedThisWeek > 0 ? "text-emerald-400" : "text-text-muted"}`}>
-                    {workoutSummaryError ? "—" : sessionsLoggedThisWeek}
+                    {boardroom ? `${planDone}/${planTotal}` : workoutSummaryError ? "—" : sessionsLoggedThisWeek}
                   </div>
-                  <div className="text-[11px] text-text-muted">{workoutSummaryError ? "Couldn’t load workouts" : `this week${workoutWeek.partial ? ` · ${workoutWeek.partial} partial` : ""}`}</div>
+                  <div className="text-[11px] text-text-muted">{boardroom ? "completed in current block" : workoutSummaryError ? "Couldn’t load workouts" : `this week${workoutWeek.partial ? ` · ${workoutWeek.partial} partial` : ""}`}</div>
                 </div>
                 <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-card px-3 py-2">
                   <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-text-muted">
@@ -1875,7 +1881,7 @@ export default function ClientDetailPage() {
 
       {/* Tab Navigation */}
       <div className="flex items-center gap-1 mb-6 overflow-x-auto border-b border-[rgba(0,0,0,0.06)]">
-        {tabs.map((tab) => (
+        {tabs.filter(tab => !boardroom || !["training", "nutrition", "gallery"].includes(tab.id)).map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -1894,7 +1900,8 @@ export default function ClientDetailPage() {
       </div>
 
       {/* ── Dashboard Tab ── */}
-      {activeTab === "dashboard" && (
+      {boardroom && activeTab === "dashboard" && <BoardroomClientWorkspace client={client} plans={plans} config={checkinConfig} onEdit={setBuilderMode} onReload={loadClient} onCheckins={() => setActiveTab("checkins")} />}
+      {!boardroom && activeTab === "dashboard" && (
         <div className="space-y-6">
           <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)]">
             <DashboardRecoveryCard summaries={client.wearable_summaries || []} connections={client.wearable_connections || []} />
@@ -2112,7 +2119,7 @@ export default function ClientDetailPage() {
                       >
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold text-text-primary">Week {c.week_number}</span>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase ${mc.bgClass} ${mc.textClass}`}>{c.mood}</span>
+                          {(c.form_config_snapshot || checkinConfig)?.mood_enabled !== false && <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase ${mc.bgClass} ${mc.textClass}`}>{c.mood}</span>}
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-text-muted">{timeAgo(c.created_at)}</span>
@@ -2141,8 +2148,8 @@ export default function ClientDetailPage() {
                               <p className="text-xs text-text-primary mt-0.5 leading-relaxed">{c.responses.support_ask}</p>
                             </div>
                           )}
-                          {c.responses && checkinConfig ? (
-                            checkinConfig.questions.map((q: FormQuestion) => {
+                          {c.responses && (c.form_config_snapshot || checkinConfig) ? (
+                            (c.form_config_snapshot || checkinConfig)!.questions.map((q: FormQuestion) => {
                               const answer = c.responses?.[q.id];
                               if (!answer) return null;
                               return (
@@ -2384,7 +2391,7 @@ export default function ClientDetailPage() {
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-text-primary">Week {c.week_number}</span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${mc.bgClass} ${mc.textClass}`}>{c.mood}</span>
+                        {(c.form_config_snapshot || checkinConfig)?.mood_enabled !== false && <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${mc.bgClass} ${mc.textClass}`}>{c.mood}</span>}
                       </div>
                       <span className="text-xs text-text-muted">{timeAgo(c.created_at)}</span>
                     </div>
@@ -2408,8 +2415,8 @@ export default function ClientDetailPage() {
                       </div>
                     )}
 
-                    {c.responses && checkinConfig ? (
-                      checkinConfig.questions.map((q: FormQuestion) => {
+                    {c.responses && (c.form_config_snapshot || checkinConfig) ? (
+                      (c.form_config_snapshot || checkinConfig)!.questions.map((q: FormQuestion) => {
                         const answer = c.responses?.[q.id];
                         if (!answer) return null;
                         return (
@@ -2674,11 +2681,11 @@ export default function ClientDetailPage() {
               <div className="space-y-3">
                 {client.consultation_summary && (
                   <div className="rounded-xl border border-[#E040D0]/18 bg-[#E040D0]/6 px-4 py-3">
-                    <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#E040D0]">Extracted hierarchy</div>
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#E040D0]">{boardroom ? "Business consultation summary" : "Extracted hierarchy"}</div>
                     <div className="mt-3 grid gap-2">
-                      {Object.entries((client.consultation_summary.hierarchy as Record<string, unknown>) || {}).map(([key, value]) => (
+                      {Object.entries(((boardroom ? client.consultation_summary.business_profile : client.consultation_summary.hierarchy) as Record<string, unknown>) || {}).map(([key, value]) => (
                         <div key={key} className="rounded-lg bg-bg-card px-3 py-2">
-                          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">{formatConsultationLabel(key)}</div>
+                          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">{(boardroom ? BOARDROOM_CONSULTATION_QUESTIONS.find(q => q.id === key)?.label : null) || formatConsultationLabel(key)}</div>
                           <div className="mt-1 whitespace-pre-wrap text-sm text-text-primary">{formatConsultationValue(value)}</div>
                         </div>
                       ))}
@@ -2691,7 +2698,7 @@ export default function ClientDetailPage() {
                     )}
                   </div>
                 )}
-                {(client.profile_setup_completed_at || client.wearables_preference || client.wearables_notes) && (
+                {!boardroom && (client.profile_setup_completed_at || client.wearables_preference || client.wearables_notes) && (
                   <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
                     <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">Profile setup</div>
                     <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -2711,7 +2718,7 @@ export default function ClientDetailPage() {
                 )}
                 {Object.entries(client.consultation_data || {}).map(([key, value]) => (
                   <div key={key} className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
-                    <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">{formatConsultationLabel(key)}</div>
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">{(boardroom ? BOARDROOM_CONSULTATION_QUESTIONS.find(q => q.id === key)?.label : null) || formatConsultationLabel(key)}</div>
                     <div className="mt-1 whitespace-pre-wrap text-sm text-text-primary">{formatConsultationValue(value)}</div>
                   </div>
                 ))}
@@ -2719,12 +2726,14 @@ export default function ClientDetailPage() {
             )}
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              {!boardroom && (
               <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">Birthday</div>
                 <div className="mt-1 text-sm text-text-primary">
                   {dateOfBirth ? new Date(dateOfBirth + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "Not set"}
                 </div>
               </div>
+              )}
               <div className="rounded-xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">Key Dates</div>
                 <div className="mt-1 space-y-1 text-sm text-text-primary">
@@ -3166,7 +3175,7 @@ export default function ClientDetailPage() {
                 <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">Needs Attention Rules</div>
                 <p className="mb-3 text-xs leading-relaxed text-text-muted">Only enabled signals can place this client in Needs Attention.</p>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {(Object.keys(ATTENTION_SIGNAL_LABELS) as AttentionSignal[]).map((signal) => {
+                  {(Object.keys(ATTENTION_SIGNAL_LABELS) as AttentionSignal[]).filter(signal => !boardroom || ["login", "checkin"].includes(signal)).map((signal) => {
                     const preferenceKey = attentionPreferenceKeys[signal];
                     const enabled = monitoringPreferences[preferenceKey];
                     return (
@@ -3493,6 +3502,7 @@ export default function ClientDetailPage() {
       {builderMode !== "closed" && (
         <TrainingPlanBuilder
           clientId={client.id}
+          programmeType={client.programme_type}
           existingPlan={builderMode === "edit" ? activePlan : undefined}
           onSave={handleSavePlan}
           onCancel={() => setBuilderMode("closed")}

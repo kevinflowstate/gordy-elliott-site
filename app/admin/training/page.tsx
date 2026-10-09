@@ -40,7 +40,7 @@ export default function TrainingManagerPage() {
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newSection, setNewSection] = useState<"library" | "current_coaching">("library");
-  const [newAudiences, setNewAudiences] = useState<ProgrammeType[]>([...PROGRAMME_TYPES]);
+  const [newAudiences, setNewAudiences] = useState<ProgrammeType[]>(PROGRAMME_TYPES.filter(programme => programme !== "boardroom"));
 
   // Bulk assign state
   const [bulkMode, setBulkMode] = useState(false);
@@ -264,7 +264,7 @@ export default function TrainingManagerPage() {
                     if (res.ok) {
                       const data = await res.json();
                       toast("Module created");
-                      setNewTitle(""); setNewDesc(""); setNewSection("library"); setNewAudiences([...PROGRAMME_TYPES]); setShowAdd(false);
+                      setNewTitle(""); setNewDesc(""); setNewSection("library"); setNewAudiences(PROGRAMME_TYPES.filter(programme => programme !== "boardroom")); setShowAdd(false);
                       // Reload modules
                       const listRes = await fetch("/api/admin/training");
                       if (listRes.ok) {

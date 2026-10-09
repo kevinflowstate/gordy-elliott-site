@@ -2,7 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
 import { dbError } from "@/lib/api-errors";
 import { getClientById } from "@/lib/admin-data";
-import { isProgrammeType, legacyProfileForProgramme } from "@/lib/programmes";
+import { isProgrammeType, legacyProfileForProgramme, isBoardroom } from "@/lib/programmes";
 import { NextResponse } from "next/server";
 import { notifyClientUser } from "@/lib/client-notifications";
 
@@ -37,7 +37,7 @@ export async function PATCH(
   const admin = createAdminClient();
   const { data: currentProfile, error: currentProfileError } = await admin
     .from("client_profiles")
-    .select("user_id, onboarding_status, activated_at, sex")
+    .select("user_id, onboarding_status, activated_at, sex, programme_type, checkin_form_id")
     .eq("id", id)
     .maybeSingle();
   if (currentProfileError) return dbError(currentProfileError, "Couldn't load that client. Try again.");
@@ -57,6 +57,14 @@ export async function PATCH(
     Object.assign(updates, legacyProfileForProgramme(updates.programme_type));
   }
 
+  const nextProgramme = updates.programme_type || currentProfile.programme_type;
+  if ("programme_type" in updates && isBoardroom(updates.programme_type) !== isBoardroom(currentProfile.programme_type) && !("checkin_form_id" in updates)) updates.checkin_form_id = null;
+  if (updates.checkin_form_id) {
+    const { data: template, error: templateError } = await admin.from("checkin_forms").select("config").eq("id", updates.checkin_form_id).maybeSingle();
+    if (templateError) return dbError(templateError, "Couldn't load that check-in form.");
+    if (!template || isBoardroom(template.config?.programme_type) !== isBoardroom(nextProgramme)) return NextResponse.json({ error: "Choose a check-in form for this client's programme" }, { status: 400 });
+  }
+  if (isBoardroom(nextProgramme) && ["sex", "date_of_birth", "cycle_tracking_enabled", "start_weight"].some((key) => key in body)) return NextResponse.json({ error: "Body measurements do not apply to Boardroom clients" }, { status: 400 });
   if ("onboarding_status" in updates) {
     if (!['invited', 'consultation_complete', 'active', 'paused'].includes(String(updates.onboarding_status))) {
       return NextResponse.json({ error: "Invalid onboarding status" }, { status: 400 });
@@ -113,7 +121,7 @@ export async function PATCH(
 
   if (becameActive && updatedProfile?.user_id) {
       await notifyClientUser(updatedProfile.user_id, {
-        title: "Your AT CAPACITY plan is live",
+        title: isBoardroom(nextProgramme) ? "Your CAPACITY BOARDROOM plan is live" : "Your AT CAPACITY plan is live",
         message: "Gordy has finished your setup. Open the app to get started.",
         link: "/portal",
         tag: `onboarding-live-${id}`,

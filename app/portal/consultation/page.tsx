@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { BOARDROOM_MULTISELECT_IDS } from "@/lib/boardroom-consultation";
 import type { ConsultationFormConfig } from "@/lib/consultation-form";
 import type { FormQuestion } from "@/lib/types";
 import { dateOfBirthFromIso, dateOfBirthToIso, formatDateOfBirthInput } from "@/lib/date-of-birth";
@@ -33,6 +34,8 @@ function optionLabel(question: FormQuestion, option: string, idx: number) {
 
 export default function ConsultationPage() {
   const router = useRouter();
+  const [boardroom, setBoardroom] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -57,7 +60,10 @@ export default function ConsultationPage() {
         if (res.ok) {
           const data = await res.json();
           if (data.config) setConfig(data.config);
-          setForm((prev) => ({
+          setBoardroom(data.programmeType === "boardroom");
+          if (data.programmeType === "boardroom") {
+            setForm(data.consultation_data || {});
+          } else setForm((prev) => ({
             ...prev,
             ...(data.consultation_data || {}),
             date_of_birth: data.date_of_birth ? dateOfBirthFromIso(data.date_of_birth) : prev.date_of_birth || "",
@@ -70,9 +76,9 @@ export default function ConsultationPage() {
             wearables_preference: data.wearables_preference || data.profile_setup_data?.wearables_preference || "not_connected",
             wearables_notes: data.wearables_notes || data.profile_setup_data?.wearables_notes || "",
           });
-        }
+        } else { setLoadError("Your consultation could not be loaded. Refresh to try again."); }
       } catch {
-        // Silently fail
+        setLoadError("Your consultation could not be loaded. Refresh to try again.");
       } finally {
         setLoading(false);
       }
@@ -83,8 +89,8 @@ export default function ConsultationPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitError("");
-    const isoDateOfBirth = getValue(form, "date_of_birth") ? dateOfBirthToIso(getValue(form, "date_of_birth")) : "";
-    if (getValue(form, "date_of_birth") && !isoDateOfBirth) {
+    const isoDateOfBirth = !boardroom && getValue(form, "date_of_birth") ? dateOfBirthToIso(getValue(form, "date_of_birth")) : "";
+    if (!boardroom && getValue(form, "date_of_birth") && !isoDateOfBirth) {
       setSubmitError("Enter your date of birth in DD/MM/YYYY format.");
       return;
     }
@@ -93,7 +99,7 @@ export default function ConsultationPage() {
       const res = await fetch("/api/portal/consultation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, date_of_birth: isoDateOfBirth, privacy_consent: privacyConsent, profile_setup: profileSetup }),
+        body: JSON.stringify(boardroom ? { ...form, privacy_consent: privacyConsent } : { ...form, date_of_birth: isoDateOfBirth, privacy_consent: privacyConsent, profile_setup: profileSetup }),
       });
       if (res.ok) {
         setSaved(true);
@@ -136,7 +142,7 @@ export default function ConsultationPage() {
     if (question.type === "textarea") {
       return (
         <>
-          {question.placeholder && <p className="mb-3 text-sm leading-relaxed text-text-secondary">{question.placeholder}</p>}
+          {question.placeholder && !boardroom && <p className="mb-3 text-sm leading-relaxed text-text-secondary">{question.placeholder}</p>}
           <textarea
             value={value}
             onChange={(e) => handleChange(question.id, e.target.value)}
@@ -147,6 +153,11 @@ export default function ConsultationPage() {
           />
         </>
       );
+    }
+
+    if (boardroom && question.type === "select" && BOARDROOM_MULTISELECT_IDS.has(question.id)) {
+      const selected = value ? value.split("; ") : [];
+      return <div className="space-y-3">{(question.options || []).map(option => <label key={option} className="flex items-center gap-3 text-sm text-text-secondary"><input type="checkbox" checked={selected.includes(option)} onChange={event => handleChange(question.id, (event.target.checked ? [...selected, option] : selected.filter(item => item !== option)).join("; "))} className="h-4 w-4 accent-[#E040D0]" />{option}</label>)}</div>;
     }
 
     if (question.type === "select") {
@@ -216,7 +227,7 @@ export default function ConsultationPage() {
         type={question.type === "date" ? "date" : "text"}
         value={value}
         onChange={(e) => handleChange(question.id, e.target.value)}
-        placeholder={question.placeholder}
+        placeholder={boardroom && /^\d+\. /.test(question.placeholder) ? "Type your answer..." : question.placeholder}
         required={question.required}
         className={commonClass}
       />
@@ -234,6 +245,8 @@ export default function ConsultationPage() {
       </div>
     );
   }
+
+  if (loadError) return <div role="alert" className="max-w-2xl mx-auto px-4 py-8 text-text-secondary">{loadError}</div>;
 
   if (saved) {
     return (
@@ -259,12 +272,13 @@ export default function ConsultationPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {questions.map((question) => {
+        {questions.map((question, index) => {
           const control = renderQuestion(question);
           if (!control) return null;
 
           return (
             <div key={question.id} className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-5">
+              {boardroom && /^\d+\. /.test(question.placeholder) && questions[index - 1]?.placeholder !== question.placeholder && <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-[#E040D0]">{question.placeholder}</h2>}
               <label className="block text-sm font-semibold text-text-primary mb-3">
                 {question.label}
                 {question.required && <span className="ml-1 text-[#E040D0]">*</span>}
@@ -283,7 +297,7 @@ export default function ConsultationPage() {
             className="mt-0.5 h-4 w-4 rounded border-[rgba(0,0,0,0.2)] text-[#E040D0] focus:ring-[#E040D0]/40"
           />
           <span>
-            I understand this form may include health, training, nutrition, injury, and cycle-related information. Gordy will use it to personalise coaching support, not to provide medical diagnosis or emergency care.
+            {boardroom ? "I agree that Gordy may use my contact details and business information to personalise my business coaching. I will not include passwords or private customer information." : "I understand this form may include health, training, nutrition, injury, and cycle-related information. Gordy will use it to personalise coaching support, not to provide medical diagnosis or emergency care."}
           </span>
         </label>
 
@@ -293,7 +307,7 @@ export default function ConsultationPage() {
           </div>
         )}
 
-        <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-5">
+        {!boardroom && <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-5">
           <h2 className="text-sm font-semibold text-text-primary mb-3">Profile setup</h2>
           <div className="space-y-3">
             <div>
@@ -333,7 +347,7 @@ export default function ConsultationPage() {
               />
             </div>
           </div>
-        </div>
+        </div>}
 
         <button
           type="submit"

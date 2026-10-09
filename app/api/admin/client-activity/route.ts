@@ -39,12 +39,12 @@ export async function GET(request: Request) {
   // 2. Check-ins submitted + reviewed
   const { data: checkins } = await admin
     .from("checkins")
-    .select("id, created_at, week_number, mood, admin_reply, replied_at, responses")
+    .select("id, created_at, week_number, mood, form_config_snapshot, admin_reply, replied_at, responses")
     .eq("client_id", clientId)
     .order("created_at", { ascending: false });
 
   for (const c of checkins || []) {
-    const moodLabel = c.mood ? ` (${c.mood})` : "";
+    const moodLabel = c.form_config_snapshot?.mood_enabled !== false && c.mood ? ` (${c.mood})` : "";
     events.push({
       type: "checkin_submitted",
       description: `Check-in submitted — Week ${c.week_number}${moodLabel}`,

@@ -1,3 +1,4 @@
+import { saveBusinessPlan } from "@/lib/business-plans";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   TrafficLight,
@@ -97,10 +98,10 @@ export interface AdminClient {
   attention_reasons: ClientAttentionReason[];
 }
 
-interface RawPhase { id: string; plan_id: string; name: string; notes: string; order_index: number }
-interface RawItem { id: string; phase_id: string; title: string; completed: boolean; completed_at: string | null }
+interface RawPhase { id: string; plan_id: string; name: string; notes: string; order_index: number; due_date?: string | null }
+interface RawItem { id: string; phase_id: string; title: string; completed: boolean; completed_at: string | null; due_date?: string | null; notes?: string; category?: string }
 interface RawLink { phase_id: string; content_id: string }
-interface RawPlan { id: string; client_id: string; summary: string; status: string; created_at: string; completed_at: string | null; discovery_answers?: Record<string, unknown> }
+interface RawPlan { title?: string; start_date?: string | null; duration_days?: number | null; pdf_url?: string; id: string; client_id: string; summary: string; status: string; created_at: string; completed_at: string | null; discovery_answers?: Record<string, unknown> }
 
 function buildPlanTree(
   plans: RawPlan[],
@@ -113,7 +114,9 @@ function buildPlanTree(
     const list = itemsByPhase.get(item.phase_id) || [];
     list.push({
       id: item.id,
-      category: "",
+      category: item.category || "",
+      due_date: item.due_date || undefined,
+      notes: item.notes || "",
       title: item.title,
       completed: item.completed,
       completed_at: item.completed_at ?? undefined,
@@ -134,6 +137,7 @@ function buildPlanTree(
     list.push({
       id: phase.id,
       name: phase.name,
+      due_date: phase.due_date || undefined,
       notes: phase.notes,
       order_index: phase.order_index,
       items: itemsByPhase.get(phase.id) || [],
@@ -148,6 +152,10 @@ function buildPlanTree(
     list.push({
       id: plan.id,
       client_id: plan.client_id,
+      title: plan.title,
+      start_date: plan.start_date || undefined,
+      duration_days: plan.duration_days || undefined,
+      pdf_url: plan.pdf_url,
       summary: plan.summary,
       status: plan.status as "active" | "completed",
       created_at: plan.created_at,
@@ -282,6 +290,7 @@ export async function getClients(): Promise<AdminClient[]> {
     const attentionSnoozes = snoozesByClient.get(p.id) || [];
     const attention = computeClientAttention({
       lifecycleStatus,
+      programmeType: p.programme_type,
       createdAt: p.created_at,
       lastLogin: p.last_login,
       lastCheckin: p.last_checkin,
@@ -529,6 +538,7 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
   const snoozes = ((attentionSnoozes || []) as ClientAttentionSnooze[]).filter((item) => isAttentionSnoozeActive(item));
   const attention = computeClientAttention({
     lifecycleStatus,
+    programmeType: p.programme_type,
     createdAt: p.created_at,
     lastLogin: p.last_login,
     lastCheckin: p.last_checkin,
@@ -622,6 +632,7 @@ export async function getRecentCheckins() {
     const userName = Array.isArray(user) ? user[0]?.full_name : user?.full_name;
     return {
       ...ck,
+      mood: ck.form_config_snapshot?.mood_enabled === false ? null : ck.mood,
       client_name: userName || "Unknown",
       client_business: client?.business_name || "",
       client_status: "green" as TrafficLight, // Not critical for check-in display
@@ -634,84 +645,7 @@ export async function getRecentCheckins() {
 // ============================================
 
 export async function savePlan(plan: TrainingPlan): Promise<{ error?: string }> {
-  const admin = createAdminClient();
-
-  // Upsert the plan
-  const { error: planError } = await admin
-    .from("business_plans")
-    .upsert({
-      id: plan.id,
-      client_id: plan.client_id,
-      summary: plan.summary,
-      status: plan.status,
-      created_at: plan.created_at,
-      completed_at: plan.completed_at || null,
-      discovery_answers: plan.discovery_answers || null,
-      pdf_url: plan.pdf_url || null,
-    });
-
-  if (planError) return { error: planError.message };
-
-  // Delete existing phases for this plan (cascade deletes items + links)
-  const { error: deleteError } = await admin
-    .from("business_plan_phases")
-    .delete()
-    .eq("plan_id", plan.id);
-
-  if (deleteError) {
-    return { error: `Failed to delete existing phases: ${deleteError.message}` };
-  }
-
-  // Insert phases
-  for (const phase of plan.phases) {
-    const { data: insertedPhase, error: phaseError } = await admin
-      .from("business_plan_phases")
-      .insert({
-        id: phase.id,
-        plan_id: plan.id,
-        name: phase.name,
-        notes: phase.notes,
-        order_index: phase.order_index,
-      })
-      .select("id")
-      .single();
-
-    if (phaseError) return { error: phaseError.message };
-
-    const phaseId = insertedPhase.id;
-
-    // Insert items
-    if (phase.items.length > 0) {
-      const { error: itemsError } = await admin
-        .from("business_plan_items")
-        .insert(
-          phase.items.map((item, idx) => ({
-            id: item.id,
-            phase_id: phaseId,
-            title: item.title,
-            completed: item.completed,
-            completed_at: item.completed_at || null,
-            order_index: idx,
-          }))
-        );
-      if (itemsError) return { error: itemsError.message };
-    }
-
-    // Insert training links
-    if (phase.linked_trainings.length > 0) {
-      const { error: linksError } = await admin
-        .from("phase_training_links")
-        .insert(
-          phase.linked_trainings.map((contentId) => ({
-            phase_id: phaseId,
-            content_id: contentId,
-          }))
-        );
-      if (linksError) return { error: linksError.message };
-    }
-  }
-
-  return {};
+  return saveBusinessPlan(createAdminClient(), plan);
 }
 
 // ============================================

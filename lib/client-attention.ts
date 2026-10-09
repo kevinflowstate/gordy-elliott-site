@@ -123,6 +123,7 @@ function addReason(
 }
 
 export function computeClientAttention(input: {
+  programmeType?: string | null;
   lifecycleStatus?: ClientLifecycleStatus | null;
   createdAt: string;
   lastLogin?: string | null;
@@ -143,7 +144,7 @@ export function computeClientAttention(input: {
   }
 
   const now = input.now ?? Date.now();
-  const preferences = { ...DEFAULT_MONITORING_PREFERENCES, ...(input.preferences || {}) };
+  const preferences = { ...DEFAULT_MONITORING_PREFERENCES, ...(input.preferences || {}), ...(input.programmeType === "boardroom" ? { monitor_training: false, monitor_daily_metrics: false, monitor_nutrition: false, monitor_wearables: false } : {}) };
   const snoozes = input.snoozes || [];
   const reasons: ClientAttentionReason[] = [];
 

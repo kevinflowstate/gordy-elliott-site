@@ -8,6 +8,8 @@ interface PlanItem {
   title: string;
   completed: boolean;
   completed_at?: string;
+  due_date?: string;
+  notes?: string;
   order_index: number;
 }
 
@@ -21,6 +23,7 @@ interface LinkedTraining {
 }
 
 interface PlanPhase {
+  due_date?: string;
   id: string;
   name: string;
   notes: string;
@@ -31,6 +34,9 @@ interface PlanPhase {
 
 interface LocalTrainingPlan {
   id: string;
+  title?: string;
+  start_date?: string;
+  duration_days?: number;
   summary: string;
   status: string;
   created_at: string;
@@ -52,6 +58,10 @@ const phaseColors = [
   { bg: "bg-amber-500/10", border: "border-amber-500/20", icon: "text-amber-400", accent: "text-amber-400" },
 ];
 
+function formatPlanDate(value: string) {
+  return new Date(`${value}T12:00:00Z`).toLocaleDateString("en-GB", {day: "numeric", month: "short", year: "numeric", timeZone: "Europe/London"});
+}
+
 function getPhaseIcon(name: string): string {
   const lower = name.toLowerCase();
   if (lower.includes("training") || lower.includes("strength") || lower.includes("workout")) return phaseIcons.training;
@@ -64,61 +74,40 @@ function getPhaseIcon(name: string): string {
 export default function TrainingPlanPage() {
   const [plan, setPlan] = useState<LocalTrainingPlan | null>(null);
   const [phases, setPhases] = useState<PlanPhase[]>([]);
+  const [business, setBusiness] = useState(false);
+  const [noteDrafts, setNoteDrafts] = useState<Record<string,string>>({});
+  const [pending, setPending] = useState<string | null>(null);
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
         const res = await fetch("/api/portal/plan");
+        if (!res.ok) throw new Error("Could not load your plan. Please refresh to try again.");
         if (res.ok) {
           const data = await res.json();
+          setBusiness(data.programme_type === "boardroom");
           setPlan(data.plan);
           setPhases(data.phases || []);
         }
-      } finally {
+      } catch (error) { setError(error instanceof Error ? error.message : "Could not load your plan"); } finally {
         setLoading(false);
       }
     }
     load();
   }, []);
 
-  async function toggleItem(phaseId: string, itemId: string) {
-    // Optimistic update
-    setPhases((prev) =>
-      prev.map((phase) => {
-        if (phase.id !== phaseId) return phase;
-        return {
-          ...phase,
-          items: phase.items.map((item) =>
-            item.id === itemId
-              ? { ...item, completed: !item.completed, completed_at: !item.completed ? new Date().toISOString() : undefined }
-              : item
-          ),
-        };
-      })
-    );
-    // Persist - rollback on failure
-    const res = await fetch("/api/portal/plan", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itemId }),
-    });
-    if (!res.ok) {
-      // Reverse the optimistic update
-      setPhases((prev) =>
-        prev.map((phase) => {
-          if (phase.id !== phaseId) return phase;
-          return {
-            ...phase,
-            items: phase.items.map((item) =>
-              item.id === itemId
-                ? { ...item, completed: !item.completed, completed_at: !item.completed ? new Date().toISOString() : undefined }
-                : item
-            ),
-          };
-        })
-      );
-    }
+  async function updateItem(phaseId: string, itemId: string, changes: {completed?:boolean;notes?:string}) {
+    if (pending) return;
+    setPending(itemId); setError("");
+    try {
+      const res = await fetch("/api/portal/plan", {method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({itemId,...changes})});
+      if (!res.ok) throw new Error("Could not save your action. Please try again.");
+      const result = await res.json();
+      if (changes.notes !== undefined) setNoteDrafts(prev => {const next = {...prev};delete next[itemId];return next;});
+      setPhases(prev => prev.map(phase => phase.id === phaseId ? {...phase,items:phase.items.map(item => item.id === itemId ? {...item,...changes,...result.item} : item)} : phase));
+    } catch (error) { setError(error instanceof Error ? error.message : "Could not save your action"); } finally { setPending(null); }
   }
 
   if (loading) return (
@@ -155,10 +144,12 @@ export default function TrainingPlanPage() {
     </div>
   );
 
+  if (error && !plan) return <p role="alert" className="text-red-400">{error}</p>;
+
   if (!plan) {
     return (
       <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
-        <p className="text-text-secondary">No training plan created yet.</p>
+        <p className="text-text-secondary">{business ? "No business plan created yet." : "No training plan created yet."}</p>
         <p className="text-text-muted text-sm mt-2">Gordy will build your plan based on your discovery session.</p>
       </div>
     );
@@ -171,9 +162,11 @@ export default function TrainingPlanPage() {
 
   return (
     <>
+      {error && <p role="alert" className="text-red-400 mb-4">{error}</p>}
+      {business && (plan.start_date || plan.duration_days) && <p className="text-sm text-text-muted mb-4">{plan.duration_days || 90}-day plan{plan.start_date ? ` · Starts ${formatPlanDate(plan.start_date)}` : ""}</p>}
       <div className="mb-8 rounded-3xl border border-[#E040D0]/15 bg-bg-card p-5 shadow-[0_12px_32px_rgba(10,10,10,0.06)] sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-3xl font-heading font-bold text-text-primary">Your Training Plan</h1>
+          <h1 className="text-3xl font-heading font-bold text-text-primary">{business ? plan.title || "Your Business Plan" : "Your Training Plan"}</h1>
           {plan.pdf_url && (
             <a
               href={plan.pdf_url}
@@ -241,6 +234,7 @@ export default function TrainingPlanPage() {
               </div>
 
               <div className="p-6 space-y-6">
+                {business && phase.due_date && <p className="text-xs text-text-muted">Milestone date: {formatPlanDate(phase.due_date)}</p>}
                 {/* Notes from Gordy */}
                 {phase.notes && (
                   <div className="bg-bg-primary border border-[rgba(0,0,0,0.06)] rounded-xl p-4">
@@ -254,9 +248,11 @@ export default function TrainingPlanPage() {
                   <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Action Items</h3>
                   <div className="space-y-2">
                     {phase.items.map((item) => (
+                      <div key={item.id} className="space-y-2">
                       <button
-                        key={item.id}
-                        onClick={() => toggleItem(phase.id, item.id)}
+                        disabled={pending !== null}
+                        aria-pressed={item.completed}
+                        onClick={() => updateItem(phase.id, item.id, {completed:!item.completed})}
                         className="w-full flex items-center gap-3 rounded-2xl border border-[rgba(0,0,0,0.06)] bg-bg-primary px-4 py-3 transition-colors text-left cursor-pointer group hover:border-[#E040D0]/20 hover:bg-[#E040D0]/5"
                       >
                         <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${
@@ -277,12 +273,18 @@ export default function TrainingPlanPage() {
                           </span>
                         )}
                       </button>
+                      {business && <div className="pl-4 space-y-2">
+                        {item.due_date && <p className="text-xs text-text-muted">Due {formatPlanDate(item.due_date)}</p>}
+                        <label className="block text-xs text-text-muted">Action notes<textarea aria-label={`Notes for ${item.title}`} value={noteDrafts[item.id] ?? item.notes ?? ""} onChange={e => setNoteDrafts(prev => ({...prev,[item.id]:e.target.value}))} rows={2} maxLength={20000} disabled={pending !== null} className="block w-full mt-1 bg-bg-primary border border-white/10 rounded-xl p-3 text-sm text-text-primary" /></label>
+                        <button disabled={pending !== null || (noteDrafts[item.id] ?? item.notes ?? "") === (item.notes || "")} onClick={() => updateItem(phase.id,item.id,{notes:noteDrafts[item.id] ?? item.notes ?? ""})} className="text-xs text-accent-bright disabled:opacity-40">{pending === item.id ? "Saving…" : "Save notes"}</button>
+                      </div>}
+                      </div>
                     ))}
                   </div>
                 </div>
 
                 {/* Linked Trainings */}
-                {phase.linkedTrainings.length > 0 && (
+                {!business && phase.linkedTrainings.length > 0 && (
                   <div>
                     <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Related Training</h3>
                     <div className="space-y-1.5">

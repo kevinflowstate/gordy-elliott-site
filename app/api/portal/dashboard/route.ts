@@ -42,7 +42,7 @@ export async function GET() {
       .from("checkins")
       // The dashboard computes streaks and high-touch support state from check-in history,
       // so it needs the full history rather than a shallow recent slice.
-      .select("id, week_number, created_at, admin_reply, replied_at, reply_message_id")
+      .select("id, week_number, created_at, admin_reply, replied_at, reply_message_id, responses, form_config_snapshot")
       .eq("client_id", profile.id)
       .order("created_at", { ascending: false }),
     admin
@@ -143,8 +143,8 @@ export async function GET() {
   const completedLessons = allLessons.filter((id: string) => completedContentIds.has(id)).length;
 
   const effectiveCheckinConfig = assignedCheckinFormRes.data?.config
-    ? normalizeCheckinConfig(assignedCheckinFormRes.data.config)
-    : fallbackCheckinFormRes.data?.config
+    ? normalizeCheckinConfig(assignedCheckinFormRes.data.config, profile.programme_type)
+    : profile.programme_type !== "boardroom" && fallbackCheckinFormRes.data?.config
       ? normalizeCheckinConfig(fallbackCheckinFormRes.data.config)
       : null;
 
@@ -152,6 +152,7 @@ export async function GET() {
     userName: userData?.full_name || "",
     profile,
     modules,
+    checkinAssigned: profile?.programme_type !== "boardroom" || !!(assignedCheckinFormRes.data?.config?.programme_type === "boardroom"),
     checkins: checkinsRes.data || [],
     businessPlan: planRes.data || null,
     planPhases,

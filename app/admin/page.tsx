@@ -995,7 +995,7 @@ interface EnrichedCheckin {
   id: string;
   client_id: string;
   week_number: number;
-  mood: CheckInMood;
+  mood: CheckInMood | null;
   wins?: string;
   challenges?: string;
   questions?: string;
@@ -1168,7 +1168,7 @@ function CheckInRow({
   isSending?: boolean;
   error?: string | null;
 }) {
-  const mc = moodConfig[checkin.mood];
+  const mc = checkin.mood ? moodConfig[checkin.mood] : moodConfig.okay;
   const hasReply = checkin.admin_reply || sentReply;
 
   return (
@@ -1177,9 +1177,9 @@ function CheckInRow({
         onClick={onToggle}
         className="w-full flex items-start gap-3 py-3 px-5 hover:bg-[rgba(0,0,0,0.02)] transition-colors text-left cursor-pointer"
       >
-        <span className={`text-[10px] font-semibold px-2 py-1 rounded-full mt-0.5 uppercase tracking-wider flex-shrink-0 ${mc.bgClass} ${mc.textClass}`}>
+        {checkin.mood && <span className={`text-[10px] font-semibold px-2 py-1 rounded-full mt-0.5 uppercase tracking-wider flex-shrink-0 ${mc.bgClass} ${mc.textClass}`}>
           {checkin.mood}
-        </span>
+        </span>}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
             <span className="text-sm font-medium text-text-primary">{checkin.client_name}</span>

@@ -1,5 +1,7 @@
 "use client";
 
+import BoardroomHome from "@/components/portal/BoardroomHome";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
@@ -185,6 +187,7 @@ export default function PortalDashboard() {
   const { toast } = useToast();
   const [profile, setProfile] = useState<ClientProfile | null>(null);
   const [userName, setUserName] = useState("");
+  const [checkinAssigned, setCheckinAssigned] = useState(false);
   const [checkins, setCheckins] = useState<CheckIn[]>([]);
   const [planPhases, setPlanPhases] = useState<TrainingPlanPhase[]>([]);
   const [checkinDay, setCheckinDay] = useState("monday");
@@ -212,6 +215,7 @@ export default function PortalDashboard() {
         setProfile(data.profile);
         setUserName(data.userName);
         setCheckins(data.checkins || []);
+        setCheckinAssigned(Boolean(data.checkinAssigned));
         setPlanPhases(data.planPhases || []);
         setCheckinDay(data.checkinDay || "monday");
       } else {
@@ -238,6 +242,7 @@ export default function PortalDashboard() {
 
   // Surface the next calendar event in the hero "Upcoming" tile.
   useEffect(() => {
+    if (!profile?.programme_type || profile.programme_type === "boardroom") return;
     let active = true;
     (async () => {
       try {
@@ -293,10 +298,10 @@ export default function PortalDashboard() {
       }
     })();
     return () => { active = false; };
-  }, []);
+  }, [profile?.programme_type]);
 
   useEffect(() => {
-    if (!profile) return;
+    if (!profile || profile.programme_type === "boardroom") return;
     if (!isFounderExperience(profile.experience_mode)) {
       setWeeklyCapacity(null);
       return;
@@ -454,6 +459,8 @@ export default function PortalDashboard() {
   if (loading) {
     return <DashboardSkeleton />;
   }
+
+  if (profile?.programme_type === "boardroom") return <BoardroomHome name={userName} phases={planPhases} checkins={checkins} checkinAssigned={checkinAssigned} />;
 
   return (
     <div className="mx-auto w-full max-w-xl space-y-5 pb-8 pt-1 sm:max-w-2xl" data-testid="unified-client-home" data-programme={profile?.programme_type || "capacity"}>

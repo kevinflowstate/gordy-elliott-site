@@ -1,6 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { togglePlanItem } from "@/lib/admin-data";
 import { NextResponse } from "next/server";
 
 export async function PATCH(request: Request) {
@@ -8,7 +7,10 @@ export async function PATCH(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const { itemId } = await request.json();
+  let body;
+  try { body = await request.json(); if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("Invalid body"); } catch { return NextResponse.json({error:"Invalid JSON"}, {status:400}); }
+  const { itemId, completed, notes } = body;
+  if ((completed !== undefined && typeof completed !== "boolean") || (notes !== undefined && (typeof notes !== "string" || notes.length > 20000))) return NextResponse.json({error:"Invalid action update"}, {status:400});
   if (!itemId) return NextResponse.json({ error: "itemId required" }, { status: 400 });
 
   const admin = createAdminClient();
@@ -32,11 +34,11 @@ export async function PATCH(request: Request) {
 
   const { data: plan } = await admin
     .from("business_plans")
-    .select("client_id")
+    .select("client_id,status")
     .eq("id", phase.plan_id)
     .single();
 
-  if (!plan) return NextResponse.json({ error: "Item not found" }, { status: 404 });
+  if (!plan || plan.status !== "active") return NextResponse.json({ error: "Active item not found" }, { status: 404 });
 
   const { data: profile } = await admin
     .from("client_profiles")
@@ -48,10 +50,12 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const result = await togglePlanItem(itemId);
-  if (result.error) return NextResponse.json({ error: result.error }, { status: 500 });
-
-  return NextResponse.json({ success: true });
+  const { data, error } = await admin.rpc("update_business_plan_item", {payload: {
+    item_id: itemId, user_id: user.id,
+    ...(completed !== undefined ? {completed} : {}), ...(notes !== undefined ? {notes} : {}),
+  }});
+  if (error) return NextResponse.json({error: "Could not update action"}, {status:500});
+  return NextResponse.json({success:true, item:data});
 }
 
 export async function GET() {
@@ -67,7 +71,7 @@ export async function GET() {
 
   const { data: profile } = await admin
     .from("client_profiles")
-    .select("id")
+    .select("id,programme_type")
     .eq("user_id", userId)
     .single();
 
@@ -81,11 +85,12 @@ export async function GET() {
     .select("*")
     .eq("client_id", profile.id)
     .eq("status", "active")
+    .order("created_at", { ascending: false })
     .limit(1)
     .single();
 
   if (!plan) {
-    return NextResponse.json({ plan: null, phases: [] });
+    return NextResponse.json({ plan: null, phases: [], programme_type: profile.programme_type });
   }
 
   // Get phases
@@ -96,7 +101,7 @@ export async function GET() {
     .order("order_index");
 
   if (!phases || phases.length === 0) {
-    return NextResponse.json({ plan, phases: [] });
+    return NextResponse.json({ plan, phases: [], programme_type: profile.programme_type });
   }
 
   // Get items for all phases
@@ -148,5 +153,5 @@ export async function GET() {
       .filter(Boolean),
   }));
 
-  return NextResponse.json({ plan, phases: phasesWithData });
+  return NextResponse.json({ plan, phases: phasesWithData, programme_type: profile.programme_type });
 }
