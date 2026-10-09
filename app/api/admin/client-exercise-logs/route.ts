@@ -38,5 +38,16 @@ export async function GET(request: Request) {
   const { data: logs, error } = await query;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (searchParams.get("summaries") === "1") {
+    const { data: summaries, error: summaryError } = await admin
+      .from("client_exercise_session_summaries")
+      .select("session_id, log_date, completed_at, completed_sets")
+      .eq("client_id", clientId)
+      .gte("log_date", fromDate)
+      .lte("log_date", toDate)
+      .order("log_date", { ascending: false });
+    if (summaryError) return NextResponse.json({ error: "Could not load workout summaries" }, { status: 500 });
+    return NextResponse.json({ logs: logs || [], summaries: summaries || [] });
+  }
   return NextResponse.json({ logs: logs || [] });
 }
