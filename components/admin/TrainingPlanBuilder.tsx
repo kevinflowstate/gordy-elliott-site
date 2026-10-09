@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { TrainingPlan, TrainingPlanPhase, TrainingPlanItem, TrainingModule, TrainingPlanFormConfig } from "@/lib/types";
+import type { TrainingPlan, TrainingPlanPhase, TrainingPlanItem, TrainingModule, TrainingPlanFormConfig, ProgrammeType } from "@/lib/types";
 import TrainingPicker from "./TrainingPicker";
 
 interface TrainingPlanBuilderProps {
   clientId: string;
+  programmeType?: ProgrammeType;
   existingPlan?: TrainingPlan;
   onSave: (plan: TrainingPlan) => void;
   onCancel: () => void;
@@ -26,7 +27,14 @@ function createEmptyPhase(orderIndex: number): TrainingPlanPhase {
   };
 }
 
-export default function TrainingPlanBuilder({ clientId, existingPlan, onSave, onCancel }: TrainingPlanBuilderProps) {
+export default function TrainingPlanBuilder({ clientId, existingPlan, onSave, onCancel, programmeType }: TrainingPlanBuilderProps) {
+  const business = programmeType === "boardroom";
+  const [title, setTitle] = useState(existingPlan?.title || "Business Plan");
+  const [startDate, setStartDate] = useState(existingPlan?.start_date || "");
+  const [duration, setDuration] = useState(existingPlan?.duration_days || 90);
+  const [callNotes, setCallNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [summary, setSummary] = useState(existingPlan?.summary || "");
   const [phases, setPhases] = useState<TrainingPlanPhase[]>(
     existingPlan?.phases.length ? existingPlan.phases : [createEmptyPhase(0)]
@@ -117,18 +125,22 @@ export default function TrainingPlanBuilder({ clientId, existingPlan, onSave, on
     updatePhase(phaseId, { linked_trainings: linked });
   }
 
-  function handleSave() {
+  async function handleSave() {
+    setSaving(true); setSaveError("");
+    try {
     const plan: TrainingPlan = {
       id: existingPlan?.id || generateId(),
       client_id: clientId,
       summary,
-      status: "active",
+      ...(business ? { title, start_date: startDate || undefined, duration_days: duration } : {}),
+      status: existingPlan?.status || "active",
       created_at: existingPlan?.created_at || new Date().toISOString(),
       phases,
       discovery_answers: Object.keys(discoveryAnswers).length > 0 ? discoveryAnswers : undefined,
       pdf_url: pdfUrl || undefined,
     };
-    onSave(plan);
+    await onSave(plan);
+    } catch (error) { setSaveError(error instanceof Error ? error.message : "Could not save the plan. Please try again."); } finally { setSaving(false); }
   }
 
   return (
@@ -136,7 +148,7 @@ export default function TrainingPlanBuilder({ clientId, existingPlan, onSave, on
       {/* Header */}
       <div className="sticky top-0 z-10 bg-bg-primary/95 backdrop-blur-sm border-b border-[rgba(255,255,255,0.06)] px-6 py-4 flex items-center justify-between">
           <h2 className="text-lg font-heading font-bold text-text-primary">
-            {isEditing ? "Edit Training Plan" : "Create Training Plan"}
+            {isEditing ? `Edit ${business ? "Business" : "Training"} Plan` : `Create ${business ? "Business" : "Training"} Plan`}
           </h2>
           <div className="flex items-center gap-2">
             <button
@@ -147,17 +159,34 @@ export default function TrainingPlanBuilder({ clientId, existingPlan, onSave, on
             </button>
             <button
               onClick={handleSave}
-              disabled={!summary.trim() || phases.length === 0}
+              disabled={saving || !summary.trim() || phases.length === 0}
               className="px-4 py-2 text-xs font-semibold text-white gradient-accent rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
             >
-              Save Plan
+              {saving ? "Saving…" : "Save Plan"}
             </button>
           </div>
         </div>
 
         <div className="p-6 space-y-6 max-w-3xl mx-auto">
+          {saveError && <p role="alert" className="text-sm text-red-400">{saveError}</p>}
+          {business && <section className="space-y-4 rounded-2xl bg-bg-card p-4 border border-white/10">
+            <label className="block text-sm">Plan title<input aria-label="Plan title" value={title} onChange={e => setTitle(e.target.value)} className="block w-full bg-bg-primary rounded-lg p-3 mt-1" /></label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="text-sm">Start date<input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="block w-full bg-bg-primary rounded-lg p-3 mt-1" /></label>
+              <label className="text-sm">Length in days<input type="number" min={1} max={730} value={duration} onChange={e => setDuration(Number(e.target.value))} className="block w-full bg-bg-primary rounded-lg p-3 mt-1" /></label>
+            </div>
+            <details><summary className="cursor-pointer text-sm text-accent-bright">Prepare a draft from call notes</summary>
+              <p className="text-xs text-text-muted my-2">Paste the agreed action points from your Fathom notes, one per line. Review and edit the draft before saving.</p>
+              <textarea aria-label="Call action notes" value={callNotes} onChange={e => setCallNotes(e.target.value)} rows={5} className="w-full bg-bg-primary rounded-lg p-3 text-sm" />
+              <button type="button" disabled={!callNotes.trim()} className="text-sm text-accent-bright mt-2" onClick={() => {
+                const actions = callNotes.split("\n").map(line => line.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "").trim()).filter(Boolean).slice(0, 100);
+                setPhases(prev => [...prev, { ...createEmptyPhase(prev.length), name: "Call action draft", notes: "Review these actions from the onboarding call before saving.", items: actions.map(text => ({id: generateId(), category: "Call action draft", title: text, completed: false})) }]);
+                setCallNotes("");
+              }}>Add editable action draft</button>
+            </details>
+          </section>}
           {/* Discovery Questions */}
-          {bpConfig && bpConfig.questions.length > 0 && (
+          {!business && bpConfig && bpConfig.questions.length > 0 && (
             <div>
               <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
                 Discovery Questions
@@ -275,6 +304,7 @@ export default function TrainingPlanBuilder({ clientId, existingPlan, onSave, on
                 </div>
 
                 <div className="p-4 space-y-4">
+                  {business && <label className="block text-xs text-text-muted">Milestone date<input type="date" value={phase.due_date || ""} onChange={e => updatePhase(phase.id, {due_date: e.target.value || undefined})} className="block bg-bg-primary p-2 rounded-lg mt-1" /></label>}
                   {/* Notes */}
                   <div>
                     <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-1.5">Notes</label>
@@ -302,9 +332,11 @@ export default function TrainingPlanBuilder({ clientId, existingPlan, onSave, on
                               </svg>
                             )}
                           </div>
-                          <span className={`text-xs flex-1 ${item.completed ? "text-text-muted line-through" : "text-text-secondary"}`}>
-                            {item.title}
-                          </span>
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <input aria-label="Action title" value={item.title} onChange={e => updatePhase(phase.id, {items: phase.items.map(i => i.id === item.id ? {...i, title: e.target.value} : i)})} className="w-full text-xs bg-transparent text-text-secondary" />
+                            {business && <input aria-label="Action deadline" type="date" value={item.due_date || ""} onChange={e => updatePhase(phase.id, {items: phase.items.map(i => i.id === item.id ? {...i, due_date: e.target.value || undefined} : i)})} className="text-xs bg-bg-primary p-1 rounded" />}
+                            {business && item.notes && <p className="text-xs text-text-muted whitespace-pre-wrap">{item.notes}</p>}
+                          </div>
                           <button
                             type="button"
                             onClick={() => removeItem(phase.id, item.id)}
@@ -338,7 +370,7 @@ export default function TrainingPlanBuilder({ clientId, existingPlan, onSave, on
                   </div>
 
                   {/* Linked trainings */}
-                  <div>
+                  <div hidden={business}>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-wider">Linked Training</label>
                       <TrainingPicker

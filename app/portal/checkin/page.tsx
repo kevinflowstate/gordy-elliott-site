@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import type { CheckinFormConfig, ClientTask, ProgressMetric } from "@/lib/types";
-import { buildFallbackCheckinConfig, normalizeCheckinConfig } from "@/lib/checkin-form";
+import { normalizeCheckinConfig } from "@/lib/checkin-form";
 import { checkinDate } from "@/lib/checkin-message";
 import { canReadCoachCheckinReplies, coachCheckinReplyHref, type CoachCheckinReply } from "@/lib/checkin-replies";
 import type { WearableDailySummary } from "@/lib/wearable-insights";
@@ -182,6 +182,7 @@ function CoachReplies({ replies, unavailable, currentWeekId, currentWeekSubmitte
 
 export default function CheckInPage() {
   const { toast } = useToast();
+  const [configRevision, setConfigRevision] = useState<string | null>(null);
   const [config, setConfig] = useState<CheckinFormConfig | null>(null);
   const [mood, setMood] = useState<string | null>(null);
   const [responses, setResponses] = useState<Record<string, string>>({});
@@ -192,6 +193,8 @@ export default function CheckInPage() {
   const [photos, setPhotos] = useState<Record<string, File>>({});
   const [tier, setTier] = useState<string>("coached");
   const [tierLoaded, setTierLoaded] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [businessCheckin, setBusinessCheckin] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [currentWeekSubmitted, setCurrentWeekSubmitted] = useState(false);
   const [currentWeekSavedAt, setCurrentWeekSavedAt] = useState<string | null>(null);
@@ -270,8 +273,13 @@ export default function CheckInPage() {
         if (stateRes.ok) {
           const stateData = await stateRes.json();
           if (cancelled) return;
-          const normalizedConfig = normalizeCheckinConfig(stateData.config);
+          const isBusiness = stateData.programmeType === "boardroom";
+          setBusinessCheckin(isBusiness);
+          setPending(Boolean(stateData.pending));
+          if (stateData.pending) { setLoadError(""); return; }
+          const normalizedConfig = normalizeCheckinConfig(stateData.config, isBusiness ? "boardroom" : undefined);
           setConfig(normalizedConfig);
+          setConfigRevision(stateData.configRevision || null);
           setCheckinDay(stateData.checkinDay || null);
           setTemplateName(stateData.templateName || null);
           setCoachReplies(stateData.checkinReplies || []);
@@ -292,7 +300,7 @@ export default function CheckInPage() {
             }
             setCurrentWeekSubmitted(true);
             setCurrentWeekSavedAt(existing.created_at || null);
-          } else {
+          } else if (!isBusiness) {
             const integrationsRes = await fetch("/api/portal/integrations");
             if (integrationsRes.ok && !cancelled) {
               const integrationsData = await integrationsRes.json();
@@ -315,13 +323,11 @@ export default function CheckInPage() {
           }
         } else {
           if (cancelled) return;
-          setConfig(buildFallbackCheckinConfig());
-          setLoadError("We couldn't load your assigned check-in form, so a safe default is shown. You can still submit.");
+          setLoadError("We couldn't load your assigned check-in. Please refresh and try again.");
         }
       } catch {
         if (cancelled) return;
-        setConfig(buildFallbackCheckinConfig());
-        setLoadError("We couldn't load your full check-in setup, so a safe default is shown. You can still submit.");
+        setLoadError("We couldn't load your assigned check-in. Please refresh and try again.");
       }
     }
     loadConfig();
@@ -362,7 +368,7 @@ export default function CheckInPage() {
       const res = await fetch("/api/portal/checkin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mood: mood || "good", responses: fullResponses }),
+        body: JSON.stringify({ mood: mood || "good", responses: fullResponses, config_revision: configRevision }),
       });
 
       if (res.ok) {
@@ -464,12 +470,12 @@ export default function CheckInPage() {
             >
               Keep Editing
             </button>
-            <Link
+            {!businessCheckin && <Link
               href="/portal/progress"
               className="px-6 py-3 rounded-xl border border-[rgba(0,0,0,0.08)] bg-bg-primary text-sm font-semibold text-text-primary no-underline"
             >
               Log your progress
-            </Link>
+            </Link>}
             <Link
               href="/portal"
               className="text-xs font-semibold text-text-muted no-underline hover:text-text-secondary"
@@ -481,6 +487,14 @@ export default function CheckInPage() {
       </div>
     );
   }
+
+  if (pending || (!config && loadError)) return (
+    <div className="mx-auto w-full max-w-2xl rounded-2xl border border-accent/20 bg-bg-card p-6">
+      <h1 className="text-xl font-heading font-bold text-text-primary">{pending ? "Your personal business check-in" : "Check-in unavailable"}</h1>
+      <p className="mt-3 text-sm text-text-secondary">{pending ? "Gordy is preparing your weekly questions from your business consultation. Your check-in will appear here once he has approved and assigned it." : loadError}</p>
+      <Link href="/portal" className="mt-5 inline-flex text-sm font-semibold text-accent-bright">Back to dashboard</Link>
+    </div>
+  );
 
   if (!config) {
     return (
@@ -528,7 +542,7 @@ export default function CheckInPage() {
     <div className="mx-auto w-full max-w-2xl pb-28 sm:pb-0">
       <div className="mb-6">
         <h1 className="text-3xl font-heading font-bold text-text-primary">{config.title || "Weekly Check-in"}</h1>
-        <p className="text-text-secondary mt-1">{tierInfo.line}</p>
+        <p className="text-text-secondary mt-1">{businessCheckin ? "Your business numbers, wins and next steps for Gordy to review." : tierInfo.line}</p>
         {(tier === "premium" || tier === "vip") && (
           <div className={`mt-4 inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${
             tier === "vip"
@@ -624,10 +638,10 @@ export default function CheckInPage() {
         )}
 
         {/* Progress Photos */}
-        <PhotoUpload
+        {!businessCheckin && <PhotoUpload
           date={new Date().toISOString().split("T")[0]}
           onPhotosChange={setPhotos}
-        />
+        />}
 
         {/* Dynamic questions */}
         {enabledQuestions.map((q) => {
@@ -651,10 +665,17 @@ export default function CheckInPage() {
               </section>
             );
           }
+          if (q.type === "boolean" || q.type === "date" || q.type === "text") return (
+            <section key={q.id} className="app-card rounded-[28px] p-5">
+              <label htmlFor={`question_${q.id}`} className="mb-3 block text-sm font-bold text-text-primary">{q.label}{q.required ? " *" : ""}</label>
+              {q.type === "boolean" ? <select id={`question_${q.id}`} required={q.required} value={responses[q.id] || ""} onChange={event => setResponses(previous => ({ ...previous, [q.id]: event.target.value }))} className="app-inset w-full rounded-2xl p-3 text-text-primary"><option value="">Choose</option><option value="true">Yes</option><option value="false">No</option></select> : <input id={`question_${q.id}`} type={q.type === "date" ? "date" : "text"} required={q.required} value={responses[q.id] || ""} onChange={event => setResponses(previous => ({ ...previous, [q.id]: event.target.value }))} className="app-inset w-full rounded-2xl p-3 text-text-primary" placeholder={q.placeholder} />}
+            </section>
+          );
           return (
             <section key={q.id} className="app-card rounded-[28px] p-5">
               <label htmlFor={`question_${q.id}`} className="mb-3 block text-sm font-bold text-text-primary">{q.label}</label>
               <textarea
+                required={q.required}
                 id={`question_${q.id}`}
                 value={responses[q.id] || ""}
                 onChange={(e) => setResponses((prev) => ({ ...prev, [q.id]: e.target.value }))}
@@ -695,6 +716,7 @@ export default function CheckInPage() {
                     />
                   ) : m.type === "select" && m.options?.length ? (
                     <select
+                      aria-label={m.label}
                       value={progressData[m.id] || ""}
                       onChange={(e) => setProgressData((prev) => ({ ...prev, [m.id]: e.target.value }))}
                       className="w-full bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-[#E040D0]/40 transition-colors"
@@ -707,10 +729,14 @@ export default function CheckInPage() {
                   ) : (
                     <input
                       type="number"
-                      step="0.1"
+                      aria-label={m.label}
+                      step={m.kind === "count" ? "1" : "any"}
+                      min={m.min}
+                      max={m.max}
+                      required={m.required}
                       value={progressData[m.id] || ""}
                       onChange={(e) => setProgressData((prev) => ({ ...prev, [m.id]: e.target.value }))}
-                      placeholder={m.unit ? `e.g. 75${m.unit}` : "Enter value"}
+                      placeholder={m.kind === "money" ? "Enter amount in GBP" : m.unit ? `Enter value (${m.unit})` : "Enter value"}
                       className="w-full bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40 transition-colors"
                     />
                   )}

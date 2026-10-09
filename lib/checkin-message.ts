@@ -49,5 +49,6 @@ export function checkinPreview(context: CheckinMessageContext) {
 }
 
 export function contextFromCheckin(checkin: CheckIn, config?: CheckinFormConfig | null): CheckinMessageContext {
-  return { ...checkin, submitted_at: checkin.created_at, config };
+  const submittedConfig = checkin.form_config_snapshot || config;
+  return { ...checkin, mood: submittedConfig?.mood_enabled === false ? null : checkin.mood, submitted_at: checkin.created_at, config: submittedConfig };
 }

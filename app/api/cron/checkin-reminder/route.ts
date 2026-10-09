@@ -1,3 +1,4 @@
+import { checkinReminderDay } from "@/lib/checkin-reminder";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyClientProfile } from "@/lib/client-notifications";
 import { sendPushToUser } from "@/lib/push";
@@ -41,7 +42,7 @@ export async function GET(request: Request) {
   // Get client_profiles to map user_id -> client_id
   const { data: profiles } = await admin
     .from("client_profiles")
-    .select("id, user_id, date_of_birth, lifecycle_status, lifecycle_resumes_at");
+    .select("id, user_id, date_of_birth, lifecycle_status, lifecycle_resumes_at, programme_type, onboarding_status, checkin_day, checkin_form_id");
 
   const activeClientIds = new Set((profiles || [])
     .filter((profile) => resolveClientLifecycleStatus(profile.lifecycle_status, profile.lifecycle_resumes_at) === "active")
@@ -102,11 +103,17 @@ export async function GET(request: Request) {
     keyDateWishes++;
   }
 
+  const boardroomFormIds = [...new Set((profiles || []).filter(p => p.programme_type === "boardroom" && p.checkin_form_id).map(p => p.checkin_form_id))];
+  const businessForms = boardroomFormIds.length ? await admin.from("checkin_forms").select("id,config").in("id", boardroomFormIds) : { data: [], error: null };
+  if (businessForms.error) return NextResponse.json({error:"Could not load personal check-in schedules"},{status:500});
+  const businessConfigById = new Map((businessForms.data || []).map(form => [form.id, form.config]));
+  const dueByUser = new Map((profiles || []).map(profile => [profile.user_id, checkinReminderDay(profile, businessConfigById.get(profile.checkin_form_id) || null, checkinDay) === today]));
+
   // Send push reminders to active clients who haven't checked in yet.
   let pushSent = 0;
   let skipped = 0;
 
-  if (today === checkinDay && clients && clients.length > 0) {
+  if (clients && clients.length > 0 && clients.some(client => dueByUser.get(client.id))) {
     // Check which clients have already checked in this week
     const startOfWeek = new Date();
     const dayOfWeek = startOfWeek.getDay();
@@ -125,7 +132,7 @@ export async function GET(request: Request) {
 
     for (const client of clients) {
       const clientId = userToClientId.get(client.id);
-      if (!clientId || !activeClientIds.has(clientId)) {
+      if (!clientId || !activeClientIds.has(clientId) || !dueByUser.get(client.id)) {
         skipped++;
         continue;
       }

@@ -11,6 +11,7 @@ test("weekly check-in cron keeps push reminders and sends no email", () => {
 });
 
 test("weekly check-in push still requires the configured check-in day", () => {
-  assert.match(route, /if \(today === checkinDay && clients && clients\.length > 0\)/);
+  assert.match(route, /checkinReminderDay\(profile/);
+  assert.match(route, /!dueByUser\.get\(client\.id\)/);
   assert.match(route, /checkedInClientIds\.has\(clientId\)/);
 });

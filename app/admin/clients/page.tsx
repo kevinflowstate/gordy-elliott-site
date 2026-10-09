@@ -53,6 +53,7 @@ type ClientFilter = "all" | "attention" | "green" | "paused";
 
 const PROGRAMME_PRIORITY: Record<ProgrammeType, number> = {
   capacity: 0,
+  boardroom: 0,
   in_person: 1,
   shift: 2,
 };
@@ -61,6 +62,7 @@ const STATUS_PRIORITY: Record<TrafficLight, number> = { red: 0, amber: 1, green:
 
 const programmeRowAccent: Record<ProgrammeType, string> = {
   capacity: "border-l-4 border-l-[#E040D0]/60",
+  boardroom: "border-l-4 border-l-[#E040D0]/60",
   shift: "border-l-4 border-l-sky-500/50",
   in_person: "border-l-4 border-l-amber-500/55",
 };
@@ -142,12 +144,12 @@ export default function ClientsPage() {
     return PROGRAMME_PRIORITY[a.programme_type] - PROGRAMME_PRIORITY[b.programme_type];
   });
 
-  const programmeCounts: Record<ProgrammeType, number> = { capacity: 0, shift: 0, in_person: 0 };
+  const programmeCounts: Record<ProgrammeType, number> = { capacity: 0, shift: 0, in_person: 0, boardroom: 0 };
   for (const c of allClients) programmeCounts[c.programme_type]++;
   const highTouchAtRisk = allClients.filter(
-    (c) => c.lifecycle_status === "active" && (c.programme_type === "capacity" || c.programme_type === "in_person") && (c.status === "amber" || c.status === "red"),
+    (c) => c.lifecycle_status === "active" && (c.programme_type === "capacity" || c.programme_type === "in_person" || c.programme_type === "boardroom") && (c.status === "amber" || c.status === "red"),
   );
-  const highTouchTotal = programmeCounts.capacity + programmeCounts.in_person;
+  const highTouchTotal = programmeCounts.capacity + programmeCounts.in_person + programmeCounts.boardroom;
 
   return (
     <>

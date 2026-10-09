@@ -84,6 +84,7 @@ function SettingsContent() {
   const [isSetup, setIsSetup] = useState(false);
   const [isReset, setIsReset] = useState(false);
   const [dateOfBirth, setDateOfBirth] = useState("");
+  const [boardroom, setBoardroom] = useState(false);
   const [sex, setSex] = useState<ClientSexInput>("");
   const [cycleTrackingEnabled, setCycleTrackingEnabled] = useState(false);
   const [keyDates, setKeyDates] = useState<Array<Pick<ClientKeyDate, "label" | "date" | "recurring">>>([]);
@@ -112,6 +113,7 @@ function SettingsContent() {
         const res = await fetch("/api/portal/me");
         if (res.ok) {
           const data = await res.json();
+          setBoardroom(data.programmeType === "boardroom");
           setFullName(data.fullName || "");
           setAvatarUrl(data.avatarUrl || null);
           setDateOfBirth(data.profile?.date_of_birth || "");
@@ -174,9 +176,7 @@ function SettingsContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         fullName,
-        dateOfBirth,
-        sex,
-        cycleTrackingEnabled: sex === "female" && cycleTrackingEnabled,
+        ...(!boardroom ? { dateOfBirth, sex, cycleTrackingEnabled: sex === "female" && cycleTrackingEnabled } : {}),
         keyDates,
       }),
     });
@@ -305,6 +305,7 @@ function SettingsContent() {
           </div>
         </div>
 
+        {!boardroom && (
         <div className="app-card rounded-2xl p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -319,6 +320,7 @@ function SettingsContent() {
             </Link>
           </div>
         </div>
+        )}
 
         <div className="app-card rounded-2xl p-6 space-y-5">
           <h2 className="text-lg font-heading font-bold text-text-primary">Profile</h2>
@@ -338,6 +340,7 @@ function SettingsContent() {
         <div className="app-card rounded-2xl p-6 space-y-5">
           <h2 className="text-lg font-heading font-bold text-text-primary">Your Details</h2>
 
+          {!boardroom && <>
           <div>
             <label htmlFor="settings-date-of-birth" className="block text-sm font-medium text-text-primary mb-2">Date of Birth</label>
             <input
@@ -384,6 +387,8 @@ function SettingsContent() {
               </span>
             </button>
           )}
+
+          </>}
 
           <div>
             <label className="block text-sm font-medium text-text-primary mb-2">Key Dates</label>

@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   }
 
   if (!isProgrammeType(programme_type)) {
-    return NextResponse.json({ error: "Choose CAPACITY, SHIFT or IN PERSON" }, { status: 400 });
+    return NextResponse.json({ error: "Choose CAPACITY, SHIFT, IN PERSON or CAPACITY BOARDROOM" }, { status: 400 });
   }
 
   const legacyProgramme = legacyProfileForProgramme(programme_type);
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
   // Create welcome notification
   await admin.from("notifications").insert({
     user_id: newUser.user.id,
-    title: "Welcome to AT CAPACITY",
+    title: programme_type === "boardroom" ? "Welcome to CAPACITY BOARDROOM" : "Welcome to AT CAPACITY",
     message: `Welcome ${normalizedName.split(" ")[0]}! Set your password and complete the consultation so Gordy can prepare your coaching plan.`,
     link: "/portal/consultation",
   });
@@ -136,7 +136,7 @@ export async function POST(request: Request) {
   let emailFailureStatus: "failed" | "unknown" = "failed";
   try {
     if (setupUrl) {
-      await sendWelcomeEmail(normalizedEmail, normalizedName, setupUrl, profile.id);
+      await sendWelcomeEmail(normalizedEmail, normalizedName, setupUrl, profile.id, programme_type);
       emailSent = true;
     }
   } catch (e) {

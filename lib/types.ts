@@ -119,6 +119,7 @@ export interface ContentProgress {
 }
 
 export interface CheckIn {
+  form_config_snapshot?: CheckinFormConfig | null;
   id: string;
   client_id: string;
   week_number: number;
@@ -140,6 +141,8 @@ export interface TrainingPlanItem {
   title: string;
   completed: boolean;
   completed_at?: string;
+  due_date?: string;
+  notes?: string;
 }
 
 export interface TrainingPlanPhase {
@@ -149,9 +152,13 @@ export interface TrainingPlanPhase {
   order_index: number;
   items: TrainingPlanItem[];
   linked_trainings: string[];
+  due_date?: string;
 }
 
 export interface TrainingPlan {
+  title?: string;
+  start_date?: string;
+  duration_days?: number;
   id: string;
   client_id: string;
   summary: string;
@@ -277,6 +284,8 @@ export interface MoodOption {
 }
 
 export interface ProgressMetric {
+  kind?: "money" | "count" | "hours" | "percentage" | "score" | "number";
+  required?: boolean;
   id: string;
   label: string;
   type: 'number' | 'scale' | 'select';
@@ -288,6 +297,7 @@ export interface ProgressMetric {
 }
 
 export interface CheckinFormConfig {
+  programme_type?: ProgrammeType;
   title?: string;
   checkin_day: string;
   mood_enabled: boolean;

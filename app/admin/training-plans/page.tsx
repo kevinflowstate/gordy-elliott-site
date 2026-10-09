@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import type { TrainingPlan, TrainingPlanPhase, TrafficLight, TrainingModule } from "@/lib/types";
+import type { TrainingPlan, TrafficLight, TrainingModule, ProgrammeType } from "@/lib/types";
 import TrainingPlanBuilder from "@/components/admin/TrainingPlanBuilder";
 
 interface PlanWithClient extends TrainingPlan {
@@ -10,12 +10,14 @@ interface PlanWithClient extends TrainingPlan {
   client_id_profile: string;
   client_business: string;
   client_status: TrafficLight;
+  programme_type?: ProgrammeType;
 }
 
 interface ClientStub {
   id: string;
   name: string;
   business_name: string;
+  programme_type?: ProgrammeType;
   status?: TrafficLight;
 }
 
@@ -69,23 +71,11 @@ export default function TrainingPlansPage() {
   useEffect(() => { loadData(); }, []);
 
   async function handleSavePlan(plan: TrainingPlan) {
-    // Complete existing active plan for this client if creating new
-    if (!builderPlan) {
-      const existingActive = plans.find(p => p.client_id === plan.client_id && p.status === "active");
-      if (existingActive) {
-        await fetch("/api/admin/training-plans", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "complete", plan_id: existingActive.id }),
-        });
-      }
-    }
 
-    await fetch("/api/admin/training-plans", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan }),
+    const res = await fetch("/api/admin/training-plans", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan }),
     });
+    if (!res.ok) { const data = await res.json(); throw new Error(data.error || "Could not save plan"); }
 
     setBuilderOpen(false);
     setBuilderClientId(null);
@@ -439,6 +429,7 @@ export default function TrainingPlansPage() {
       {builderOpen && builderClientId && (
         <TrainingPlanBuilder
           clientId={builderClientId}
+          programmeType={allClients.find(c => c.id === builderClientId)?.programme_type}
           existingPlan={builderPlan}
           onSave={handleSavePlan}
           onCancel={() => { setBuilderOpen(false); setBuilderClientId(null); setBuilderPlan(undefined); }}

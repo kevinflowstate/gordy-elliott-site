@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { dbError } from "@/lib/api-errors";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { normalizeCheckinConfig } from "@/lib/checkin-form";
+import { normalizeCheckinConfig, validateCheckinTemplate } from "@/lib/checkin-form";
 
 export async function GET() {
   const auth = await requireAdmin();
@@ -99,6 +99,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Template name is required" }, { status: 400 });
   }
 
+  const configError = config ? validateCheckinTemplate(config) : null;
+  if (configError) return NextResponse.json({ error: configError }, { status: 400 });
+  if (is_default && config?.programme_type === "boardroom") return NextResponse.json({ error: "Business check-ins must be assigned personally, not used as the global default" }, { status: 400 });
   const admin = createAdminClient();
 
   if (is_default) {
@@ -132,7 +135,18 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Template id is required" }, { status: 400 });
   }
 
+  const configError = config ? validateCheckinTemplate(config) : null;
+  if (configError) return NextResponse.json({ error: configError }, { status: 400 });
   const admin = createAdminClient();
+  const { data: existing } = await admin.from("checkin_forms").select("config, is_default").eq("id", id).maybeSingle();
+  if (!existing) return NextResponse.json({ error: "Template not found" }, { status: 404 });
+  const nextConfig = config || existing.config;
+  if (config && (config.programme_type === "boardroom") !== (existing.config?.programme_type === "boardroom")) {
+    const { count, error: assignedError } = await admin.from("client_profiles").select("id", { count: "exact", head: true }).eq("checkin_form_id", id);
+    if (assignedError) return dbError(assignedError, "Couldn't verify this form's assignments");
+    if ((count || 0) > 0) return NextResponse.json({ error: "Create a new form to change programme while this template has assigned clients" }, { status: 409 });
+  }
+  if ((is_default ?? existing.is_default) && nextConfig?.programme_type === "boardroom") return NextResponse.json({ error: "Business check-ins must be assigned personally, not used as the global default" }, { status: 400 });
   if (is_default) {
     await admin.from("checkin_forms").update({ is_default: false }).neq("id", id);
   }

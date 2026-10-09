@@ -16,6 +16,7 @@ export async function getShiftAILimit(admin: AdminClient) {
 }
 
 export async function getProgrammeAIUsage(admin: AdminClient, clientId: string, programme: string) {
+  if (programme === "boardroom") return { limited: true, used: 0, limit: 0, remaining: 0 };
   if (normalizeProgrammeType(programme) !== "shift") return { limited: false, used: 0, limit: null, remaining: null };
   const limit = await getShiftAILimit(admin);
   const monthStart = monthStartKey();

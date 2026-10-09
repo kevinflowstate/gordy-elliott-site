@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { dbError } from "@/lib/api-errors";
 import { normalizeConsultationConfig } from "@/lib/consultation-form";
+import { isBoardroomConsultation, validateConsultationAnswers, buildBoardroomConsultationSummary } from "@/lib/boardroom-consultation";
 import { getSiteUrl } from "@/lib/site-url";
 import { NextRequest, NextResponse } from "next/server";
 import { isValidIsoDateOfBirth } from "@/lib/date-of-birth";
@@ -116,14 +117,14 @@ async function extractConsultationSummary(data: Record<string, unknown>) {
   }
 }
 
-async function loadConsultationConfig(admin: ReturnType<typeof createAdminClient>) {
+async function loadConsultationConfig(admin: ReturnType<typeof createAdminClient>, programme?: string | null) {
   const { data } = await admin
     .from("form_config")
     .select("config")
-    .eq("form_type", "consultation")
+    .eq("form_type", isBoardroomConsultation(programme) ? "boardroom_consultation" : "consultation")
     .maybeSingle();
 
-  return normalizeConsultationConfig(data?.config);
+  return normalizeConsultationConfig(data?.config, programme);
 }
 
 export async function GET() {
@@ -135,14 +136,18 @@ export async function GET() {
   }
 
   const admin = createAdminClient();
-  const config = await loadConsultationConfig(admin);
-  const { data: profile } = await admin
+  const { data: profile, error: profileError } = await admin
     .from("client_profiles")
-    .select("consultation_data, consultation_summary, profile_setup_data, profile_setup_completed_at, wearables_preference, wearables_notes, phone, date_of_birth, sex, cycle_tracking_enabled")
+    .select("programme_type, consultation_data, consultation_summary, profile_setup_data, profile_setup_completed_at, wearables_preference, wearables_notes, phone, date_of_birth, sex, cycle_tracking_enabled")
     .eq("user_id", user.id)
     .maybeSingle();
 
+  if (profileError) return dbError(profileError, "Couldn’t load your consultation. Try again.");
+  if (!profile) return NextResponse.json({ error: "Client profile not found" }, { status: 404 });
+  const config = await loadConsultationConfig(admin, profile.programme_type);
+
   return NextResponse.json({
+    programmeType: profile.programme_type,
     consultation_data: profile?.consultation_data || null,
     consultation_summary: profile?.consultation_summary || null,
     profile_setup_data: profile?.profile_setup_data || null,
@@ -173,13 +178,16 @@ export async function POST(req: NextRequest) {
   const admin = createAdminClient();
   const { data: currentProfile, error: currentProfileError } = await admin
     .from("client_profiles")
-    .select("id, onboarding_status")
+    .select("id, onboarding_status, programme_type")
     .eq("user_id", user.id)
     .maybeSingle();
   if (currentProfileError) return dbError(currentProfileError, "Couldn't load your consultation. Try again.");
   if (!currentProfile) return NextResponse.json({ error: "Client profile not found" }, { status: 404 });
   const shouldAdvanceOnboarding = currentProfile.onboarding_status === "invited";
-  const config = await loadConsultationConfig(admin);
+  const boardroom = isBoardroomConsultation(currentProfile.programme_type);
+  const config = await loadConsultationConfig(admin, currentProfile.programme_type);
+  const validationError = validateConsultationAnswers(config, body);
+  if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
   const enabledQuestions = config.questions.filter((question) => question.enabled !== false);
   const enabledIds = new Set(enabledQuestions.map((question) => question.id));
   const consultationData: Record<string, unknown> = {};
@@ -189,14 +197,14 @@ export async function POST(req: NextRequest) {
     }
   }
   consultationData.privacy_consent = true;
-  consultationData.privacy_consent_version = "health_cycle_v1";
+  consultationData.privacy_consent_version = boardroom ? "business_coaching_v1" : "health_cycle_v1";
   consultationData.privacy_consent_at = new Date().toISOString();
 
   const updates: Record<string, unknown> = {
     consultation_data: consultationData,
   };
 
-  if (body.profile_setup && typeof body.profile_setup === "object") {
+  if (!boardroom && body.profile_setup && typeof body.profile_setup === "object") {
     const setup = body.profile_setup as Record<string, unknown>;
     updates.profile_setup_data = setup;
     updates.profile_setup_completed_at = new Date().toISOString();
@@ -205,7 +213,7 @@ export async function POST(req: NextRequest) {
     updates.wearables_notes = typeof setup.wearables_notes === "string" ? setup.wearables_notes.trim() || null : null;
   }
 
-  if (enabledIds.has("date_of_birth")) {
+  if (!boardroom && enabledIds.has("date_of_birth")) {
     const dateOfBirth = typeof body.date_of_birth === "string" ? body.date_of_birth.trim() : "";
     if (dateOfBirth && !isValidIsoDateOfBirth(dateOfBirth)) {
       return NextResponse.json({ error: "Enter a valid date of birth in DD/MM/YYYY format" }, { status: 400 });
@@ -213,7 +221,7 @@ export async function POST(req: NextRequest) {
     updates.date_of_birth = dateOfBirth || null;
   }
 
-  if (enabledIds.has("sex")) {
+  if (!boardroom && enabledIds.has("sex")) {
     const nextSex = body.sex === "" || body.sex === undefined ? null : body.sex;
     if (nextSex !== null && !VALID_SEX_VALUES.includes(nextSex)) {
       return NextResponse.json({ error: "Invalid sex value" }, { status: 400 });
@@ -226,7 +234,11 @@ export async function POST(req: NextRequest) {
         : false;
   }
 
-  updates.consultation_summary = await extractConsultationSummary(consultationData);
+  if (boardroom) {
+    const mobile = answerText(consultationData, "business_mobile");
+    if (mobile) updates.phone = mobile;
+  }
+  updates.consultation_summary = boardroom ? buildBoardroomConsultationSummary(consultationData) : await extractConsultationSummary(consultationData);
   if (shouldAdvanceOnboarding) updates.onboarding_status = "consultation_complete";
 
   const { error } = await admin

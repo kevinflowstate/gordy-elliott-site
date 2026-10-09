@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
   const { data: profile, error } = await admin
     .from("client_profiles")
-    .select("id, user_id, user:users!client_profiles_user_id_fkey(email, full_name)")
+    .select("id, user_id, programme_type, user:users!client_profiles_user_id_fkey(email, full_name)")
     .eq("id", client_id)
     .maybeSingle();
 
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
   let emailFailureStatus: "failed" | "unknown" = "failed";
   if (!notification.suppressed) {
     try {
-      await sendConsultationLinkEmail(user.email, clientName, consultationUrl, profile.id);
+      await sendConsultationLinkEmail(user.email, clientName, consultationUrl, profile.id, profile.programme_type);
       emailSent = true;
     } catch (sendError) {
       if (sendError instanceof TrackedEmailError) emailFailureStatus = sendError.sendStatus;

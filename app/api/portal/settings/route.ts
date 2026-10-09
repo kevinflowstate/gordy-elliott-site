@@ -23,6 +23,9 @@ export async function POST(request: Request) {
 
   const { fullName, phone, businessName, businessType, goals, dateOfBirth, sex, cycleTrackingEnabled, keyDates } = await request.json();
 
+  const { data: current } = await admin.from("client_profiles").select("programme_type").eq("user_id", userId).maybeSingle();
+  const boardroom = current?.programme_type === "boardroom";
+
   // Only update name if provided (prevents onboarding from blanking it)
   if (fullName) {
     await admin.from("users").update({ full_name: fullName }).eq("id", userId);
@@ -34,15 +37,15 @@ export async function POST(request: Request) {
   if (businessName !== undefined) profileUpdate.business_name = businessName;
   if (businessType !== undefined) profileUpdate.business_type = businessType;
   if (goals !== undefined) profileUpdate.goals = goals;
-  if (dateOfBirth !== undefined) profileUpdate.date_of_birth = dateOfBirth || null;
-  if (sex !== undefined) {
+  if (!boardroom && dateOfBirth !== undefined) profileUpdate.date_of_birth = dateOfBirth || null;
+  if (!boardroom && sex !== undefined) {
     const nextSex = sex === "" ? null : sex;
     if (nextSex !== null && !VALID_SEX_VALUES.includes(nextSex)) {
       return NextResponse.json({ error: "Invalid sex value" }, { status: 400 });
     }
     profileUpdate.sex = nextSex;
     profileUpdate.cycle_tracking_enabled = nextSex === "female" ? Boolean(cycleTrackingEnabled) : false;
-  } else if (cycleTrackingEnabled !== undefined) {
+  } else if (!boardroom && cycleTrackingEnabled !== undefined) {
     const { data: currentProfile } = await admin
       .from("client_profiles")
       .select("sex")

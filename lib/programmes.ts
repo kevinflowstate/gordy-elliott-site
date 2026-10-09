@@ -1,4 +1,4 @@
-export const PROGRAMME_TYPES = ["capacity", "shift", "in_person"] as const;
+export const PROGRAMME_TYPES = ["capacity", "shift", "in_person", "boardroom"] as const;
 
 export type ProgrammeType = (typeof PROGRAMME_TYPES)[number];
 export type OnboardingStatus = "invited" | "consultation_complete" | "active" | "paused";
@@ -26,6 +26,14 @@ export const programmeConfig: Record<ProgrammeType, {
     bookingUrl: "https://calendly.com/gordyonline/client-chat",
     documentsEnabled: false,
     aiMonthlyLimit: 30,
+  },
+  boardroom: {
+    label: "CAPACITY BOARDROOM",
+    callCount: 0,
+    callLabel: "Business mentorship",
+    bookingUrl: null,
+    documentsEnabled: true,
+    aiMonthlyLimit: 0,
   },
   in_person: {
     label: "IN PERSON",
@@ -70,4 +78,11 @@ export function monthStartKey(date = new Date()) {
   const month = parts.find((part) => part.type === "month")?.value;
   if (!year || !month) throw new Error("Could not resolve the coaching month");
   return `${year}-${month}-01`;
+}
+
+export function isBoardroom(value: unknown) { return value === "boardroom"; }
+
+export const BOARDROOM_HIDDEN_PORTAL_PATHS = ["/portal/exercise-plan", "/portal/nutrition-plan", "/portal/daily-tracker", "/portal/cycle", "/portal/gallery", "/portal/progress", "/portal/connected-apps", "/portal/ai"];
+export function programmeShowsPortalPath(programme: unknown, path: string) {
+  return !isBoardroom(programme) || !BOARDROOM_HIDDEN_PORTAL_PATHS.some((hidden) => path === hidden || path.startsWith(`${hidden}/`));
 }
