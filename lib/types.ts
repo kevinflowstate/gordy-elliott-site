@@ -367,6 +367,7 @@ export interface ExerciseSession {
 }
 
 export interface ExerciseTemplate {
+  load_version?: number;
   id: string;
   name: string;
   description?: string;

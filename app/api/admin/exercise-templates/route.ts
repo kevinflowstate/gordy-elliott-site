@@ -1,3 +1,4 @@
+import { loadTemplateRows, TEMPLATE_LOAD_VERSION } from "@/lib/exercise-template-load";
 import { createExerciseSectionDivider } from "@/lib/exercise-section";
 import { requireAdmin } from "@/lib/admin-auth";
 import { dbError } from "@/lib/api-errors";
@@ -5,7 +6,7 @@ import { exerciseRows, validateTemplate } from "@/lib/exercise-plan-save";
 export { exerciseRows, validateTemplate } from "@/lib/exercise-plan-save";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
-import type { ExerciseTemplate } from "@/lib/types";
+import type { ExerciseTemplate, ExerciseSession, ExerciseSessionItem } from "@/lib/types";
 
 // GET: Fetch all active templates with nested sessions and items
 export async function GET() {
@@ -14,35 +15,23 @@ export async function GET() {
 
   const admin = createAdminClient();
 
-  // Fetch templates
-  const { data: templates, error: tError } = await admin
-    .from("exercise_training_templates")
-    .select("*")
-    .eq("is_active", true)
-    .order("created_at", { ascending: false });
+  const { data: templates, error: tError } = await loadTemplateRows<ExerciseTemplate>(admin, "exercise_training_templates", "*");
+  if (tError || !templates) return dbError(tError, "Couldn't load training templates. Try again.");
+  if (!templates.length) return NextResponse.json({ templates: [] });
+  templates.sort((a, b) => b.created_at.localeCompare(a.created_at));
 
-  if (tError) return dbError(tError, "Couldn't load training templates. Try again.");
-  if (!templates || templates.length === 0) return NextResponse.json({ templates: [] });
+  const { data: sessions, error: sError } = await loadTemplateRows<ExerciseSession & { template_id: string }>(admin, "exercise_training_sessions", "*", {
+    column: "template_id", ids: templates.map((t) => t.id),
+  });
+  if (sError || !sessions) return dbError(sError, "Couldn't load all template sessions. Please reload before editing.");
+  sessions.sort((a, b) => a.day_number - b.day_number || a.id.localeCompare(b.id));
 
-  const templateIds = templates.map((t) => t.id);
-
-  // Fetch sessions for those templates
-  const { data: sessions } = await admin
-    .from("exercise_training_sessions")
-    .select("*")
-    .in("template_id", templateIds)
-    .order("day_number", { ascending: true });
-
-  const sessionIds = (sessions || []).map((s) => s.id);
-
-  // Fetch items joined with exercises
-  const { data: items } = sessionIds.length
-    ? await admin
-        .from("exercise_training_session_items")
-        .select("*, exercise:exercises(id, name, muscle_group, equipment, description)")
-        .in("session_id", sessionIds)
-        .order("order_index", { ascending: true })
-    : { data: [] };
+  const { data: items, error: iError } = await loadTemplateRows<ExerciseSessionItem>(admin, "exercise_training_session_items",
+    "*, exercise:exercises(id, name, muscle_group, equipment, description)", {
+      column: "session_id", ids: sessions.map((s) => s.id),
+    });
+  if (iError || !items) return dbError(iError, "Couldn't load all template exercises. Please reload before editing.");
+  items.sort((a, b) => a.order_index - b.order_index || a.id.localeCompare(b.id));
 
   // Assemble nested structure using Maps
   const itemsBySession = new Map<string, typeof items>();
@@ -50,7 +39,7 @@ export async function GET() {
     const list = itemsBySession.get(item.session_id) || [];
     // If this item has a section_label, insert a section divider before it
     if (item.section_label) {
-      list.push(createExerciseSectionDivider(item));
+      list.push(createExerciseSectionDivider({ ...item, section_label: item.section_label }) as unknown as ExerciseSessionItem);
     }
     list.push(item);
     itemsBySession.set(item.session_id, list);
@@ -68,6 +57,7 @@ export async function GET() {
 
   const assembled = templates.map((template) => ({
     ...template,
+    load_version: TEMPLATE_LOAD_VERSION,
     sessions: sessionsByTemplate.get(template.id) || [],
   }));
 
@@ -84,6 +74,9 @@ export async function POST(request: Request) {
   const { template } = body as { template?: ExerciseTemplate };
 
   if (!template) return NextResponse.json({ error: "template is required" }, { status: 400 });
+  if (template.id && template.load_version !== TEMPLATE_LOAD_VERSION) {
+    return NextResponse.json({ error: "This editor was opened before the full-plan loading update. Close it and refresh the page before editing. Nothing was changed." }, { status: 409 });
+  }
   const validationError = validateTemplate(template);
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
 
