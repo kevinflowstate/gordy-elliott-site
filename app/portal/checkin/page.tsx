@@ -368,9 +368,9 @@ export default function CheckInPage() {
     const isHighTouch = tier === "premium" || tier === "vip";
     if (isHighTouch) {
       if (priorityMessage.trim()) fullResponses.priority_message = priorityMessage.trim();
-      else delete fullResponses.priority_message;
+      else fullResponses.priority_message = "";
       if (supportAsk.trim()) fullResponses.support_ask = supportAsk.trim();
-      else delete fullResponses.support_ask;
+      else fullResponses.support_ask = "";
     }
 
     try {

@@ -212,8 +212,10 @@ export async function POST(request: Request) {
       const { error } = await admin.from("client_body_measurements").upsert(measurement, { onConflict: "client_id,measured_date", ignoreDuplicates: false });
       if (error) measurementWarning = "Check-in saved, but progress could not sync. Please reopen and save this check-in again, or log your weight on the Progress page.";
       else if (syncWeight) {
+        const syncedResponses = JSON.stringify(responses);
         delete responses.weight_sync_pending;
-        const { error: clearError } = await admin.from("checkins").update({ responses }).eq("client_id", profile.id).eq("week_number", weekNumber);
+        // Compare-and-set: clearing our retry marker must never replace a newer tab's answers.
+        const { error: clearError } = await admin.from("checkins").update({ responses }).eq("client_id", profile.id).eq("week_number", weekNumber).eq("responses", syncedResponses);
         if (clearError) measurementWarning = "Check-in and weight saved. Please reopen and save again to confirm progress synchronization.";
       }
     }
