@@ -14,8 +14,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
   }
   const audiences = parseProgrammeAudiences(programme_audiences);
-  if (!audiences) {
-    return NextResponse.json({ error: "Choose at least one valid programme audience" }, { status: 400 });
+  if (!audiences || (audiences.includes("boardroom") && audiences.length !== 1)) {
+    return NextResponse.json({ error: "Choose a coaching audience, or Boardroom on its own" }, { status: 400 });
   }
 
   const admin = createAdminClient();
@@ -70,7 +70,7 @@ export async function PUT(req: NextRequest) {
   if (hub_section !== undefined) updates.hub_section = hub_section === "current_coaching" ? "current_coaching" : "library";
   if (programme_audiences !== undefined) {
     const audiences = parseProgrammeAudiences(programme_audiences);
-    if (!audiences) return NextResponse.json({ error: "Choose at least one valid programme audience" }, { status: 400 });
+    if (!audiences || (audiences.includes("boardroom") && audiences.length !== 1)) return NextResponse.json({ error: "Choose a coaching audience, or Boardroom on its own" }, { status: 400 });
     updates.programme_audiences = audiences;
   }
 

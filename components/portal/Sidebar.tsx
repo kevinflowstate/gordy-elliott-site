@@ -60,6 +60,7 @@ export default function Sidebar() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [tier, setTier] = useState<string>("coached");
+  const [fitnessPlansEnabled, setFitnessPlansEnabled] = useState(false);
   const [programmeType, setProgrammeType] = useState<string>("capacity");
   const [cycleEnabled, setCycleEnabled] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
@@ -82,6 +83,7 @@ export default function Sidebar() {
             setTier(data.tier);
           }
           if (data.programmeType) setProgrammeType(data.programmeType);
+          setFitnessPlansEnabled(data.fitnessPlansEnabled === true);
           setCycleEnabled(Boolean(data.profile?.sex === "female" && data.profile?.cycle_tracking_enabled));
         }
       } catch {
@@ -92,7 +94,7 @@ export default function Sidebar() {
   }, []);
 
   const navItems = allNavItems.filter((item) =>
-    programmeShowsPortalPath(programmeType, item.href) && item.tiers.includes(tier)
+    programmeShowsPortalPath(programmeType, item.href, fitnessPlansEnabled) && item.tiers.includes(tier)
     && (!item.requiresCycle || cycleEnabled)
     && (!item.programmes || item.programmes.includes(programmeType))
   );

@@ -1,3 +1,4 @@
+import { isWeightUnit } from "@/lib/weight-units";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
@@ -21,7 +22,9 @@ export async function POST(request: Request) {
 
   const userId = user.id;
 
-  const { fullName, phone, businessName, businessType, goals, dateOfBirth, sex, cycleTrackingEnabled, keyDates } = await request.json();
+  const { fullName, phone, businessName, businessType, goals, dateOfBirth, sex, cycleTrackingEnabled, keyDates, weightUnit } = await request.json();
+
+  if (weightUnit !== undefined && !isWeightUnit(weightUnit)) return NextResponse.json({ error: "Choose kg or lb" }, { status: 400 });
 
   const { data: current } = await admin.from("client_profiles").select("programme_type").eq("user_id", userId).maybeSingle();
   const boardroom = current?.programme_type === "boardroom";
@@ -33,6 +36,7 @@ export async function POST(request: Request) {
 
   // Only update profile fields that were provided
   const profileUpdate: Record<string, string | boolean | null> = {};
+  if (!boardroom && weightUnit !== undefined) profileUpdate.weight_unit = weightUnit;
   if (phone !== undefined) profileUpdate.phone = phone;
   if (businessName !== undefined) profileUpdate.business_name = businessName;
   if (businessType !== undefined) profileUpdate.business_type = businessType;
@@ -55,7 +59,8 @@ export async function POST(request: Request) {
   }
 
   if (Object.keys(profileUpdate).length > 0) {
-    await admin.from("client_profiles").update(profileUpdate).eq("user_id", userId);
+    const { error } = await admin.from("client_profiles").update(profileUpdate).eq("user_id", userId);
+    if (error) return NextResponse.json({ error: "Could not save your settings. Please try again." }, { status: 500 });
   }
 
   if (Array.isArray(keyDates)) {

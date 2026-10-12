@@ -61,6 +61,7 @@ export interface AdminClient {
   tier: ClientTier;
   experience_mode: ClientExperienceMode;
   programme_type: ProgrammeType;
+  fitness_plans_enabled?: boolean;
   onboarding_status: OnboardingStatus;
   activated_at?: string | null;
   consultation_data?: Record<string, unknown> | null;
@@ -189,7 +190,7 @@ export async function getClients(): Promise<AdminClient[]> {
       id, user_id, phone, business_name, business_type, goals,
       primary_goal, target_date, goal_notes,
       start_date, last_login, last_checkin, created_at, checkin_day,
-      checkin_form_id, coach_notes, start_weight, tier, experience_mode, programme_type, onboarding_status, activated_at,
+      checkin_form_id, coach_notes, start_weight, tier, experience_mode, programme_type, fitness_plans_enabled, onboarding_status, activated_at,
       consultation_data, consultation_summary, profile_setup_data, profile_setup_completed_at,
       wearables_preference, wearables_notes, date_of_birth, sex, cycle_tracking_enabled,
       lifecycle_status, lifecycle_paused_at, lifecycle_resumes_at,
@@ -330,6 +331,7 @@ export async function getClients(): Promise<AdminClient[]> {
       tier: (p.tier as ClientTier) || 'coached',
       experience_mode: (p.experience_mode as ClientExperienceMode) || 'ai_coaching',
       programme_type: normalizeProgrammeType(p.programme_type),
+      fitness_plans_enabled: p.fitness_plans_enabled === true,
       onboarding_status: (p.onboarding_status as OnboardingStatus) || 'active',
       activated_at: p.activated_at || null,
       consultation_data: (p.consultation_data as Record<string, unknown> | null) || null,
@@ -373,7 +375,7 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
       id, user_id, phone, business_name, business_type, goals,
       primary_goal, target_date, goal_notes,
       start_date, last_login, last_checkin, created_at, checkin_day,
-      checkin_form_id, coach_notes, start_weight, tier, experience_mode, programme_type, onboarding_status, activated_at,
+      checkin_form_id, coach_notes, start_weight, tier, experience_mode, programme_type, fitness_plans_enabled, onboarding_status, activated_at,
       consultation_data, consultation_summary, profile_setup_data, profile_setup_completed_at,
       wearables_preference, wearables_notes, date_of_birth, sex, cycle_tracking_enabled,
       lifecycle_status, lifecycle_paused_at, lifecycle_resumes_at,
@@ -580,6 +582,7 @@ export async function getClientById(id: string): Promise<AdminClient | null> {
     tier: (p.tier as ClientTier) || 'coached',
     experience_mode: (p.experience_mode as ClientExperienceMode) || 'ai_coaching',
     programme_type: normalizeProgrammeType(p.programme_type),
+      fitness_plans_enabled: p.fitness_plans_enabled === true,
     onboarding_status: (p.onboarding_status as OnboardingStatus) || 'active',
     activated_at: p.activated_at || null,
     consultation_data: (p.consultation_data as Record<string, unknown> | null) || null,

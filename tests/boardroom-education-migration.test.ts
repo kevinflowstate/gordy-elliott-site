@@ -1,0 +1,42 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { readFile } from 'node:fs/promises';
+import { PGlite } from '@electric-sql/pglite';
+const id=(n:number)=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+test('migration keeps existing modules/clients unchanged and enforces cross-programme reads and progress',async()=>{
+ const db=new PGlite();try{
+ await db.exec(`CREATE ROLE anon;CREATE ROLE authenticated;CREATE ROLE service_role BYPASSRLS;CREATE SCHEMA auth;CREATE SCHEMA storage;
+ CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+ CREATE TABLE users(id uuid PRIMARY KEY,role text);CREATE TABLE client_profiles(id uuid PRIMARY KEY,user_id uuid,programme_type text);
+ CREATE TABLE training_modules(id uuid PRIMARY KEY,is_published boolean,programme_audiences text[]);
+ CREATE TABLE module_content(id uuid PRIMARY KEY,module_id uuid REFERENCES training_modules(id));
+ CREATE TABLE content_progress(id uuid DEFAULT gen_random_uuid(),client_id uuid,content_id uuid);
+ CREATE TABLE storage.buckets(id text PRIMARY KEY,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
+ INSERT INTO users VALUES('${id(1)}','admin'),('${id(2)}','client'),('${id(3)}','client');
+ INSERT INTO client_profiles VALUES('${id(12)}','${id(2)}','capacity'),('${id(13)}','${id(3)}','boardroom');
+ INSERT INTO training_modules VALUES('${id(20)}',true,ARRAY['capacity','shift','in_person']),('${id(21)}',true,ARRAY['boardroom']),('${id(22)}',false,ARRAY['boardroom']);
+ INSERT INTO module_content VALUES('${id(30)}','${id(20)}'),('${id(31)}','${id(21)}'),('${id(32)}','${id(22)}');
+ ALTER TABLE training_modules ENABLE ROW LEVEL SECURITY;ALTER TABLE module_content ENABLE ROW LEVEL SECURITY;ALTER TABLE content_progress ENABLE ROW LEVEL SECURITY;
+ CREATE POLICY baseline ON training_modules FOR ALL TO authenticated USING(true) WITH CHECK(true);
+ CREATE POLICY baseline ON module_content FOR ALL TO authenticated USING(true) WITH CHECK(true);
+ CREATE POLICY baseline ON content_progress FOR ALL TO authenticated USING(true) WITH CHECK(true);
+ GRANT USAGE ON SCHEMA public,auth,storage TO authenticated,service_role;GRANT SELECT ON users,client_profiles,training_modules,module_content TO authenticated;GRANT ALL ON content_progress TO authenticated;`);
+ const sql=await readFile(new URL('../supabase/migrations/20261012120000_boardroom_access_and_weight.sql',import.meta.url),'utf8');await db.exec(sql);await db.exec(sql);
+ const clients=(await db.query<{programme_type:string;fitness_plans_enabled:boolean;weight_unit:string}>('SELECT programme_type,fitness_plans_enabled,weight_unit FROM client_profiles ORDER BY id')).rows;
+ assert.deepEqual(clients,[{programme_type:'capacity',fitness_plans_enabled:false,weight_unit:'kg'},{programme_type:'boardroom',fitness_plans_enabled:false,weight_unit:'kg'}]);
+ assert.deepEqual((await db.query<{programme_audiences:string[]}>('SELECT programme_audiences FROM training_modules WHERE id=$1',[id(20)])).rows[0].programme_audiences,['capacity','shift','in_person']);
+ await db.exec(`SET ROLE authenticated; SET request.jwt.claim.sub='${id(2)}';`);
+ assert.deepEqual((await db.query<{id:string}>('SELECT id FROM training_modules')).rows.map(r=>r.id),[id(20)]);
+ assert.deepEqual((await db.query<{id:string}>('SELECT id FROM module_content')).rows.map(r=>r.id),[id(30)]);
+ await db.query('INSERT INTO content_progress(client_id,content_id) VALUES($1,$2)',[id(12),id(30)]);
+ await assert.rejects(db.query('INSERT INTO content_progress(client_id,content_id) VALUES($1,$2)',[id(12),id(31)]),/row-level security/);
+ await db.exec(`SET request.jwt.claim.sub='${id(3)}';`);
+ assert.deepEqual((await db.query<{id:string}>('SELECT id FROM training_modules')).rows.map(r=>r.id),[id(21)]);
+ assert.deepEqual((await db.query<{id:string}>('SELECT id FROM module_content')).rows.map(r=>r.id),[id(31)]);
+ assert.equal((await db.query('SELECT * FROM content_progress')).rows.length,0);
+ await assert.rejects(db.query('SELECT * FROM lesson_responses'),/permission denied/);
+ await db.exec(`SET request.jwt.claim.sub='${id(1)}';`);
+ assert.equal((await db.query('SELECT * FROM training_modules')).rows.length,3);
+ await db.exec('RESET ROLE;');assert.equal((await db.query<{public:boolean}>("SELECT public FROM storage.buckets WHERE id='lesson-responses'")).rows[0].public,false);
+ }finally{await db.close()}
+});

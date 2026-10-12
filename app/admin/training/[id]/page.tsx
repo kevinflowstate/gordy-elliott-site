@@ -354,7 +354,7 @@ export default function ModuleEditorPage() {
             <div>
               <div className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Programme audience</div>
               <div className="mt-2 flex flex-wrap gap-2">
-                {PROGRAMME_TYPES.map((audience) => (
+                {(audiences.includes("boardroom") ? ["boardroom"] as const : PROGRAMME_TYPES.filter(p => p !== "boardroom")).map((audience) => (
                   <button key={audience} type="button" disabled={saving} onClick={() => {
                     const next = audiences.includes(audience) ? audiences.filter((item) => item !== audience) : [...audiences, audience];
                     if (!next.length) return;

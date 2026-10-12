@@ -30,7 +30,7 @@ export function checkinAnswers(context: CheckinMessageContext) {
     ...context.responses,
   };
   return Object.entries(values)
-    .filter(([key, value]) => key !== "photos" && typeof value === "string" && value.trim())
+    .filter(([key, value]) => key !== "photos" && key !== "weight_unit" && key !== "weight_sync_pending" && typeof value === "string" && value.trim())
     .map(([key, value]) => ({
       key, label: labels.get(key) || key.replace(/_/g, " "), text: (value as string).trim(),
     }));

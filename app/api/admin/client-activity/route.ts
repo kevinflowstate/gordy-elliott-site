@@ -67,7 +67,7 @@ export async function GET(request: Request) {
     if (weightVal && !isNaN(parseFloat(weightVal))) {
       events.push({
         type: "weight_recorded",
-        description: `Weight recorded — ${parseFloat(weightVal).toFixed(1)} kg`,
+        description: `Weight recorded — ${parseFloat(weightVal).toFixed(1)} ${responses?.weight_unit === "lb" ? "lb" : "kg"}`,
         timestamp: c.created_at,
         color: "bg-teal-400",
       });

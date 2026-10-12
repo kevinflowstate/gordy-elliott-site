@@ -34,6 +34,7 @@ const moduleIcons = [
 
 export default function TrainingManagerPage() {
   const { toast } = useToast();
+  const [hub, setHub] = useState<"coaching" | "boardroom">("coaching");
   const [modules, setModules] = useState<TrainingModule[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -130,8 +131,9 @@ export default function TrainingManagerPage() {
     }
   }
 
-  const publishedCount = modules.filter((m) => m.is_published).length;
-  const totalLessons = modules.reduce((sum, m) => sum + (m.content?.length || 0), 0);
+  const visibleModules = modules.filter(m => hub === "boardroom" ? m.programme_audiences?.includes("boardroom") : !m.programme_audiences?.includes("boardroom"));
+  const publishedCount = visibleModules.filter((m) => m.is_published).length;
+  const totalLessons = visibleModules.reduce((sum, m) => sum + (m.content?.length || 0), 0);
 
   if (loading) {
     return (
@@ -162,7 +164,7 @@ export default function TrainingManagerPage() {
         <div>
           <h1 className="text-3xl font-heading font-bold text-text-primary">Training Modules</h1>
           <p className="text-text-secondary mt-1">
-            {modules.length} modules - {totalLessons} lessons - {publishedCount} published
+            {visibleModules.length} modules - {totalLessons} lessons - {publishedCount} published
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -195,7 +197,7 @@ export default function TrainingManagerPage() {
             </button>
           )}
           <button
-            onClick={() => setShowAdd(true)}
+            onClick={() => { setNewAudiences(hub === "boardroom" ? ["boardroom"] : PROGRAMME_TYPES.filter(p => p !== "boardroom")); setShowAdd(true); }}
             className="px-5 py-2.5 gradient-accent text-white rounded-xl text-sm font-semibold inline-flex items-center gap-2 cursor-pointer"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -206,6 +208,8 @@ export default function TrainingManagerPage() {
         </div>
       </div>
 
+      <div className="mb-6 flex flex-wrap gap-2" aria-label="Education hubs">{(["coaching", "boardroom"] as const).map(value => <button key={value} aria-pressed={hub===value} onClick={() => { setHub(value); setShowAdd(false); setSelectedModules(new Set()); setSelectedClients(new Set()); }} className={`rounded-xl border px-4 py-2 text-sm font-semibold ${hub===value ? "border-accent/30 bg-accent/10 text-accent-bright" : "border-black/10 text-text-secondary"}`}>{value === "boardroom" ? "Boardroom Education Hub" : "Coaching Education Hub"}</button>)}</div>
+      {hub === "boardroom" && visibleModules.length === 0 && <p className="mb-6 rounded-xl border border-black/10 p-5 text-sm text-text-secondary">Your Boardroom hub is empty. Add business modules here; existing coaching modules stay in their own hub.</p>}
       {/* Add modal */}
       {showAdd && (
         <div className="bg-bg-card/80 backdrop-blur-sm border border-[rgba(0,0,0,0.08)] rounded-2xl p-6 mb-6">
@@ -232,7 +236,7 @@ export default function TrainingManagerPage() {
               <div>
                 <label className="block text-sm font-medium text-text-primary mb-2">Who should see it?</label>
                 <div className="flex min-h-12 flex-wrap items-center gap-2 rounded-xl border border-black/10 bg-bg-primary px-3 py-2">
-                  {PROGRAMME_TYPES.map((audience) => (
+                  {(hub === "boardroom" ? ["boardroom"] as const : PROGRAMME_TYPES.filter(p => p !== "boardroom")).map((audience) => (
                     <label key={audience} className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary">
                       <input type="checkbox" checked={newAudiences.includes(audience)} onChange={() => setNewAudiences((current) => current.includes(audience) ? current.filter((item) => item !== audience) : [...current, audience])} />
                       {programmeConfig[audience].label}
@@ -295,7 +299,7 @@ export default function TrainingManagerPage() {
 
       {/* Module grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {modules.map((mod, i) => {
+        {visibleModules.map((mod, i) => {
           const color = moduleColors[i % moduleColors.length];
           const icon = moduleIcons[i % moduleIcons.length];
           const lessonCount = mod.content?.length || 0;

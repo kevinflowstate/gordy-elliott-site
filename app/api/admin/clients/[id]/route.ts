@@ -44,7 +44,7 @@ export async function PATCH(
   if (!currentProfile) return NextResponse.json({ error: "Client not found" }, { status: 404 });
 
   // Only allow safe profile fields to be patched
-  const allowed = ["checkin_day", "checkin_form_id", "coach_notes", "start_weight", "programme_type", "onboarding_status", "date_of_birth", "sex", "cycle_tracking_enabled"];
+  const allowed = ["fitness_plans_enabled", "checkin_day", "checkin_form_id", "coach_notes", "start_weight", "programme_type", "onboarding_status", "date_of_birth", "sex", "cycle_tracking_enabled"];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in body) updates[key] = body[key];
@@ -57,6 +57,9 @@ export async function PATCH(
     Object.assign(updates, legacyProfileForProgramme(updates.programme_type));
   }
 
+  if ("fitness_plans_enabled" in updates && typeof updates.fitness_plans_enabled !== "boolean") return NextResponse.json({ error: "Choose on or off for fitness plans" }, { status: 400 });
+  // Reset the optional entitlement whenever a client enters or leaves Boardroom.
+  if ("programme_type" in updates && updates.programme_type !== currentProfile.programme_type && !("fitness_plans_enabled" in updates)) updates.fitness_plans_enabled = false;
   const nextProgramme = updates.programme_type || currentProfile.programme_type;
   if ("programme_type" in updates && isBoardroom(updates.programme_type) !== isBoardroom(currentProfile.programme_type) && !("checkin_form_id" in updates)) updates.checkin_form_id = null;
   if (updates.checkin_form_id) {

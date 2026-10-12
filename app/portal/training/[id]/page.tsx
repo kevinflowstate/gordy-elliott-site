@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import type { TrainingModule, ModuleContent, ContentType } from "@/lib/types";
 import { getLessonDisplayType } from "@/lib/training-content";
+import LessonResponses from "@/components/portal/LessonResponses";
 import ModuleCover from "@/components/training/ModuleCover";
 import ValuesExercise from "@/components/portal/ValuesExercise";
 
@@ -66,6 +67,8 @@ export default function ModuleView() {
   const [progress, setProgress] = useState<Record<string, boolean>>({});
   const [profileId, setProfileId] = useState<string | null>(null);
   const [expandedLesson, setExpandedLesson] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState("");
+  const [savingProgress, setSavingProgress] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -90,13 +93,15 @@ export default function ModuleView() {
 
   async function toggleComplete(contentId: string) {
     if (!profileId) return;
+    if (savingProgress) return;
+    setSavingProgress(true); setSaveError("");
     const isCompleted = progress[contentId];
-    setProgress((prev) => ({ ...prev, [contentId]: !isCompleted }));
-    await fetch(`/api/portal/training/${id}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contentId, completed: !isCompleted, profileId }),
-    });
+    try {
+      const res = await fetch(`/api/portal/training/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contentId, completed: !isCompleted, profileId }) });
+      if (!res.ok) throw new Error("Could not save lesson progress. Please try again.");
+      setProgress(prev => ({ ...prev, [contentId]: !isCompleted }));
+    } catch (error) { setSaveError(error instanceof Error ? error.message : "Could not save progress"); }
+    finally { setSavingProgress(false); }
   }
 
   if (loading) return (
@@ -166,6 +171,7 @@ export default function ModuleView() {
         </div>
       </div>
 
+      {saveError && <p role="alert" className="mb-4 text-sm text-red-400">{saveError}</p>}
       {/* Lessons list */}
       <h2 className="text-lg font-heading font-bold text-text-primary mb-4">Lessons</h2>
       <div className="space-y-3">
@@ -182,13 +188,13 @@ export default function ModuleView() {
                 {/* Bento gradient border */}
                 <div className="absolute inset-0 -z-10 rounded-2xl p-px bg-gradient-to-br from-transparent via-white/10 to-transparent opacity-0 group-hover/lesson:opacity-100 transition-opacity duration-300 pointer-events-none" />
               {/* Lesson row */}
-              <button
-                onClick={() => setExpandedLesson(isExpanded ? null : lesson.id)}
-                className="w-full flex items-center gap-4 p-4 text-left hover:bg-[rgba(0,0,0,0.02)] transition-colors cursor-pointer"
-              >
+              <div className="w-full flex items-center gap-4 p-4">
+
                 {/* Completion checkbox */}
                 <button
-                  onClick={(e) => { e.stopPropagation(); toggleComplete(lesson.id); }}
+                  aria-label={`${isCompleted ? "Mark incomplete" : "Mark complete"}: ${lesson.title}`}
+                  aria-pressed={!!isCompleted}
+                  onClick={() => toggleComplete(lesson.id)}
                   className={`w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all cursor-pointer ${
                     isCompleted ? "bg-emerald-500 border-emerald-500" : "border-white/[0.28] bg-white/[0.03] hover:border-accent"
                   }`}
@@ -200,6 +206,11 @@ export default function ModuleView() {
                   )}
                 </button>
 
+                <button
+                  onClick={() => setExpandedLesson(isExpanded ? null : lesson.id)}
+                  aria-expanded={isExpanded}
+                  className="min-w-0 flex-1 flex items-center gap-4 text-left cursor-pointer"
+                >
                 <div className="text-text-muted text-sm font-mono w-6 text-center flex-shrink-0">{i + 1}</div>
 
                 <div className={`w-8 h-8 rounded-lg ${ct.color} flex items-center justify-center flex-shrink-0`}>
@@ -219,7 +230,8 @@ export default function ModuleView() {
                 <svg className={`w-4 h-4 text-text-muted transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
-              </button>
+                </button>
+              </div>
 
               {/* Expanded content */}
               {isExpanded && (
@@ -274,6 +286,8 @@ export default function ModuleView() {
                       <div className="text-sm text-text-secondary leading-relaxed whitespace-pre-line">{lesson.content_text}</div>
                     </div>
                   )}
+
+                  {module.programme_audiences?.includes("boardroom") && <LessonResponses moduleId={module.id} contentId={lesson.id} />}
 
                   {/* Attachments */}
                   {lesson.attachments && lesson.attachments.length > 0 && (

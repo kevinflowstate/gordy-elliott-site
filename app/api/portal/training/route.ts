@@ -17,14 +17,16 @@ export async function GET() {
     .select("programme_type")
     .eq("user_id", user.id)
     .maybeSingle();
+  if (!profile) return NextResponse.json({ error: "Client profile not found" }, { status: 404 });
   const programme = normalizeProgrammeType(profile?.programme_type);
 
-  const { data: modules } = await admin
+  const { data: modules, error } = await admin
     .from("training_modules")
     .select("*, content:module_content(*)")
     .eq("is_published", true)
     .contains("programme_audiences", [programme])
     .order("order_index");
 
+  if (error) return NextResponse.json({ error: "Could not load education hub" }, { status: 500 });
   return NextResponse.json({ modules: modules || [], programme });
 }

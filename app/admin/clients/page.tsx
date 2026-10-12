@@ -29,7 +29,7 @@ const programmeOptions: Array<{
     ? "Two monthly calls, full documents and full AI access."
     : value === "shift"
       ? `One monthly call and ${programmeConfig.shift.aiMonthlyLimit} AI replies each month.`
-      : "Monthly 1:1 confirmation with full documents and AI.",
+      : value === "boardroom" ? "Business mentorship, a personal business plan and weekly business check-ins." : "Monthly 1:1 confirmation with full documents and AI.",
 }));
 
 function renderProgrammeBadge(programme: ProgrammeType) {
@@ -404,7 +404,7 @@ export default function ClientsPage() {
       {/* Programme filters */}
       <div className="flex gap-2 mb-6 flex-wrap items-center">
         <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted mr-1">Programme</div>
-        {(["all", "capacity", "shift", "in_person"] as const).map((t) => {
+        {(["all", ...PROGRAMME_TYPES] as const).map((t) => {
           const count = t === "all" ? allClients.length : programmeCounts[t];
           const active = programmeFilter === t;
           return (

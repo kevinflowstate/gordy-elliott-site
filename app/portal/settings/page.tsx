@@ -1,5 +1,6 @@
 "use client";
 
+import { type WeightUnit } from "@/lib/weight-units";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -84,6 +85,7 @@ function SettingsContent() {
   const [isSetup, setIsSetup] = useState(false);
   const [isReset, setIsReset] = useState(false);
   const [dateOfBirth, setDateOfBirth] = useState("");
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>("kg");
   const [boardroom, setBoardroom] = useState(false);
   const [sex, setSex] = useState<ClientSexInput>("");
   const [cycleTrackingEnabled, setCycleTrackingEnabled] = useState(false);
@@ -114,6 +116,7 @@ function SettingsContent() {
         if (res.ok) {
           const data = await res.json();
           setBoardroom(data.programmeType === "boardroom");
+          setWeightUnit(data.profile?.weight_unit || "kg");
           setFullName(data.fullName || "");
           setAvatarUrl(data.avatarUrl || null);
           setDateOfBirth(data.profile?.date_of_birth || "");
@@ -176,7 +179,7 @@ function SettingsContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         fullName,
-        ...(!boardroom ? { dateOfBirth, sex, cycleTrackingEnabled: sex === "female" && cycleTrackingEnabled } : {}),
+        ...(!boardroom ? { dateOfBirth, sex, weightUnit, cycleTrackingEnabled: sex === "female" && cycleTrackingEnabled } : {}),
         keyDates,
       }),
     });
@@ -305,6 +308,7 @@ function SettingsContent() {
           </div>
         </div>
 
+        {!boardroom && <label className="mb-5 block text-sm font-semibold">Preferred weight unit<select value={weightUnit} onChange={e => setWeightUnit(e.target.value as WeightUnit)} className="mt-2 block w-full rounded-xl border border-white/10 bg-bg-card p-3"><option value="kg">Kilograms (kg)</option><option value="lb">Pounds (lb)</option></select><span className="mt-2 block text-xs font-normal text-text-muted">Used for new entries. Changing this does not alter past measurements.</span></label>}
         {!boardroom && (
         <div className="app-card rounded-2xl p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

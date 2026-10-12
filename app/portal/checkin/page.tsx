@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { checkinConfigForWeightUnit, convertWeightInput, type WeightUnit } from "@/lib/weight-units";
 import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
@@ -186,6 +187,9 @@ export default function CheckInPage() {
   const [config, setConfig] = useState<CheckinFormConfig | null>(null);
   const [mood, setMood] = useState<string | null>(null);
   const [responses, setResponses] = useState<Record<string, string>>({});
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>("kg");
+  const [history, setHistory] = useState<Array<{id:string;created_at:string;week_number:number}>>([]);
+  const [editingHistory, setEditingHistory] = useState(false);
   const [progressData, setProgressData] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -268,12 +272,15 @@ export default function CheckInPage() {
     let cancelled = false;
     async function loadConfig() {
       try {
-        const stateRes = await fetch("/api/portal/checkin");
+        const stateRes = await fetch(`/api/portal/checkin${window.location.search}`);
 
         if (stateRes.ok) {
           const stateData = await stateRes.json();
           if (cancelled) return;
           const isBusiness = stateData.programmeType === "boardroom";
+          setWeightUnit(stateData.weightUnit || "kg");
+          setHistory(stateData.history || []);
+          setEditingHistory(Boolean(stateData.editingHistory));
           setBusinessCheckin(isBusiness);
           setPending(Boolean(stateData.pending));
           if (stateData.pending) { setLoadError(""); return; }
@@ -289,9 +296,11 @@ export default function CheckInPage() {
             const existing = stateData.currentWeekCheckin;
             setCurrentWeekId(existing.id);
             setMood(existing.mood || null);
-            const existingResponses = existing.responses || {};
+            const existingResponses = { wins: existing.wins || "", challenges: existing.challenges || "", questions: existing.questions || "", ...(existing.responses || {}) };
             setResponses(existingResponses);
-            setProgressData(existingResponses);
+            // Keep metrics separate so stale saved question answers cannot overwrite edits.
+            const metricIds = new Set((normalizedConfig.progress_tracking || []).map(metric => metric.id));
+            setProgressData(Object.fromEntries(Object.entries(existingResponses).filter(([key]) => metricIds.has(key))) as Record<string, string>);
             if (typeof existingResponses.priority_message === "string") {
               setPriorityMessage(existingResponses.priority_message);
             }
@@ -368,7 +377,7 @@ export default function CheckInPage() {
       const res = await fetch("/api/portal/checkin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mood: mood || "good", responses: fullResponses, config_revision: configRevision }),
+        body: JSON.stringify({ mood: mood || "good", responses: fullResponses, config_revision: configRevision, weight_unit: weightUnit, ...(currentWeekId ? { checkin_id: currentWeekId } : {}) }),
       });
 
       if (res.ok) {
@@ -377,7 +386,7 @@ export default function CheckInPage() {
         // isn't told "saved" when some photos didn't actually land.
         const failedPhotoAngles: string[] = [];
         if (Object.keys(photos).length > 0) {
-          const today = new Date().toISOString().split("T")[0];
+          const today = (currentWeekSavedAt || new Date().toISOString()).split("T")[0];
           const photoResults = await Promise.all(
             Object.entries(photos).map(async ([angle, file]) => {
               try {
@@ -399,8 +408,8 @@ export default function CheckInPage() {
           );
         }
         setCurrentWeekSubmitted(true);
-        setCurrentWeekSavedAt(new Date().toISOString());
-        setSaveMessage(data.updated ? "Your check-in for this week was updated." : "Your check-in for this week was saved.");
+        if (!currentWeekSavedAt) setCurrentWeekSavedAt(new Date().toISOString());
+        setSaveMessage(data.updated ? "Your saved check-in was updated." : "Your check-in for this week was saved.");
         setSubmitted(true);
         if (failedPhotoAngles.length > 0) {
           toast(
@@ -408,7 +417,7 @@ export default function CheckInPage() {
             "error"
           );
         } else {
-          toast(data.updated ? "Check-in updated for this week" : "Check-in submitted - Gordy will review it this week");
+          toast(data.measurementWarning || (data.updated ? "Saved check-in updated" : "Check-in submitted - Gordy will review it this week"), data.measurementWarning ? "error" : "success");
         }
       } else {
         const data = await res.json().catch(() => ({}));
@@ -468,7 +477,7 @@ export default function CheckInPage() {
               onClick={resetForm}
               className="px-6 py-3 gradient-accent text-white rounded-xl text-sm font-semibold cursor-pointer"
             >
-              Keep Editing
+              Edit saved check-in
             </button>
             {!businessCheckin && <Link
               href="/portal/progress"
@@ -530,7 +539,7 @@ export default function CheckInPage() {
   const effectiveCheckinDay = checkinDay || config.checkin_day || null;
   const nextCheckinDate = getCheckinDueDate(effectiveCheckinDay);
   const checkinOverdue = !currentWeekSubmitted && nextCheckinDate.getTime() < new Date(new Date().setHours(0, 0, 0, 0)).getTime();
-  const dueLabel = currentWeekSubmitted
+  const dueLabel = editingHistory ? "Editing a saved check-in" : currentWeekSubmitted
     ? "Submitted this week"
     : isToday(nextCheckinDate)
       ? "Due today"
@@ -554,8 +563,11 @@ export default function CheckInPage() {
         )}
       </div>
 
+      {history.length > 0 && <label className="mb-4 block text-sm font-semibold">Reopen a saved check-in<select aria-label="Reopen a saved check-in" className="mt-2 w-full rounded-xl border border-white/10 bg-bg-card p-3" value={editingHistory ? currentWeekId || "" : ""} onChange={e => { window.location.href = e.target.value ? `/portal/checkin?edit=${e.target.value}` : "/portal/checkin"; }}><option value="">This week</option>{history.map(item => <option key={item.id} value={item.id}>{checkinDate(item.created_at)} · Check-in {item.week_number}</option>)}</select></label>}
+      {editingHistory && <p className="mb-4 rounded-xl border border-accent/30 p-4 text-sm">Editing the check-in from {checkinDate(currentWeekSavedAt || "")}. Changes stay on that original date; Gordy’s previous reply is kept.</p>}
+      {!businessCheckin && <Link href="/portal/progress" className="mb-4 inline-block text-sm text-accent-bright">Just logging weight? Open Progress →</Link>}
       {tierLoaded && canReadCoachCheckinReplies(tier) && (
-        <CoachReplies replies={coachReplies} unavailable={repliesUnavailable} currentWeekId={currentWeekId} currentWeekSubmitted={currentWeekSubmitted} />
+      <CoachReplies replies={coachReplies} unavailable={repliesUnavailable} currentWeekId={currentWeekId} currentWeekSubmitted={currentWeekSubmitted} />
       )}
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2">
@@ -572,8 +584,8 @@ export default function CheckInPage() {
           </div>
           <div className="mt-1 text-sm text-text-secondary">
             {currentWeekSubmitted
-              ? `Saved ${formatSavedAt(currentWeekSavedAt)}. You can still update it this week.`
-              : "Once submitted, you can still come back and update it before the next week begins."}
+              ? `Saved ${formatSavedAt(currentWeekSavedAt)}. You can reopen and correct this check-in.`
+              : "You can reopen a saved check-in to add anything you missed. Weight can also be logged separately on the Progress page."}
           </div>
           {templateName && (
             <div className="mt-2 text-xs text-text-muted">Using form: {templateName}</div>
@@ -706,7 +718,7 @@ export default function CheckInPage() {
                 <div key={m.id} className="rounded-2xl border border-[#E040D0]/15 bg-[linear-gradient(135deg,rgba(224,64,208,0.10),rgba(245,158,11,0.04))] px-3.5 py-3.5">
                   <div className="mb-2 text-sm font-bold text-text-primary">
                     {m.label}
-                    {m.unit && <span className="text-text-muted font-normal ml-1">({m.unit})</span>}
+                    {m.id === "weight" && !businessCheckin ? <select aria-label="Weight unit" value={weightUnit} onChange={e => { const next = e.target.value as WeightUnit; setProgressData(prev => ({ ...prev, weight: convertWeightInput(prev.weight || "", weightUnit, next) })); setWeightUnit(next); setConfig(prev => prev ? checkinConfigForWeightUnit(prev, next) : prev); }} className="ml-2 rounded border border-white/20 bg-bg-card px-2 py-1"><option value="kg">kg</option><option value="lb">lb</option></select> : m.unit && <span className="text-text-muted font-normal ml-1">({m.unit})</span>}
                   </div>
                   {m.type === "scale" ? (
                     <ScaleInput
@@ -736,7 +748,7 @@ export default function CheckInPage() {
                       required={m.required}
                       value={progressData[m.id] || ""}
                       onChange={(e) => setProgressData((prev) => ({ ...prev, [m.id]: e.target.value }))}
-                      placeholder={m.kind === "money" ? "Enter amount in GBP" : m.unit ? `Enter value (${m.unit})` : "Enter value"}
+                      placeholder={m.kind === "money" ? "Enter amount in GBP" : m.id === "weight" ? `Enter weight (${weightUnit})` : m.unit ? `Enter value (${m.unit})` : "Enter value"}
                       className="w-full bg-bg-card border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40 transition-colors"
                     />
                   )}
