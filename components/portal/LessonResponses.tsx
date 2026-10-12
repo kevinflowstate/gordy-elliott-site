@@ -80,9 +80,9 @@ export default function LessonResponses({ moduleId, contentId, clientId }: { mod
         const blob = new Blob(chunks, { type: (next.mimeType || mimeType || "audio/mp4").split(";")[0] });
         const url = URL.createObjectURL(blob); audioUrl.current = url; setAudio({ blob, url }); setRecording(false);
       };
-      recorder.current = next; next.start(500); setRecording(true);
+      next.start(500); recorder.current = next; setRecording(true);
       timer.current = setTimeout(stopRecording, 180000);
-    } catch { stream.current?.getTracks().forEach(track => track.stop()); if (mounted.current) setError("Microphone access is needed to record. You can still type your answer."); }
+    } catch { stream.current?.getTracks().forEach(track => track.stop()); stream.current = null; if (mounted.current) setError("Microphone access is needed to record. You can still type your answer."); }
     finally { acquiringMic.current = false; if (mounted.current) setRequestingMic(false); }
   }
   async function send() {
