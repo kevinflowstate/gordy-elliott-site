@@ -142,6 +142,11 @@ export async function POST(request: Request) {
   // Server-owned retry marker: a saved check-in must not conceal a failed chart write.
   delete responses.weight_sync_pending;
   if (syncWeight) responses.weight_sync_pending = true;
+  const measurementFields: Record<string, string> = { waist: "waist_cm", chest: "chest_cm", hips: "hips_cm", left_arm: "left_arm_cm", right_arm: "right_arm_cm", left_thigh: "left_thigh_cm", right_thigh: "right_thigh_cm" };
+  const pendingMetrics = currentWeekCheckin?.responses?.measurement_sync_pending;
+  const syncMetrics = profile.programme_type === "boardroom" ? [] : Object.keys(measurementFields).filter(key => responses[key] && Number.isFinite(Number(responses[key])) && (!currentWeekCheckin || responses[key] !== currentWeekCheckin.responses?.[key] || (Array.isArray(pendingMetrics) && pendingMetrics.includes(key))));
+  delete responses.measurement_sync_pending;
+  if (syncMetrics.length) responses.measurement_sync_pending = syncMetrics;
 
   // Get next week number
   const { data: lastCheckin } = await admin
@@ -201,19 +206,14 @@ export async function POST(request: Request) {
     // Unchanged ambiguous legacy weights stay untouched; explicit failed writes can retry.
     // Map check-in metric IDs to body measurement columns
     if (syncWeight && responses.weight && !isNaN(Number(responses.weight))) { measurement.weight_kg = weightToKg(Number(responses.weight), weightUnit); hasData = true; }
-    if (responses.waist && !isNaN(Number(responses.waist))) { measurement.waist_cm = Number(responses.waist); hasData = true; }
-    if (responses.chest && !isNaN(Number(responses.chest))) { measurement.chest_cm = Number(responses.chest); hasData = true; }
-    if (responses.hips && !isNaN(Number(responses.hips))) { measurement.hips_cm = Number(responses.hips); hasData = true; }
-    if (responses.left_arm && !isNaN(Number(responses.left_arm))) { measurement.left_arm_cm = Number(responses.left_arm); hasData = true; }
-    if (responses.right_arm && !isNaN(Number(responses.right_arm))) { measurement.right_arm_cm = Number(responses.right_arm); hasData = true; }
-    if (responses.left_thigh && !isNaN(Number(responses.left_thigh))) { measurement.left_thigh_cm = Number(responses.left_thigh); hasData = true; }
-    if (responses.right_thigh && !isNaN(Number(responses.right_thigh))) { measurement.right_thigh_cm = Number(responses.right_thigh); hasData = true; }
+    for (const key of syncMetrics) { measurement[measurementFields[key]] = Number(responses[key]); hasData = true; }
     if (hasData) {
       const { error } = await admin.from("client_body_measurements").upsert(measurement, { onConflict: "client_id,measured_date", ignoreDuplicates: false });
       if (error) measurementWarning = "Check-in saved, but progress could not sync. Please reopen and save this check-in again, or log your weight on the Progress page.";
-      else if (syncWeight) {
+      else if (syncWeight || syncMetrics.length) {
         const syncedResponses = JSON.stringify(responses);
         delete responses.weight_sync_pending;
+        delete responses.measurement_sync_pending;
         // Compare-and-set: clearing our retry marker must never replace a newer tab's answers.
         const { error: clearError } = await admin.from("checkins").update({ responses }).eq("client_id", profile.id).eq("week_number", weekNumber).eq("responses", syncedResponses);
         if (clearError) measurementWarning = "Check-in and weight saved. Please reopen and save again to confirm progress synchronization.";

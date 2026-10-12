@@ -76,3 +76,15 @@ test('explicitly cleared support answers stay cleared',async()=>{
  await f.post({checkin_id:'old',responses:{priority_message:'',support_ask:''},weight_unit:'kg'});
  assert.equal((f.saved.responses as Record<string,unknown>).priority_message,'');assert.equal((f.saved.responses as Record<string,unknown>).support_ask,'');
 });
+
+test('text-only correction leaves separately corrected historical measurements untouched',async()=>{
+ const f=await fixture();f.saved.responses={wins:'Old',waist:'82',chest:'100'};
+ await f.post({checkin_id:'old',responses:{wins:'Corrected text',waist:'82',chest:'100'},weight_unit:'kg'});
+ assert.equal(f.writes.some(w=>w.table==='client_body_measurements'),false);
+});
+test('a failed non-weight measurement correction can retry unchanged',async()=>{
+ const f=await fixture();f.saved.responses={waist:'82'};f.failMeasurement();
+ await f.post({checkin_id:'old',responses:{waist:'81'},weight_unit:'kg'});assert.deepEqual((f.saved.responses as Record<string,unknown>).measurement_sync_pending,['waist']);
+ f.recoverMeasurement();await f.post({checkin_id:'old',responses:{waist:'81'},weight_unit:'kg'});
+ assert.equal(f.writes.filter(w=>w.table==='client_body_measurements').length,2);assert.equal((f.saved.responses as Record<string,unknown>).measurement_sync_pending,undefined);
+});

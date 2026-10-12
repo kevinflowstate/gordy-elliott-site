@@ -11,6 +11,8 @@ export default function LessonResponses({ moduleId, contentId, clientId }: { mod
   const [text, setText] = useState("");
   const [audio, setAudio] = useState<{ blob: Blob; url: string } | null>(null);
   const [recording, setRecording] = useState(false);
+  const [requestingMic, setRequestingMic] = useState(false);
+  const acquiringMic = useRef(false);
   const [voiceReady, setVoiceReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -58,8 +60,11 @@ export default function LessonResponses({ moduleId, contentId, clientId }: { mod
     if (recorder.current?.state === "recording") recorder.current.stop();
   }
   async function record() {
+    if (acquiringMic.current || recorder.current || saving) return;
     setError(""); setSaved(false);
     if (!voiceReady || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") { setError("Recording isn't available in this app version. Use a text answer or upload a voice note."); return; }
+    acquiringMic.current = true;
+    setRequestingMic(true);
     try {
       discardAudio();
       const input = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -77,10 +82,11 @@ export default function LessonResponses({ moduleId, contentId, clientId }: { mod
       };
       recorder.current = next; next.start(500); setRecording(true);
       timer.current = setTimeout(stopRecording, 180000);
-    } catch { stream.current?.getTracks().forEach(track => track.stop()); setError("Microphone access is needed to record. You can still type your answer."); }
+    } catch { stream.current?.getTracks().forEach(track => track.stop()); if (mounted.current) setError("Microphone access is needed to record. You can still type your answer."); }
+    finally { acquiringMic.current = false; if (mounted.current) setRequestingMic(false); }
   }
   async function send() {
-    if (saving || recording || (!text.trim() && !audio)) return;
+    if (saving || acquiringMic.current || recording || (!text.trim() && !audio)) return;
     setSaving(true); setError(""); setSaved(false);
     try {
       const form = new FormData(); form.set("contentId", contentId || ""); form.set("text", text);
@@ -97,12 +103,12 @@ export default function LessonResponses({ moduleId, contentId, clientId }: { mod
     {!clientId && <>
       <textarea aria-label="Your answer for Gordy" rows={4} maxLength={10000} value={text} disabled={saving} onChange={e => { setText(e.target.value); setSaved(false); }} placeholder="Share your thoughts or questions about this lesson…" className="w-full rounded-xl border border-white/10 bg-bg-primary p-3 text-sm" />
       <div className="flex flex-wrap items-center gap-3">
-        {voiceReady && <button type="button" disabled={saving} onClick={() => recording ? stopRecording() : void record()} className="rounded-lg border border-current/15 px-3 py-2 text-sm">{recording ? "Stop recording" : "Record voice note"}</button>}
-        {!recording && <label className="cursor-pointer text-sm text-accent-bright">Upload voice note<input type="file" accept="audio/*" className="sr-only" disabled={saving} onChange={e => { const file = e.target.files?.[0]; if (!file) return; if (file.size > 3 * 1024 * 1024) { setError("Choose a voice note under 3MB."); return; } discardAudio(); const url = URL.createObjectURL(file); audioUrl.current=url; setAudio({ blob:file,url }); setSaved(false); e.target.value=""; }} /></label>}
+        {voiceReady && <button type="button" disabled={saving || requestingMic} onClick={() => recording ? stopRecording() : void record()} className="rounded-lg border border-current/15 px-3 py-2 text-sm">{requestingMic ? "Opening microphone…" : recording ? "Stop recording" : "Record voice note"}</button>}
+        {!recording && !requestingMic && <label className="cursor-pointer text-sm text-accent-bright">Upload voice note<input type="file" accept="audio/*" className="sr-only" disabled={saving} onChange={e => { const file = e.target.files?.[0]; if (!file) return; if (file.size > 3 * 1024 * 1024) { setError("Choose a voice note under 3MB."); return; } discardAudio(); const url = URL.createObjectURL(file); audioUrl.current=url; setAudio({ blob:file,url }); setSaved(false); e.target.value=""; }} /></label>}
         {recording && <span role="status" className="text-xs text-text-muted">Recording · maximum 3 minutes</span>}
       </div>
       {audio && <div className="space-y-2"><audio controls src={audio.url} className="max-w-full"/><button type="button" disabled={saving} onClick={discardAudio} className="text-xs text-text-muted">Remove recording</button></div>}
-      <button type="button" disabled={saving || recording || (!text.trim() && !audio)} onClick={() => void send()} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">{saving ? "Saving…" : "Send answer"}</button>
+      <button type="button" disabled={saving || requestingMic || recording || (!text.trim() && !audio)} onClick={() => void send()} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">{saving ? "Saving…" : "Send answer"}</button>
       {saved && <p role="status" className="text-sm text-emerald-400">Saved. Gordy can see your answer in your client profile.</p>}
     </>}
     {error && <p role="alert" className="text-sm text-red-400">{error} <button type="button" className="underline" onClick={() => { setError(""); setRevision(v=>v+1); }}>Reload answers</button></p>}
