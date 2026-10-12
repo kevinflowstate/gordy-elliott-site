@@ -1,3 +1,4 @@
+import { checkinConfigForWeightUnit, isWeightUnit, weightToKg } from "@/lib/weight-units";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { buildFallbackCheckinConfig, normalizeCheckinConfig, validateCheckinSubmission } from "@/lib/checkin-form";
@@ -29,7 +30,7 @@ async function resolveCheckinConfig(admin: ReturnType<typeof createAdminClient>,
   return { config: legacy?.config ? normalizeCheckinConfig(legacy.config) : buildFallbackCheckinConfig(), template: null, pending: false };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -40,7 +41,7 @@ export async function GET() {
   const admin = createAdminClient();
   const { data: profile } = await admin
     .from("client_profiles")
-    .select("id, tier, programme_type, checkin_day, last_checkin, checkin_form_id")
+    .select("id, tier, programme_type, weight_unit, checkin_day, last_checkin, checkin_form_id")
     .eq("user_id", user.id)
     .single();
 
@@ -50,19 +51,21 @@ export async function GET() {
 
   const { config: effectiveConfig, template: effectiveTemplate, pending } = await resolveCheckinConfig(admin, profile);
 
-  const weekStart = getWeekStartIso();
-  const { data: currentWeekCheckin } = await admin
-    .from("checkins")
-    .select("*")
-    .eq("client_id", profile.id)
-    .gte("created_at", weekStart)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const displayedConfig = profile.programme_type === "boardroom" && currentWeekCheckin?.form_config_snapshot?.programme_type === "boardroom"
-    ? normalizeCheckinConfig(currentWeekCheckin.form_config_snapshot, "boardroom") : effectiveConfig;
-  const displayedTemplateId = currentWeekCheckin?.form_config_snapshot?.programme_type === "boardroom" ? currentWeekCheckin.checkin_form_id : effectiveTemplate?.id || profile.checkin_form_id || null;
+  const editId = new URL(request.url).searchParams.get("edit");
+  let query = admin.from("checkins").select("*").eq("client_id", profile.id);
+  query = editId ? query.eq("id", editId) : query.gte("created_at", getWeekStartIso());
+  const { data: currentWeekCheckin, error: loadError } = await query.order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (loadError) return NextResponse.json({ error: "Couldn't load your check-in" }, { status: 500 });
+  if (editId && !currentWeekCheckin) return NextResponse.json({ error: "Check-in not found" }, { status: 404 });
+  const snapshot = currentWeekCheckin?.form_config_snapshot;
+  if (currentWeekCheckin && (snapshot?.programme_type === "boardroom") !== (profile.programme_type === "boardroom")) return NextResponse.json({ error: "This check-in belongs to your previous programme. Ask Gordy to review it." }, { status: 409 });
+  const baseConfig = snapshot ? normalizeCheckinConfig(snapshot, profile.programme_type === "boardroom" ? "boardroom" : undefined) : effectiveConfig;
+  // Old check-ins retain their original unit, regardless of a later preference change.
+  const savedUnit = currentWeekCheckin?.responses?.weight_unit || snapshot?.progress_tracking?.find((m: { id: string }) => m.id === "weight")?.unit || "kg";
+  const weightUnit = currentWeekCheckin ? (isWeightUnit(savedUnit) ? savedUnit : "kg") : (isWeightUnit(profile.weight_unit) ? profile.weight_unit : "kg");
+  const displayedConfig = baseConfig ? checkinConfigForWeightUnit(baseConfig, weightUnit) : null;
+  const displayedTemplateId = snapshot ? currentWeekCheckin.checkin_form_id : effectiveTemplate?.id || profile.checkin_form_id || null;
+  const { data: history } = await admin.from("checkins").select("id, created_at, week_number").eq("client_id", profile.id).order("created_at", { ascending: false }).limit(52);
 
   const replies = await loadCoachCheckinReplies(admin, profile.id, profile.tier || "coached");
 
@@ -74,7 +77,10 @@ export async function GET() {
     lastCheckin: profile.last_checkin || null,
     config: displayedConfig,
     configRevision: displayedConfig ? checkinConfigRevision(displayedConfig, displayedTemplateId) : null,
-    pending,
+    pending: !displayedConfig && pending,
+    history: history || [],
+    editingHistory: Boolean(editId),
+    weightUnit,
     programmeType: profile.programme_type,
     templateId: effectiveTemplate?.id || profile.checkin_form_id || null,
     templateName: effectiveTemplate?.name || null,
@@ -93,7 +99,7 @@ export async function POST(request: Request) {
 
   const { data: profile } = await admin
     .from("client_profiles")
-    .select("id, programme_type, checkin_form_id")
+    .select("id, programme_type, weight_unit, checkin_form_id")
     .eq("user_id", user.id)
     .single();
 
@@ -101,31 +107,46 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Client profile not found" }, { status: 404 });
   }
 
-  const { config, template, pending } = await resolveCheckinConfig(admin, profile);
-  if (pending || !config) return NextResponse.json({ error: "Gordy is preparing your personal business check-in. It will be available once approved." }, { status: 409 });
+  const { config, template } = await resolveCheckinConfig(admin, profile);
+
   let body;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request" }, { status: 400 }); }
-  const weekStart = getWeekStartIso();
-  const { data: currentWeekCheckin } = await admin
-    .from("checkins")
-    .select("id, week_number, checkin_form_id, form_config_snapshot")
-    .eq("client_id", profile.id)
-    .gte("created_at", weekStart)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const submittedConfig = profile.programme_type === "boardroom" && currentWeekCheckin?.form_config_snapshot?.programme_type === "boardroom"
-    ? normalizeCheckinConfig(currentWeekCheckin.form_config_snapshot, "boardroom") : config;
-  const submittedTemplateId = currentWeekCheckin?.form_config_snapshot?.programme_type === "boardroom" ? currentWeekCheckin.checkin_form_id : template?.id || null;
+  if (body.checkin_id !== undefined && typeof body.checkin_id !== "string") return NextResponse.json({ error: "Invalid check-in" }, { status: 400 });
+  let query = admin.from("checkins").select("id, created_at, week_number, checkin_form_id, form_config_snapshot, responses, wins, challenges, questions").eq("client_id", profile.id);
+  query = body.checkin_id ? query.eq("id", body.checkin_id) : query.gte("created_at", getWeekStartIso());
+  const { data: currentWeekCheckin, error: loadError } = await query.order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (loadError) return NextResponse.json({ error: "Couldn't load your saved check-in. Nothing was changed." }, { status: 500 });
+  if (body.checkin_id && !currentWeekCheckin) return NextResponse.json({ error: "Check-in not found" }, { status: 404 });
+  const snapshot = currentWeekCheckin?.form_config_snapshot;
+  if (currentWeekCheckin && (snapshot?.programme_type === "boardroom") !== (profile.programme_type === "boardroom")) return NextResponse.json({ error: "This check-in belongs to your previous programme. Ask Gordy to review it." }, { status: 409 });
+  const baseConfig = snapshot ? normalizeCheckinConfig(snapshot, profile.programme_type === "boardroom" ? "boardroom" : undefined) : config;
+  if (!baseConfig) return NextResponse.json({ error: "Gordy is preparing your personal check-in." }, { status: 409 });
+  if (body.weight_unit !== undefined && !isWeightUnit(body.weight_unit)) return NextResponse.json({ error: "Choose kg or lb" }, { status: 400 });
+  const previousUnit = baseConfig.progress_tracking?.find(m => m.id === "weight")?.unit;
+  const weightUnit = body.weight_unit || (isWeightUnit(previousUnit) ? previousUnit : "kg");
+  const submittedConfig = checkinConfigForWeightUnit(baseConfig, weightUnit);
+  const submittedTemplateId = snapshot ? currentWeekCheckin.checkin_form_id : template?.id || null;
   if (profile.programme_type === "boardroom" && body.config_revision !== checkinConfigRevision(submittedConfig, submittedTemplateId)) {
     return NextResponse.json({ error: "Your check-in form changed while it was open. Keep a copy of your answers, then reload to use the updated questions.", code: "CHECKIN_FORM_CHANGED" }, { status: 409 });
   }
   const submitted = validateCheckinSubmission(submittedConfig, body.mood, body.responses);
   if (submitted.error) return NextResponse.json({ error: submitted.error }, { status: 400 });
   const mood = submitted.mood || "okay";
+  if (profile.programme_type !== "boardroom" && body.responses?.weight && (!Number.isFinite(Number(body.responses.weight)) || Number(body.responses.weight) <= 0)) return NextResponse.json({ error: "Enter a valid positive weight and select kg or lb" }, { status: 400 });
   // Preserve existing fitness answer keys; business submissions use only their assigned schema.
-  const responses = profile.programme_type === "boardroom" ? submitted.responses : { ...body.responses, ...submitted.responses };
+  const legacyAnswers = { wins: currentWeekCheckin?.wins || null, challenges: currentWeekCheckin?.challenges || null, questions: currentWeekCheckin?.questions || null };
+  const responses: Record<string, unknown> = profile.programme_type === "boardroom" ? submitted.responses : { ...legacyAnswers, ...currentWeekCheckin?.responses, ...body.responses, ...submitted.responses, weight_unit: weightUnit };
+  const previousWeightUnit = currentWeekCheckin?.responses?.weight_unit || snapshot?.progress_tracking?.find((m: { id: string }) => m.id === "weight")?.unit || "kg";
+  const weightChanged = !currentWeekCheckin || responses.weight !== currentWeekCheckin.responses?.weight || weightUnit !== previousWeightUnit;
+  const syncWeight = profile.programme_type !== "boardroom" && Boolean(responses.weight) && (weightChanged || currentWeekCheckin?.responses?.weight_sync_pending === true);
+  // Server-owned retry marker: a saved check-in must not conceal a failed chart write.
+  delete responses.weight_sync_pending;
+  if (syncWeight) responses.weight_sync_pending = true;
+  const measurementFields: Record<string, string> = { waist: "waist_cm", chest: "chest_cm", hips: "hips_cm", left_arm: "left_arm_cm", right_arm: "right_arm_cm", left_thigh: "left_thigh_cm", right_thigh: "right_thigh_cm" };
+  const pendingMetrics = currentWeekCheckin?.responses?.measurement_sync_pending;
+  const syncMetrics = profile.programme_type === "boardroom" ? [] : Object.keys(measurementFields).filter(key => responses[key] && Number.isFinite(Number(responses[key])) && (!currentWeekCheckin || responses[key] !== currentWeekCheckin.responses?.[key] || (Array.isArray(pendingMetrics) && pendingMetrics.includes(key))));
+  delete responses.measurement_sync_pending;
+  if (syncMetrics.length) responses.measurement_sync_pending = syncMetrics;
 
   // Get next week number
   const { data: lastCheckin } = await admin
@@ -153,7 +174,7 @@ export async function POST(request: Request) {
   };
 
   const operation = currentWeekCheckin
-    ? admin.from("checkins").update(payload).eq("id", currentWeekCheckin.id)
+    ? admin.from("checkins").update(payload).eq("id", currentWeekCheckin.id).eq("client_id", profile.id)
     : admin.from("checkins").insert(payload);
 
   const { error: insertError } = await operation;
@@ -163,60 +184,47 @@ export async function POST(request: Request) {
       insertError.code === "23505" ||
       insertError.message?.includes("checkins_client_week_unique");
 
-    if (duplicateWeek) {
-      const { data: existing } = await admin
-        .from("checkins")
-        .select("week_number")
-        .eq("client_id", profile.id)
-        .eq("week_number", weekNumber)
-        .single();
-
-      await admin
-        .from("client_profiles")
-        .update({ last_checkin: new Date().toISOString() })
-        .eq("id", profile.id);
-
-      return NextResponse.json({
-        success: true,
-        week_number: existing?.week_number || weekNumber,
-        duplicate: true,
-        updated: Boolean(currentWeekCheckin),
-      });
-    }
+    if (duplicateWeek) return NextResponse.json({ error: "A check-in was saved in another tab. Keep your answers, reload the saved check-in and try again." }, { status: 409 });
 
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
   // Update last checkin timestamp
-  await admin
+  if (!currentWeekCheckin) await admin
     .from("client_profiles")
     .update({ last_checkin: new Date().toISOString() })
     .eq("id", profile.id);
 
+  let measurementWarning: string | null = null;
   // Auto-sync progress metrics to body measurements table
   if (responses && profile.programme_type !== "boardroom") {
     const measurement: Record<string, unknown> = {
       client_id: profile.id,
-      measured_date: new Date().toISOString().split("T")[0],
+      measured_date: (currentWeekCheckin?.created_at || new Date().toISOString()).split("T")[0],
     };
     let hasData = false;
+    // Unchanged ambiguous legacy weights stay untouched; explicit failed writes can retry.
     // Map check-in metric IDs to body measurement columns
-    if (responses.weight && !isNaN(Number(responses.weight))) { measurement.weight_kg = Number(responses.weight); hasData = true; }
-    if (responses.waist && !isNaN(Number(responses.waist))) { measurement.waist_cm = Number(responses.waist); hasData = true; }
-    if (responses.chest && !isNaN(Number(responses.chest))) { measurement.chest_cm = Number(responses.chest); hasData = true; }
-    if (responses.hips && !isNaN(Number(responses.hips))) { measurement.hips_cm = Number(responses.hips); hasData = true; }
-    if (responses.left_arm && !isNaN(Number(responses.left_arm))) { measurement.left_arm_cm = Number(responses.left_arm); hasData = true; }
-    if (responses.right_arm && !isNaN(Number(responses.right_arm))) { measurement.right_arm_cm = Number(responses.right_arm); hasData = true; }
-    if (responses.left_thigh && !isNaN(Number(responses.left_thigh))) { measurement.left_thigh_cm = Number(responses.left_thigh); hasData = true; }
-    if (responses.right_thigh && !isNaN(Number(responses.right_thigh))) { measurement.right_thigh_cm = Number(responses.right_thigh); hasData = true; }
+    if (syncWeight && responses.weight && !isNaN(Number(responses.weight))) { measurement.weight_kg = weightToKg(Number(responses.weight), weightUnit); hasData = true; }
+    for (const key of syncMetrics) { measurement[measurementFields[key]] = Number(responses[key]); hasData = true; }
     if (hasData) {
-      await admin.from("client_body_measurements").upsert(measurement, { onConflict: "client_id,measured_date", ignoreDuplicates: false });
+      const { error } = await admin.from("client_body_measurements").upsert(measurement, { onConflict: "client_id,measured_date", ignoreDuplicates: false });
+      if (error) measurementWarning = "Check-in saved, but progress could not sync. Please reopen and save this check-in again, or log your weight on the Progress page.";
+      else if (syncWeight || syncMetrics.length) {
+        const syncedResponses = JSON.stringify(responses);
+        delete responses.weight_sync_pending;
+        delete responses.measurement_sync_pending;
+        // Compare-and-set: clearing our retry marker must never replace a newer tab's answers.
+        const { error: clearError } = await admin.from("checkins").update({ responses }).eq("client_id", profile.id).eq("week_number", weekNumber).eq("responses", syncedResponses);
+        if (clearError) measurementWarning = "Check-in and weight saved. Please reopen and save again to confirm progress synchronization.";
+      }
     }
   }
 
   return NextResponse.json({
     success: true,
     week_number: weekNumber,
+    measurementWarning,
     updated: Boolean(currentWeekCheckin),
   });
 }

@@ -578,6 +578,7 @@ export default function AdminDashboard() {
                   >
                     <option value="capacity">CAPACITY</option>
                     <option value="shift">SHIFT</option>
+                    <option value="boardroom">CAPACITY BOARDROOM</option>
                     <option value="in_person">IN PERSON</option>
                   </select>
                   <p className="mt-1.5 text-xs text-text-muted">Controls calls, documents, education and AI allowance.</p>

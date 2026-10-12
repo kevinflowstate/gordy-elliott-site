@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { weightDisplay, weightFromKg, convertWeightInput, type WeightUnit } from "@/lib/weight-units";
 import Link from "next/link";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import StrengthProgressPanel from "@/components/portal/StrengthProgressPanel";
@@ -70,6 +71,7 @@ export default function ProgressPage() {
   // Form state
   const today = new Date().toISOString().split("T")[0];
   const [date, setDate] = useState(today);
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>("kg");
   const [weightKg, setWeightKg] = useState("");
   const [waistCm, setWaistCm] = useState("");
   const [chestCm, setChestCm] = useState("");
@@ -91,6 +93,7 @@ export default function ProgressPage() {
       if (res.ok) {
         const data = await res.json();
         setMeasurements(data.measurements || []);
+        setWeightUnit(data.weightUnit || "kg");
       } else {
         setError("We couldn't load your progress entries. Try refreshing the page.");
       }
@@ -122,7 +125,7 @@ export default function ProgressPage() {
     setSuccessMsg(null);
     try {
       const body: Record<string, unknown> = { measured_date: date };
-      if (weightKg) body.weight_kg = parseFloat(weightKg);
+      if (weightKg) { body.weight = parseFloat(weightKg); body.weight_unit = weightUnit; }
       if (waistCm) body.waist_cm = parseFloat(waistCm);
       if (chestCm) body.chest_cm = parseFloat(chestCm);
       if (hipsCm) body.hips_cm = parseFloat(hipsCm);
@@ -206,7 +209,7 @@ export default function ProgressPage() {
     .filter((m) => m.weight_kg != null)
     .map((m) => ({
       date: new Date(m.measured_date).toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
-      value: m.weight_kg,
+      value: weightDisplay(m.weight_kg!, weightUnit),
     }));
 
   const measurementChartData = sorted.map((m) => {
@@ -224,7 +227,7 @@ export default function ProgressPage() {
   const earliestWithWeight = [...measurements].reverse().find((m) => m.weight_kg != null);
   const weightChange =
     latestWithWeight && earliestWithWeight && latestWithWeight.id !== earliestWithWeight.id
-      ? (latestWithWeight.weight_kg! - earliestWithWeight.weight_kg!).toFixed(1)
+      ? weightFromKg(latestWithWeight.weight_kg! - earliestWithWeight.weight_kg!, weightUnit).toFixed(1)
       : null;
 
   const inputClass =
@@ -247,7 +250,7 @@ export default function ProgressPage() {
           {latestDateLabel && (
             <p className="mt-2 text-xs text-text-muted">
               Last entry: {latestDateLabel}
-              {latestEntry?.weight_kg != null ? ` · ${latestEntry.weight_kg}kg` : ""}
+              {latestEntry?.weight_kg != null ? ` · ${weightDisplay(latestEntry.weight_kg, weightUnit)} ${weightUnit}` : ""}
             </p>
           )}
         </div>
@@ -315,7 +318,7 @@ export default function ProgressPage() {
             />
           </div>
           <div className="min-w-0">
-            <label className={labelClass}>Weight (kg)</label>
+            <label className={labelClass}>Weight ({weightUnit})<select aria-label="Weight unit" value={weightUnit} onChange={e => { const next = e.target.value as WeightUnit; setWeightKg(convertWeightInput(weightKg, weightUnit, next)); setWeightUnit(next); }} className="ml-2 rounded border border-white/10 bg-bg-card px-2 py-1"><option value="kg">kg</option><option value="lb">lb</option></select></label>
             <input
               type="number"
               step="0.1"
@@ -399,14 +402,14 @@ export default function ProgressPage() {
               {latestWithWeight && (
                 <div className="text-right">
                   <div className="text-xs text-text-muted uppercase tracking-wider">Current</div>
-                  <div className="text-lg font-heading font-bold text-text-primary">{latestWithWeight.weight_kg}kg</div>
+                  <div className="text-lg font-heading font-bold text-text-primary">{weightDisplay(latestWithWeight.weight_kg!, weightUnit)} {weightUnit}</div>
                 </div>
               )}
               {weightChange !== null && (
                 <div className="text-right">
                   <div className="text-xs text-text-muted uppercase tracking-wider">Change</div>
                   <div className={`text-lg font-heading font-bold ${parseFloat(weightChange) < 0 ? "text-emerald-400" : parseFloat(weightChange) > 0 ? "text-red-400" : "text-text-primary"}`}>
-                    {parseFloat(weightChange) > 0 ? "+" : ""}{weightChange}kg
+                    {parseFloat(weightChange) > 0 ? "+" : ""}{weightChange} {weightUnit}
                   </div>
                 </div>
               )}
@@ -419,7 +422,7 @@ export default function ProgressPage() {
               <YAxis tick={{ fontSize: 10, fill: "var(--color-text-muted)" }} tickLine={false} axisLine={false} domain={["auto", "auto"]} />
               <Tooltip
                 contentStyle={{ background: "var(--color-bg-card)", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 8, fontSize: 12 }}
-                formatter={(v) => [`${v}kg`, "Weight"]}
+                formatter={(v) => [`${v} ${weightUnit}`, "Weight"]}
               />
               <Line
                 type="monotone"
@@ -515,7 +518,7 @@ export default function ProgressPage() {
                       {new Date(m.measured_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                     </span>
                     {m.weight_kg != null && (
-                      <span className="text-xs font-bold text-[#E040D0]">{m.weight_kg}kg</span>
+                      <span className="text-xs font-bold text-[#E040D0]">{weightDisplay(m.weight_kg, weightUnit)} {weightUnit}</span>
                     )}
                   </div>
                   <div className="flex flex-wrap gap-x-3 gap-y-0.5">

@@ -1,3 +1,4 @@
+import { isWeightUnit, weightToKg } from "@/lib/weight-units";
 import { dateKeyInTimeZone } from "@/lib/founder-dashboard";
 import { weekStartForDateKey } from "@/lib/strength-progress";
 
@@ -41,7 +42,8 @@ export function dashboardWeightHistory(checkins: Array<{ id: string; created_at:
     if (typeof raw !== "string" || !raw.trim()) return [];
     // Keep units in legacy answers, but reject partial strings such as "80ish".
     const match = raw.trim().match(/^(\d+(?:\.\d+)?)\s*(?:kg)?$/i);
-    const value = match ? Number(match[1]) : NaN;
+    const unit = checkin.responses?.weight_unit;
+    const value = match ? weightToKg(Number(match[1]), isWeightUnit(unit) ? unit : "kg") : NaN;
     if (!Number.isFinite(value) || value <= 0 || !Number.isFinite(Date.parse(checkin.created_at))) return [];
     return [{ id: checkin.id, timestamp: checkin.created_at, value,
       date: new Date(checkin.created_at).toLocaleDateString("en-GB", { timeZone: "Europe/London", day: "numeric", month: "short", year: "2-digit" }) }];

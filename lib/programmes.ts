@@ -83,6 +83,7 @@ export function monthStartKey(date = new Date()) {
 export function isBoardroom(value: unknown) { return value === "boardroom"; }
 
 export const BOARDROOM_HIDDEN_PORTAL_PATHS = ["/portal/exercise-plan", "/portal/nutrition-plan", "/portal/daily-tracker", "/portal/cycle", "/portal/gallery", "/portal/progress", "/portal/connected-apps", "/portal/ai"];
-export function programmeShowsPortalPath(programme: unknown, path: string) {
+export function programmeShowsPortalPath(programme: unknown, path: string, fitnessPlansEnabled = false) {
+  if (isBoardroom(programme) && fitnessPlansEnabled && ["/portal/exercise-plan", "/portal/nutrition-plan"].some(base => path === base || path.startsWith(`${base}/`))) return true;
   return !isBoardroom(programme) || !BOARDROOM_HIDDEN_PORTAL_PATHS.some((hidden) => path === hidden || path.startsWith(`${hidden}/`));
 }

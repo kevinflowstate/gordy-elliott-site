@@ -24,6 +24,8 @@ const moduleIcons = [
 ];
 
 export default function TrainingLibrary() {
+  const [boardroom, setBoardroom] = useState(false);
+  const [error, setError] = useState("");
   const [modules, setModules] = useState<TrainingModule[]>([]);
   const [loading, setLoading] = useState(true);
   const orderedModules = useMemo(() => [...modules].sort((a, b) => {
@@ -39,8 +41,9 @@ export default function TrainingLibrary() {
         if (res.ok) {
           const data = await res.json();
           setModules(data.modules || []);
-        }
-      } finally {
+          setBoardroom(data.programme === "boardroom");
+        } else setError("Could not load your education hub. Please refresh to try again.");
+      } catch { setError("Could not load your education hub. Please refresh to try again."); } finally {
         setLoading(false);
       }
     }
@@ -50,11 +53,11 @@ export default function TrainingLibrary() {
   return (
     <div className="mx-auto w-full max-w-5xl pb-28 sm:pb-0">
       <div className="mb-8">
-        <h1 className="text-center text-3xl font-heading font-bold text-text-primary sm:text-left">Education Hub</h1>
-        <p className="mt-1 text-center text-text-secondary sm:text-left">This week’s coaching first, then your full learning library.</p>
+        <h1 className="text-center text-3xl font-heading font-bold text-text-primary sm:text-left">{boardroom ? "Boardroom Education Hub" : "Education Hub"}</h1>
+        <p className="mt-1 text-center text-text-secondary sm:text-left">{boardroom ? "Business lessons, practical resources and your answers for Gordy." : "This week’s coaching first, then your full learning library."}</p>
       </div>
 
-      {loading ? (
+      {error ? <p role="alert">{error}</p> : loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {[...Array(3)].map((_, i) => (
             <div key={i} className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl overflow-hidden">
@@ -69,7 +72,7 @@ export default function TrainingLibrary() {
         </div>
       ) : modules.length === 0 ? (
         <div className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-2xl p-8 text-center">
-          <p className="text-text-secondary">No training modules available yet.</p>
+          <p className="text-text-secondary">{boardroom ? "Your Boardroom library is being prepared." : "No training modules available yet."}</p>
           <p className="text-text-muted text-sm mt-2">New content is on the way.</p>
         </div>
       ) : (

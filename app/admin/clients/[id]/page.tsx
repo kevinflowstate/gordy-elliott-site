@@ -387,7 +387,7 @@ export default function ClientDetailPage() {
         }
       }
 
-      if (id && !isBoardroom(loadedClient?.programme_type)) {
+      if (id && (!isBoardroom(loadedClient?.programme_type) || loadedClient?.fitness_plans_enabled)) {
         const [exRes, nutRes] = await Promise.all([
           fetch(`/api/admin/client-exercise-plans?clientId=${id}`),
           fetch(`/api/admin/client-nutrition-plans?clientId=${id}`),
@@ -1419,7 +1419,7 @@ export default function ClientDetailPage() {
               >
                 {hasConsultationData ? "View Consultation" : "Link Consultation"}
               </button>
-              {!boardroom && <>
+              {(!boardroom || client.fitness_plans_enabled) && <>
               <button
                 onClick={() => setAssignChooser("training")}
                 className="px-3 py-1.5 text-xs font-semibold text-white bg-[#E040D0] hover:bg-[#b830a8] rounded-lg transition-colors"
@@ -1881,7 +1881,7 @@ export default function ClientDetailPage() {
 
       {/* Tab Navigation */}
       <div className="flex items-center gap-1 mb-6 overflow-x-auto border-b border-[rgba(0,0,0,0.06)]">
-        {tabs.filter(tab => !boardroom || !["training", "nutrition", "gallery"].includes(tab.id)).map((tab) => (
+        {tabs.filter(tab => !boardroom || (client.fitness_plans_enabled && ["training", "nutrition"].includes(tab.id)) || !["training", "nutrition", "gallery"].includes(tab.id)).map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
