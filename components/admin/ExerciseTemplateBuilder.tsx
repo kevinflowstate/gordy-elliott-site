@@ -202,6 +202,7 @@ export default function ExerciseTemplateBuilder({
     try {
       const template: ExerciseTemplate = {
         id: existingTemplate?.id || "",
+        load_version: existingTemplate?.load_version,
         name: name.trim(),
         description: description.trim() || undefined,
         overview: overview.trim() || undefined,

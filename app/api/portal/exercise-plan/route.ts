@@ -1,6 +1,7 @@
 import { loadExerciseSessionItems } from "@/lib/exercise-session-load";
 import { programmeToday, programmeWeek, programmeWeeksInRange, programmeCalendarWeekStart, programmeAddDays } from "@/lib/exercise-programme";
 import { createExerciseSectionDivider } from "@/lib/exercise-section";
+import { programmeShowsPortalPath } from "@/lib/programmes";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
@@ -15,11 +16,13 @@ export async function GET(request: Request) {
   // Get client profile
   const { data: profile } = await admin
     .from("client_profiles")
-    .select("id")
+    .select("id, programme_type, fitness_plans_enabled")
     .eq("user_id", user.id)
     .single();
 
   if (!profile) return NextResponse.json({ error: "No profile found" }, { status: 404 });
+
+  if (!programmeShowsPortalPath(profile.programme_type, "/portal/exercise-plan", profile.fitness_plans_enabled === true)) return NextResponse.json({ error: "Plans are not enabled for your programme" }, { status: 403 });
 
   // Get active exercise plan
   const { data: plans } = await admin

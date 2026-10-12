@@ -172,6 +172,7 @@ export async function DELETE(request: Request) {
         progressPaths,
         inboxAudioPaths,
         inboxImagePaths,
+        lessonAudioPaths,
         communityMediaPaths,
       ] = await Promise.all([
         admin
@@ -181,6 +182,7 @@ export async function DELETE(request: Request) {
         listStoragePaths(admin, "progress-photos", profile.id),
         listStoragePaths(admin, "inbox-audio", profile.id),
         listStoragePaths(admin, "inbox-images", profile.id),
+        listStoragePaths(admin, "lesson-responses", profile.id),
         listStoragePaths(admin, COMMUNITY_MEDIA_BUCKET, user.id),
       ]);
       if (documentsError) throw documentsError;
@@ -196,6 +198,7 @@ export async function DELETE(request: Request) {
         removeStoragePaths(admin, "progress-photos", progressPaths),
         removeStoragePaths(admin, "inbox-audio", inboxAudioPaths),
         removeStoragePaths(admin, "inbox-images", inboxImagePaths),
+        removeStoragePaths(admin, "lesson-responses", lessonAudioPaths),
         removeStoragePaths(admin, COMMUNITY_MEDIA_BUCKET, communityMediaPaths),
         ...Array.from(documentsByBucket, ([bucket, paths]) => removeStoragePaths(admin, bucket, paths)),
       ]);

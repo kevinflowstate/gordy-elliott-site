@@ -20,6 +20,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 export default function ExercisePlansPage() {
   const [templates, setTemplates] = useState<ExerciseTemplate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<Category | "all">("all");
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
@@ -30,12 +31,15 @@ export default function ExercisePlansPage() {
   const [viewingTemplate, setViewingTemplate] = useState<ExerciseTemplate | null>(null);
 
   async function loadTemplates() {
+    setLoadError("");
     try {
       const res = await fetch("/api/admin/exercise-templates");
-      if (res.ok) {
-        const data = await res.json();
-        setTemplates(data.templates || []);
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Couldn't load the complete template library.");
+      setTemplates(data.templates || []);
+    } catch (error) {
+      setTemplates([]);
+      setLoadError(error instanceof Error ? error.message : "Couldn't load training templates.");
     } finally {
       setLoading(false);
     }
@@ -120,6 +124,8 @@ export default function ExercisePlansPage() {
     const matchesTag = !tagFilter || (t.tags || []).includes(tagFilter);
     return matchesCategory && matchesSearch && matchesTag;
   });
+
+  if (loadError) return <div role="alert" className="rounded-xl border border-red-400/30 p-6"><p>{loadError}</p><button className="mt-4 underline" onClick={() => { setLoading(true); void loadTemplates(); }}>Try again</button></div>;
 
   if (loading) {
     return (

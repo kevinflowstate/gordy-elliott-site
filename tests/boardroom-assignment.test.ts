@@ -21,3 +21,8 @@ test('personal business templates can be assigned, but incompatible templates an
  const body=await fixture('boardroom');assert.equal((await body.call({sex:'female'})).status,400);assert.equal(body.writes.length,0);
  const denied=await fixture('boardroom','boardroom',false);assert.equal((await denied.call({checkin_form_id:'personal'})).status,403);assert.equal(denied.writes.length,0);
 });
+test('Boardroom fitness switch is a boolean, does not notify, and resets on a programme change',async()=>{
+ const f=await fixture('boardroom');assert.equal((await f.call({fitness_plans_enabled:true})).status,200);assert.equal(f.writes[0].fitness_plans_enabled,true);
+ assert.equal((await f.call({fitness_plans_enabled:'true'})).status,400);assert.equal(f.writes.length,1);
+ const changed=await fixture('capacity');assert.equal((await changed.call({programme_type:'boardroom'})).status,200);assert.equal(changed.writes[0].fitness_plans_enabled,false);
+});

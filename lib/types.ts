@@ -40,6 +40,8 @@ export interface ClientProfile {
   tier?: ClientTier;
   experience_mode?: ClientExperienceMode;
   programme_type?: ProgrammeType;
+  fitness_plans_enabled?: boolean;
+  weight_unit?: "kg" | "lb";
   onboarding_status?: OnboardingStatus;
   activated_at?: string | null;
   consultation_data?: Record<string, unknown>;
@@ -243,6 +245,8 @@ export interface InboxConversation {
   latest_sender_role: UserRole | null;
   unread_count: number;
   programme_type?: ProgrammeType;
+  fitness_plans_enabled?: boolean;
+  weight_unit?: "kg" | "lb";
   bulk_eligible?: boolean;
 }
 
@@ -298,6 +302,8 @@ export interface ProgressMetric {
 
 export interface CheckinFormConfig {
   programme_type?: ProgrammeType;
+  fitness_plans_enabled?: boolean;
+  weight_unit?: "kg" | "lb";
   title?: string;
   checkin_day: string;
   mood_enabled: boolean;
@@ -367,6 +373,7 @@ export interface ExerciseSession {
 }
 
 export interface ExerciseTemplate {
+  load_version?: number;
   id: string;
   name: string;
   description?: string;

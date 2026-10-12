@@ -1,3 +1,5 @@
+import { programmeDateDay } from "@/lib/exercise-programme";
+import { isWeightUnit, weightToKg } from "@/lib/weight-units";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
@@ -10,7 +12,7 @@ async function getClientProfile() {
   const admin = createAdminClient();
   const { data: profile } = await admin
     .from("client_profiles")
-    .select("id")
+    .select("id, weight_unit, programme_type")
     .eq("user_id", user.id)
     .single();
 
@@ -30,7 +32,7 @@ export async function GET() {
     .order("measured_date", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ measurements: data || [] });
+  return NextResponse.json({ measurements: data || [], weightUnit: profile.weight_unit || "kg" });
 }
 
 // POST: Add a new measurement entry
@@ -40,36 +42,29 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
   const body = await request.json();
-  const {
-    measured_date,
-    weight_kg,
-    waist_cm,
-    chest_cm,
-    hips_cm,
-    left_arm_cm,
-    right_arm_cm,
-    left_thigh_cm,
-    right_thigh_cm,
-    notes,
-  } = body;
+  const { measured_date, weight_kg } = body;
 
+  if (profile.programme_type === "boardroom") return NextResponse.json({ error: "Body measurements do not apply to Boardroom" }, { status: 403 });
+  if (body.weight !== undefined && (!isWeightUnit(body.weight_unit) || typeof body.weight !== "number" || !Number.isFinite(body.weight) || body.weight <= 0)) return NextResponse.json({ error: "Enter a positive weight and select kg or lb" }, { status: 400 });
+  const canonicalWeight = body.weight !== undefined ? weightToKg(body.weight, body.weight_unit) : weight_kg;
+  if (canonicalWeight !== undefined && canonicalWeight !== null && (typeof canonicalWeight !== "number" || !Number.isFinite(canonicalWeight) || canonicalWeight <= 0)) return NextResponse.json({ error: "Enter a valid weight" }, { status: 400 });
   const date = measured_date || new Date().toISOString().split("T")[0];
 
-  const { data, error } = await admin
-    .from("client_body_measurements")
-    .upsert({
-      client_id: profile.id,
-      measured_date: date,
-      weight_kg: weight_kg ?? null,
-      waist_cm: waist_cm ?? null,
-      chest_cm: chest_cm ?? null,
-      hips_cm: hips_cm ?? null,
-      left_arm_cm: left_arm_cm ?? null,
-      right_arm_cm: right_arm_cm ?? null,
-      left_thigh_cm: left_thigh_cm ?? null,
-      right_thigh_cm: right_thigh_cm ?? null,
-      notes: notes ?? null,
-    }, { onConflict: "client_id,measured_date" })
+  if (typeof date !== "string" || programmeDateDay(date) === null) return NextResponse.json({ error: "Choose a valid measurement date" }, { status: 400 });
+  const entry: Record<string, unknown> = { client_id: profile.id, measured_date: date };
+  if (canonicalWeight !== undefined) entry.weight_kg = canonicalWeight;
+  for (const column of ["waist_cm", "chest_cm", "hips_cm", "left_arm_cm", "right_arm_cm", "left_thigh_cm", "right_thigh_cm"]) {
+    if (!(column in body)) continue;
+    if (body[column] !== null && (typeof body[column] !== "number" || !Number.isFinite(body[column]) || body[column] <= 0)) return NextResponse.json({ error: "Enter valid positive body measurements" }, { status: 400 });
+    entry[column] = body[column];
+  }
+  if ("notes" in body) {
+    if (typeof body.notes !== "string" || body.notes.length > 10000) return NextResponse.json({ error: "Notes must be text up to 10,000 characters" }, { status: 400 });
+    entry.notes = body.notes;
+  }
+  if (Object.keys(entry).length === 2) return NextResponse.json({ error: "Add a weight or measurement" }, { status: 400 });
+  const { data, error } = await admin.from("client_body_measurements")
+    .upsert(entry, { onConflict: "client_id,measured_date" })
     .select()
     .single();
 

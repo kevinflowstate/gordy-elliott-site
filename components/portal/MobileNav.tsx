@@ -44,6 +44,7 @@ export default function MobileNav() {
   const pathname = usePathname();
   const [showMore, setShowMore] = useState(false);
   const [tier, setTier] = useState<string>("coached");
+  const [fitnessPlansEnabled, setFitnessPlansEnabled] = useState(false);
   const [programmeType, setProgrammeType] = useState<string>("capacity");
   const [cycleEnabled, setCycleEnabled] = useState(false);
   const inboxUnreadCount = useInboxUnreadCount(true);
@@ -56,6 +57,7 @@ export default function MobileNav() {
           const data = await res.json();
           if (data.tier) setTier(data.tier);
           if (data.programmeType) setProgrammeType(data.programmeType);
+          setFitnessPlansEnabled(data.fitnessPlansEnabled === true);
           setCycleEnabled(Boolean(data.profile?.sex === "female" && data.profile?.cycle_tracking_enabled));
         }
       } catch {
@@ -65,9 +67,9 @@ export default function MobileNav() {
     loadTier();
   }, []);
 
-  const visibleItems = allVisibleItems.filter((item) => programmeShowsPortalPath(programmeType, item.href) && item.tiers.includes(tier) && (!item.requiresCycle || cycleEnabled) && (!item.programmes || item.programmes.includes(programmeType)));
+  const visibleItems = allVisibleItems.filter((item) => programmeShowsPortalPath(programmeType, item.href, fitnessPlansEnabled) && item.tiers.includes(tier) && (!item.requiresCycle || cycleEnabled) && (!item.programmes || item.programmes.includes(programmeType)));
   const moreItems = allMoreItems.filter((item) =>
-    programmeShowsPortalPath(programmeType, item.href) && item.tiers.includes(tier)
+    programmeShowsPortalPath(programmeType, item.href, fitnessPlansEnabled) && item.tiers.includes(tier)
     && (!item.requiresCycle || cycleEnabled)
     && (!item.programmes || item.programmes.includes(programmeType))
   );

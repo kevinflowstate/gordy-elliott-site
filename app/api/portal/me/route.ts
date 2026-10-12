@@ -23,7 +23,7 @@ export async function GET() {
 
   const { data: profile } = await admin
     .from("client_profiles")
-    .select("id, tier, experience_mode, programme_type, onboarding_status, activated_at, start_date, date_of_birth, sex, cycle_tracking_enabled")
+    .select("id, tier, experience_mode, programme_type, fitness_plans_enabled, weight_unit, onboarding_status, activated_at, start_date, date_of_birth, sex, cycle_tracking_enabled")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -45,6 +45,7 @@ export async function GET() {
     tier: (profile?.tier as string) || "coached",
     experienceMode: profile?.experience_mode || "ai_coaching",
     programmeType: normalizeProgrammeType(profile?.programme_type),
+    fitnessPlansEnabled: profile?.fitness_plans_enabled === true,
     onboardingStatus: profile?.onboarding_status || "active",
   });
 }

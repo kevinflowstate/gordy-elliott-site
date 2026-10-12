@@ -1,3 +1,4 @@
+import { normalizeProgrammeType } from "@/lib/programmes";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse, type NextRequest } from "next/server";
@@ -15,9 +16,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // Get client profile
   const { data: profile } = await admin
     .from("client_profiles")
-    .select("id")
+    .select("id, programme_type")
     .eq("user_id", user.id)
     .single();
+
+  if (!profile) return NextResponse.json({ error: "Client profile not found" }, { status: 404 });
 
   // Get module with content (only if published)
   const { data: mod } = await admin
@@ -25,6 +28,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     .select("*, content:module_content(*)")
     .eq("id", id)
     .eq("is_published", true)
+    .contains("programme_audiences", [normalizeProgrammeType(profile.programme_type)])
     .single();
 
   if (!mod) {
@@ -53,7 +57,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   });
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -71,7 +76,7 @@ export async function POST(request: NextRequest) {
   // Verify the profileId belongs to the authenticated user
   const { data: ownedProfile } = await admin
     .from("client_profiles")
-    .select("id")
+    .select("id, programme_type")
     .eq("id", profileId)
     .eq("user_id", user.id)
     .single();
@@ -79,6 +84,11 @@ export async function POST(request: NextRequest) {
   if (!ownedProfile) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  if (typeof completed !== "boolean") return NextResponse.json({ error: "Invalid completion" }, { status: 400 });
+  const { data: allowedModule } = await admin.from("training_modules").select("id").eq("id", id).eq("is_published", true).contains("programme_audiences", [normalizeProgrammeType(ownedProfile.programme_type)]).maybeSingle();
+  const { data: lesson } = await admin.from("module_content").select("id").eq("id", contentId).eq("module_id", id).maybeSingle();
+  if (!allowedModule || !lesson) return NextResponse.json({ error: "Lesson not found" }, { status: 404 });
 
   if (completed) {
     const { error } = await admin.from("content_progress").upsert({

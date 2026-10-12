@@ -165,7 +165,7 @@ export async function middleware(request: NextRequest) {
         const result = await withTimeout(
           adminSupabase
             .from('client_profiles')
-            .select('id, programme_type, lifecycle_status, lifecycle_resumes_at, onboarding_status')
+            .select('id, programme_type, fitness_plans_enabled, lifecycle_status, lifecycle_resumes_at, onboarding_status')
             .eq('user_id', user.id)
             .maybeSingle(),
           SUPABASE_OPERATION_TIMEOUT_MS,
@@ -253,7 +253,10 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(url);
       }
 
-      if (clientProfile.programme_type === 'boardroom' && path.startsWith('/portal') && !programmeShowsPortalPath('boardroom', path)) {
+      if (clientProfile.programme_type === 'boardroom' && !clientProfile.fitness_plans_enabled && ['/api/portal/exercise-plan', '/api/portal/exercise-log', '/api/portal/nutrition-plan', '/api/portal/meal-tracking', '/api/portal/quick-meals'].some(base => path === base || path.startsWith(`${base}/`))) {
+        return NextResponse.json({ error: 'Training and nutrition plans are not enabled', code: 'PLANS_NOT_ENABLED' }, { status: 403 });
+      }
+      if (clientProfile.programme_type === 'boardroom' && path.startsWith('/portal') && !programmeShowsPortalPath('boardroom', path, clientProfile.fitness_plans_enabled === true)) {
         const url = request.nextUrl.clone(); url.pathname = '/portal'; url.search = '';
         return NextResponse.redirect(url);
       }

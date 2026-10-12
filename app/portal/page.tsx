@@ -460,7 +460,7 @@ export default function PortalDashboard() {
     return <DashboardSkeleton />;
   }
 
-  if (profile?.programme_type === "boardroom") return <BoardroomHome name={userName} phases={planPhases} checkins={checkins} checkinAssigned={checkinAssigned} />;
+  if (profile?.programme_type === "boardroom") return <BoardroomHome fitnessPlansEnabled={profile.fitness_plans_enabled} name={userName} phases={planPhases} checkins={checkins} checkinAssigned={checkinAssigned} />;
 
   return (
     <div className="mx-auto w-full max-w-xl space-y-5 pb-8 pt-1 sm:max-w-2xl" data-testid="unified-client-home" data-programme={profile?.programme_type || "capacity"}>
