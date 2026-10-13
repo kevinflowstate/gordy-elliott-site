@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import CheckinReplyCard from "@/components/inbox/CheckinReplyCard";
+import type { CheckinMessageContext } from "@/lib/checkin-message";
 import InboxThread from "@/components/inbox/InboxThread";
 import { useToast } from "@/components/ui/Toast";
 import { hasUnreadIncomingMessages } from "@/lib/inbox-client";
@@ -31,10 +33,15 @@ export default function AdminInboxClient() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const replyCheckinId = searchParams.get("reply_checkin");
   const clientParam = searchParams.get("client");
   const mobileThreadOpen = Boolean(clientParam) && searchParams.get("view") !== "clients";
   const [conversations, setConversations] = useState<InboxConversation[]>([]);
   const selectedClientId = clientParam || conversations[0]?.client_id || null;
+  const [replyContext, setReplyContext] = useState<{ id: string; clientId: string; context: CheckinMessageContext } | null>(null);
+  const [replyContextError, setReplyContextError] = useState<string | null>(null);
+  const selectedClientRef = useRef(selectedClientId);
+  useEffect(() => { selectedClientRef.current = selectedClientId; }, [selectedClientId]);
   const [thread, setThread] = useState<ThreadResponse | null>(null);
   const [query, setQuery] = useState("");
   const [loadingList, setLoadingList] = useState(true);
@@ -143,6 +150,32 @@ export default function AdminInboxClient() {
     return () => document.documentElement.classList.remove("admin-dm-active");
   }, []);
 
+  useEffect(() => {
+    setReplyContext(null); setReplyContextError(null);
+    if (!replyCheckinId || !selectedClientId) return;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      controller.abort();
+      setReplyContextError("Loading took too long. Reopen the check-in or remove the attachment to continue.");
+    }, 15000);
+    void fetch(`/api/inbox/checkin?checkin_id=${encodeURIComponent(replyCheckinId)}`, { signal: controller.signal })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok || data.clientId !== selectedClientId) throw new Error(data.error || "This check-in does not belong to the selected client.");
+        if (controller.signal.aborted) return;
+        if (data.reply) { setReplyContextError("This check-in already has a reply. Remove the attachment to continue the conversation."); return; }
+        setReplyContext({ id: replyCheckinId, clientId: selectedClientId, context: data.context });
+      }).catch((err) => { if (!controller.signal.aborted) setReplyContextError(err instanceof Error ? err.message : "Could not load check-in"); }).finally(() => window.clearTimeout(timeout));
+    return () => { controller.abort(); window.clearTimeout(timeout); };
+  }, [replyCheckinId, selectedClientId]);
+
+  function clearReplyContext() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("reply_checkin");
+    setReplyContext(null);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }
+
   function showClients() {
     const params = new URLSearchParams(searchParams.toString());
     // Keep the selected recipient and mounted draft while showing the list.
@@ -152,24 +185,27 @@ export default function AdminInboxClient() {
   }
 
   function selectClient(clientId: string) {
+    selectedClientRef.current = clientId;
     const params = new URLSearchParams(searchParams.toString());
     params.set("client", clientId);
     params.delete("view");
     params.delete("message");
     params.delete("checkin");
+    params.delete("reply_checkin");
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
   async function handleSend(message: string) {
     if (!selectedClientId) return;
+    if (replyCheckinId && (!replyContext || replyContext.id !== replyCheckinId || replyContext.clientId !== selectedClientId)) throw new Error("Wait for the check-in attachment to load, or remove it.");
     setSending(true);
     setError(null);
 
     try {
-      const res = await fetch("/api/inbox/send", {
+      const res = await fetch(replyCheckinId ? "/api/admin/reply-checkin" : "/api/inbox/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ client_id: selectedClientId, message }),
+        body: JSON.stringify(replyCheckinId ? { client_id: selectedClientId, checkin_id: replyCheckinId, reply_text: message } : { client_id: selectedClientId, message }),
       });
 
       if (!res.ok) {
@@ -177,8 +213,9 @@ export default function AdminInboxClient() {
         throw new Error(data.error || "Failed to send message.");
       }
 
+      if (replyCheckinId && selectedClientRef.current === selectedClientId) clearReplyContext();
       toast("Message sent");
-      await Promise.all([loadConversations(), loadThread(selectedClientId)]);
+      await Promise.all([loadConversations(), selectedClientRef.current === selectedClientId ? loadThread(selectedClientId) : Promise.resolve()]);
     } catch (err) {
       const messageText = err instanceof Error ? err.message : "Failed to send message.";
       setError(messageText);
@@ -348,14 +385,20 @@ export default function AdminInboxClient() {
                 targetMessageId={searchParams.get("message")}
                 targetCheckinId={searchParams.get("checkin")}
                 currentRole="admin"
+                composerPlaceholder={replyCheckinId ? "Write your check-in reply…" : `Message ${selectedConversation.client_name}...`}
+                composerDisabled={Boolean(replyCheckinId && (!replyContext || replyContext.id !== replyCheckinId || replyContext.clientId !== selectedClientId))}
+                composerContext={replyCheckinId ? <div className="mb-2 rounded-xl border border-accent/20 px-3 py-2">
+                  <div className="flex items-center justify-between gap-2"><span className="text-xs font-semibold text-accent-bright">Replying to this check-in</span><button type="button" onClick={clearReplyContext} disabled={sending} className="min-h-11 px-2 text-xs text-text-muted">Remove attachment</button></div>
+                  {replyContext?.id === replyCheckinId && replyContext.clientId === selectedClientId ? <CheckinReplyCard checkinId={replyCheckinId} context={replyContext.context} isOwn={false} compact /> : <p role={replyContextError ? "alert" : "status"} className="text-xs text-text-secondary">{replyContextError || "Loading check-in…"}</p>}
+                </div> : undefined}
                 onSend={handleSend}
-                onSendAudio={handleSendAudio}
-                onSendImage={handleSendImage}
+                    onSendAudio={replyCheckinId ? undefined : handleSendAudio}
+                onSendImage={replyCheckinId ? undefined : handleSendImage}
                 sending={sending}
                 error={error}
                 emptyTitle="No messages yet"
                 emptyDescription="Send the first message to start a direct conversation with this client."
-                composerPlaceholder={`Message ${selectedConversation.client_name}...`}
+
                 threadLabel={selectedConversation.client_name}
                 threadMeta={selectedConversation.client_email}
               />

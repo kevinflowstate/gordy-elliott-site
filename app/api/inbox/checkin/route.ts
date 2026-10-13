@@ -22,5 +22,5 @@ export async function GET(request: Request) {
   const { data: legacyForm } = assignedForm || defaultForm ? { data: null }
     : await admin.from("form_config").select("config").eq("form_type", "checkin").maybeSingle();
   const config = (assignedForm || defaultForm || legacyForm)?.config as CheckinFormConfig | null;
-  return NextResponse.json({ context: contextFromCheckin(checkin as CheckIn, config), reply: checkin.admin_reply }, { headers: { "Cache-Control": "private, no-store" } });
+  return NextResponse.json({ context: contextFromCheckin(checkin as CheckIn, config), reply: checkin.admin_reply, clientId: checkin.client_id, reviewedAt: checkin.reviewed_at }, { headers: { "Cache-Control": "private, no-store" } });
 }

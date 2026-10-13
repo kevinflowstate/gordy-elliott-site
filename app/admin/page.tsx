@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { useToast } from "@/components/ui/Toast";
+import CheckinCoachActions from "@/components/admin/CheckinCoachActions";
+import { checkinNeedsReview } from "@/lib/checkin-review";
 import type { AdminClient } from "@/lib/admin-data";
 import type { ProgrammeType, TrafficLight, CheckInMood, CheckIn, InboxConversation } from "@/lib/types";
 
@@ -192,7 +193,7 @@ export default function AdminDashboard() {
   const amberCount = activeClients.filter((c) => c.status === "amber").length;
   const redCount = activeClients.filter((c) => c.status === "red").length;
   const activeClientIds = new Set(activeClients.map((client) => client.id));
-  const unreplied = recentCheckins.filter((c) => !c.admin_reply && activeClientIds.has(c.client_id)).length;
+  const unreplied = recentCheckins.filter((c) => checkinNeedsReview(c) && activeClientIds.has(c.client_id)).length;
   const today = new Date();
   const todayMonthDay = `${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const todaysKeyDates = activeClients.flatMap((client) => {
@@ -456,7 +457,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Recent check-ins - grouped by week */}
-        <CheckInsPanel checkins={recentCheckins} />
+        <CheckInsPanel checkins={recentCheckins} onReviewed={(id, reviewedAt) => setRecentCheckins((rows) => rows.map((row) => row.id === id ? { ...row, reviewed_at: reviewedAt } : row))} />
       </div>
 
       {inviteOpen && (
@@ -648,7 +649,7 @@ function ShiftOverview({
   const activeClientIds = new Set(activeClients.map(c => c.id));
   const redClients = activeClients.filter(c => c.status === "red");
   const amberClients = activeClients.filter(c => c.status === "amber");
-  const unrepliedCheckins = recentCheckins.filter(c => !c.admin_reply && activeClientIds.has(c.client_id));
+  const unrepliedCheckins = recentCheckins.filter(c => checkinNeedsReview(c) && activeClientIds.has(c.client_id));
   const stalledClients = activeClients.filter(c => {
     const activePlan = c.training_plan.find(p => p.status === "active");
     if (!activePlan) return false;
@@ -1001,6 +1002,7 @@ interface EnrichedCheckin {
   challenges?: string;
   questions?: string;
   admin_reply?: string;
+  reviewed_at?: string | null;
   replied_at?: string;
   created_at: string;
   client_name: string;
@@ -1025,14 +1027,9 @@ function getWeekBucket(dateStr: string): "this_week" | "last_week" | "earlier" {
   return "earlier";
 }
 
-function CheckInsPanel({ checkins }: { checkins: EnrichedCheckin[] }) {
-  const { toast } = useToast();
+function CheckInsPanel({ checkins, onReviewed }: { checkins: EnrichedCheckin[]; onReviewed: (id: string, reviewedAt: string) => void }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set(["earlier"]));
-  const [replies, setReplies] = useState<Record<string, string>>({});
-  const [sentReplies, setSentReplies] = useState<Record<string, string>>({});
-  const [sendingReply, setSendingReply] = useState<string | null>(null);
-  const [replyError, setReplyError] = useState<string | null>(null);
 
   const thisWeek = checkins.filter((c) => getWeekBucket(c.created_at) === "this_week");
   const lastWeek = checkins.filter((c) => getWeekBucket(c.created_at) === "last_week");
@@ -1054,35 +1051,6 @@ function CheckInsPanel({ checkins }: { checkins: EnrichedCheckin[] }) {
       else next.add(key);
       return next;
     });
-  }
-
-  async function handleReply(checkinId: string) {
-    const text = replies[checkinId];
-    if (!text?.trim()) return;
-    setSendingReply(checkinId);
-    setReplyError(null);
-
-    try {
-      const res = await fetch("/api/admin/reply-checkin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ checkin_id: checkinId, reply_text: text }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to send reply");
-      }
-
-      setSentReplies((prev) => ({ ...prev, [checkinId]: text }));
-      setReplies((prev) => ({ ...prev, [checkinId]: "" }));
-      toast("Reply sent successfully");
-    } catch (err) {
-      setReplyError(err instanceof Error ? err.message : "Failed to send reply");
-      toast("Failed to send reply", "error");
-    } finally {
-      setSendingReply(null);
-    }
   }
 
   const sections = [
@@ -1108,9 +1076,9 @@ function CheckInsPanel({ checkins }: { checkins: EnrichedCheckin[] }) {
                   <span className="text-[10px] text-text-muted bg-[rgba(0,0,0,0.06)] px-2 py-0.5 rounded-full">
                     {section.items.length}
                   </span>
-                  {section.items.some((c) => !c.admin_reply && !sentReplies[c.id]) && (
+                  {section.items.some((c) => checkinNeedsReview(c)) && (
                     <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full font-medium">
-                      {section.items.filter((c) => !c.admin_reply && !sentReplies[c.id]).length} pending
+                      {section.items.filter((c) => checkinNeedsReview(c)).length} pending
                     </span>
                   )}
                 </div>
@@ -1130,12 +1098,7 @@ function CheckInsPanel({ checkins }: { checkins: EnrichedCheckin[] }) {
                       checkin={checkin}
                       isExpanded={expanded.has(checkin.id)}
                       onToggle={() => toggleExpand(checkin.id)}
-                      replyText={replies[checkin.id] || ""}
-                      onReplyChange={(text) => setReplies((prev) => ({ ...prev, [checkin.id]: text }))}
-                      onReplySubmit={() => handleReply(checkin.id)}
-                      sentReply={sentReplies[checkin.id]}
-                      isSending={sendingReply === checkin.id}
-                      error={sendingReply === checkin.id ? replyError : null}
+                      onReviewed={(reviewedAt) => onReviewed(checkin.id, reviewedAt)}
                     />
                   ))}
                 </div>
@@ -1148,29 +1111,11 @@ function CheckInsPanel({ checkins }: { checkins: EnrichedCheckin[] }) {
   );
 }
 
-function CheckInRow({
-  checkin,
-  isExpanded,
-  onToggle,
-  replyText,
-  onReplyChange,
-  onReplySubmit,
-  sentReply,
-  isSending,
-  error,
-}: {
-  checkin: EnrichedCheckin;
-  isExpanded: boolean;
-  onToggle: () => void;
-  replyText: string;
-  onReplyChange: (text: string) => void;
-  onReplySubmit: () => void;
-  sentReply?: string;
-  isSending?: boolean;
-  error?: string | null;
+function CheckInRow({ checkin, isExpanded, onToggle, onReviewed }: {
+  checkin: EnrichedCheckin; isExpanded: boolean; onToggle: () => void; onReviewed: (reviewedAt: string) => void;
 }) {
   const mc = checkin.mood ? moodConfig[checkin.mood] : moodConfig.okay;
-  const hasReply = checkin.admin_reply || sentReply;
+  const hasReply = Boolean(checkin.admin_reply);
 
   return (
     <div className="border-b border-[rgba(0,0,0,0.02)] last:border-b-0">
@@ -1196,7 +1141,7 @@ function CheckInRow({
           {hasReply ? (
             <span className="text-[10px] text-emerald-400 font-medium">Replied</span>
           ) : (
-            <span className="text-[10px] text-amber-400 font-medium">Pending</span>
+            <span className={`text-[10px] font-medium ${checkinNeedsReview(checkin) ? "text-amber-400" : "text-emerald-400"}`}>{checkinNeedsReview(checkin) ? "Pending" : "Reviewed"}</span>
           )}
           <svg
             className={`w-3.5 h-3.5 text-text-muted transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
@@ -1234,60 +1179,11 @@ function CheckInRow({
               </div>
             )}
 
-            {/* Reply section */}
-            {checkin.admin_reply ? (
-              <div className="mt-2 pl-3 border-l-2 border-accent/30 bg-accent/5 rounded-r-lg py-2 pr-3">
-                <div className="text-[10px] text-accent-bright font-semibold uppercase tracking-wider mb-1">Gordy&apos;s Reply</div>
-                <p className="text-xs text-text-secondary leading-relaxed">{checkin.admin_reply}</p>
-              </div>
-            ) : sentReply ? (
-              <div className="mt-2 pl-3 border-l-2 border-emerald-500/30 bg-emerald-500/5 rounded-r-lg py-2 pr-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider">Gordy&apos;s Reply</div>
-                  <span className="text-[10px] text-emerald-400/60">Just now</span>
-                </div>
-                <p className="text-xs text-text-secondary leading-relaxed">{sentReply}</p>
-              </div>
-            ) : (
-              <div className="mt-2 pt-3 border-t border-[rgba(0,0,0,0.06)]">
-                <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-2">Reply to this check-in</div>
-                <textarea
-                  value={replyText}
-                  onChange={(e) => onReplyChange(e.target.value)}
-                  rows={3}
-                  placeholder="Type your reply..."
-                  disabled={isSending}
-                  className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 transition-colors resize-none disabled:opacity-50"
-                />
-                {error && (
-                  <div className="text-xs text-red-400 mt-1">{error}</div>
-                )}
-                <div className="flex justify-end mt-2">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onReplySubmit(); }}
-                    disabled={!replyText.trim() || isSending}
-                    className="px-4 py-2 gradient-accent text-white rounded-lg text-xs font-semibold disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-opacity inline-flex items-center gap-1.5"
-                  >
-                    {isSending ? (
-                      <>
-                        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                        Sending...
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                        </svg>
-                        Send Reply
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
+            {checkin.admin_reply && <div className="mt-2 pl-3 border-l-2 border-accent/30 bg-accent/5 rounded-r-lg py-2 pr-3">
+              <div className="text-[10px] text-accent-bright font-semibold uppercase tracking-wider mb-1">Gordy&apos;s Reply</div>
+              <p className="text-xs text-text-secondary leading-relaxed">{checkin.admin_reply}</p>
+            </div>}
+            <CheckinCoachActions checkin={checkin} onReviewed={onReviewed} />
           </div>
         </div>
       )}

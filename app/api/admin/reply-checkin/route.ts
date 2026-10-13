@@ -15,10 +15,14 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
-  const { data, error } = await admin.rpc("save_checkin_dm_reply", {
+  const linkedComposer = body.client_id !== undefined;
+  if (linkedComposer && (typeof body.client_id !== "string" || !/^[0-9a-f-]{36}$/i.test(body.client_id))) return NextResponse.json({ error: "Invalid client" }, { status: 400 });
+  const { data, error } = await admin.rpc(linkedComposer ? "send_checkin_dm_reply" : "save_checkin_dm_reply", {
     p_admin_id: auth.userId, p_checkin_id: body.checkin_id, p_reply: reply,
+    ...(linkedComposer ? { p_client_id: body.client_id } : {}),
   });
   if (error) {
+    if (error.code === "40001") return NextResponse.json({ error: "This check-in already has a reply. Remove the attachment to continue in DMs." }, { status: 409 });
     console.error("Check-in DM save failed:", error.code);
     return NextResponse.json({ error: error.code === "P0002" ? "Check-in not found" : "Couldn't save your check-in reply" }, { status: error.code === "P0002" ? 404 : 500 });
   }

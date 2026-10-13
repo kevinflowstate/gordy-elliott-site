@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     ? await admin
         .from("checkins")
         .select(`
-          client_id, mood, form_config_snapshot, wins, challenges, questions, responses, admin_reply, week_number, created_at,
+          client_id, mood, form_config_snapshot, wins, challenges, questions, responses, admin_reply, reviewed_at, week_number, created_at,
           client:client_profiles!checkins_client_id_fkey(user:users!client_profiles_user_id_fkey(full_name))
         `)
         .in("client_id", activeClientIds)
@@ -225,12 +225,13 @@ export async function POST(req: NextRequest) {
     wins: string | null;
     challenges: string | null;
     replied: boolean;
+    reviewed: boolean;
     days_ago: number | null;
   }>();
   const { data: allCheckinsForLatest } = activeClientIds.length > 0
     ? await admin
         .from("checkins")
-        .select("client_id, mood, form_config_snapshot, wins, challenges, responses, admin_reply, week_number, created_at")
+        .select("client_id, mood, form_config_snapshot, wins, challenges, responses, admin_reply, reviewed_at, week_number, created_at")
         .in("client_id", activeClientIds)
         .order("created_at", { ascending: false })
     : { data: [] };
@@ -248,6 +249,7 @@ export async function POST(req: NextRequest) {
       wins: ck.wins || null,
       challenges: ck.challenges || null,
       replied: !!ck.admin_reply,
+      reviewed: !!ck.admin_reply || !!ck.reviewed_at,
       days_ago: daysAgo,
     });
   }
@@ -370,6 +372,7 @@ export async function POST(req: NextRequest) {
       priority_message: responses?.priority_message || null,
       support_ask: responses?.support_ask || null,
       replied: !!ck.admin_reply,
+      reviewed: !!ck.admin_reply || !!ck.reviewed_at,
       date: ck.created_at,
     };
   });
@@ -390,7 +393,7 @@ export async function POST(req: NextRequest) {
   const recoveryWatchClients = clientSummaries.filter((c) => c.latest_wearable_summary?.date === todayIso && c.latest_wearable_summary.recovery_status === "watch");
   const reduceIntensityClients = clientSummaries.filter((c) => c.latest_wearable_summary?.date === todayIso && c.latest_wearable_summary.recovery_status === "reduce_intensity");
   const unrepliedPriorityCheckins = clientSummaries.filter(
-    (c) => c.latest_checkin && (c.latest_checkin.priority_message || c.latest_checkin.support_ask) && !c.latest_checkin.replied,
+    (c) => c.latest_checkin && (c.latest_checkin.priority_message || c.latest_checkin.support_ask) && !c.latest_checkin.reviewed,
   );
 
   // Build a tier-weighted "needs attention today" priority queue.
@@ -399,7 +402,7 @@ export async function POST(req: NextRequest) {
   function priorityScore(c: typeof clientSummaries[number]): { score: number; reasons: string[] } {
     let score = 0;
     const reasons: string[] = [];
-    if (c.latest_checkin && (c.latest_checkin.priority_message || c.latest_checkin.support_ask) && !c.latest_checkin.replied) {
+    if (c.latest_checkin && (c.latest_checkin.priority_message || c.latest_checkin.support_ask) && !c.latest_checkin.reviewed) {
       score += 40;
       reasons.push("unreplied priority check-in");
     }
@@ -476,7 +479,7 @@ ${JSON.stringify(modules, null, 2)}
 ===========================
 RECENT CHECK-INS (last 30)
 ===========================
-(Premium/VIP entries include priority_message and support_ask. "replied" = Gordy has already responded.)
+(Premium/VIP entries include priority_message and support_ask. "replied" = a saved check-in response exists. "reviewed" = Gordy has responded or explicitly marked it handled, including a response given in ordinary DMs. Never call a reviewed check-in an outstanding reply.)
 ${JSON.stringify(checkinSummaries, null, 2)}
 ${brainRetrieval.context}
 
