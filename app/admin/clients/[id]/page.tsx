@@ -6,6 +6,8 @@ import { programmeSessionsForCalendarWeek, programmeSessionCanBePlanned, program
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import CheckinCoachActions from "@/components/admin/CheckinCoachActions";
+import { checkinNeedsReview } from "@/lib/checkin-review";
 import type { AdminClient } from "@/lib/admin-data";
 import type { TrafficLight, CheckInMood, TrainingPlan, TrainingPlanPhase, CheckinFormConfig, CheckinFormTemplate, FormQuestion, ClientExercisePlan, ClientNutritionPlan, ProgressMetric, ClientTask, ProgrammeType, ClientKeyDate, NutritionTemplate, WeeklyTrainingAssignment } from "@/lib/types";
 import { BOARDROOM_CONSULTATION_QUESTIONS } from "@/lib/boardroom-consultation";
@@ -238,10 +240,7 @@ export default function ClientDetailPage() {
   // internal_notes kept in DB for history, no longer editable in UI — Coach Notes is the canonical field now.
   const [coachNotes, setCoachNotes] = useState("");
   const [coachNotesSaving, setCoachNotesSaving] = useState(false);
-  const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
-  const [sentReplies, setSentReplies] = useState<Record<string, string>>({});
-  const [sendingReply, setSendingReply] = useState<string | null>(null);
-  const [replyError, setReplyError] = useState<string | null>(null);
+
   const [expandedCheckins, setExpandedCheckins] = useState<Set<string>>(new Set());
   const [contentLookup, setContentLookup] = useState<Map<string, { title: string; moduleName: string; moduleId: string; duration?: number }>>(new Map());
   const [checkinConfig, setCheckinConfig] = useState<CheckinFormConfig | null>(null);
@@ -958,30 +957,6 @@ export default function ClientDetailPage() {
     }
   }
 
-  async function handleReply(checkinId: string) {
-    const text = replyTexts[checkinId];
-    if (!text?.trim()) return;
-    setSendingReply(checkinId);
-    setReplyError(null);
-    try {
-      const res = await fetch("/api/admin/reply-checkin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ checkin_id: checkinId, reply_text: text }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to send reply");
-      }
-      setSentReplies((prev) => ({ ...prev, [checkinId]: text }));
-      setReplyTexts((prev) => ({ ...prev, [checkinId]: "" }));
-    } catch (err) {
-      setReplyError(err instanceof Error ? err.message : "Failed to send reply");
-    } finally {
-      setSendingReply(null);
-    }
-  }
-
   async function saveCoachNotes() {
     if (!client) return;
     setCoachNotesSaving(true);
@@ -1051,7 +1026,7 @@ export default function ClientDetailPage() {
   const activeCalendarConnections = (client.calendar_connections || []).filter((connection) => connection.status === "connected");
   const upcomingCalendarEvents = client.calendar_events || [];
   const priorityCheckin = client.checkins.find((checkin) => (
-    !checkin.admin_reply && (checkin.responses?.priority_message || checkin.responses?.support_ask)
+    checkinNeedsReview(checkin) && (checkin.responses?.priority_message || checkin.responses?.support_ask)
   ));
 
   function consultationUrl() {
@@ -1719,7 +1694,7 @@ export default function ClientDetailPage() {
         const latestCheckin = client.checkins[0];
         const sessionsLoggedThisWeek = workoutWeek.completed;
         const latestReply = client.checkins.find((c) => c.admin_reply);
-        const pendingReplyCount = client.checkins.filter((c) => !c.admin_reply).length;
+        const pendingReplyCount = client.checkins.filter(checkinNeedsReview).length;
         const replyAge = latestReply
           ? (() => {
               const stamp = latestReply.replied_at || latestReply.created_at;
@@ -2449,40 +2424,11 @@ export default function ClientDetailPage() {
                       </>
                     )}
 
-                    {c.admin_reply || sentReplies[c.id] ? (
-                      <div className="mt-3 pl-3 border-l-2 border-[#E040D0]/30 bg-[#E040D0]/5 rounded-r-lg py-2 pr-3">
-                        <div className="text-[10px] text-[#E040D0] font-semibold uppercase tracking-wider mb-1">
-                          Gordy&apos;s Reply
-                          {sentReplies[c.id] && !c.admin_reply && <span className="text-emerald-400/60 ml-2">Just sent</span>}
-                        </div>
-                        <p className="text-xs text-text-secondary leading-relaxed">{sentReplies[c.id] || c.admin_reply}</p>
-                        {(c.reply_message_id || sentReplies[c.id]) && <Link href={`/admin/inbox?client=${client.id}&checkin=${c.id}`} className="mt-2 inline-flex min-h-11 items-center text-xs font-semibold text-[#E040D0]">Continue in DMs →</Link>}
-                      </div>
-                    ) : (
-                      <div className="mt-3 pt-3 border-t border-[rgba(0,0,0,0.06)]">
-                        <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-2">Reply to this check-in</div>
-                        <textarea
-                          value={replyTexts[c.id] || ""}
-                          onChange={(e) => setReplyTexts((prev) => ({ ...prev, [c.id]: e.target.value }))}
-                          rows={3}
-                          placeholder="Type your reply..."
-                          disabled={sendingReply === c.id}
-                          className="w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#E040D0]/40 transition-colors resize-none disabled:opacity-50"
-                        />
-                        {replyError && sendingReply === null && (
-                          <div className="text-xs text-red-400 mt-1">{replyError}</div>
-                        )}
-                        <div className="flex justify-end mt-2">
-                          <button
-                            onClick={() => handleReply(c.id)}
-                            disabled={!replyTexts[c.id]?.trim() || sendingReply === c.id}
-                            className="px-4 py-2 bg-[#E040D0] hover:bg-[#b830a8] text-white rounded-lg text-xs font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1.5"
-                          >
-                            {sendingReply === c.id ? "Sending..." : "Send Reply"}
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                    {c.admin_reply && <div className="mt-3 pl-3 border-l-2 border-accent/30 bg-accent/5 rounded-r-lg py-2 pr-3">
+                      <div className="text-[10px] text-accent-bright font-semibold uppercase tracking-wider mb-1">Gordy&apos;s Reply</div>
+                      <p className="text-xs text-text-secondary leading-relaxed">{c.admin_reply}</p>
+                    </div>}
+                    <CheckinCoachActions checkin={c} onReviewed={(reviewedAt) => setClient((current) => current ? { ...current, checkins: current.checkins.map((row) => row.id === c.id ? { ...row, reviewed_at: reviewedAt } : row) } : current)} />
                   </div>
                 );
               })}

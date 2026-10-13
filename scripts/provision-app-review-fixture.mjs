@@ -277,8 +277,9 @@ async function ensureWorkoutHistory(clientId, planId) {
   );
 }
 
-const authData = await unwrap("List authentication users", supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }));
-const authUser = authData.users.find((user) => user.email?.toLowerCase() === reviewEmail);
+const fixtureUser = await unwrap("Find the review user", supabase.from("users").select("id").eq("email", reviewEmail).maybeSingle());
+const authData = fixtureUser ? await unwrap("Load review authentication", supabase.auth.admin.getUserById(fixtureUser.id)) : null;
+const authUser = authData?.user;
 if (!authUser) throw new Error(`No authentication user exists for ${reviewEmail}.`);
 
 await unwrap(

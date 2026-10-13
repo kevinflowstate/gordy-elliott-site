@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
+import { checkinNeedsReview } from "../lib/checkin-review";
 import { checkinAnswers, checkinPreview } from "../lib/checkin-message";
 
 const coach = "00000000-0000-4000-8000-000000000001";
@@ -18,7 +19,7 @@ async function fixture() {
     create table checkin_forms(id uuid primary key,config jsonb,is_default boolean,created_at timestamptz default now());
     create table form_config(form_type text,config jsonb);
     create table checkins(id uuid primary key,client_id uuid references client_profiles(id),checkin_form_id uuid,
-      created_at timestamptz default now(),mood text,wins text,challenges text,questions text,responses jsonb,admin_reply text,replied_at timestamptz);
+      created_at timestamptz default now(),mood text,wins text,challenges text,questions text,responses jsonb,form_config_snapshot jsonb,admin_reply text,replied_at timestamptz);
     insert into users values('${coach}','admin'),('${client}','client'),('${other}','client');
     insert into client_profiles values('${client}','${client}'),('${other}','${other}');
     insert into checkins(id,client_id,mood,wins,responses) values('${checkin}','${client}','good','All three sessions done','{"support_ask":"Can we adjust Friday?"}');
@@ -28,6 +29,7 @@ async function fixture() {
   await db.exec(await readFile(new URL('../supabase/migrations/20260616154523_inbox_messages.sql', import.meta.url),'utf8'));
   await db.exec("alter table inbox_messages add column message_type text default 'text';");
   await db.exec(await readFile(new URL('../supabase/migrations/20261006180000_checkin_dm_replies.sql', import.meta.url),'utf8'));
+  await db.exec(await readFile(new URL('../supabase/migrations/20261013140000_checkin_review_status.sql', import.meta.url),'utf8'));
   return db;
 }
 async function save(db: PGlite, reply: string, adminId = coach, checkinId = checkin) {
@@ -88,4 +90,59 @@ test('quote uses real answers and labels, prioritises context and clips long tex
   assert.equal(answers.find(x=>x.key==='weight')?.label,'Weight (kg)');
   const long=checkinPreview({...context,wins:'x'.repeat(180)})[0];
   assert.equal(long.text.length,138); assert.ok(long.text.endsWith('…'));
+});
+
+
+test('manual review persists idempotently, without fabricating a reply or DM; rejects other clients and non-admins', async () => {
+  const db = await fixture();
+  try {
+    const mark = async (adminId = coach, clientId = client) => (await db.query<{review: {reviewed_at: string}}>('select mark_checkin_reviewed($1,$2,$3) as review', [adminId, checkin, clientId])).rows[0].review;
+    await assert.rejects(mark(client));
+    await assert.rejects(mark(coach, other));
+    const first = await mark();
+    assert.equal((await mark()).reviewed_at, first.reviewed_at);
+    const row = (await db.query<{admin_reply: string | null; reviewed_at: string; reviewed_by: string}>('select admin_reply,reviewed_at,reviewed_by from checkins')).rows[0];
+    assert.equal(row.admin_reply, null);
+    assert.equal(row.reviewed_by, coach);
+    assert.equal(checkinNeedsReview(row), false);
+    assert.equal((await db.query('select * from inbox_messages')).rows.length, 0);
+    await db.exec('set role authenticated;');
+    await assert.rejects(mark());
+  } finally { await db.close(); }
+});
+
+test('review status distinguishes genuine replies, manual review and still-pending work', () => {
+  assert.equal(checkinNeedsReview({}), true);
+  assert.equal(checkinNeedsReview({admin_reply: '   '}), true);
+  assert.equal(checkinNeedsReview({admin_reply: 'Great work'}), false);
+  assert.equal(checkinNeedsReview({reviewed_at: '2026-10-13T12:00:00Z'}), false);
+});
+
+
+test('linked composer locks the client match and refuses stale different replies; retry creates no second DM', async () => {
+  const db = await fixture();
+  try {
+    const send = async (text: string, clientId = client) => (await db.query<{saved: {created: boolean}}>('select send_checkin_dm_reply($1,$2,$3,$4) as saved', [coach,checkin,clientId,text])).rows[0].saved;
+    await assert.rejects(send('Wrong client', other));
+    await db.exec(`update checkins set form_config_snapshot='${JSON.stringify({questions:[{id:'support_ask',label:'Business support needed',type:'text',enabled:true}]})}'::jsonb;`);
+    assert.equal((await send('Original feedback')).created, true);
+    const quote = (await db.query<{checkin_context:{config:{questions:{label:string}[]}}}>('select checkin_context from inbox_messages')).rows[0];
+    assert.equal(quote.checkin_context.config.questions[0].label,'Business support needed');
+    assert.equal((await send('Original feedback')).created, false);
+    await assert.rejects(send('Stale tab would overwrite this'));
+    assert.equal((await db.query<{message: string}>('select message from inbox_messages')).rows[0].message, 'Original feedback');
+    assert.equal((await db.query('select * from inbox_messages')).rows.length,1);
+  } finally { await db.close(); }
+});
+
+
+test('direct client updates cannot forge review metadata while ordinary answer edits remain possible', async () => {
+  const db=await fixture();
+  try {
+    await db.exec("grant update on checkins to authenticated;");
+    await db.exec(`set role authenticated; set request.jwt.claim.sub='${client}';`);
+    await assert.rejects(db.query('update checkins set reviewed_at=now() where id=$1',[checkin]));
+    await assert.rejects(db.query('update checkins set reviewed_by=$1 where id=$2',[coach,checkin]));
+    await db.query('update checkins set wins=$1 where id=$2',['Added missing weight separately',checkin]);
+  } finally {await db.close();}
 });

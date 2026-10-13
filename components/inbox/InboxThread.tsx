@@ -3,7 +3,7 @@
 import CheckinReplyCard from "@/components/inbox/CheckinReplyCard";
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { prepareInboxImage, type PreparedInboxImage } from "@/lib/inbox-image";
 import { nativeBuildSupportsVoiceNotes } from "@/lib/native-voice";
@@ -25,6 +25,8 @@ interface InboxThreadProps {
   emptyTitle: string;
   emptyDescription: string;
   composerPlaceholder?: string;
+  composerContext?: ReactNode;
+  composerDisabled?: boolean;
   threadLabel?: string;
   threadMeta?: string;
   attachmentContext?: string;
@@ -55,6 +57,8 @@ export default function InboxThread({
   emptyTitle,
   emptyDescription,
   composerPlaceholder = "Write a message...",
+  composerContext,
+  composerDisabled = false,
   threadLabel,
   threadMeta,
   attachmentContext = "It will be shared privately in this DM.",
@@ -85,7 +89,7 @@ export default function InboxThread({
   const [preparingImage, setPreparingImage] = useState(false);
   const [voiceAvailability, setVoiceAvailability] = useState<"checking" | "ready" | "update-required">("checking");
 
-  const canSend = draft.trim().length > 0 && !sending;
+  const canSend = !composerDisabled && draft.trim().length > 0 && !sending;
   const latestMessageId = messages.at(-1)?.id;
 
   const target = messages.find((message) => targetMessageId
@@ -452,6 +456,7 @@ export default function InboxThread({
       )}
 
       <form onSubmit={handleSubmit} className="portal-dm-composer border-t border-[rgba(255,255,255,0.06)] p-3 sm:p-4">
+        {composerContext}
         <input
           ref={imageInputRef}
           type="file"

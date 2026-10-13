@@ -131,6 +131,8 @@ export interface CheckIn {
   questions?: string;
   responses?: Record<string, string>;
   admin_reply?: string;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
   reply_message_id?: string | null;
   replied_at?: string;
   created_at: string;

@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { checkinAnswers, checkinDate, checkinPreview, type CheckinMessageContext } from "@/lib/checkin-message";
 
-export default function CheckinReplyCard({ checkinId, context, isOwn }: {
-  checkinId: string; context: CheckinMessageContext; isOwn: boolean;
+export default function CheckinReplyCard({ checkinId, context, isOwn, compact = false }: {
+  checkinId: string; context: CheckinMessageContext; isOwn: boolean; compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<{ context: CheckinMessageContext; reply: string | null } | null>(null);
@@ -38,7 +38,7 @@ export default function CheckinReplyCard({ checkinId, context, isOwn }: {
     return () => { controller.abort(); window.clearTimeout(timeout); };
   }, [open, checkinId, attempt]);
 
-  const preview = checkinPreview(context);
+  const preview = checkinPreview(context).slice(0, compact ? 1 : 2);
   return <>
     <button type="button" onClick={() => { setDetail(null); setError(null); setOpen(true); }} aria-label={`View check-in from ${checkinDate(context.submitted_at)}`}
       className={`mb-3 block w-full min-w-0 rounded-xl border-l-2 px-3 py-2.5 text-left transition-colors ${isOwn ? "border-black/45 bg-black/[0.07] hover:bg-black/10" : "border-accent-bright bg-black/20 hover:bg-black/30"}`}>
@@ -47,7 +47,7 @@ export default function CheckinReplyCard({ checkinId, context, isOwn }: {
         Check-in reply · {checkinDate(context.submitted_at)}
       </span>
       {preview.length ? <span className={`mt-2 block space-y-1 text-xs leading-relaxed ${isOwn ? "text-black/70" : "text-text-secondary"}`}>
-        {preview.map((answer) => <span key={answer.key} className="line-clamp-2 break-words [overflow-wrap:anywhere]"><strong className="font-semibold">{answer.label}:</strong> {answer.text}</span>)}
+        {preview.map((answer) => <span key={answer.key} className={`${compact ? "line-clamp-1" : "line-clamp-2"} break-words [overflow-wrap:anywhere]`}><strong className="font-semibold">{answer.label}:</strong> {answer.text}</span>)}
       </span> : <span className={`mt-2 block text-xs ${isOwn ? "text-black/70" : "text-text-secondary"}`}>Your weekly update{context.mood ? ` · ${context.mood}` : ""}</span>}
       <span className={`mt-2 block text-[10px] font-semibold ${isOwn ? "text-black/65" : "text-text-muted"}`}>View full check-in ↗</span>
     </button>

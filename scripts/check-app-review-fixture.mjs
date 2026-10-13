@@ -49,11 +49,9 @@ function ageInYears(dateOfBirth) {
 }
 
 try {
-  const { data: authUsers } = await query(
-    "List authentication users",
-    supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
-  );
-  const authUser = authUsers.users.find((user) => user.email?.toLowerCase() === reviewEmail);
+  const { data: fixtureUser } = await query("Find the review user", supabase.from("users").select("id").eq("email", reviewEmail).maybeSingle());
+  const { data: authData } = fixtureUser ? await query("Load review authentication", supabase.auth.admin.getUserById(fixtureUser.id)) : { data: null };
+  const authUser = authData?.user;
   requireCondition(authUser, `No authentication user exists for ${reviewEmail}.`);
 
   if (!authUser) throw new Error(failures.at(-1));
