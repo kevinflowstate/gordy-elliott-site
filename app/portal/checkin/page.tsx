@@ -199,6 +199,7 @@ export default function CheckInPage() {
   const [tierLoaded, setTierLoaded] = useState(false);
   const [pending, setPending] = useState(false);
   const [businessCheckin, setBusinessCheckin] = useState(false);
+  const [monthlyReview, setMonthlyReview] = useState<{periodStart:string;periodEnd:string;nextDue:string;latest:{response:string;period_start:string;message_id:string|null}|null}|null>(null);
   const [loadError, setLoadError] = useState("");
   const [currentWeekSubmitted, setCurrentWeekSubmitted] = useState(false);
   const [currentWeekSavedAt, setCurrentWeekSavedAt] = useState<string | null>(null);
@@ -282,6 +283,7 @@ export default function CheckInPage() {
           setHistory(stateData.history || []);
           setEditingHistory(Boolean(stateData.editingHistory));
           setBusinessCheckin(isBusiness);
+          setMonthlyReview(stateData.monthlyReview || null);
           setPending(Boolean(stateData.pending));
           if (stateData.pending) { setLoadError(""); return; }
           const normalizedConfig = normalizeCheckinConfig(stateData.config, isBusiness ? "boardroom" : undefined);
@@ -417,7 +419,7 @@ export default function CheckInPage() {
             "error"
           );
         } else {
-          toast(data.measurementWarning || (data.updated ? "Saved check-in updated" : "Check-in submitted - Gordy will review it this week"), data.measurementWarning ? "error" : "success");
+          toast(data.measurementWarning || (data.updated ? "Saved check-in updated" : monthlyReview ? "Check-in saved for your monthly review" : "Check-in submitted - Gordy will review it this week"), data.measurementWarning ? "error" : "success");
         }
       } else {
         const data = await res.json().catch(() => ({}));
@@ -535,7 +537,7 @@ export default function CheckInPage() {
 
   const enabledQuestions = config.questions.filter((q) => q.enabled !== false);
   const enabledMetrics = (config.progress_tracking || []).filter((m) => m.enabled);
-  const tierInfo = tierCopy[(tier as keyof typeof tierCopy) || "coached"] || tierCopy.coached;
+  const tierInfo = monthlyReview ? {line:"Keep your weekly reflection up to date for Gordy’s monthly review.",lane:"Foundations",rhythm:"Submit weekly. Gordy responds monthly from your joining date."} : tierCopy[(tier as keyof typeof tierCopy) || "coached"] || tierCopy.coached;
   const effectiveCheckinDay = checkinDay || config.checkin_day || null;
   const nextCheckinDate = getCheckinDueDate(effectiveCheckinDay);
   const checkinOverdue = !currentWeekSubmitted && nextCheckinDate.getTime() < new Date(new Date().setHours(0, 0, 0, 0)).getTime();
@@ -567,7 +569,7 @@ export default function CheckInPage() {
       {editingHistory && <p className="mb-4 rounded-xl border border-accent/30 p-4 text-sm">Editing the check-in from {checkinDate(currentWeekSavedAt || "")}. Changes stay on that original date; Gordy’s previous reply is kept.</p>}
       {!businessCheckin && <Link href="/portal/progress" className="mb-4 inline-block text-sm text-accent-bright">Just logging weight? Open Progress →</Link>}
       {tierLoaded && canReadCoachCheckinReplies(tier) && (
-      <CoachReplies replies={coachReplies} unavailable={repliesUnavailable} currentWeekId={currentWeekId} currentWeekSubmitted={currentWeekSubmitted} />
+      monthlyReview ? <section className="mb-6 rounded-2xl border border-[#E040D0]/20 bg-[#E040D0]/5 p-4"><h2 className="text-sm font-semibold text-[#E040D0]">Your monthly review</h2><p className="mt-2 text-sm text-text-secondary">Your check-ins stay weekly. Gordy reviews your month from your joining date. {monthlyReview.latest?.period_start===monthlyReview.periodStart ? `Next review due ${monthlyReview.nextDue}.` : `Review due ${monthlyReview.periodEnd}.`}</p>{monthlyReview.latest&&<><p className="mt-3 whitespace-pre-wrap text-sm">{monthlyReview.latest.response}</p><Link href={monthlyReview.latest.message_id?`/portal/inbox?message=${monthlyReview.latest.message_id}`:"/portal/inbox"} className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-accent-bright">Read Gordy’s review in DMs →</Link></>}</section> : <CoachReplies replies={coachReplies} unavailable={repliesUnavailable} currentWeekId={currentWeekId} currentWeekSubmitted={currentWeekSubmitted} />
       )}
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2">

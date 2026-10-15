@@ -1,3 +1,4 @@
+import { foundationsDayKey } from "@/lib/foundations";
 import { monthStartKey, normalizeProgrammeType, programmeConfig } from "@/lib/programmes";
 import type { createAdminClient } from "@/lib/supabase/admin";
 
@@ -16,6 +17,13 @@ export async function getShiftAILimit(admin: AdminClient) {
 }
 
 export async function getProgrammeAIUsage(admin: AdminClient, clientId: string, programme: string) {
+  if (programme === "foundations") {
+    const day = foundationsDayKey();
+    const { data, error } = await admin.from("client_ai_daily_usage").select("answered,reserved_at").eq("client_id", clientId).eq("usage_day", day).maybeSingle();
+    if (error) throw new Error("Could not load daily AI allowance");
+    const used = data && (data.answered || Date.parse(data.reserved_at) > Date.now() - 300_000) ? 1 : 0;
+    return { limited: true, used, limit: 1, remaining: 1-used, period: "day" as const, day };
+  }
   if (programme === "boardroom") return { limited: true, used: 0, limit: 0, remaining: 0 };
   if (normalizeProgrammeType(programme) !== "shift") return { limited: false, used: 0, limit: null, remaining: null };
   const limit = await getShiftAILimit(admin);
@@ -47,4 +55,14 @@ export async function releaseProgrammeAIInteraction(admin: AdminClient, clientId
     p_client_id: clientId,
     p_month_start: monthStart,
   });
+}
+
+export async function claimFoundationsAI(admin: AdminClient, clientId: string) {
+  const { data, error } = await admin.rpc("claim_foundations_ai", { p_client_id: clientId });
+  if (error) throw new Error("Could not reserve daily AI allowance");
+  return data as { claimed: boolean; day: string; token: string | null };
+}
+export async function finishFoundationsAI(admin: AdminClient, clientId: string, claim: { day: string; token: string | null }, success: boolean) {
+  const { data, error } = await admin.rpc("finish_foundations_ai", { p_client_id: clientId, p_day: claim.day, p_token: claim.token, p_success: success });
+  if (error || (success && data !== true)) throw new Error("Could not save daily AI allowance");
 }

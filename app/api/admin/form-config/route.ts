@@ -6,10 +6,11 @@ import { normalizeCheckinConfig, validateCheckinTemplate } from "@/lib/checkin-f
 import { normalizeConsultationConfig } from "@/lib/consultation-form";
 import { NextResponse } from "next/server";
 
-const VALID_FORM_TYPES = ["checkin", "business_plan", "consultation", "boardroom_consultation"];
+const VALID_FORM_TYPES = ["checkin", "business_plan", "consultation", "boardroom_consultation", "foundations_consultation"];
 
 function normalizeConfig(type: string, config: unknown) {
   if (type === "checkin") return normalizeCheckinConfig(config as Parameters<typeof normalizeCheckinConfig>[0]);
+  if (type === "foundations_consultation") return normalizeConsultationConfig(config as Parameters<typeof normalizeConsultationConfig>[0], "foundations");
   if (type === "boardroom_consultation") return normalizeConsultationConfig(config as Parameters<typeof normalizeConsultationConfig>[0], "boardroom");
   if (type === "consultation") return normalizeConsultationConfig(config as Parameters<typeof normalizeConsultationConfig>[0]);
   return config;
@@ -17,6 +18,7 @@ function normalizeConfig(type: string, config: unknown) {
 
 function fallbackConfig(type: string) {
   if (type === "checkin") return normalizeCheckinConfig(null);
+  if (type === "foundations_consultation") return normalizeConsultationConfig(null, "foundations");
   if (type === "boardroom_consultation") return normalizeConsultationConfig(null, "boardroom");
   if (type === "consultation") return normalizeConsultationConfig(null);
   return { questions: [] };

@@ -1,4 +1,4 @@
-export const PROGRAMME_TYPES = ["capacity", "shift", "in_person", "boardroom"] as const;
+export const PROGRAMME_TYPES = ["capacity", "shift", "in_person", "boardroom", "foundations"] as const;
 
 export type ProgrammeType = (typeof PROGRAMME_TYPES)[number];
 export type OnboardingStatus = "invited" | "consultation_complete" | "active" | "paused";
@@ -11,6 +11,9 @@ export const programmeConfig: Record<ProgrammeType, {
   documentsEnabled: boolean;
   aiMonthlyLimit: number | null;
 }> = {
+  foundations: {
+    label: "FOUNDATIONS", callCount: 0, callLabel: "Monthly review from Gordy", bookingUrl: null, documentsEnabled: false, aiMonthlyLimit: null,
+  },
   capacity: {
     label: "CAPACITY",
     callCount: 2,
@@ -64,7 +67,7 @@ export function programmeAllowsDocuments(value: unknown) {
 
 export function legacyProfileForProgramme(programme: ProgrammeType) {
   if (programme === "capacity") return { tier: "vip", experience_mode: "founder_dashboard" } as const;
-  if (programme === "shift") return { tier: "coached", experience_mode: "ai_coaching" } as const;
+  if (programme === "shift" || programme === "foundations") return { tier: "coached", experience_mode: "ai_coaching" } as const;
   return { tier: "premium", experience_mode: "ai_coaching" } as const;
 }
 

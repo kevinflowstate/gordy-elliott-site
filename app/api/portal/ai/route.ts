@@ -1,3 +1,4 @@
+import { FOUNDATIONS_AI_REPLY_POLICY } from "@/lib/foundations";
 import { programmeWeek, programmeToday } from "@/lib/exercise-programme";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -8,7 +9,7 @@ import { getCyclePhase, isCycleEligible, toDateKey, type CycleSettings } from "@
 import { formatExercisePrescription } from "@/lib/exercise-prescriptions";
 import { formatWearableSummaryForPrompt, sanitizeWearableRecovery, type WearableConnection, type WearableDailySummary } from "@/lib/wearable-insights";
 import { getPortalAIAction } from "@/lib/portal-ai-action";
-import { claimProgrammeAIInteraction, getShiftAILimit, releaseProgrammeAIInteraction } from "@/lib/programme-ai";
+import { claimProgrammeAIInteraction, getShiftAILimit, releaseProgrammeAIInteraction, getProgrammeAIUsage, claimFoundationsAI, finishFoundationsAI } from "@/lib/programme-ai";
 import { monthStartKey, normalizeProgrammeType } from "@/lib/programmes";
 import {
   formatPlannerDate,
@@ -127,7 +128,7 @@ export async function POST(req: NextRequest) {
   const programme = normalizeProgrammeType(profile.programme_type);
   if (programme === "boardroom") return NextResponse.json({ error: "Boardroom coaching is provided by Gordy. The fitness AI is not part of this programme." }, { status: 403 });
   const shiftLimit = programme === "shift" ? await getShiftAILimit(admin) : null;
-  const programmeUsage = shiftLimit === null
+  const programmeUsage = programme === "foundations" ? await getProgrammeAIUsage(admin, profile.id, programme) : shiftLimit === null
     ? { limited: false, used: 0, limit: null, remaining: null }
     : { limited: true, used: 0, limit: shiftLimit, remaining: shiftLimit, monthStart: monthStartKey() };
 
@@ -660,7 +661,7 @@ SPECIFIC QUESTION TYPES:
 - "How have I been doing?" → Ground the answer in RECENT TRAINING ADHERENCE numbers (sessions_completed / distinct_days_logged) + LATEST CHECK-IN mood + any COACHING PLAN PHASES items that are done vs open. No vague praise. Celebrate real numbers only.
 - Cycle questions → Use CYCLE TRACKING CONTEXT only when it is enabled. Treat phases and symptoms as readiness context for training, recovery, and adherence decisions. Never diagnose, never claim hormones are the only cause, and suggest a GP check for severe or unusual pain, bleeding, or symptoms.
 - Connected app / wearable questions → Use CONNECTED APP RECOVERY CONTEXT as performance guidance only. You may suggest lowering intensity, keeping technique crisp, prioritising sleep, hydration, or protein, but you must not automatically change the assigned plan or claim a medical diagnosis. Unknown recovery means there is insufficient recovery data; never infer readiness from nutrition, steps, or a recent connection sync. Only use a summary dated today for today’s recovery guidance; label older signals by date. If today’s recovery_status is reduce_intensity, say not to chase PBs today.
-- Advice or change requests → Ask 1-2 concise clarifying questions before giving a final recommendation if the request is broad, ambiguous, or asks to change training/nutrition. If the data already gives a direct factual answer, answer directly and add one useful follow-up question rather than blocking the client.
+${programme === "foundations" ? `- ${FOUNDATIONS_AI_REPLY_POLICY}` : "- Advice or change requests → Ask 1-2 concise clarifying questions before giving a final recommendation if the request is broad, ambiguous, or asks to change training/nutrition. If the data already gives a direct factual answer, answer directly and add one useful follow-up question rather than blocking the client."}
 
 VOICE & FORMAT:
 - Direct, practical, no-fluff. Short paragraphs and short bullet lists. No emojis.
@@ -688,8 +689,14 @@ Always confirm the action in your reply after using a tool.`;
     { role: "user", content: message },
   ];
 
+  let dailyClaim: { claimed: boolean; day: string; token: string | null } | null = null;
   let usageClaim: { monthStart: string; used: number } | null = null;
-  if (programmeUsage.limited && programmeUsage.limit !== null) {
+  if (programme === "foundations") {
+    try {
+      dailyClaim = await claimFoundationsAI(admin, profile.id);
+      if (!dailyClaim.claimed) return NextResponse.json({ error: "Your Foundations AI exchange is used for today. You can send one message and receive one answer each day; it resets at midnight UK time.", code: "DAILY_AI_LIMIT", usage: { ...programmeUsage, used: 1, remaining: 0 } }, { status: 429 });
+    } catch { return NextResponse.json({ error: "Could not check your daily allowance. Please try again." }, { status: 503 }); }
+  } else if (programmeUsage.limited && programmeUsage.limit !== null) {
     try {
       const claim = await claimProgrammeAIInteraction(admin, profile.id, programmeUsage.limit);
       if (!claim.claimed) {
@@ -709,6 +716,7 @@ Always confirm the action in your reply after using a tool.`;
   try {
     let response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
+      signal: AbortSignal.timeout(120_000),
       headers: {
         "Content-Type": "application/json",
         "x-api-key": apiKey,
@@ -726,6 +734,7 @@ Always confirm the action in your reply after using a tool.`;
     if (!response.ok) {
       const err = await response.text();
       console.error("Anthropic API error:", err);
+      if (dailyClaim?.claimed) await finishFoundationsAI(admin, profile.id, dailyClaim, false);
       if (usageClaim) await releaseProgrammeAIInteraction(admin, profile.id, usageClaim.monthStart);
       return NextResponse.json({ error: "AI request failed" }, { status: 502 });
     }
@@ -760,6 +769,7 @@ Always confirm the action in your reply after using a tool.`;
 
       response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
+        signal: AbortSignal.timeout(120_000),
         headers: {
           "Content-Type": "application/json",
           "x-api-key": apiKey,
@@ -777,6 +787,7 @@ Always confirm the action in your reply after using a tool.`;
       if (!response.ok) {
         const err = await response.text();
         console.error("Anthropic API error on follow-up:", err);
+        if (dailyClaim?.claimed) await finishFoundationsAI(admin, profile.id, dailyClaim, false);
         if (usageClaim) await releaseProgrammeAIInteraction(admin, profile.id, usageClaim.monthStart);
         return NextResponse.json({ error: "AI request failed" }, { status: 502 });
       }
@@ -785,7 +796,8 @@ Always confirm the action in your reply after using a tool.`;
     }
 
     const textBlock = data.content?.find((b: { type: string }) => b.type === "text");
-    const reply = textBlock?.text || "Sorry, I couldn't generate a response.";
+    const reply = textBlock?.text?.trim();
+    if (!reply) throw new Error("AI returned no answer");
 
     // Track usage from all API calls (tool-use calls + final response)
     if (data.usage) {
@@ -800,14 +812,16 @@ Always confirm the action in your reply after using a tool.`;
 
     const action = getPortalAIAction(message, reply);
 
+    if (dailyClaim?.claimed) await finishFoundationsAI(admin, profile.id, dailyClaim, true);
     return NextResponse.json({
       reply,
       action,
-      usage: programmeUsage.limited && programmeUsage.limit !== null
+      usage: programme === "foundations" ? { ...programmeUsage, used: 1, remaining: 0, period: "day" } : programmeUsage.limited && programmeUsage.limit !== null
         ? { ...programmeUsage, used: usageClaim?.used || programmeUsage.used, remaining: Math.max(0, programmeUsage.limit - (usageClaim?.used || programmeUsage.used)) }
         : programmeUsage,
     });
   } catch (err) {
+    if (dailyClaim?.claimed) await finishFoundationsAI(admin, profile.id, dailyClaim, false);
     if (usageClaim) await releaseProgrammeAIInteraction(admin, profile.id, usageClaim.monthStart);
     console.error("AI route error:", err);
     return NextResponse.json({ error: "AI request failed" }, { status: 500 });

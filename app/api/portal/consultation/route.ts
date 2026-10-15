@@ -121,7 +121,7 @@ async function loadConsultationConfig(admin: ReturnType<typeof createAdminClient
   const { data } = await admin
     .from("form_config")
     .select("config")
-    .eq("form_type", isBoardroomConsultation(programme) ? "boardroom_consultation" : "consultation")
+    .eq("form_type", isBoardroomConsultation(programme) ? "boardroom_consultation" : programme === "foundations" ? "foundations_consultation" : "consultation")
     .maybeSingle();
 
   return normalizeConsultationConfig(data?.config, programme);
