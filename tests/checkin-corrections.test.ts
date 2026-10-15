@@ -94,7 +94,7 @@ test('a failed non-weight measurement correction can retry unchanged',async()=>{
 test('legacy late-night corrections retain the original UTC measurement key',async()=>{
  const f=await fixture();f.saved.created_at='2026-06-01T23:30:00Z';
  const response=await f.post({checkin_id:'old',responses:{weight:'80'},weight_unit:'kg'});
- assert.equal(response.status,200);assert.equal(f.writes.find(w=>w.table==='client_body_measurements')?.payload.measured_date,'2026-06-01');
+ assert.equal(response.status,200);assert.equal((await response.json()).photo_date,'2026-06-01');assert.equal(f.writes.find(w=>w.table==='client_body_measurements')?.payload.measured_date,'2026-06-01');
 });
 test('an older form cannot implicitly overwrite a saved scheduled submission',async()=>{
  const f=await fixture();const due=(await (await f.get()).json()).scheduledDate;
@@ -103,5 +103,5 @@ test('an older form cannot implicitly overwrite a saved scheduled submission',as
 });
 
 test('different backfilled measurement weeks keep distinct chart dates despite same submission day',async()=>{
- const dates=[];for(const scheduled of ['2026-09-21','2026-09-28']){const f=await fixture();f.saved.scheduled_date=scheduled;f.saved.created_at='2026-10-15T12:00:00Z';const response=await f.post({checkin_id:'old',scheduled_date:scheduled,responses:{weight:'80'},weight_unit:'kg'});assert.equal(response.status,200);dates.push(f.writes.find(w=>w.table==='client_body_measurements')?.payload.measured_date);assert.equal(f.saved.created_at,'2026-10-15T12:00:00Z');}assert.deepEqual(dates,['2026-09-21','2026-09-28']);
+ const dates=[];for(const scheduled of ['2026-09-21','2026-09-28']){const f=await fixture();f.saved.scheduled_date=scheduled;f.saved.created_at='2026-10-15T12:00:00Z';const response=await f.post({checkin_id:'old',scheduled_date:scheduled,responses:{weight:'80'},weight_unit:'kg'});assert.equal(response.status,200);assert.equal((await response.json()).photo_date,scheduled);dates.push(f.writes.find(w=>w.table==='client_body_measurements')?.payload.measured_date);assert.equal(f.saved.created_at,'2026-10-15T12:00:00Z');}assert.deepEqual(dates,['2026-09-21','2026-09-28']);
 });

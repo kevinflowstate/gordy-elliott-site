@@ -392,14 +392,14 @@ export default function CheckInPage() {
         // isn't told "saved" when some photos didn't actually land.
         const failedPhotoAngles: string[] = [];
         if (Object.keys(photos).length > 0) {
-          const today = (currentWeekSavedAt || new Date().toISOString()).split("T")[0];
+          const photoDate = data.photo_date || (currentWeekSavedAt || new Date().toISOString()).split("T")[0];
           const photoResults = await Promise.all(
             Object.entries(photos).map(async ([angle, file]) => {
               try {
                 const fd = new FormData();
                 fd.append("file", file);
                 fd.append("angle", angle);
-                fd.append("date", today);
+                fd.append("date", photoDate);
                 const photoRes = await fetch("/api/portal/upload-photo", { method: "POST", body: fd });
                 return { angle, ok: photoRes.ok };
               } catch {

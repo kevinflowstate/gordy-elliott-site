@@ -236,6 +236,8 @@ export async function POST(request: Request) {
   return NextResponse.json({
     success: true,
     checkin_id:savedCheckin?.id||currentWeekCheckin?.id||null,
+    // Scheduled photo folders stay distinct; preserve original legacy correction keys.
+    photo_date: currentWeekCheckin ? currentWeekCheckin.scheduled_date || currentWeekCheckin.created_at.slice(0,10) : selectedDate,
     created_at:savedCheckin?.created_at||currentWeekCheckin?.created_at||null,
     week_number: weekNumber,
     measurementWarning,
