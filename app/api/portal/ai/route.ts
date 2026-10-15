@@ -271,7 +271,7 @@ export async function POST(req: NextRequest) {
   // Latest check-in (mood, priority_message, support_ask) — keeps AI aware of recent state
   const { data: latestCheckins } = await admin
     .from("checkins")
-    .select("week_number, mood, form_config_snapshot, wins, challenges, responses, admin_reply, created_at")
+    .select("week_number, mood, form_config_snapshot, wins, challenges, responses, admin_reply, created_at, scheduled_date")
     .eq("client_id", profile?.id || "")
     .order("created_at", { ascending: false })
     .limit(1);
@@ -479,6 +479,7 @@ Help with quick questions: meal ideas, short workouts, sleep tips, finding Educa
   const checkinSummary = latestCheckin
     ? {
         week: latestCheckin.week_number,
+        scheduled_date: latestCheckin.scheduled_date || null,
         mood: latestCheckin.form_config_snapshot?.mood_enabled === false ? null : latestCheckin.mood,
         priority_message: (latestCheckin.responses as Record<string, string> | null)?.priority_message || null,
         support_ask: (latestCheckin.responses as Record<string, string> | null)?.support_ask || null,

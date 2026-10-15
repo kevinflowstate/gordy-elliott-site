@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     ? await admin
         .from("checkins")
         .select(`
-          client_id, mood, form_config_snapshot, wins, challenges, questions, responses, admin_reply, reviewed_at, week_number, created_at,
+          client_id, mood, form_config_snapshot, wins, challenges, questions, responses, admin_reply, reviewed_at, week_number, created_at, scheduled_date,
           client:client_profiles!checkins_client_id_fkey(user:users!client_profiles_user_id_fkey(full_name))
         `)
         .in("client_id", activeClientIds)
@@ -222,6 +222,7 @@ export async function POST(req: NextRequest) {
   // (avoids the AI needing to cross-reference by name against a flat check-in list)
   const latestCheckinByClient = new Map<string, {
     week: number | null;
+    scheduled_date: string | null;
     mood: string | null;
     priority_message: string | null;
     support_ask: string | null;
@@ -234,7 +235,7 @@ export async function POST(req: NextRequest) {
   const { data: allCheckinsForLatest } = activeClientIds.length > 0
     ? await admin
         .from("checkins")
-        .select("client_id, mood, form_config_snapshot, wins, challenges, responses, admin_reply, reviewed_at, week_number, created_at")
+        .select("client_id, mood, form_config_snapshot, wins, challenges, responses, admin_reply, reviewed_at, week_number, created_at, scheduled_date")
         .in("client_id", activeClientIds)
         .order("created_at", { ascending: false })
     : { data: [] };
@@ -246,6 +247,7 @@ export async function POST(req: NextRequest) {
       : null;
     latestCheckinByClient.set(ck.client_id, {
       week: ck.week_number,
+      scheduled_date: ck.scheduled_date || null,
       mood: ck.form_config_snapshot?.mood_enabled === false ? null : ck.mood,
       priority_message: responses?.priority_message || null,
       support_ask: responses?.support_ask || null,
@@ -371,6 +373,7 @@ export async function POST(req: NextRequest) {
     return {
       client: userName || "Unknown",
       week: ck.week_number,
+      scheduled_date: ck.scheduled_date || null,
       mood: ck.form_config_snapshot?.mood_enabled === false ? null : ck.mood,
       wins: ck.wins,
       challenges: ck.challenges,

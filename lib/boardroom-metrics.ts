@@ -2,7 +2,7 @@ import type { CheckIn, CheckinFormConfig, ProgressMetric } from './types';
 export type BusinessMetricTrend = { key: string; metric: ProgressMetric; points: { date: string; value: number }[] };
 export function businessMetricTrends(checkins: CheckIn[], current?: CheckinFormConfig | null): BusinessMetricTrend[] {
   const series = new Map<string, BusinessMetricTrend>();
-  for (const checkin of [...checkins].sort((a,b) => a.created_at.localeCompare(b.created_at))) {
+  for (const checkin of [...checkins].sort((a,b) => (a.scheduled_date || a.created_at).localeCompare(b.scheduled_date || b.created_at))) {
     const schema = checkin.form_config_snapshot || current;
     if (schema?.programme_type !== 'boardroom') continue;
     for (const metric of schema.progress_tracking || []) {
@@ -13,7 +13,7 @@ export function businessMetricTrends(checkins: CheckIn[], current?: CheckinFormC
       if (!Number.isFinite(value)) continue;
       const key = `${metric.id}:${metric.kind || metric.type}:${metric.unit || ''}`;
       const trend = series.get(key) || { key, metric, points: [] };
-      trend.points.push({ date: checkin.created_at, value });
+      trend.points.push({ date: checkin.scheduled_date ? checkin.scheduled_date + 'T12:00:00Z' : checkin.created_at, value });
       series.set(key, trend);
     }
   }

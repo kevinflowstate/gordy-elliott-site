@@ -36,7 +36,7 @@ export function dashboardWorkoutWeek(logs: SessionLog[], summaries: DashboardSes
   return { completed: finished.size, partial: partial.size, start, today };
 }
 
-export function dashboardWeightHistory(checkins: Array<{ id: string; created_at: string; responses?: Record<string, string> | null }>) {
+export function dashboardWeightHistory(checkins: Array<{ id: string; created_at: string; scheduled_date?: string | null; responses?: Record<string, string> | null }>) {
   return checkins.flatMap((checkin) => {
     const raw = checkin.responses?.weight || checkin.responses?.current_weight;
     if (typeof raw !== "string" || !raw.trim()) return [];
@@ -45,7 +45,8 @@ export function dashboardWeightHistory(checkins: Array<{ id: string; created_at:
     const unit = checkin.responses?.weight_unit;
     const value = match ? weightToKg(Number(match[1]), isWeightUnit(unit) ? unit : "kg") : NaN;
     if (!Number.isFinite(value) || value <= 0 || !Number.isFinite(Date.parse(checkin.created_at))) return [];
-    return [{ id: checkin.id, timestamp: checkin.created_at, value,
-      date: new Date(checkin.created_at).toLocaleDateString("en-GB", { timeZone: "Europe/London", day: "numeric", month: "short", year: "2-digit" }) }];
+    const timestamp = checkin.scheduled_date ? checkin.scheduled_date + 'T12:00:00Z' : checkin.created_at;
+    return [{ id: checkin.id, timestamp, value,
+      date: new Date(timestamp).toLocaleDateString("en-GB", { timeZone: "Europe/London", day: "numeric", month: "short", year: "2-digit" }) }];
   }).sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
 }

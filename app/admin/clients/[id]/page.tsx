@@ -1137,10 +1137,10 @@ export default function ClientDetailPage() {
             const v = c.responses?.[m.id];
             return v !== undefined && v !== "" && !isNaN(parseFloat(v));
           })
-          .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+          .sort((a, b) => new Date(a.scheduled_date || a.created_at).getTime() - new Date(b.scheduled_date || b.created_at).getTime())
           .slice(-8)
           .map((c) => ({
-            date: new Date(c.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
+            date: new Date(c.scheduled_date ? c.scheduled_date+"T12:00:00Z" : c.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
             value: parseFloat(c.responses![m.id]),
           }));
         return { metric: m, data };
