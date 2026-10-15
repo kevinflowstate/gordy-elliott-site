@@ -1,4 +1,5 @@
 "use client";
+import { checkinDatedSummary } from "@/lib/checkin-schedule";
 
 import { useState, useEffect } from "react";
 import { checkinConfigForWeightUnit, convertWeightInput, type WeightUnit } from "@/lib/weight-units";
@@ -318,7 +319,7 @@ export default function CheckInPage() {
             const integrationsRes = await fetch("/api/portal/integrations");
             if (integrationsRes.ok && !cancelled) {
               const integrationsData = await integrationsRes.json();
-              const summary = integrationsData.latestSummary as WearableDailySummary | null;
+              const summary = checkinDatedSummary((integrationsData.summaries || []) as WearableDailySummary[], stateData.scheduledDate);
               if (summary) {
                 const synced: Record<string, string> = {};
                 const enabledMetricIds = new Set(

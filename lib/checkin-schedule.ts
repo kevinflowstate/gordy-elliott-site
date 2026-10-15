@@ -19,3 +19,5 @@ export function scheduledCheckinError(date: unknown, dates: string[]) { return t
 
 export function checkinEffectiveDate(checkin: {scheduled_date?: string | null; created_at: string}) { return checkin.scheduled_date || checkinToday(new Date(checkin.created_at)); }
 export function checkinInWeek(checkin: {scheduled_date?: string | null; created_at: string}, today = checkinToday()) { return checkinWeekStart(checkinEffectiveDate(checkin)) === checkinWeekStart(today); }
+
+export function checkinDatedSummary<T extends {summary_date: string}>(summaries: T[], date: string | null | undefined) { return summaries.find(summary => summary.summary_date === date) || null; }
