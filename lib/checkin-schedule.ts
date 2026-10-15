@@ -8,7 +8,8 @@ export function scheduledCheckinDates(start: string | null | undefined, day: str
     const target = found < 0 ? 1 : found;
     const current = new Date(today + 'T12:00:00Z').getUTCDay();
     let date = addCheckinDays(today, -((current - target + 7) % 7));
-    const lower = start?.slice(0, 10) || addCheckinDays(today, -364);
+    const floor = addCheckinDays(today, -364);
+    const lower = start && start.slice(0, 10) > floor ? start.slice(0, 10) : floor;
     const result: string[] = [];
     for (let i = 0; i < 53 && date >= lower; i++, date = addCheckinDays(date, -7))
         result.push(date);
