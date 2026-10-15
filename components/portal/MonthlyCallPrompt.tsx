@@ -50,7 +50,7 @@ export default function MonthlyCallPrompt({
     }
   }, [state, variant]);
 
-  if (!state) return null;
+  if (!state || state.config.callCount === 0) return null;
   const completed = new Set(state.confirmations.map((item) => item.call_slot));
   const outstandingCount = Math.max(0, state.config.callCount - completed.size);
 

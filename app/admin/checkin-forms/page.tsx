@@ -18,7 +18,7 @@ import {
 } from "@/lib/consultation-form";
 
 const NEW_TEMPLATE_ID = "__new__";
-type BuilderSection = "checkin" | "consultation" | "boardroom_consultation";
+type BuilderSection = "checkin" | "consultation" | "boardroom_consultation" | "foundations_consultation";
 
 function generateId() {
   return `q_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
@@ -126,6 +126,7 @@ function BuilderTabs({
         { id: "checkin" as const, label: "Check-in Forms" },
         { id: "consultation" as const, label: "Consultation Form" },
         { id: "boardroom_consultation" as const, label: "Boardroom Consultation" },
+        { id: "foundations_consultation" as const, label: "Foundations Consultation" },
       ].map((item) => (
         <button
           key={item.id}
@@ -171,8 +172,8 @@ export default function CheckinFormsPage() {
   );
 }
 
-function ConsultationFormEditor({ formType }: { formType: "consultation" | "boardroom_consultation" }) {
-  const programme = formType === "boardroom_consultation" ? "boardroom" : undefined;
+function ConsultationFormEditor({ formType }: { formType: "consultation" | "boardroom_consultation" | "foundations_consultation" }) {
+  const programme = formType === "boardroom_consultation" ? "boardroom" : formType === "foundations_consultation" ? "foundations" : undefined;
   const fallback = normalizeConsultationConfig(null, programme);
   const [title, setTitle] = useState(fallback.title || "Initial Consultation");
   const [description, setDescription] = useState(fallback.description || "");
@@ -532,7 +533,7 @@ function CheckinFormsInner() {
   const clientOverrideName = searchParams.get("clientName");
   const baseTemplateId = searchParams.get("base");
   const [builderSection, setBuilderSection] = useState<BuilderSection>(
-    !clientOverrideId && ["consultation", "boardroom_consultation"].includes(searchParams.get("section") || "") ? searchParams.get("section") as BuilderSection : "checkin"
+    !clientOverrideId && ["consultation", "boardroom_consultation", "foundations_consultation"].includes(searchParams.get("section") || "") ? searchParams.get("section") as BuilderSection : "checkin"
   );
 
   function changeBuilderSection(section: BuilderSection) {

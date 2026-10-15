@@ -13,6 +13,7 @@ interface ThreadResponse {
   clientEmail: string;
   viewerUserId: string;
   messages: InboxMessage[];
+  canReply?: boolean;
 }
 
 export default function ClientInboxClient() {
@@ -178,12 +179,13 @@ export default function ClientInboxClient() {
           targetCheckinId={searchParams.get("checkin")}
           currentRole="client"
           onSend={handleSend}
+          readOnly={thread?.canReply === false}
           onSendAudio={handleSendAudio}
           onSendImage={handleSendImage}
           sending={sending}
           error={error}
           emptyTitle="Start the conversation"
-          emptyDescription="Ask a question, check something in your plan, or send Gordy a quick update here."
+          emptyDescription={thread?.canReply === false ? "Updates and monthly reviews from Gordy will appear here. Keep submitting your weekly check-ins." : "Ask a question, check something in your plan, or send Gordy a quick update here."}
           composerPlaceholder="Message Gordy..."
           threadLabel="Gordy Elliott"
           threadMeta="AT CAPACITY"

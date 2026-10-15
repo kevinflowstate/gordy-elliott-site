@@ -1,4 +1,5 @@
 "use client";
+import FoundationsReviewPanel from "@/components/admin/FoundationsReviewPanel";
 
 import { normaliseWeekStart } from "@/lib/training-planner";
 import { programmeSessionsForCalendarWeek, programmeSessionCanBePlanned, programmeToday } from "@/lib/exercise-programme";
@@ -1876,6 +1877,7 @@ export default function ClientDetailPage() {
 
       {/* ── Dashboard Tab ── */}
       {boardroom && activeTab === "dashboard" && <BoardroomClientWorkspace client={client} plans={plans} config={checkinConfig} onEdit={setBuilderMode} onReload={loadClient} onCheckins={() => setActiveTab("checkins")} />}
+      {client.programme_type === "foundations" && activeTab === "dashboard" && <FoundationsReviewPanel clientId={client.id} />}
       {!boardroom && activeTab === "dashboard" && (
         <div className="space-y-6">
           <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)]">

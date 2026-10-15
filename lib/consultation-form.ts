@@ -168,6 +168,15 @@ export function normalizeConsultationConfig(config: ConsultationFormConfig | nul
     return { ...fallback, ...config, title: config.title || fallback.title, description: config.description || fallback.description, questions: (Array.isArray(config.questions) ? config.questions : fallback.questions).filter(q => !BOARDROOM_EXCLUDED_FIELDS.has(q.id)).map(normalizeQuestion) };
   }
   const fallback = buildFallbackConsultationConfig();
+  if (programme === "foundations") {
+    return { ...fallback, ...config, title: config?.title || "Foundations consultation", questions: (Array.isArray(config?.questions) ? config.questions : [...fallback.questions, ...[
+      ["foundations_week", "What does a typical week look like, including work and family commitments?"],
+      ["foundations_sessions", "How long can you realistically spend on each training session?"],
+      ["foundations_routines", "Describe your usual meals, drinks and eating routine."],
+      ["foundations_barriers", "What usually gets in the way of sticking to your plan?"],
+      ["foundations_focus", "What would make the biggest difference for you over the next month?"],
+    ].map(([id,label]) => ({id,label,type:"textarea" as const,enabled:true,required:false,placeholder:"Share as much detail as you can."}))]).map(normalizeQuestion) };
+  }
   if (!config) return fallback;
 
   const loadedQuestions = Array.isArray(config.questions) ? config.questions : [];

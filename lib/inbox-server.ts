@@ -112,6 +112,7 @@ export async function getInboxThread(
   clientEmail: string;
   viewerUserId: string;
   messages: InboxMessage[];
+  canReply: boolean;
 } | null> {
   const admin = createAdminClient();
   const clientId = viewer.role === "client" ? viewer.clientProfileId : requestedClientId;
@@ -167,6 +168,7 @@ export async function getInboxThread(
   });
 
   return {
+    canReply: viewer.role === "admin" || clientProfile.programme_type !== "foundations",
     clientId: clientProfile.id,
     clientName: clientProfile.business_name || userRes.data?.full_name || "Client",
     clientEmail: userRes.data?.email || "",

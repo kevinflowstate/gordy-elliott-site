@@ -1,3 +1,4 @@
+import { foundationsClientCannotSend } from "@/lib/foundations-server";
 import { getInboxViewer } from "@/lib/inbox-server";
 import { notifyClientUser } from "@/lib/client-notifications";
 import { sendPushToUser } from "@/lib/push";
@@ -40,6 +41,7 @@ function readImageSize(contentType: string, bytes: Uint8Array): { width: number;
 export async function POST(request: Request) {
   const viewer = await getInboxViewer();
   if (!viewer) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (await foundationsClientCannotSend(viewer)) return NextResponse.json({ error: "Foundations DMs are for updates from Gordy. Keep submitting your weekly check-ins for your monthly review." }, { status: 403 });
 
   const limited = rateLimit(`inbox-image:${viewer.userId}`, viewer.role === "admin" ? 40 : 15, 15 * 60 * 1000);
   if (!limited.success) {

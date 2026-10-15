@@ -65,7 +65,7 @@ export default function ShiftAIPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [tier, setTier] = useState<string>("coached");
-  const [usage, setUsage] = useState<{ limited: boolean; used: number; limit: number | null; remaining: number | null } | null>(null);
+  const [usage, setUsage] = useState<{ limited: boolean; used: number; limit: number | null; remaining: number | null; period?: "day" | "month" } | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -178,7 +178,7 @@ export default function ShiftAIPage() {
         </p>
         {usage?.limited && usage.limit !== null && (
           <div className="mt-3 inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-text-secondary">
-            {usage.remaining} of {usage.limit} replies left this month
+            {usage.remaining} of {usage.limit} {usage.period === "day" ? "AI exchanges left today · resets midnight UK time" : "replies left this month"}
           </div>
         )}
       </div>

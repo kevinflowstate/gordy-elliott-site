@@ -25,7 +25,7 @@ const programmeOptions: Array<{
 }> = PROGRAMME_TYPES.map((value) => ({
   value,
   label: programmeConfig[value].label,
-  description: value === "capacity"
+  description: value === "foundations" ? "Weekly check-ins, monthly review, coach announcements and one AI answer each day." : value === "capacity"
     ? "Two monthly calls, full documents and full AI access."
     : value === "shift"
       ? `One monthly call and ${programmeConfig.shift.aiMonthlyLimit} AI replies each month.`
@@ -52,6 +52,7 @@ type ProgrammeFilter = ProgrammeType | "all";
 type ClientFilter = "all" | "attention" | "green" | "paused";
 
 const PROGRAMME_PRIORITY: Record<ProgrammeType, number> = {
+  foundations: 3,
   capacity: 0,
   boardroom: 0,
   in_person: 1,
@@ -61,6 +62,7 @@ const PROGRAMME_PRIORITY: Record<ProgrammeType, number> = {
 const STATUS_PRIORITY: Record<TrafficLight, number> = { red: 0, amber: 1, green: 2 };
 
 const programmeRowAccent: Record<ProgrammeType, string> = {
+  foundations: "border-l-4 border-l-violet-500/50",
   capacity: "border-l-4 border-l-[#E040D0]/60",
   boardroom: "border-l-4 border-l-[#E040D0]/60",
   shift: "border-l-4 border-l-sky-500/50",
@@ -144,7 +146,7 @@ export default function ClientsPage() {
     return PROGRAMME_PRIORITY[a.programme_type] - PROGRAMME_PRIORITY[b.programme_type];
   });
 
-  const programmeCounts: Record<ProgrammeType, number> = { capacity: 0, shift: 0, in_person: 0, boardroom: 0 };
+  const programmeCounts: Record<ProgrammeType, number> = { capacity: 0, shift: 0, in_person: 0, boardroom: 0, foundations: 0 };
   for (const c of allClients) programmeCounts[c.programme_type]++;
   const highTouchAtRisk = allClients.filter(
     (c) => c.lifecycle_status === "active" && (c.programme_type === "capacity" || c.programme_type === "in_person" || c.programme_type === "boardroom") && (c.status === "amber" || c.status === "red"),

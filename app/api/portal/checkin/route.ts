@@ -1,3 +1,4 @@
+import { monthlyReviewWindow } from "@/lib/foundations";
 import { checkinConfigForWeightUnit, isWeightUnit, weightToKg } from "@/lib/weight-units";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -41,7 +42,7 @@ export async function GET(request: Request) {
   const admin = createAdminClient();
   const { data: profile } = await admin
     .from("client_profiles")
-    .select("id, tier, programme_type, weight_unit, checkin_day, last_checkin, checkin_form_id")
+    .select("id, tier, programme_type, start_date, weight_unit, checkin_day, last_checkin, checkin_form_id")
     .eq("user_id", user.id)
     .single();
 
@@ -69,7 +70,13 @@ export async function GET(request: Request) {
 
   const replies = await loadCoachCheckinReplies(admin, profile.id, profile.tier || "coached");
 
+  let monthlyReview = null;
+  if (profile.programme_type === "foundations") {
+    const { data: reviews } = await admin.from("foundations_monthly_reviews").select("response,period_start,period_end,reviewed_at,message_id").eq("client_id", profile.id).order("period_start", { ascending: false }).limit(1);
+    monthlyReview = { ...monthlyReviewWindow(profile.start_date), latest: reviews?.[0] || null };
+  }
   return NextResponse.json({
+    monthlyReview,
     currentWeekCheckin: currentWeekCheckin || null,
     checkinReplies: replies.replies,
     repliesUnavailable: replies.unavailable,

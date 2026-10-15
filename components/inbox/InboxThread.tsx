@@ -27,6 +27,7 @@ interface InboxThreadProps {
   composerPlaceholder?: string;
   composerContext?: ReactNode;
   composerDisabled?: boolean;
+  readOnly?: boolean;
   threadLabel?: string;
   threadMeta?: string;
   attachmentContext?: string;
@@ -59,6 +60,7 @@ export default function InboxThread({
   composerPlaceholder = "Write a message...",
   composerContext,
   composerDisabled = false,
+  readOnly = false,
   threadLabel,
   threadMeta,
   attachmentContext = "It will be shared privately in this DM.",
@@ -455,7 +457,7 @@ export default function InboxThread({
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="portal-dm-composer border-t border-[rgba(255,255,255,0.06)] p-3 sm:p-4">
+      {readOnly ? <p className="border-t border-white/10 p-4 text-sm text-text-secondary">Gordy can send you updates here. Your weekly check-ins feed into your monthly review.</p> : <form onSubmit={handleSubmit} className="portal-dm-composer border-t border-[rgba(255,255,255,0.06)] p-3 sm:p-4">
         {composerContext}
         <input
           ref={imageInputRef}
@@ -576,7 +578,7 @@ export default function InboxThread({
             )}
           </button>
         </div>
-      </form>
+      </form>}
 
       {imageDraft && typeof document !== "undefined" && createPortal((
         <div className="fixed inset-0 z-[90] flex items-end bg-black/75 p-3 backdrop-blur-sm sm:items-center sm:justify-center" role="dialog" aria-modal="true" aria-label="Preview photo">

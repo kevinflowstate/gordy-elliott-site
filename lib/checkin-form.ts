@@ -134,7 +134,7 @@ export function validateCheckinSubmission(config: CheckinFormConfig, mood: unkno
 }
 export function validateCheckinTemplate(config: CheckinFormConfig): string | null {
   if (!config || typeof config !== "object" || !Array.isArray(config.questions) || !Array.isArray(config.mood_options) || (config.progress_tracking !== undefined && !Array.isArray(config.progress_tracking))) return "Invalid check-in form configuration";
-  if (config.programme_type !== undefined && !["boardroom", "capacity", "shift", "in_person"].includes(config.programme_type)) return "Invalid check-in programme";
+  if (config.programme_type !== undefined && !["boardroom", "capacity", "shift", "in_person", "foundations"].includes(config.programme_type)) return "Invalid check-in programme";
   if (typeof config.mood_enabled !== "boolean" || config.mood_options.some(option => !option || typeof option.value !== "string" || typeof option.label !== "string" || typeof option.color !== "string")) return "Invalid mood options";
   if (config.mood_enabled && !config.mood_options.length) return "Enabled mood needs answer options";
   const ids = new Set<string>();

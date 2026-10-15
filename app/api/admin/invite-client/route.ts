@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   }
 
   if (!isProgrammeType(programme_type)) {
-    return NextResponse.json({ error: "Choose CAPACITY, SHIFT, IN PERSON or CAPACITY BOARDROOM" }, { status: 400 });
+    return NextResponse.json({ error: "Choose CAPACITY, SHIFT, FOUNDATIONS, IN PERSON or CAPACITY BOARDROOM" }, { status: 400 });
   }
 
   const legacyProgramme = legacyProfileForProgramme(programme_type);
