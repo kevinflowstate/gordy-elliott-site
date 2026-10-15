@@ -9,14 +9,19 @@ import {
   type WorkoutSetData,
 } from "@/lib/workout-runner";
 import { buildWorkoutBlocks, blockForIndex, emomMinuteParity } from "@/lib/workout-groups";
+import ExerciseSwapControl, { type ExerciseAlternative } from "./ExerciseSwapControl";
 import WorkoutCircuitControls from "./WorkoutCircuitControls";
-import type { ExerciseSession, ExerciseSessionItem } from "@/lib/types";
+import type { ExerciseSession, ExerciseSessionItem, Exercise } from "@/lib/types";
 
 type RunnerStage = "preview" | "section" | "exercise" | "review" | "summary";
 export type WorkoutRunnerMode = "workout" | "edit";
 
 interface WorkoutRunnerProps {
   session: ExerciseSession;
+  originalSession?: ExerciseSession;
+  alternatives?: Record<string, ExerciseAlternative[]>;
+  savedItemIds?: string[];
+  onSwap?: (itemId:string,exercise:Exercise)=>void;
   dateLabel: string;
   mode: WorkoutRunnerMode;
   sets: Record<string, WorkoutSetData[]>;
@@ -97,6 +102,10 @@ function Icon({
 
 export default function AtCapacityWorkoutRunner({
   session,
+  originalSession,
+  alternatives = {},
+  savedItemIds = [],
+  onSwap,
   dateLabel,
   mode,
   sets,
@@ -364,6 +373,14 @@ export default function AtCapacityWorkoutRunner({
                 </span>
               </div>
 
+              {onSwap && current.item.exercise && originalSession?.items.find(item=>item.id===current.item.id)?.exercise && <ExerciseSwapControl
+                key={current.item.id}
+                alternatives={alternatives[current.item.id] || []}
+                original={originalSession.items.find(item=>item.id===current.item.id)!.exercise!}
+                current={current.item.exercise}
+                locked={savedItemIds.includes(current.item.id) || (sets[current.item.id] || []).some(set=>set.completed || Boolean(set.weight || set.reps || set.notes))}
+                onChoose={exercise=>onSwap(current.item.id,exercise)}
+              />}
               {(current.item.notes || current.item.tempo || current.item.rest_seconds) && (
                 <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
                   {current.item.rest_seconds ? <span className="rounded-full border border-white/8 bg-white/[0.04] px-3 py-1.5">{current.item.rest_seconds}s rest</span> : null}
