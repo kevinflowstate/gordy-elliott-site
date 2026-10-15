@@ -1,3 +1,5 @@
+import { loadConsultationConfig } from "@/lib/consultation-config";
+import { consultationBodyContext } from "@/lib/consultation-metrics";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
 import { dbError } from "@/lib/api-errors";
@@ -22,7 +24,8 @@ export async function GET(
     return NextResponse.json({ error: "Client not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ client });
+  const config = await loadConsultationConfig(createAdminClient(), client.programme_type);
+  return NextResponse.json({ client: {...client, consultation_body_context: client.programme_type === 'boardroom' ? '' : consultationBodyContext(client.consultation_data, config.questions)} });
 }
 
 export async function PATCH(

@@ -64,7 +64,7 @@ async function fixture(assigned: CheckinFormConfig | null, existing: Record<stri
     if (id === "@/lib/checkin-replies") return { loadCoachCheckinReplies: async () => ({ replies: [], unavailable: false }) };
     return actual(id);
   }, exports);
-  return { get: () => exports.GET!(new Request("https://app.example.invalid/api/portal/checkin")), post: (responses = answers, revision = assigned ? checkinConfigRevision(assigned, "personal-template") : null) => exports.POST!(new Request("https://app.example.invalid/api/portal/checkin", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ responses, config_revision: revision, client_id: "attacker" }) })), queries };
+  return { get: () => exports.GET!(new Request("https://app.example.invalid/api/portal/checkin")), post: (responses = answers, revision = assigned ? checkinConfigRevision(assigned, "personal-template") : null) => exports.POST!(new Request("https://app.example.invalid/api/portal/checkin", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ responses, config_revision: revision, client_id: "attacker", ...(existing ? {checkin_id:existing.id} : {}) }) })), queries };
 }
 
 test("unassigned Boardroom check-ins stay pending and cannot submit a global fitness form", async () => {

@@ -20,6 +20,12 @@ export function consultationMetricError(answers: Record<string, unknown>) {
     }
     return null;
 }
-export function consultationBodyContext(answers: Record<string, unknown> | null | undefined) {
-    return [['height_cm', 'Height', 'cm'], ['weight_kg', 'Consultation weight', 'kg']].flatMap(([key, label, unit]) => { const v = answers?.[key]; return v !== undefined && v !== null && v !== '' ? [`${label}: ${v} ${unit}`] : []; }).join('\n');
+export function consultationBodyContext(answers: Record<string, unknown> | null | undefined, questions: FormQuestion[] = []) {
+    return [['height_cm', 'Height', 'cm', /\bheight\b/i], ['weight_kg', 'Consultation weight', 'kg', /\b(body\s*weight|current\s*weight|starting\s*weight|weight)\b/i]].flatMap(([key, label, unit, pattern]) => {
+        const canonical = answers?.[key as string];
+        if (canonical !== undefined && canonical !== null && canonical !== '') return [`${label}: ${canonical} ${unit}`];
+        const question = questions.find(q => (pattern as RegExp).test(q.label + ' ' + q.id.replaceAll('_', ' ')) && !(key === 'weight_kg' && /goal|target|desired/i.test(q.label + q.id)) && answers?.[q.id] !== undefined && answers?.[q.id] !== null && answers?.[q.id] !== '');
+        // Retain the configured label/unit exactly; never infer kg from an alias.
+        return question ? [`${question.label}: ${answers?.[question.id]}`] : [];
+    }).join('\n');
 }

@@ -90,3 +90,14 @@ test('a failed non-weight measurement correction can retry unchanged',async()=>{
  f.recoverMeasurement();await f.post({checkin_id:'old',responses:{waist:'81'},weight_unit:'kg'});
  assert.equal(f.writes.filter(w=>w.table==='client_body_measurements').length,2);assert.equal((f.saved.responses as Record<string,unknown>).measurement_sync_pending,undefined);
 });
+
+test('legacy late-night corrections retain the original UTC measurement key',async()=>{
+ const f=await fixture();f.saved.created_at='2026-06-01T23:30:00Z';
+ const response=await f.post({checkin_id:'old',responses:{weight:'80'},weight_unit:'kg'});
+ assert.equal(response.status,200);assert.equal(f.writes.find(w=>w.table==='client_body_measurements')?.payload.measured_date,'2026-06-01');
+});
+test('an older form cannot implicitly overwrite a saved scheduled submission',async()=>{
+ const f=await fixture();const due=(await (await f.get()).json()).scheduledDate;
+ f.saved.scheduled_date=due;const response=await f.post({responses:{wins:'Stale form'}});
+ assert.equal(response.status,409);assert.equal(f.writes.length,0);
+});

@@ -126,7 +126,7 @@ export async function POST(request: Request) {
   if (loadError) return NextResponse.json({ error: "Couldn't load your saved check-in. Nothing was changed." }, { status: 500 });
   if (body.checkin_id && !currentWeekCheckin) return NextResponse.json({ error: "Check-in not found" }, { status: 404 });
   if(body.checkin_id&&body.scheduled_date&&currentWeekCheckin?.scheduled_date&&body.scheduled_date!==currentWeekCheckin.scheduled_date)return NextResponse.json({error:"A saved check-in stays on its original scheduled date."},{status:409});
-  if(currentWeekCheckin&&!body.checkin_id&&body.scheduled_date)return NextResponse.json({error:"This scheduled check-in is already saved. Reopen it to edit without replacing another submission."},{status:409});
+  if(currentWeekCheckin&&!body.checkin_id)return NextResponse.json({error:"This scheduled check-in is already saved. Reopen it to edit without replacing another submission."},{status:409});
   const snapshot = currentWeekCheckin?.form_config_snapshot;
   if (currentWeekCheckin && (snapshot?.programme_type === "boardroom") !== (profile.programme_type === "boardroom")) return NextResponse.json({ error: "This check-in belongs to your previous programme. Ask Gordy to review it." }, { status: 409 });
   const baseConfig = snapshot ? normalizeCheckinConfig(snapshot, profile.programme_type === "boardroom" ? "boardroom" : undefined) : config;
@@ -211,7 +211,8 @@ export async function POST(request: Request) {
   if (responses && profile.programme_type !== "boardroom") {
     const measurement: Record<string, unknown> = {
       client_id: profile.id,
-      measured_date: checkinToday(new Date(currentWeekCheckin?.created_at || new Date().toISOString())),
+      // Legacy corrections retain the UTC key used when their chart row was created.
+      measured_date: currentWeekCheckin && !currentWeekCheckin.scheduled_date ? currentWeekCheckin.created_at.slice(0,10) : checkinToday(new Date(savedCheckin?.created_at || currentWeekCheckin?.created_at || new Date().toISOString())),
     };
     let hasData = false;
     // Unchanged ambiguous legacy weights stay untouched; explicit failed writes can retry.

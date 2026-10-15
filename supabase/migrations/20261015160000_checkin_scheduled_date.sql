@@ -10,6 +10,7 @@ BEGIN
  SELECT p.start_date,p.checkin_day,f.config INTO v_start,v_day,v_config FROM client_profiles p LEFT JOIN checkin_forms f ON f.id=p.checkin_form_id WHERE p.id=NEW.client_id FOR UPDATE OF p;
  IF NOT FOUND THEN RAISE EXCEPTION 'Client not found'; END IF;
  IF v_config IS NULL THEN SELECT config INTO v_config FROM checkin_forms WHERE is_default ORDER BY created_at LIMIT 1; END IF;
+ IF v_config IS NULL THEN SELECT config INTO v_config FROM form_config WHERE form_type='checkin' LIMIT 1; END IF;
  v_day:=lower(coalesce(nullif(v_day,''),v_config->>'checkin_day','monday'));
  v_target:=coalesce(array_position(ARRAY['sunday','monday','tuesday','wednesday','thursday','friday','saturday'],v_day)-1,1);
  -- Legacy callers get the latest due date; never invent an earlier submission timestamp.

@@ -45,6 +45,7 @@ export interface ClientProfile {
   onboarding_status?: OnboardingStatus;
   activated_at?: string | null;
   consultation_data?: Record<string, unknown>;
+  consultation_body_context?: string;
   consultation_summary?: Record<string, unknown>;
   profile_setup_data?: Record<string, unknown>;
   profile_setup_completed_at?: string | null;

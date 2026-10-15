@@ -65,6 +65,7 @@ export interface AdminClient {
   onboarding_status: OnboardingStatus;
   activated_at?: string | null;
   consultation_data?: Record<string, unknown> | null;
+  consultation_body_context?: string;
   consultation_summary?: Record<string, unknown> | null;
   profile_setup_data?: Record<string, unknown> | null;
   profile_setup_completed_at?: string | null;

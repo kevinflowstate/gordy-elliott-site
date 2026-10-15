@@ -1,3 +1,4 @@
+import { loadConsultationConfig } from "@/lib/consultation-config";
 import { consultationBodyContext } from "@/lib/consultation-metrics";
 import { homeEquipmentTrainingContext } from "@/lib/home-equipment";
 import { FOUNDATIONS_AI_REPLY_POLICY } from "@/lib/foundations";
@@ -450,6 +451,7 @@ export async function POST(req: NextRequest) {
 
   const clientTier = (profile?.tier as string) || "coached";
   const consultationData = profile?.consultation_data as Record<string, unknown> | null;
+  const consultationConfig = await loadConsultationConfig(admin, profile?.programme_type);
 
   const tierContext = clientTier === "ai_only"
     ? `
@@ -579,7 +581,7 @@ Weekly check-in day: ${profile?.checkin_day || "Not set"}
 Today: ${new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short", year: "numeric" })}
 ${tierContext}
 ${homeEquipmentTrainingContext(consultationData)}
-${consultationBodyContext(consultationData)}
+${consultationBodyContext(consultationData, consultationConfig.questions)}
 
 ===========================
 CYCLE TRACKING CONTEXT

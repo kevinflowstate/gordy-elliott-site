@@ -1,3 +1,4 @@
+import { loadConsultationConfig } from "@/lib/consultation-config";
 import { consultationBodyContext } from "@/lib/consultation-metrics";
 import { homeEquipmentTrainingContext } from "@/lib/home-equipment";
 import { dateKeyInTimeZone } from "@/lib/founder-dashboard";
@@ -257,6 +258,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Build client summaries — strictly fitness-coaching context
+  const [fitnessConsultation, foundationsConsultation] = await Promise.all([loadConsultationConfig(admin, 'capacity'),loadConsultationConfig(admin, 'foundations')]);
   const clientSummaries = profiles.map((p) => {
     const boardroom = p.programme_type === "boardroom";
     const user = Array.isArray(p.user) ? p.user[0] : p.user;
@@ -315,7 +317,7 @@ export async function POST(req: NextRequest) {
         days_logged: boardroom ? 0 : metricDays?.size || 0,
         possible_days: 7,
       },
-      body_metrics: boardroom ? null : consultationBodyContext(p.consultation_data),
+      body_metrics: boardroom ? null : consultationBodyContext(p.consultation_data, (p.programme_type === 'foundations' ? foundationsConsultation : fitnessConsultation).questions),
       home_training_equipment: boardroom ? null : homeEquipmentTrainingContext(p.consultation_data),
       recent_daily_notes: boardroom ? [] : dailyNotesByClient.get(p.id) || [],
       connected_apps: {
