@@ -739,3 +739,24 @@ test("invalid Terra sessions retain origin safeguards and log diagnostics withou
     if (originalEnv.apiKey === undefined) delete process.env.TERRA_API_KEY; else process.env.TERRA_API_KEY = originalEnv.apiKey;
   }
 });
+
+
+test("accepts Terra's current access origin but rejects impersonating origins and URL credentials", async () => {
+  const old = { dev: process.env.TERRA_DEV_ID, key: process.env.TERRA_API_KEY };
+  process.env.TERRA_DEV_ID = "fixture"; process.env.TERRA_API_KEY = "fixture";
+  const oldError = console.error; console.error = () => {};
+  try {
+    for (const origin of ["https://widget.tryterra.co", "https://access.tryterra.co"]) {
+      const url = `${origin}/session/fixture`;
+      const session = await generateTerraWidgetSession("00000000-0000-4000-8000-000000000001", "myfitnesspal", { fetchImpl: async () => Response.json({ status: "success", url }, { status: 201 }) });
+      assert.equal(session.url, url);
+    }
+    for (const url of ["http://access.tryterra.co/session/x", "https://access.tryterra.co.evil.test/session/x", "https://evil.test@access.tryterra.co/session/x", "https://access.tryterra.co:444/session/x"]) {
+      await assert.rejects(generateTerraWidgetSession("00000000-0000-4000-8000-000000000001", "myfitnesspal", { fetchImpl: async () => Response.json({ status: "success", url }, { status: 201 }) }), /valid connection session/);
+    }
+  } finally {
+    console.error = oldError;
+    if (old.dev === undefined) delete process.env.TERRA_DEV_ID; else process.env.TERRA_DEV_ID = old.dev;
+    if (old.key === undefined) delete process.env.TERRA_API_KEY; else process.env.TERRA_API_KEY = old.key;
+  }
+});
