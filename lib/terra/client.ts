@@ -128,7 +128,7 @@ export async function generateTerraWidgetSession(
     logInvalidTerraWidgetSession(data, response.status, "invalid_url");
     throw new Error("Terra did not return a valid connection session. Please try again.");
   }
-  if (widgetUrl.protocol !== "https:" || widgetUrl.hostname !== "widget.tryterra.co") {
+  if (widgetUrl.protocol !== "https:" || !["widget.tryterra.co", "access.tryterra.co"].includes(widgetUrl.hostname) || widgetUrl.username || widgetUrl.password || widgetUrl.port) {
     logInvalidTerraWidgetSession(data, response.status, "unexpected_origin", widgetUrl.origin);
     throw new Error("Terra did not return a valid connection session. Please try again.");
   }
