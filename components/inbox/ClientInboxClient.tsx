@@ -154,7 +154,7 @@ export default function ClientInboxClient() {
       <div className="portal-dm-page-header mb-4 shrink-0 sm:mb-5">
         <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-bright">Direct Messages</div>
         <h1 className="mt-2 text-2xl font-heading font-extrabold text-text-primary">DM</h1>
-        <p className="mt-1 text-sm text-text-secondary">Message Gordy directly from your AT CAPACITY portal.</p>
+        <p className="mt-1 text-sm text-text-secondary">{thread?.canReply === false ? "Updates and monthly reviews from Gordy." : "Message Gordy directly from your AT CAPACITY portal."}</p>
       </div>
 
       {loading ? (
@@ -184,7 +184,7 @@ export default function ClientInboxClient() {
           onSendImage={handleSendImage}
           sending={sending}
           error={error}
-          emptyTitle="Start the conversation"
+          emptyTitle={thread?.canReply === false ? "Updates from Gordy" : "Start the conversation"}
           emptyDescription={thread?.canReply === false ? "Updates and monthly reviews from Gordy will appear here. Keep submitting your weekly check-ins." : "Ask a question, check something in your plan, or send Gordy a quick update here."}
           composerPlaceholder="Message Gordy..."
           threadLabel="Gordy Elliott"
