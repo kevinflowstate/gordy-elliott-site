@@ -1,3 +1,4 @@
+import { homeEquipmentTrainingContext } from "@/lib/home-equipment";
 import { FOUNDATIONS_AI_REPLY_POLICY } from "@/lib/foundations";
 import { programmeWeek, programmeToday } from "@/lib/exercise-programme";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -576,6 +577,7 @@ Target date: ${profile?.target_date || "Not set"}
 Weekly check-in day: ${profile?.checkin_day || "Not set"}
 Today: ${new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short", year: "numeric" })}
 ${tierContext}
+${homeEquipmentTrainingContext(consultationData)}
 
 ===========================
 CYCLE TRACKING CONTEXT

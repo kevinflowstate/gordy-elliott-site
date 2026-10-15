@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { BOARDROOM_MULTISELECT_IDS } from "@/lib/boardroom-consultation";
+import { HOME_EQUIPMENT_FIELD, HOME_EQUIPMENT_MAX_LENGTH, homeTrainingSelected } from "@/lib/home-equipment";
 import type { ConsultationFormConfig } from "@/lib/consultation-form";
 import type { FormQuestion } from "@/lib/types";
 import { dateOfBirthFromIso, dateOfBirthToIso, formatDateOfBirthInput } from "@/lib/date-of-birth";
@@ -134,6 +135,7 @@ export default function ConsultationPage() {
 
   function renderQuestion(question: FormQuestion) {
     if (question.enabled === false) return null;
+    if (question.id === HOME_EQUIPMENT_FIELD && !homeTrainingSelected(form)) return null;
     if (question.id === "cycle_tracking_enabled" && form.sex !== "female") return null;
 
     const commonClass = "w-full bg-bg-primary border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-[#E040D0]/50";
@@ -146,6 +148,8 @@ export default function ConsultationPage() {
           <textarea
             value={value}
             onChange={(e) => handleChange(question.id, e.target.value)}
+            id={`consultation-${question.id}`}
+            maxLength={question.id === HOME_EQUIPMENT_FIELD ? HOME_EQUIPMENT_MAX_LENGTH : undefined}
             placeholder="Type your answer..."
             required={question.required}
             rows={question.id === "additional_info" || question.id === "primary_goal" ? 4 : 3}
@@ -171,6 +175,7 @@ export default function ConsultationPage() {
 
       return (
         <select
+          id={`consultation-${question.id}`}
           value={value}
           onChange={(e) => handleChange(question.id, e.target.value)}
           required={question.required}
@@ -279,7 +284,7 @@ export default function ConsultationPage() {
           return (
             <div key={question.id} className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-5">
               {boardroom && /^\d+\. /.test(question.placeholder) && questions[index - 1]?.placeholder !== question.placeholder && <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-[#E040D0]">{question.placeholder}</h2>}
-              <label className="block text-sm font-semibold text-text-primary mb-3">
+              <label htmlFor={["textarea", "select"].includes(question.type) ? `consultation-${question.id}` : undefined} className="block text-sm font-semibold text-text-primary mb-3">
                 {question.label}
                 {question.required && <span className="ml-1 text-[#E040D0]">*</span>}
               </label>

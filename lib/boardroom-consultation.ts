@@ -1,3 +1,4 @@
+import { HOME_EQUIPMENT_FIELD, homeTrainingSelected } from "@/lib/home-equipment";
 import type { FormQuestion } from "@/lib/types";
 import type { ConsultationFormConfig } from "@/lib/consultation-form";
 
@@ -551,10 +552,11 @@ for (const question of BOARDROOM_CONSULTATION_QUESTIONS) {
 }
 export const BOARDROOM_MULTISELECT_IDS = new Set(["business_help", "business_sources"]);
 
-export const BOARDROOM_EXCLUDED_FIELDS = new Set(["date_of_birth", "sex", "cycle_tracking_enabled", "weight", "weight_kg", "wearables", "wearables_preference", "wearables_notes", "fitness_level", "training_days", "equipment_access", "dietary_preferences", "injuries", "supplements", "hierarchy_exercise_nutrition"]);
+export const BOARDROOM_EXCLUDED_FIELDS = new Set(["date_of_birth", "sex", "cycle_tracking_enabled", "weight", "weight_kg", "wearables", "wearables_preference", "wearables_notes", "fitness_level", "training_days", "equipment_access", "home_equipment_details", "dietary_preferences", "injuries", "supplements", "hierarchy_exercise_nutrition"]);
 export function isBoardroomConsultation(programme?: string | null) { return programme === "boardroom"; }
 export function validateConsultationAnswers(config: ConsultationFormConfig, answers: Record<string, unknown>): string | null {
   for (const q of config.questions.filter(q => q.enabled !== false)) {
+    if (q.id === HOME_EQUIPMENT_FIELD && !homeTrainingSelected(answers)) continue;
     const value = answers[q.id];
     if (q.required && (value === undefined || value === null || (typeof value === "string" && !value.trim()))) return `${q.label} is required`;
     if (value !== undefined && value !== null && typeof value !== "string" && typeof value !== "boolean") return `Invalid answer for ${q.label}`;
