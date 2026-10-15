@@ -1,5 +1,5 @@
 CREATE TABLE public.foundations_help_requests(
- id uuid PRIMARY KEY DEFAULT gen_random_uuid(),client_id uuid NOT NULL REFERENCES public.client_profiles(id),
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),client_id uuid NOT NULL REFERENCES public.client_profiles(id) ON DELETE CASCADE,
  submission_key uuid NOT NULL,client_name text NOT NULL,client_email text NOT NULL,
  kind text NOT NULL CHECK(kind IN ('App or account problem','Getting unstuck')),
  message text NOT NULL CHECK(length(trim(message)) BETWEEN 1 AND 4000),

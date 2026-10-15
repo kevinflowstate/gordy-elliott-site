@@ -75,3 +75,5 @@ test('retained metric aliases keep configured units in coach/planning context',(
  assert.equal(consultationBodyContext({body_weight:'180',stature:'5 ft 9 in'},questions),'Height (feet/inches): 5 ft 9 in\nBodyweight (lb): 180');
  assert.equal(consultationBodyContext({goal_weight:'150'},[{...questions[0],id:'goal_weight',label:'Goal weight (lb)'}]),'');
 });
+
+test('deleting a fictional client cascades saved help without blocking account deletion',async()=>{const db=await fixture();try{await db.query('SELECT submit_foundations_help($1,$2,$3,$4,true)',[id(1),id(15),'Getting unstuck','Fictional request']);await db.query('DELETE FROM client_profiles WHERE id=$1',[id(3)]);assert.equal((await db.query('SELECT * FROM foundations_help_requests')).rows.length,0);}finally{await db.close();}});

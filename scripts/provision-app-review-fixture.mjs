@@ -294,11 +294,14 @@ await unwrap(
 );
 const profile = await unwrap(
   "Load the review profile",
-  supabase.from("client_profiles").select("id").eq("user_id", authUser.id).single(),
+  supabase.from("client_profiles").select("id,start_date").eq("user_id", authUser.id).single(),
 );
 await unwrap(
   "Update the review profile",
   supabase.from("client_profiles").update({
+    // Only this guarded fictional account is given historical scheduled weeks.
+    checkin_day: "monday",
+    start_date: profile.start_date && profile.start_date < londonDateKey(60) ? profile.start_date : londonDateKey(60),
     business_name: "Demo Client",
     tier: "premium",
     experience_mode: "ai_coaching",
@@ -338,13 +341,18 @@ await unwrap(
 
 const checkins = await unwrap(
   "Load review check-ins",
-  supabase.from("checkins").select("id, week_number, admin_reply").eq("client_id", profile.id).order("week_number"),
+  supabase.from("checkins").select("id, week_number, admin_reply, created_at, scheduled_date").eq("client_id", profile.id).order("week_number"),
 );
 if (checkins.length < 2) {
+  const mondayOf = key => { const date = new Date(key + 'T12:00:00Z'); date.setUTCDate(date.getUTCDate() - (date.getUTCDay() + 6) % 7); return date.toISOString().slice(0,10); };
+  const occupied = new Set(checkins.map(row => mondayOf(row.scheduled_date || row.created_at.slice(0,10))));
+  let daysAgo = 14;
+  const nextScheduledDate = () => { let date; do { date=mondayOf(londonDateKey(daysAgo)); daysAgo+=7; } while(occupied.has(date)); occupied.add(date); return date; };
   const usedWeeks = new Set(checkins.map(({ week_number }) => week_number));
   const rows = [1, 2].filter((week) => !usedWeeks.has(week)).slice(0, 2 - checkins.length).map((week, index) => ({
     client_id: profile.id,
     week_number: week,
+    scheduled_date: nextScheduledDate(),
     mood: index === 0 ? "good" : "great",
     wins: "Completed the planned sessions and kept meals consistent.",
     challenges: "A busy workday required moving one session.",
