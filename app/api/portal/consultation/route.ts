@@ -1,3 +1,4 @@
+import { HOME_EQUIPMENT_FIELD, HOME_EQUIPMENT_MAX_LENGTH, homeTrainingSelected, savedHomeEquipmentDetails } from "@/lib/home-equipment";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { dbError } from "@/lib/api-errors";
@@ -31,6 +32,7 @@ function buildFallbackSummary(data: Record<string, unknown>) {
       fitness_level: answerText(data, "fitness_level"),
       training_days: answerText(data, "training_days"),
       equipment_access: answerText(data, "equipment_access"),
+      home_equipment_details: homeTrainingSelected(data) ? answerText(data, HOME_EQUIPMENT_FIELD) : "",
       dietary_preferences: answerText(data, "dietary_preferences"),
       injuries: answerText(data, "injuries"),
     },
@@ -82,6 +84,7 @@ async function extractConsultationSummary(data: Record<string, unknown>) {
                   fitness_level: "level",
                   training_days: "days",
                   equipment_access: "equipment",
+                  home_equipment_details: "exact home equipment, weights and quantities; retain the supplied inventory",
                   dietary_preferences: "diet context",
                   injuries: "limitations",
                 },
@@ -109,6 +112,7 @@ async function extractConsultationSummary(data: Record<string, unknown>) {
     return {
       ...fallback,
       ...parsed,
+      coaching_profile: {...fallback.coaching_profile, ...parsed.coaching_profile, home_equipment_details: fallback.coaching_profile.home_equipment_details},
       generated_by: "openrouter",
       generated_at: new Date().toISOString(),
     };
@@ -178,7 +182,7 @@ export async function POST(req: NextRequest) {
   const admin = createAdminClient();
   const { data: currentProfile, error: currentProfileError } = await admin
     .from("client_profiles")
-    .select("id, onboarding_status, programme_type")
+    .select("id, onboarding_status, programme_type, consultation_data")
     .eq("user_id", user.id)
     .maybeSingle();
   if (currentProfileError) return dbError(currentProfileError, "Couldn't load your consultation. Try again.");
@@ -190,11 +194,18 @@ export async function POST(req: NextRequest) {
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
   const enabledQuestions = config.questions.filter((question) => question.enabled !== false);
   const enabledIds = new Set(enabledQuestions.map((question) => question.id));
+  if (!boardroom && HOME_EQUIPMENT_FIELD in body && (typeof body[HOME_EQUIPMENT_FIELD] !== "string" || body[HOME_EQUIPMENT_FIELD].length > HOME_EQUIPMENT_MAX_LENGTH)) {
+    return NextResponse.json({error:"Home equipment details must be text of up to 4,000 characters"},{status:400});
+  }
   const consultationData: Record<string, unknown> = {};
   for (const question of enabledQuestions) {
     if (!PROFILE_FIELD_IDS.has(question.id) && question.id in body) {
       consultationData[question.id] = body[question.id];
     }
+  }
+  if (!boardroom) {
+    const details = savedHomeEquipmentDetails(body, currentProfile.consultation_data);
+    if (details !== undefined) consultationData[HOME_EQUIPMENT_FIELD] = details;
   }
   consultationData.privacy_consent = true;
   consultationData.privacy_consent_version = boardroom ? "business_coaching_v1" : "health_cycle_v1";

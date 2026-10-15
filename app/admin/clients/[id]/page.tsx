@@ -1,4 +1,6 @@
 "use client";
+
+import { homeEquipmentTrainingContext } from "@/lib/home-equipment";
 import FoundationsReviewPanel from "@/components/admin/FoundationsReviewPanel";
 
 import { normaliseWeekStart } from "@/lib/training-planner";
@@ -3525,6 +3527,7 @@ export default function ClientDetailPage() {
             onSave={handleSaveScratchExercisePlan}
             onCancel={() => setShowExerciseBuilder(false)}
             context="client"
+            clientTrainingContext={homeEquipmentTrainingContext(client.consultation_data)}
           />
         );
       })()}
@@ -3909,6 +3912,7 @@ function TrainingTabContent({
 
   return (
     <div className="space-y-6">
+      {homeEquipmentTrainingContext(client.consultation_data) && <section className="rounded-xl border border-[#E040D0]/20 bg-[#E040D0]/5 p-4"><h2 className="text-sm font-semibold">Home equipment from onboarding</h2><p className="mt-2 whitespace-pre-wrap text-sm text-text-secondary">{homeEquipmentTrainingContext(client.consultation_data)}</p></section>}
       {/* ── Section 1: Assigned Plan ── */}
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -4370,6 +4374,7 @@ function NutritionTabContent({
 
   return (
     <div className="space-y-6">
+      {homeEquipmentTrainingContext(client.consultation_data) && <section className="rounded-xl border border-[#E040D0]/20 bg-[#E040D0]/5 p-4"><h2 className="text-sm font-semibold">Home equipment from onboarding</h2><p className="mt-2 whitespace-pre-wrap text-sm text-text-secondary">{homeEquipmentTrainingContext(client.consultation_data)}</p></section>}
       {/* ── Section 1: Assigned Plan ── */}
       <div>
         <div className="flex items-center justify-between mb-4">

@@ -1,4 +1,5 @@
 import { buildBoardroomConsultationConfig, BOARDROOM_EXCLUDED_FIELDS, isBoardroomConsultation } from "@/lib/boardroom-consultation";
+import { withHomeEquipmentQuestion } from "@/lib/home-equipment";
 import type { FormQuestion } from "@/lib/types";
 
 export interface ConsultationFormConfig {
@@ -161,7 +162,7 @@ function normalizeQuestion(question: FormQuestion): FormQuestion {
   };
 }
 
-export function normalizeConsultationConfig(config: ConsultationFormConfig | null | undefined, programme?: string | null): ConsultationFormConfig {
+function normalizeConsultationConfigBase(config: ConsultationFormConfig | null | undefined, programme?: string | null): ConsultationFormConfig {
   if (isBoardroomConsultation(programme)) {
     const fallback = buildBoardroomConsultationConfig();
     if (!config) return fallback;
@@ -204,4 +205,9 @@ export function normalizeConsultationConfig(config: ConsultationFormConfig | nul
 
 export function isConsultationSystemField(id: string) {
   return CONSULTATION_SYSTEM_FIELD_IDS.includes(id as (typeof CONSULTATION_SYSTEM_FIELD_IDS)[number]);
+}
+
+export function normalizeConsultationConfig(config: ConsultationFormConfig | null | undefined, programme?: string | null): ConsultationFormConfig {
+  const normalized = normalizeConsultationConfigBase(config, programme);
+  return isBoardroomConsultation(programme) ? normalized : {...normalized, questions:withHomeEquipmentQuestion(normalized.questions)};
 }

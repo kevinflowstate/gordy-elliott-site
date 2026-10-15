@@ -1,3 +1,4 @@
+import { homeEquipmentTrainingContext } from "@/lib/home-equipment";
 import { dateKeyInTimeZone } from "@/lib/founder-dashboard";
 import { requireAdmin } from "@/lib/admin-auth";
 import { formatCoachingNotesForAdminPrompt } from "@/lib/coaching-notes";
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
   const { data: profileRows } = await admin
     .from("client_profiles")
     .select(`
-      id, programme_type, primary_goal, goals, target_date, tier, checkin_day, start_date, last_login, last_checkin,
+      id, programme_type, primary_goal, goals, target_date, tier, checkin_day, start_date, last_login, last_checkin, consultation_data,
       lifecycle_status, lifecycle_resumes_at,
       user:users!client_profiles_user_id_fkey(full_name, email)
     `)
@@ -313,6 +314,7 @@ export async function POST(req: NextRequest) {
         days_logged: boardroom ? 0 : metricDays?.size || 0,
         possible_days: 7,
       },
+      home_training_equipment: boardroom ? null : homeEquipmentTrainingContext(p.consultation_data),
       recent_daily_notes: boardroom ? [] : dailyNotesByClient.get(p.id) || [],
       connected_apps: {
         providers: wearableConnections.map((connection) => connection.provider),
