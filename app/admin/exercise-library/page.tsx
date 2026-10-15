@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/components/ui/Toast";
 import type { Exercise } from "@/lib/types";
@@ -239,6 +240,7 @@ export default function ExerciseLibraryPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-heading font-bold text-text-primary">Exercise Library</h1>
+          <Link href="/admin/exercise-library/alternatives" className="inline-flex min-h-11 items-center text-sm font-semibold text-[#E040D0]">Manage exercise alternatives ⇄</Link>
           <p className="text-text-secondary mt-1">
             {loading ? "Loading..." : `${exercises.length} exercise${exercises.length !== 1 ? "s" : ""}${muscleFilter || equipmentFilter || search ? " (filtered)" : ""}`}
           </p>

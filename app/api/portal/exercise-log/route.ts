@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 
   let query = admin
     .from("client_exercise_logs")
-    .select("*")
+    .select("*,performed_exercise:exercises!performed_exercise_id(*)")
     .eq("client_id", profile.id);
 
   if (from && to) {
@@ -93,8 +93,10 @@ export async function POST(request: Request) {
       exerciseItemId,
       safeSets,
       notes: boundedText(entry.notes, 1000) || null,
+      performedExerciseId: typeof entry.performed_exercise_id === "string" ? entry.performed_exercise_id : null,
     };
   });
+  if (entries.some(entry => entry.performedExerciseId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(entry.performedExerciseId))) return NextResponse.json({error:"Choose a valid exercise"},{status:400});
   if (entries.some((entry) => !entry.exerciseItemId)) {
     return NextResponse.json({ error: "Every entry requires exercise_item_id" }, { status: 400 });
   }
@@ -143,12 +145,19 @@ export async function POST(request: Request) {
   if (ownedPlan.programme_weeks && !programmeSessionCanBePlanned({ ...ownedPlan, sessions: [session as ExerciseSession] } as ClientExercisePlan, session.id, logDate)) {
     return NextResponse.json({ error: "This workout belongs to a different programme week. Reload your training plan." }, { status: 409 });
   }
+  const { data: priorLogs, error: priorError } = await admin.from("client_exercise_logs")
+    .select("exercise_item_id,performed_exercise_id,prescribed_exercise_id").eq("client_id",profile.id).eq("log_date",logDate).in("exercise_item_id",itemIds);
+  if (priorError) return NextResponse.json({error:"Could not verify workout history"},{status:500});
+  if (entries.some(entry => !entry.performedExerciseId && priorLogs?.some(log => log.exercise_item_id===entry.exerciseItemId && log.performed_exercise_id!==log.prescribed_exercise_id))) {
+    return NextResponse.json({error:"Refresh this workout before editing a substituted exercise."},{status:409});
+  }
   const updatedAt = new Date().toISOString();
   const rows = entries.map((entry) => {
     const safeSets = entry.safeSets || [];
     return {
       client_id: profile.id,
       exercise_item_id: entry.exerciseItemId,
+      performed_exercise_id: entry.performedExerciseId,
       session_id: session.id,
       log_date: logDate,
       sets_data: safeSets,
@@ -162,7 +171,7 @@ export async function POST(request: Request) {
     .upsert(rows, { onConflict: "client_id,exercise_item_id,log_date" })
     .select();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: error.message }, { status: error.code === "P0001" ? 409 : 500 });
 
   const totals = entries.reduce((result, entry) => {
     const entryTotals = calculateSessionTotals(entry.safeSets || []);

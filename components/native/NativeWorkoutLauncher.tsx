@@ -12,10 +12,11 @@ import {
 interface NativeWorkoutLauncherProps extends NativeWorkoutLaunchOptions {
   fallback: ReactNode;
   onClose: () => void;
+  forceWeb?: boolean;
 }
 
-export default function NativeWorkoutLauncher({ fallback, onClose, ...launch }: NativeWorkoutLauncherProps) {
-  const [usesWebFallback, setUsesWebFallback] = useState(() => !isNativeWorkoutAvailable());
+export default function NativeWorkoutLauncher({ fallback, onClose, forceWeb = false, ...launch }: NativeWorkoutLauncherProps) {
+  const [usesWebFallback, setUsesWebFallback] = useState(() => forceWeb || !isNativeWorkoutAvailable());
   const initialLaunch = useRef(launch);
   const onCloseRef = useRef(onClose);
 

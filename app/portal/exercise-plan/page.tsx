@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { programmeSessionsForDate, programmeSessionsForCalendarWeek, programmeScheduledSessionForDate, programmeSessionCanBePlanned, programmeWeek } from "@/lib/exercise-programme";
 import { createPortal } from "react-dom";
 import AtCapacityWorkoutRunner, { type WorkoutRunnerMode } from "@/components/portal/AtCapacityWorkoutRunner";
+import type { ExerciseAlternative } from "@/components/portal/ExerciseSwapControl";
 import NativeWorkoutLauncher from "@/components/native/NativeWorkoutLauncher";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import { formatExercisePrescription, shouldUseSetLogging } from "@/lib/exercise-prescriptions";
@@ -11,7 +12,7 @@ import { getExerciseDemoUrl } from "@/lib/exercise-demo";
 import { openExerciseDemo } from "@/lib/exercise-demo-client";
 import { copyFirstWorkoutSetValues, type WorkoutSetData } from "@/lib/workout-runner";
 import { NATIVE_WORKOUT_SYNCED_EVENT } from "@/lib/native-workout";
-import type { ClientExercisePlan, ExerciseSession, WeeklyTrainingAssignment } from "@/lib/types";
+import type { ClientExercisePlan, ExerciseSession, WeeklyTrainingAssignment, Exercise } from "@/lib/types";
 
 type SetData = WorkoutSetData;
 
@@ -23,6 +24,10 @@ interface ExerciseLog {
   sets_data: SetData[];
   completed: boolean;
   notes: string | null;
+  performed_exercise_id?: string;
+  performed_exercise_name?: string;
+  prescribed_exercise_name?: string;
+  performed_exercise?: Exercise;
 }
 
 // ---- date helpers ----
@@ -236,6 +241,20 @@ export default function PortalExercisePlanPage() {
 
   // Draft inputs: exerciseItemId -> SetData[]
   const [draftSets, setDraftSets] = useState<Record<string, SetData[]>>({});
+  const [performedExercises, setPerformedExercises] = useState<Record<string, Exercise>>({});
+  const [alternatives, setAlternatives] = useState<Record<string, ExerciseAlternative[]>>({});
+  const [alternativesLoaded, setAlternativesLoaded] = useState(false);
+  useEffect(() => {
+    setAlternativesLoaded(false);
+    setAlternatives({});
+    if (!activeSession) return;
+    const controller = new AbortController();
+    fetch(`/api/portal/exercise-alternatives?session_id=${activeSession.id}`, {signal:controller.signal})
+      .then(response => response.ok ? response.json() : {alternatives:{}})
+      .then(data => {if(!controller.signal.aborted) setAlternatives(data.alternatives || {});}).catch(()=>{}).finally(()=>{if(!controller.signal.aborted)setAlternativesLoaded(true);});
+    return () => controller.abort();
+  }, [activeSession]);
+  const runnerSession = activeSession ? {...activeSession, items:activeSession.items.map(item => ({...item, exercise:performedExercises[item.id] || item.exercise}))} : null;
   const [saving, setSaving] = useState(false);
   const [savedToast, setSavedToast] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -431,6 +450,7 @@ export default function PortalExercisePlanPage() {
   const initDrafts = useCallback((session: ExerciseSession, existingLogs: ExerciseLog[] = []) => {
     const drafts = buildSessionDrafts(session, existingLogs);
     setDraftSets(drafts);
+    setPerformedExercises(Object.fromEntries(existingLogs.filter(log=>log.performed_exercise).map(log=>[log.exercise_item_id,log.performed_exercise!])));
     return drafts;
   }, []);
 
@@ -523,6 +543,7 @@ export default function PortalExercisePlanPage() {
           entries: exercises.map((item) => ({
               exercise_item_id: item.id,
               sets_data: draftSets[item.id] || [],
+              performed_exercise_id: performedExercises[item.id]?.id || item.exercise_id,
             })),
         }),
       });
@@ -544,6 +565,13 @@ export default function PortalExercisePlanPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function swapExercise(itemId: string, exercise: Exercise) {
+    const item = activeSession?.items.find(item => item.id === itemId);
+    if (!item || allLogs.some(log=>log.exercise_item_id===itemId&&log.log_date===formatDate(selectedDate))) return;
+    setPerformedExercises(previous => ({...previous,[itemId]:exercise}));
+    setDraftSets(previous => ({...previous,[itemId]:buildSessionDrafts({ ...activeSession!,items:[item] })[itemId]}));
   }
 
   // Derived
@@ -1492,7 +1520,8 @@ export default function PortalExercisePlanPage() {
                   <div key={item.id} className="px-5 py-4">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <p className="font-semibold text-text-primary text-sm">{item.exercise?.name || "Unknown"}</p>
+                        <p className="font-semibold text-text-primary text-sm">{log?.performed_exercise_name || item.exercise?.name || "Unknown"}</p>
+                        {log?.performed_exercise_id && log.performed_exercise_id!==item.exercise_id && <p className="mt-1 text-xs text-text-secondary">Swapped for this workout · prescribed {log.prescribed_exercise_name || item.exercise?.name}</p>}
                         {item.exercise?.muscle_group && (
                           <p className="text-xs text-text-secondary mt-0.5 capitalize">{item.exercise.muscle_group}</p>
                         )}
@@ -1805,10 +1834,12 @@ export default function PortalExercisePlanPage() {
         </div>
       )}
 
-      {runnerOpen && activeSession && typeof document !== "undefined" && createPortal((
+      {runnerOpen && activeSession && !alternativesLoaded && <p role="status" className="fixed inset-0 z-[100] grid place-items-center bg-[#09090b] text-white">Loading your workout…</p>}
+      {runnerOpen && activeSession && alternativesLoaded && typeof document !== "undefined" && createPortal((
         <NativeWorkoutLauncher
           key={`native:${activeSession.id}:${selectedDateStr}:${runnerMode}`}
-          session={activeSession}
+          session={runnerSession!}
+          forceWeb={activeSession.items.some(item => Boolean(alternatives[item.id]?.length) || Boolean(performedExercises[item.id] && performedExercises[item.id].id !== item.exercise_id))}
           mode={runnerMode}
           date={selectedDateStr}
           dateLabel={isToday(selectedDate)
@@ -1819,7 +1850,11 @@ export default function PortalExercisePlanPage() {
           onClose={() => setRunnerOpen(false)}
           fallback={(
             <AtCapacityWorkoutRunner
-              session={activeSession}
+              session={runnerSession!}
+              originalSession={activeSession}
+              alternatives={alternatives}
+              savedItemIds={dayLogs.map(log=>log.exercise_item_id)}
+              onSwap={swapExercise}
               mode={runnerMode}
               dateLabel={isToday(selectedDate)
                 ? "Today"

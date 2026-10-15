@@ -263,7 +263,7 @@ export default function ClientDetailPage() {
   const [nudgeMessage, setNudgeMessage] = useState("");
   const [exercisePlans, setExercisePlans] = useState<ClientExercisePlan[]>([]);
   const [nutritionPlans, setNutritionPlans] = useState<ClientNutritionPlan[]>([]);
-  const [recentExerciseLogs, setRecentExerciseLogs] = useState<Array<{ id: string; exercise_item_id: string; session_id: string | null; log_date: string; sets_data: Array<{ set_number: number; weight: string; reps: string; notes: string; circuit_rounds?: number }>; completed: boolean }>>([]);
+  const [recentExerciseLogs, setRecentExerciseLogs] = useState<Array<{ id: string; exercise_item_id: string; performed_exercise_id?: string; performed_exercise_name?: string; prescribed_exercise_name?: string; session_id: string | null; log_date: string; sets_data: Array<{ set_number: number; weight: string; reps: string; notes: string; circuit_rounds?: number }>; completed: boolean }>>([]);
   const [sessionSummaries, setSessionSummaries] = useState<DashboardSessionSummary[]>([]);
   const [workoutSummaryError, setWorkoutSummaryError] = useState(false);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
@@ -3612,7 +3612,7 @@ export default function ClientDetailPage() {
 interface TrainingTabContentProps {
   client: AdminClient;
   exercisePlans: ClientExercisePlan[];
-  recentExerciseLogs: Array<{ id: string; exercise_item_id: string; session_id: string | null; log_date: string; sets_data: Array<{ set_number: number; weight: string; reps: string; notes: string; circuit_rounds?: number }>; completed: boolean }>;
+  recentExerciseLogs: Array<{ id: string; exercise_item_id: string; performed_exercise_id?: string; performed_exercise_name?: string; prescribed_exercise_name?: string; session_id: string | null; log_date: string; sets_data: Array<{ set_number: number; weight: string; reps: string; notes: string; circuit_rounds?: number }>; completed: boolean }>;
   activePlan: TrainingPlan | undefined;
   plans: TrainingPlan[];
   expandedPhases: Set<string>;
@@ -3672,7 +3672,7 @@ function TrainingTabContent({
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
 
   // Training logs for the selected week
-  const [weekLogs, setWeekLogs] = useState<Array<{ id: string; exercise_item_id: string; session_id: string | null; log_date: string; sets_data: Array<{ set_number: number; weight: string; reps: string; notes: string; circuit_rounds?: number }>; completed: boolean }>>([]);
+  const [weekLogs, setWeekLogs] = useState<Array<{ id: string; exercise_item_id: string; performed_exercise_id?: string; performed_exercise_name?: string; prescribed_exercise_name?: string; session_id: string | null; log_date: string; sets_data: Array<{ set_number: number; weight: string; reps: string; notes: string; circuit_rounds?: number }>; completed: boolean }>>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [weeklyPlanner, setWeeklyPlanner] = useState<WeeklyTrainingAssignment[]>([]);
   const [plannerWeekStart, setPlannerWeekStart] = useState<string | null>(null);
@@ -4283,7 +4283,7 @@ function TrainingTabContent({
                         <div key={log.id} className={`rounded-xl px-3 py-2 ${log.completed ? "bg-emerald-500/5 border border-emerald-500/10" : "bg-[rgba(0,0,0,0.02)]"}`}>
                           <div className="flex items-center gap-2 mb-1">
                             <span className={`text-sm font-medium ${log.completed ? "text-text-primary" : "text-text-secondary"}`}>
-                              {exerciseItem?.exercise?.name || "Exercise"}
+                              {log.performed_exercise_name || exerciseItem?.exercise?.name || "Exercise"}
                             </span>
                             {log.completed && (
                               <svg className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4291,6 +4291,7 @@ function TrainingTabContent({
                               </svg>
                             )}
                           </div>
+                          {log.performed_exercise_name && log.performed_exercise_name!==log.prescribed_exercise_name && <p className="text-xs text-text-secondary">Prescribed: {log.prescribed_exercise_name} · swapped for this workout</p>}
                           {log.sets_data && log.sets_data.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mt-1">
                               {log.sets_data.map((set) => (

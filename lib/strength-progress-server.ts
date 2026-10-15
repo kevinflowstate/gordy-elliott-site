@@ -101,7 +101,7 @@ export async function loadClientStrengthProgress(
       .order("created_at", { ascending: false }),
     admin
       .from("client_exercise_logs")
-      .select("exercise_item_id, session_id, log_date, sets_data, completed")
+      .select("exercise_item_id, session_id, log_date, sets_data, completed, performed_exercise_id, performed_exercise_name")
       .eq("client_id", clientId)
       .gte("log_date", logCutoff)
       .lte("log_date", todayKey)
@@ -134,6 +134,7 @@ export async function loadClientStrengthProgress(
 
   const exerciseIds = [...new Set([
     ...trackers.map((tracker) => tracker.exercise_id),
+    ...(logsResult.data || []).map(log => log.performed_exercise_id).filter(Boolean),
     ...(items || []).map((item) => item.exercise_id),
   ])];
   const { data: exercises, error: exerciseError } = exerciseIds.length
@@ -147,12 +148,12 @@ export async function loadClientStrengthProgress(
 
   const strengthLogs: StrengthLogInput[] = (logsResult.data || [])
     .flatMap((log): StrengthLogInput[] => {
-      const exerciseId = itemExercise.get(log.exercise_item_id);
+      const exerciseId = log.performed_exercise_id || itemExercise.get(log.exercise_item_id);
       if (!exerciseId) return [];
       return [{
         exercise_item_id: log.exercise_item_id,
         exercise_id: exerciseId,
-        exercise_name: exerciseNames.get(exerciseId) || "Exercise",
+        exercise_name: log.performed_exercise_name || exerciseNames.get(exerciseId) || "Exercise",
         session_id: log.session_id,
         log_date: log.log_date,
         completed: Boolean(log.completed),
