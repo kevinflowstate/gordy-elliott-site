@@ -29,6 +29,7 @@ interface NutritionTemplateBuilderProps {
   onSave: (template: NutritionTemplate) => void | Promise<void>;
   onCancel: () => void;
   context?: "template" | "client";
+  clientPlanningContext?: string;
 }
 
 const CALORIE_RANGES = [
@@ -141,7 +142,7 @@ function getNextMealName(existingMeals: NutritionMeal[], dayPrefix: string): str
   return dayPrefix ? `${dayPrefix} - Meal ${n}` : `Meal ${n}`;
 }
 
-export default function NutritionTemplateBuilder({ template, onSave, onCancel, context = "template" }: NutritionTemplateBuilderProps) {
+export default function NutritionTemplateBuilder({ template, onSave, onCancel, context = "template", clientPlanningContext }: NutritionTemplateBuilderProps) {
   // Detect existing day variations if editing
   const existingDayVariations = template ? detectDayVariations(template.meals || []) : [];
   const isExistingMultiDay = existingDayVariations.length > 1;
@@ -650,6 +651,7 @@ export default function NutritionTemplateBuilder({ template, onSave, onCancel, c
           </div>
 
           <div className="p-6 space-y-8 flex-1">
+            {clientPlanningContext && <section className="rounded-xl border border-[#E040D0]/20 bg-[#E040D0]/5 p-4"><h2 className="text-sm font-semibold">Client onboarding measurements</h2><p className="mt-2 whitespace-pre-wrap text-sm text-text-secondary">{clientPlanningContext}</p></section>}
             <div>
               <h3 className="text-lg font-bold text-text-primary mb-1">Day Variations</h3>
               <p className="text-[13px] text-text-secondary mb-6">How many day types does this plan need?</p>

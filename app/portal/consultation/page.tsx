@@ -229,7 +229,11 @@ export default function ConsultationPage() {
 
     return (
       <input
-        type={question.type === "date" ? "date" : "text"}
+        type={["height_cm","weight_kg"].includes(question.id) ? "number" : question.type === "date" ? "date" : "text"}
+        id={`consultation-${question.id}`}
+        min={["height_cm","weight_kg"].includes(question.id) ? "0.1" : undefined}
+        max={["height_cm","weight_kg"].includes(question.id) ? "1000" : undefined}
+        step={["height_cm","weight_kg"].includes(question.id) ? "any" : undefined}
         value={value}
         onChange={(e) => handleChange(question.id, e.target.value)}
         placeholder={boardroom && /^\d+\. /.test(question.placeholder) ? "Type your answer..." : question.placeholder}
@@ -284,7 +288,7 @@ export default function ConsultationPage() {
           return (
             <div key={question.id} className="bg-bg-card border border-[rgba(0,0,0,0.06)] rounded-xl p-5">
               {boardroom && /^\d+\. /.test(question.placeholder) && questions[index - 1]?.placeholder !== question.placeholder && <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-[#E040D0]">{question.placeholder}</h2>}
-              <label htmlFor={["textarea", "select"].includes(question.type) ? `consultation-${question.id}` : undefined} className="block text-sm font-semibold text-text-primary mb-3">
+              <label htmlFor={`consultation-${question.id}`} className="block text-sm font-semibold text-text-primary mb-3">
                 {question.label}
                 {question.required && <span className="ml-1 text-[#E040D0]">*</span>}
               </label>

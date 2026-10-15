@@ -552,7 +552,7 @@ for (const question of BOARDROOM_CONSULTATION_QUESTIONS) {
 }
 export const BOARDROOM_MULTISELECT_IDS = new Set(["business_help", "business_sources"]);
 
-export const BOARDROOM_EXCLUDED_FIELDS = new Set(["date_of_birth", "sex", "cycle_tracking_enabled", "weight", "weight_kg", "wearables", "wearables_preference", "wearables_notes", "fitness_level", "training_days", "equipment_access", "home_equipment_details", "dietary_preferences", "injuries", "supplements", "hierarchy_exercise_nutrition"]);
+export const BOARDROOM_EXCLUDED_FIELDS = new Set(["date_of_birth", "sex", "cycle_tracking_enabled", "weight", "weight_kg", "height", "height_cm", "wearables", "wearables_preference", "wearables_notes", "fitness_level", "training_days", "equipment_access", "home_equipment_details", "dietary_preferences", "injuries", "supplements", "hierarchy_exercise_nutrition"]);
 export function isBoardroomConsultation(programme?: string | null) { return programme === "boardroom"; }
 export function validateConsultationAnswers(config: ConsultationFormConfig, answers: Record<string, unknown>): string | null {
   for (const q of config.questions.filter(q => q.enabled !== false)) {

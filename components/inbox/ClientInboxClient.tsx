@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -155,6 +156,7 @@ export default function ClientInboxClient() {
         <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-bright">Direct Messages</div>
         <h1 className="mt-2 text-2xl font-heading font-extrabold text-text-primary">DM</h1>
         <p className="mt-1 text-sm text-text-secondary">{thread?.canReply === false ? "Updates and monthly reviews from Gordy." : "Message Gordy directly from your AT CAPACITY portal."}</p>
+        {thread?.canReply === false && <Link href="/portal/help" className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-[#E040D0]/30 px-4 text-sm font-semibold text-accent-bright">Get help</Link>}
       </div>
 
       {loading ? (

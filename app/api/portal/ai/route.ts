@@ -1,3 +1,5 @@
+import { loadConsultationConfig } from "@/lib/consultation-config";
+import { consultationBodyContext } from "@/lib/consultation-metrics";
 import { homeEquipmentTrainingContext } from "@/lib/home-equipment";
 import { FOUNDATIONS_AI_REPLY_POLICY } from "@/lib/foundations";
 import { programmeWeek, programmeToday } from "@/lib/exercise-programme";
@@ -269,7 +271,7 @@ export async function POST(req: NextRequest) {
   // Latest check-in (mood, priority_message, support_ask) — keeps AI aware of recent state
   const { data: latestCheckins } = await admin
     .from("checkins")
-    .select("week_number, mood, form_config_snapshot, wins, challenges, responses, admin_reply, created_at")
+    .select("week_number, mood, form_config_snapshot, wins, challenges, responses, admin_reply, created_at, scheduled_date")
     .eq("client_id", profile?.id || "")
     .order("created_at", { ascending: false })
     .limit(1);
@@ -449,6 +451,7 @@ export async function POST(req: NextRequest) {
 
   const clientTier = (profile?.tier as string) || "coached";
   const consultationData = profile?.consultation_data as Record<string, unknown> | null;
+  const consultationConfig = await loadConsultationConfig(admin, profile?.programme_type);
 
   const tierContext = clientTier === "ai_only"
     ? `
@@ -476,6 +479,7 @@ Help with quick questions: meal ideas, short workouts, sleep tips, finding Educa
   const checkinSummary = latestCheckin
     ? {
         week: latestCheckin.week_number,
+        scheduled_date: latestCheckin.scheduled_date || null,
         mood: latestCheckin.form_config_snapshot?.mood_enabled === false ? null : latestCheckin.mood,
         priority_message: (latestCheckin.responses as Record<string, string> | null)?.priority_message || null,
         support_ask: (latestCheckin.responses as Record<string, string> | null)?.support_ask || null,
@@ -578,6 +582,7 @@ Weekly check-in day: ${profile?.checkin_day || "Not set"}
 Today: ${new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short", year: "numeric" })}
 ${tierContext}
 ${homeEquipmentTrainingContext(consultationData)}
+${consultationBodyContext(consultationData, consultationConfig.questions)}
 
 ===========================
 CYCLE TRACKING CONTEXT

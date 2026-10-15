@@ -50,7 +50,7 @@ async function fixture(assigned: CheckinFormConfig | null, existing: Record<stri
   const admin = { from(table: string) {
     const query: typeof queries[number] = { table, filters: {} }; queries.push(query);
     const result = () => ({ data: table === "client_profiles" ? { id: "business-client", programme_type: "boardroom", tier: "coached", checkin_form_id: assigned ? "personal-template" : null } : table === "checkin_forms" ? { id: "personal-template", name: "Aaron's questions", config: assigned } : table === "checkins" ? existing : null, error: null });
-    const builder = { select() { return builder; }, eq(key: string, value: unknown) { query.filters[key] = value; return builder; }, gte() { return builder; }, order() { return builder; }, limit() { return builder; }, insert(payload: Record<string, unknown>) { query.payload = payload; return builder; }, update(payload: Record<string, unknown>) { query.payload = payload; return builder; }, single() { return Promise.resolve(result()); }, maybeSingle() { return Promise.resolve(result()); }, then(resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) { return Promise.resolve(result()).then(resolve, reject); } }; return builder;
+    const builder = { select() { return builder; }, eq(key: string, value: unknown) { query.filters[key] = value; return builder; }, gte() { return builder; }, or(value:string) { query.filters.or=value; return builder; }, order() { return builder; }, limit() { return builder; }, insert(payload: Record<string, unknown>) { query.payload = payload; return builder; }, update(payload: Record<string, unknown>) { query.payload = payload; return builder; }, single() { return Promise.resolve(result()); }, maybeSingle() { return Promise.resolve(result()); }, then(resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) { return Promise.resolve(result()).then(resolve, reject); } }; return builder;
   } };
   const source = await readFile(new URL("../app/api/portal/checkin/route.ts", import.meta.url), "utf8");
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
@@ -64,7 +64,7 @@ async function fixture(assigned: CheckinFormConfig | null, existing: Record<stri
     if (id === "@/lib/checkin-replies") return { loadCoachCheckinReplies: async () => ({ replies: [], unavailable: false }) };
     return actual(id);
   }, exports);
-  return { get: () => exports.GET!(new Request("https://app.example.invalid/api/portal/checkin")), post: (responses = answers, revision = assigned ? checkinConfigRevision(assigned, "personal-template") : null) => exports.POST!(new Request("https://app.example.invalid/api/portal/checkin", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ responses, config_revision: revision, client_id: "attacker" }) })), queries };
+  return { get: () => exports.GET!(new Request("https://app.example.invalid/api/portal/checkin")), post: (responses = answers, revision = assigned ? checkinConfigRevision(assigned, "personal-template") : null) => exports.POST!(new Request("https://app.example.invalid/api/portal/checkin", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ responses, config_revision: revision, client_id: "attacker", ...(existing ? {checkin_id:existing.id} : {}) }) })), queries };
 }
 
 test("unassigned Boardroom check-ins stay pending and cannot submit a global fitness form", async () => {

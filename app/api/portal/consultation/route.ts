@@ -1,8 +1,10 @@
+import { consultationMetricError, consultationBodyContext } from "@/lib/consultation-metrics";
 import { HOME_EQUIPMENT_FIELD, HOME_EQUIPMENT_MAX_LENGTH, homeTrainingSelected, savedHomeEquipmentDetails } from "@/lib/home-equipment";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { dbError } from "@/lib/api-errors";
-import { normalizeConsultationConfig } from "@/lib/consultation-form";
+import { loadConsultationConfig } from "@/lib/consultation-config";
+import type { FormQuestion } from "@/lib/types";
 import { isBoardroomConsultation, validateConsultationAnswers, buildBoardroomConsultationSummary } from "@/lib/boardroom-consultation";
 import { getSiteUrl } from "@/lib/site-url";
 import { NextRequest, NextResponse } from "next/server";
@@ -16,7 +18,7 @@ function answerText(data: Record<string, unknown>, key: string) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function buildFallbackSummary(data: Record<string, unknown>) {
+function buildFallbackSummary(data: Record<string, unknown>, questions: FormQuestion[]) {
   return {
     generated_by: "deterministic",
     generated_at: new Date().toISOString(),
@@ -32,6 +34,7 @@ function buildFallbackSummary(data: Record<string, unknown>) {
       fitness_level: answerText(data, "fitness_level"),
       training_days: answerText(data, "training_days"),
       equipment_access: answerText(data, "equipment_access"),
+      body_metrics: consultationBodyContext(data, questions),
       home_equipment_details: homeTrainingSelected(data) ? answerText(data, HOME_EQUIPMENT_FIELD) : "",
       dietary_preferences: answerText(data, "dietary_preferences"),
       injuries: answerText(data, "injuries"),
@@ -45,8 +48,8 @@ function buildFallbackSummary(data: Record<string, unknown>) {
   };
 }
 
-async function extractConsultationSummary(data: Record<string, unknown>) {
-  const fallback = buildFallbackSummary(data);
+async function extractConsultationSummary(data: Record<string, unknown>, questions: FormQuestion[]) {
+  const fallback = buildFallbackSummary(data, questions);
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) return fallback;
 
@@ -112,23 +115,13 @@ async function extractConsultationSummary(data: Record<string, unknown>) {
     return {
       ...fallback,
       ...parsed,
-      coaching_profile: {...fallback.coaching_profile, ...parsed.coaching_profile, home_equipment_details: fallback.coaching_profile.home_equipment_details},
+      coaching_profile: {...fallback.coaching_profile, ...parsed.coaching_profile, home_equipment_details: fallback.coaching_profile.home_equipment_details, body_metrics:fallback.coaching_profile.body_metrics},
       generated_by: "openrouter",
       generated_at: new Date().toISOString(),
     };
   } catch {
     return fallback;
   }
-}
-
-async function loadConsultationConfig(admin: ReturnType<typeof createAdminClient>, programme?: string | null) {
-  const { data } = await admin
-    .from("form_config")
-    .select("config")
-    .eq("form_type", isBoardroomConsultation(programme) ? "boardroom_consultation" : programme === "foundations" ? "foundations_consultation" : "consultation")
-    .maybeSingle();
-
-  return normalizeConsultationConfig(data?.config, programme);
 }
 
 export async function GET() {
@@ -190,7 +183,7 @@ export async function POST(req: NextRequest) {
   const shouldAdvanceOnboarding = currentProfile.onboarding_status === "invited";
   const boardroom = isBoardroomConsultation(currentProfile.programme_type);
   const config = await loadConsultationConfig(admin, currentProfile.programme_type);
-  const validationError = validateConsultationAnswers(config, body);
+  const validationError = validateConsultationAnswers(config, body) || (!boardroom && consultationMetricError(Object.fromEntries(config.questions.filter(q=>q.enabled!==false).map(q=>[q.id,body[q.id]]))));
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
   const enabledQuestions = config.questions.filter((question) => question.enabled !== false);
   const enabledIds = new Set(enabledQuestions.map((question) => question.id));
@@ -204,6 +197,7 @@ export async function POST(req: NextRequest) {
     }
   }
   if (!boardroom) {
+    for(const key of ["height_cm","weight_kg"]) if((!(key in body)||!enabledIds.has(key))&&currentProfile.consultation_data?.[key]!==undefined)consultationData[key]=currentProfile.consultation_data[key];
     const details = savedHomeEquipmentDetails(body, currentProfile.consultation_data);
     if (details !== undefined) consultationData[HOME_EQUIPMENT_FIELD] = details;
   }
@@ -249,7 +243,7 @@ export async function POST(req: NextRequest) {
     const mobile = answerText(consultationData, "business_mobile");
     if (mobile) updates.phone = mobile;
   }
-  updates.consultation_summary = boardroom ? buildBoardroomConsultationSummary(consultationData) : await extractConsultationSummary(consultationData);
+  updates.consultation_summary = boardroom ? buildBoardroomConsultationSummary(consultationData) : await extractConsultationSummary(consultationData, config.questions);
   if (shouldAdvanceOnboarding) updates.onboarding_status = "consultation_complete";
 
   const { error } = await admin

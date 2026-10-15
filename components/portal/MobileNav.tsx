@@ -24,6 +24,7 @@ const allVisibleItems: PortalNavItem[] = [
 ];
 
 const allMoreItems: PortalNavItem[] = [
+  { href: "/portal/help", label: "Get help", icon: "M12 18h.01M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3m10-1a10 10 0 11-20 0 10 10 0 0120 0", tiers: ["coached", "premium", "vip", "ai_only"], programmes: ["foundations"] },
   { href: "/portal/daily-tracker", label: "Daily Tracker", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z", tiers: ["coached", "premium", "vip", "ai_only"] },
   { href: "/portal/community", label: "SHIFT Community", icon: "M7 8h10M7 12h6m-9 8 3.5-3H18a2 2 0 002-2V5a2 2 0 00-2-2H6a2 2 0 00-2 2v15z", tiers: ["coached", "premium", "vip", "ai_only"], programmes: ["shift"] },
   { href: "/portal/cycle", label: "Cycle Tracker", icon: "M12 6v6l4 2m5-2a9 9 0 11-2.64-6.36M21 3v6h-6", tiers: ["coached", "premium", "vip", "ai_only"], requiresCycle: true },

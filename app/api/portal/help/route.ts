@@ -1,0 +1,23 @@
+import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { FOUNDATIONS_HELP_KINDS } from '@/lib/foundations-help';
+import { NextResponse } from 'next/server';
+export async function GET() { const supabase = await createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user)
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 }); const { data: profile } = await createAdminClient().from('client_profiles').select('programme_type').eq('user_id', user.id).single(); return NextResponse.json({ allowed: profile?.programme_type === 'foundations' }, { status: profile?.programme_type === 'foundations' ? 200 : 403 }); }
+export async function POST(request: Request) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user)
+        return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body.message !== 'string' || !body.message.trim() || body.message.length > 4000 || !FOUNDATIONS_HELP_KINDS.includes(body.kind) || typeof body.submission_key !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.submission_key))
+        return NextResponse.json({ error: 'Choose a help topic and describe what you need (up to 4,000 characters).' }, { status: 400 });
+    const admin = createAdminClient();
+    const { data: profile } = await admin.from('client_profiles').select('programme_type').eq('user_id', user.id).single();
+    if (profile?.programme_type !== 'foundations')
+        return NextResponse.json({ error: 'Foundations access required' }, { status: 403 });
+    const { data, error } = await admin.rpc('submit_foundations_help', { p_user_id: user.id, p_key: body.submission_key, p_kind: body.kind, p_message: body.message, p_test: user.email?.endsWith('@flowstate.invalid') === true && user.user_metadata?.foundations_qa_fixture === true });
+    if (error)
+        return NextResponse.json({ error: error.message.includes('HELP_RATE_LIMIT') ? 'Please wait before sending another help request.' : 'Your request could not be saved. Your message is still here; please retry.' }, { status: error.message.includes('HELP_RATE_LIMIT') ? 429 : 503 });
+    return NextResponse.json({ reference: `FND-${String(data).slice(0, 8).toUpperCase()}` });
+}

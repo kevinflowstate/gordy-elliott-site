@@ -1,3 +1,5 @@
+import { scheduledCheckinDates, scheduledCheckinError, checkinWeekStart, addCheckinDays, checkinToday } from "@/lib/checkin-schedule";
+import { foundationsMidnight } from "@/lib/foundations";
 import { monthlyReviewWindow } from "@/lib/foundations";
 import { checkinConfigForWeightUnit, isWeightUnit, weightToKg } from "@/lib/weight-units";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -6,15 +8,6 @@ import { buildFallbackCheckinConfig, normalizeCheckinConfig, validateCheckinSubm
 import { loadCoachCheckinReplies } from "@/lib/checkin-replies";
 import { checkinConfigRevision } from "@/lib/checkin-revision";
 import { NextResponse } from "next/server";
-
-function getWeekStartIso(date = new Date()) {
-  const start = new Date(date);
-  const day = start.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  start.setDate(start.getDate() + diff);
-  start.setHours(0, 0, 0, 0);
-  return start.toISOString();
-}
 
 async function resolveCheckinConfig(admin: ReturnType<typeof createAdminClient>, profile: { checkin_form_id: string | null; programme_type?: string }) {
   const { data: assigned } = profile.checkin_form_id ? await admin.from("checkin_forms").select("id, name, config").eq("id", profile.checkin_form_id).maybeSingle() : { data: null };
@@ -52,9 +45,12 @@ export async function GET(request: Request) {
 
   const { config: effectiveConfig, template: effectiveTemplate, pending } = await resolveCheckinConfig(admin, profile);
 
+  const dates=scheduledCheckinDates(profile.start_date,profile.checkin_day||effectiveConfig?.checkin_day);
+  const selectedDate=new URL(request.url).searchParams.get("date")||dates[0]||null;
   const editId = new URL(request.url).searchParams.get("edit");
+  if(!editId&&selectedDate&&scheduledCheckinError(selectedDate,dates))return NextResponse.json({error:scheduledCheckinError(selectedDate,dates)},{status:400});
   let query = admin.from("checkins").select("*").eq("client_id", profile.id);
-  query = editId ? query.eq("id", editId) : query.gte("created_at", getWeekStartIso());
+  query = editId ? query.eq("id", editId) : selectedDate ? query.or(`scheduled_date.eq.${selectedDate},and(scheduled_date.is.null,created_at.gte.${foundationsMidnight(checkinWeekStart(selectedDate))},created_at.lt.${foundationsMidnight(addCheckinDays(checkinWeekStart(selectedDate),7))})`) : query.eq("id","00000000-0000-0000-0000-000000000000");
   const { data: currentWeekCheckin, error: loadError } = await query.order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (loadError) return NextResponse.json({ error: "Couldn't load your check-in" }, { status: 500 });
   if (editId && !currentWeekCheckin) return NextResponse.json({ error: "Check-in not found" }, { status: 404 });
@@ -66,7 +62,7 @@ export async function GET(request: Request) {
   const weightUnit = currentWeekCheckin ? (isWeightUnit(savedUnit) ? savedUnit : "kg") : (isWeightUnit(profile.weight_unit) ? profile.weight_unit : "kg");
   const displayedConfig = baseConfig ? checkinConfigForWeightUnit(baseConfig, weightUnit) : null;
   const displayedTemplateId = snapshot ? currentWeekCheckin.checkin_form_id : effectiveTemplate?.id || profile.checkin_form_id || null;
-  const { data: history } = await admin.from("checkins").select("id, created_at, week_number").eq("client_id", profile.id).order("created_at", { ascending: false }).limit(52);
+  const { data: history } = await admin.from("checkins").select("id, created_at, week_number, scheduled_date").eq("client_id", profile.id).order("created_at", { ascending: false }).limit(52);
 
   const replies = await loadCoachCheckinReplies(admin, profile.id, profile.tier || "coached");
 
@@ -77,6 +73,8 @@ export async function GET(request: Request) {
   }
   return NextResponse.json({
     monthlyReview,
+    scheduledDates:dates,
+    scheduledDate:currentWeekCheckin?.scheduled_date || selectedDate,
     currentWeekCheckin: currentWeekCheckin || null,
     checkinReplies: replies.replies,
     repliesUnavailable: replies.unavailable,
@@ -106,7 +104,7 @@ export async function POST(request: Request) {
 
   const { data: profile } = await admin
     .from("client_profiles")
-    .select("id, programme_type, weight_unit, checkin_form_id")
+    .select("id, programme_type, weight_unit, checkin_form_id, start_date, checkin_day")
     .eq("user_id", user.id)
     .single();
 
@@ -119,11 +117,16 @@ export async function POST(request: Request) {
   let body;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request" }, { status: 400 }); }
   if (body.checkin_id !== undefined && typeof body.checkin_id !== "string") return NextResponse.json({ error: "Invalid check-in" }, { status: 400 });
-  let query = admin.from("checkins").select("id, created_at, week_number, checkin_form_id, form_config_snapshot, responses, wins, challenges, questions").eq("client_id", profile.id);
-  query = body.checkin_id ? query.eq("id", body.checkin_id) : query.gte("created_at", getWeekStartIso());
+  const dates=scheduledCheckinDates(profile.start_date,profile.checkin_day||config?.checkin_day);
+  const selectedDate=body.scheduled_date||dates[0]||null;
+  if(!body.checkin_id&&scheduledCheckinError(selectedDate,dates))return NextResponse.json({error:scheduledCheckinError(selectedDate,dates)},{status:400});
+  let query = admin.from("checkins").select("id, created_at, week_number, checkin_form_id, form_config_snapshot, responses, wins, challenges, questions, scheduled_date").eq("client_id", profile.id);
+  query = body.checkin_id ? query.eq("id", body.checkin_id) : query.or(`scheduled_date.eq.${selectedDate},and(scheduled_date.is.null,created_at.gte.${foundationsMidnight(checkinWeekStart(selectedDate))},created_at.lt.${foundationsMidnight(addCheckinDays(checkinWeekStart(selectedDate),7))})`);
   const { data: currentWeekCheckin, error: loadError } = await query.order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (loadError) return NextResponse.json({ error: "Couldn't load your saved check-in. Nothing was changed." }, { status: 500 });
   if (body.checkin_id && !currentWeekCheckin) return NextResponse.json({ error: "Check-in not found" }, { status: 404 });
+  if(body.checkin_id&&body.scheduled_date&&currentWeekCheckin?.scheduled_date&&body.scheduled_date!==currentWeekCheckin.scheduled_date)return NextResponse.json({error:"A saved check-in stays on its original scheduled date."},{status:409});
+  if(currentWeekCheckin&&!body.checkin_id)return NextResponse.json({error:"This scheduled check-in is already saved. Reopen it to edit without replacing another submission."},{status:409});
   const snapshot = currentWeekCheckin?.form_config_snapshot;
   if (currentWeekCheckin && (snapshot?.programme_type === "boardroom") !== (profile.programme_type === "boardroom")) return NextResponse.json({ error: "This check-in belongs to your previous programme. Ask Gordy to review it." }, { status: 409 });
   const baseConfig = snapshot ? normalizeCheckinConfig(snapshot, profile.programme_type === "boardroom" ? "boardroom" : undefined) : config;
@@ -168,6 +171,7 @@ export async function POST(request: Request) {
 
   const payload = {
     client_id: profile.id,
+    scheduled_date: currentWeekCheckin ? currentWeekCheckin.scheduled_date : selectedDate,
     checkin_form_id: submittedTemplateId,
     form_config_snapshot: submittedConfig,
     week_number: weekNumber,
@@ -184,7 +188,7 @@ export async function POST(request: Request) {
     ? admin.from("checkins").update(payload).eq("id", currentWeekCheckin.id).eq("client_id", profile.id)
     : admin.from("checkins").insert(payload);
 
-  const { error: insertError } = await operation;
+  const { data:savedCheckin, error: insertError } = await operation.select("id,created_at,scheduled_date").single();
 
   if (insertError) {
     const duplicateWeek =
@@ -193,7 +197,7 @@ export async function POST(request: Request) {
 
     if (duplicateWeek) return NextResponse.json({ error: "A check-in was saved in another tab. Keep your answers, reload the saved check-in and try again." }, { status: 409 });
 
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+    return NextResponse.json({ error: insertError.message }, { status: insertError.code === "P0001" ? 409 : 500 });
   }
 
   // Update last checkin timestamp
@@ -207,7 +211,8 @@ export async function POST(request: Request) {
   if (responses && profile.programme_type !== "boardroom") {
     const measurement: Record<string, unknown> = {
       client_id: profile.id,
-      measured_date: (currentWeekCheckin?.created_at || new Date().toISOString()).split("T")[0],
+      // Legacy corrections retain the UTC key used when their chart row was created.
+      measured_date: currentWeekCheckin && !currentWeekCheckin.scheduled_date ? currentWeekCheckin.created_at.slice(0,10) : currentWeekCheckin?.scheduled_date || selectedDate,
     };
     let hasData = false;
     // Unchanged ambiguous legacy weights stay untouched; explicit failed writes can retry.
@@ -230,6 +235,10 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     success: true,
+    checkin_id:savedCheckin?.id||currentWeekCheckin?.id||null,
+    // Scheduled photo folders stay distinct; preserve original legacy correction keys.
+    photo_date: currentWeekCheckin ? currentWeekCheckin.scheduled_date || currentWeekCheckin.created_at.slice(0,10) : selectedDate,
+    created_at:savedCheckin?.created_at||currentWeekCheckin?.created_at||null,
     week_number: weekNumber,
     measurementWarning,
     updated: Boolean(currentWeekCheckin),

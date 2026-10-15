@@ -98,14 +98,14 @@ export type CheckinAdherence = {
  */
 export function checkinAdherence(params: {
   startDate: string | null | undefined;
-  checkins: Array<{ created_at: string }>;
+  checkins: Array<{ created_at: string; scheduled_date?: string | null }>;
   now: Date;
   windowWeeks?: number;
 }): CheckinAdherence {
   const windowWeeks = params.windowWeeks ?? COMPLIANCE_WINDOW_WEEKS;
   const submitted = new Set<string>();
   for (const checkin of params.checkins) {
-    const at = new Date(checkin.created_at);
+    const at = new Date(checkin.scheduled_date ? checkin.scheduled_date + 'T12:00:00Z' : checkin.created_at);
     if (Number.isNaN(at.getTime())) continue;
     submitted.add(londonWeekKey(at));
   }
@@ -210,7 +210,7 @@ export type FounderComplianceSummary = {
  */
 export function composeComplianceSummary(params: {
   startDate: string | null | undefined;
-  checkins: Array<{ created_at: string }>;
+  checkins: Array<{ created_at: string; scheduled_date?: string | null }>;
   callRecords: Array<{ call_type: string; attended: boolean }>;
   whatsappRecords: Array<{ week_key: string; helped: boolean }>;
   now: Date;

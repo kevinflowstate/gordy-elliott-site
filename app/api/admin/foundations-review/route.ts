@@ -17,7 +17,7 @@ export async function GET(request:Request) {
  const {admin,profile,window}=ctx;
  const [{data:reviews,error},{data:checkins,error:checkinError}]=await Promise.all([
   admin.from('foundations_monthly_reviews').select('id,period_start,period_end,response,reviewed_at,message_id').eq('client_id',profile.id).order('period_start',{ascending:false}).limit(12),
-  admin.from('checkins').select('id,created_at,mood,wins,challenges,questions,responses,form_config_snapshot').eq('client_id',profile.id).gte('created_at',foundationsMidnight(window.periodStart)).lt('created_at',foundationsMidnight(window.periodEnd)).order('created_at',{ascending:true})
+  admin.from('checkins').select('id,created_at,scheduled_date,reviewed_at,mood,wins,challenges,questions,responses,form_config_snapshot').eq('client_id',profile.id).or(`and(scheduled_date.gte.${window.periodStart},scheduled_date.lt.${window.periodEnd}),and(scheduled_date.lt.${window.periodStart},reviewed_at.is.null),and(scheduled_date.is.null,created_at.gte.${foundationsMidnight(window.periodStart)},created_at.lt.${foundationsMidnight(window.periodEnd)})`).order('created_at',{ascending:true})
  ]);
  if(error||checkinError)return NextResponse.json({error:'Could not load monthly review'},{status:500});
  return NextResponse.json({window,reviews:reviews||[],checkins:(checkins||[]).map(c=>({...c,answers:foundationsReviewAnswers({submitted_at:c.created_at,mood:c.mood,wins:c.wins,challenges:c.challenges,questions:c.questions,responses:c.responses,config:c.form_config_snapshot})})),completed:reviews?.some(r=>r.period_start===window.periodStart)||false});
