@@ -1,3 +1,4 @@
+import { consultationMetricError, consultationBodyContext } from "@/lib/consultation-metrics";
 import { HOME_EQUIPMENT_FIELD, HOME_EQUIPMENT_MAX_LENGTH, homeTrainingSelected, savedHomeEquipmentDetails } from "@/lib/home-equipment";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -32,6 +33,7 @@ function buildFallbackSummary(data: Record<string, unknown>) {
       fitness_level: answerText(data, "fitness_level"),
       training_days: answerText(data, "training_days"),
       equipment_access: answerText(data, "equipment_access"),
+      body_metrics: consultationBodyContext(data),
       home_equipment_details: homeTrainingSelected(data) ? answerText(data, HOME_EQUIPMENT_FIELD) : "",
       dietary_preferences: answerText(data, "dietary_preferences"),
       injuries: answerText(data, "injuries"),
@@ -112,7 +114,7 @@ async function extractConsultationSummary(data: Record<string, unknown>) {
     return {
       ...fallback,
       ...parsed,
-      coaching_profile: {...fallback.coaching_profile, ...parsed.coaching_profile, home_equipment_details: fallback.coaching_profile.home_equipment_details},
+      coaching_profile: {...fallback.coaching_profile, ...parsed.coaching_profile, home_equipment_details: fallback.coaching_profile.home_equipment_details, body_metrics:fallback.coaching_profile.body_metrics},
       generated_by: "openrouter",
       generated_at: new Date().toISOString(),
     };
@@ -190,7 +192,7 @@ export async function POST(req: NextRequest) {
   const shouldAdvanceOnboarding = currentProfile.onboarding_status === "invited";
   const boardroom = isBoardroomConsultation(currentProfile.programme_type);
   const config = await loadConsultationConfig(admin, currentProfile.programme_type);
-  const validationError = validateConsultationAnswers(config, body);
+  const validationError = validateConsultationAnswers(config, body) || (!boardroom && consultationMetricError(Object.fromEntries(config.questions.filter(q=>q.enabled!==false).map(q=>[q.id,body[q.id]]))));
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
   const enabledQuestions = config.questions.filter((question) => question.enabled !== false);
   const enabledIds = new Set(enabledQuestions.map((question) => question.id));
@@ -204,6 +206,7 @@ export async function POST(req: NextRequest) {
     }
   }
   if (!boardroom) {
+    for(const key of ["height_cm","weight_kg"]) if((!(key in body)||!enabledIds.has(key))&&currentProfile.consultation_data?.[key]!==undefined)consultationData[key]=currentProfile.consultation_data[key];
     const details = savedHomeEquipmentDetails(body, currentProfile.consultation_data);
     if (details !== undefined) consultationData[HOME_EQUIPMENT_FIELD] = details;
   }

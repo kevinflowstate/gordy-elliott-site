@@ -1,3 +1,4 @@
+import { FOUNDATIONS_HELP_EMAIL, foundationsHelpEmail } from "@/lib/foundations-help-email";
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -42,8 +43,13 @@ export async function GET(request: Request) {
         if (error) throw error;
       },
     });
-    return NextResponse.json(result, {
-      status: result.failed.length ? 502 : 200,
+    const helpResult=await deliverSupportAlerts({
+      pending:async()=>{const{data,error}=await admin.from("foundations_help_requests").select("id,client_id,client_name,client_email,kind,message,created_at").is("notification_sent_at",null).order("created_at").limit(10);if(error)throw error;return(data||[]).map(ticket=>({...ticket,reference:`FND-${ticket.id.slice(0,8)}`,area:ticket.kind,impact:"Foundations help"}));},
+      send:async(ticket,idempotencyKey)=>{const{data:full,error:loadError}=await admin.from("foundations_help_requests").select("*").eq("id",ticket.id).single();if(loadError)throw loadError;const{data,error}=await resend.emails.send({from:process.env.RESEND_FROM_EMAIL||"AT CAPACITY <info@onlinegordy.com>",to:FOUNDATIONS_HELP_EMAIL,...foundationsHelpEmail(full)},{idempotencyKey:`foundations-${idempotencyKey}`});if(error||!data?.id)throw Error("Help email was not accepted");return data.id;},
+      markSent:async(id,emailId)=>{const{error}=await admin.from("foundations_help_requests").update({notification_sent_at:new Date().toISOString(),notification_email_id:emailId}).eq("id",id);if(error)throw error;},
+    });
+    return NextResponse.json({...result,foundationsHelp:helpResult}, {
+      status: result.failed.length || helpResult.failed.length ? 502 : 200,
       headers: { "Cache-Control": "no-store" },
     });
   } catch {

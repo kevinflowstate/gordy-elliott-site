@@ -28,6 +28,7 @@ const allNavItems: PortalNavItem[] = [
   { href: "/portal/calendar", label: "Calendar", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", tiers: ["coached", "premium", "vip"] },
   { href: "/portal/plan", label: "Business Plan", icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z", tiers: ["coached", "premium", "vip", "ai_only"], programmes: ["boardroom"] },
   { href: "/portal/inbox", label: "DM", icon: "M8 10h8m-8 4h5m-7 6h12a2 2 0 002-2V8a2 2 0 00-.586-1.414l-4-4A2 2 0 0014 2H6a2 2 0 00-2 2v14a2 2 0 002 2z", tiers: ["coached", "premium", "vip", "ai_only"] },
+  { href: "/portal/help", label: "Get help", icon: "M12 18h.01M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3m10-1a10 10 0 11-20 0 10 10 0 0120 0", tiers: ["coached", "premium", "vip", "ai_only"], programmes: ["foundations"] },
   { href: "/portal/community", label: "SHIFT Community", icon: "M7 8h10M7 12h6m-9 8 3.5-3H18a2 2 0 002-2V5a2 2 0 00-2-2H6a2 2 0 00-2 2v15z", tiers: ["coached", "premium", "vip", "ai_only"], programmes: ["shift"] },
   { href: "/portal/checkin", label: "Check-In", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4", tiers: ["coached", "premium", "vip"] },
   { href: "/portal/gallery", label: "Gallery", icon: "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z", tiers: ["coached", "premium", "vip", "ai_only"] },

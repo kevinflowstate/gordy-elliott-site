@@ -1,3 +1,4 @@
+import { consultationBodyContext } from "@/lib/consultation-metrics";
 import { homeEquipmentTrainingContext } from "@/lib/home-equipment";
 import { FOUNDATIONS_AI_REPLY_POLICY } from "@/lib/foundations";
 import { programmeWeek, programmeToday } from "@/lib/exercise-programme";
@@ -578,6 +579,7 @@ Weekly check-in day: ${profile?.checkin_day || "Not set"}
 Today: ${new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short", year: "numeric" })}
 ${tierContext}
 ${homeEquipmentTrainingContext(consultationData)}
+${consultationBodyContext(consultationData)}
 
 ===========================
 CYCLE TRACKING CONTEXT

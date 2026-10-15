@@ -1,3 +1,4 @@
+import { withConsultationBodyMetrics } from "@/lib/consultation-metrics";
 import { buildBoardroomConsultationConfig, BOARDROOM_EXCLUDED_FIELDS, isBoardroomConsultation } from "@/lib/boardroom-consultation";
 import { withHomeEquipmentQuestion } from "@/lib/home-equipment";
 import type { FormQuestion } from "@/lib/types";
@@ -209,5 +210,5 @@ export function isConsultationSystemField(id: string) {
 
 export function normalizeConsultationConfig(config: ConsultationFormConfig | null | undefined, programme?: string | null): ConsultationFormConfig {
   const normalized = normalizeConsultationConfigBase(config, programme);
-  return isBoardroomConsultation(programme) ? normalized : {...normalized, questions:withHomeEquipmentQuestion(normalized.questions)};
+  return isBoardroomConsultation(programme) ? normalized : {...normalized, questions:withConsultationBodyMetrics(withHomeEquipmentQuestion(normalized.questions))};
 }

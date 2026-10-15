@@ -268,7 +268,7 @@ export default function ExerciseTemplateBuilder({
               {saveError}
             </div>
           )}
-          {isClientContext && clientTrainingContext && <section className="rounded-xl border border-[#E040D0]/20 bg-[#E040D0]/5 p-4"><h2 className="text-sm font-semibold">Client home equipment</h2><p className="mt-2 whitespace-pre-wrap text-sm text-text-secondary">{clientTrainingContext}</p></section>}
+          {isClientContext && clientTrainingContext && <section className="rounded-xl border border-[#E040D0]/20 bg-[#E040D0]/5 p-4"><h2 className="text-sm font-semibold">Client onboarding context</h2><p className="mt-2 whitespace-pre-wrap text-sm text-text-secondary">{clientTrainingContext}</p></section>}
           {/* Template meta */}
           <div className="bg-bg-card/80 border border-[rgba(0,0,0,0.06)] rounded-2xl p-5 space-y-4">
             <div>

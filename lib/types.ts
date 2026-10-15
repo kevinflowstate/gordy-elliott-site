@@ -124,6 +124,7 @@ export interface CheckIn {
   form_config_snapshot?: CheckinFormConfig | null;
   id: string;
   client_id: string;
+  scheduled_date?: string | null;
   week_number: number;
   mood: CheckInMood;
   wins?: string;

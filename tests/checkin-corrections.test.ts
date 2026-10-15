@@ -13,14 +13,16 @@ async function fixture() {
  let measurementFails=false; let concurrentAnswers:Record<string,unknown>|null=null;
  const admin={from(table:string) {
   const filters:Record<string,unknown>={}; let payload:Record<string,unknown>|null=null; let mode='read'; let single=false;
-  const b={select(){return b},eq(k:string,v:unknown){filters[k]=v;return b},gte(k:string,v:unknown){filters[`gte:${k}`]=v;return b},order(){return b},limit(){return b},update(p:Record<string,unknown>){payload=p;mode='update';return b},insert(p:Record<string,unknown>){payload=p;mode='insert';return b},upsert(p:Record<string,unknown>){payload=p;mode='upsert';return b},single(){single=true;return Promise.resolve(result())},maybeSingle(){single=true;return Promise.resolve(result())},then(resolve:(x:unknown)=>unknown){return Promise.resolve(result()).then(resolve)}};
+  const b={select(){return b},eq(k:string,v:unknown){filters[k]=v;return b},gte(k:string,v:unknown){filters[`gte:${k}`]=v;return b},or(value:string){filters.or=value;return b},order(){return b},limit(){return b},update(p:Record<string,unknown>){payload=p;mode='update';return b},insert(p:Record<string,unknown>){payload=p;mode='insert';return b},upsert(p:Record<string,unknown>){payload=p;mode='upsert';return b},single(){single=true;return Promise.resolve(result())},maybeSingle(){single=true;return Promise.resolve(result())},then(resolve:(x:unknown)=>unknown){return Promise.resolve(result()).then(resolve)}};
   function result():{data:unknown;error:unknown} {
    if(payload) { writes.push({table,payload,filters}); if(table==='checkins') { assert.equal(filters.client_id,'owner');if (!filters.responses || JSON.stringify(saved.responses)===filters.responses) Object.assign(saved,structuredClone(payload)); } if(table==='client_body_measurements'&&concurrentAnswers)saved.responses=concurrentAnswers; return {data:null,error:table==='client_body_measurements'&&measurementFails?{message:'offline'}:null}; }
    if(table==='client_profiles')return {data:{id:'owner',programme_type:'capacity',weight_unit:'lb',checkin_form_id:'form',tier:'coached'},error:null};
    if(table==='checkin_forms')return {data:{id:'form',config},error:null};
    if(table==='checkins'){
     assert.equal(filters.client_id,'owner');
-    const found=(!filters.id || filters.id==='old')&&(!filters['gte:created_at'] || String(saved.created_at)>=String(filters['gte:created_at']));
+    const scheduled=typeof filters.or==='string'?filters.or.match(/^scheduled_date\.eq\.([^,]+),and\(scheduled_date\.is\.null,created_at\.gte\.([^,]+),created_at\.lt\.([^)]+)\)$/):null;
+    const inSchedule=!scheduled||saved.scheduled_date===scheduled[1]||(!saved.scheduled_date&&String(saved.created_at)>=scheduled[2]&&String(saved.created_at)<scheduled[3]);
+    const found=inSchedule&&(!filters.id || filters.id==='old')&&(!filters['gte:created_at'] || String(saved.created_at)>=String(filters['gte:created_at']));
     return {data:single?found?structuredClone(saved):null:found?[saved]:[],error:null};
    }
    throw new Error(`Unexpected table ${table} (${mode})`);

@@ -1,5 +1,6 @@
 "use client";
 
+import { consultationBodyContext } from "@/lib/consultation-metrics";
 import { homeEquipmentTrainingContext } from "@/lib/home-equipment";
 import FoundationsReviewPanel from "@/components/admin/FoundationsReviewPanel";
 
@@ -166,6 +167,8 @@ function timeAgoDetailed(dateStr: string): string {
 }
 
 function formatConsultationLabel(key: string): string {
+  if(key === "height_cm") return "Height (cm)";
+  if(key === "weight_kg") return "Consultation weight (kg)";
   return key
     .replace(/_/g, " ")
     .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -2101,7 +2104,7 @@ export default function ClientDetailPage() {
                           {(c.form_config_snapshot || checkinConfig)?.mood_enabled !== false && <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase ${mc.bgClass} ${mc.textClass}`}>{c.mood}</span>}
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-text-muted">{timeAgo(c.created_at)}</span>
+                          <span className="text-xs text-text-muted">{c.scheduled_date ? `Scheduled ${c.scheduled_date} · submitted ` : ""}{timeAgo(c.created_at)}</span>
                           <svg className={`w-3.5 h-3.5 text-text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                           </svg>
@@ -2372,7 +2375,7 @@ export default function ClientDetailPage() {
                         <span className="text-sm font-semibold text-text-primary">Week {c.week_number}</span>
                         {(c.form_config_snapshot || checkinConfig)?.mood_enabled !== false && <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${mc.bgClass} ${mc.textClass}`}>{c.mood}</span>}
                       </div>
-                      <span className="text-xs text-text-muted">{timeAgo(c.created_at)}</span>
+                      <span className="text-xs text-text-muted">{c.scheduled_date ? `Scheduled ${c.scheduled_date} · submitted ` : ""}{timeAgo(c.created_at)}</span>
                     </div>
 
                     {c.responses?.priority_message && (
@@ -3527,7 +3530,7 @@ export default function ClientDetailPage() {
             onSave={handleSaveScratchExercisePlan}
             onCancel={() => setShowExerciseBuilder(false)}
             context="client"
-            clientTrainingContext={homeEquipmentTrainingContext(client.consultation_data)}
+            clientTrainingContext={[homeEquipmentTrainingContext(client.consultation_data),consultationBodyContext(client.consultation_data)].filter(Boolean).join("\n\n")}
           />
         );
       })()}
@@ -3543,6 +3546,7 @@ export default function ClientDetailPage() {
       {showNutritionBuilder && (
         <NutritionTemplateBuilder
           onSave={handleSaveScratchNutritionPlan}
+          clientPlanningContext={consultationBodyContext(client.consultation_data)}
           onCancel={() => setShowNutritionBuilder(false)}
           context="client"
         />
@@ -3912,7 +3916,7 @@ function TrainingTabContent({
 
   return (
     <div className="space-y-6">
-      {homeEquipmentTrainingContext(client.consultation_data) && <section className="rounded-xl border border-[#E040D0]/20 bg-[#E040D0]/5 p-4"><h2 className="text-sm font-semibold">Home equipment from onboarding</h2><p className="mt-2 whitespace-pre-wrap text-sm text-text-secondary">{homeEquipmentTrainingContext(client.consultation_data)}</p></section>}
+      {(homeEquipmentTrainingContext(client.consultation_data)||consultationBodyContext(client.consultation_data)) && <section className="rounded-xl border border-[#E040D0]/20 bg-[#E040D0]/5 p-4"><h2 className="text-sm font-semibold">Onboarding details for planning</h2><p className="mt-2 whitespace-pre-wrap text-sm text-text-secondary">{[homeEquipmentTrainingContext(client.consultation_data),consultationBodyContext(client.consultation_data)].filter(Boolean).join("\n\n")}</p></section>}
       {/* ── Section 1: Assigned Plan ── */}
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -4374,7 +4378,7 @@ function NutritionTabContent({
 
   return (
     <div className="space-y-6">
-      {homeEquipmentTrainingContext(client.consultation_data) && <section className="rounded-xl border border-[#E040D0]/20 bg-[#E040D0]/5 p-4"><h2 className="text-sm font-semibold">Home equipment from onboarding</h2><p className="mt-2 whitespace-pre-wrap text-sm text-text-secondary">{homeEquipmentTrainingContext(client.consultation_data)}</p></section>}
+      {(homeEquipmentTrainingContext(client.consultation_data)||consultationBodyContext(client.consultation_data)) && <section className="rounded-xl border border-[#E040D0]/20 bg-[#E040D0]/5 p-4"><h2 className="text-sm font-semibold">Onboarding details for planning</h2><p className="mt-2 whitespace-pre-wrap text-sm text-text-secondary">{[homeEquipmentTrainingContext(client.consultation_data),consultationBodyContext(client.consultation_data)].filter(Boolean).join("\n\n")}</p></section>}
       {/* ── Section 1: Assigned Plan ── */}
       <div>
         <div className="flex items-center justify-between mb-4">

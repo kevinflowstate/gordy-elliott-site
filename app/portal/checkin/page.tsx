@@ -188,7 +188,9 @@ export default function CheckInPage() {
   const [mood, setMood] = useState<string | null>(null);
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [weightUnit, setWeightUnit] = useState<WeightUnit>("kg");
-  const [history, setHistory] = useState<Array<{id:string;created_at:string;week_number:number}>>([]);
+  const [history, setHistory] = useState<Array<{id:string;created_at:string;week_number:number;scheduled_date?:string|null}>>([]);
+  const [scheduledDates,setScheduledDates]=useState<string[]>([]);
+  const [scheduledDate,setScheduledDate]=useState<string|null>(null);
   const [editingHistory, setEditingHistory] = useState(false);
   const [progressData, setProgressData] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -281,6 +283,7 @@ export default function CheckInPage() {
           const isBusiness = stateData.programmeType === "boardroom";
           setWeightUnit(stateData.weightUnit || "kg");
           setHistory(stateData.history || []);
+          setScheduledDates(stateData.scheduledDates||[]);setScheduledDate(stateData.scheduledDate||null);
           setEditingHistory(Boolean(stateData.editingHistory));
           setBusinessCheckin(isBusiness);
           setMonthlyReview(stateData.monthlyReview || null);
@@ -379,7 +382,7 @@ export default function CheckInPage() {
       const res = await fetch("/api/portal/checkin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mood: mood || "good", responses: fullResponses, config_revision: configRevision, weight_unit: weightUnit, ...(currentWeekId ? { checkin_id: currentWeekId } : {}) }),
+        body: JSON.stringify({ scheduled_date:scheduledDate, mood: mood || "good", responses: fullResponses, config_revision: configRevision, weight_unit: weightUnit, ...(currentWeekId ? { checkin_id: currentWeekId } : {}) }),
       });
 
       if (res.ok) {
@@ -410,8 +413,10 @@ export default function CheckInPage() {
           );
         }
         setCurrentWeekSubmitted(true);
-        if (!currentWeekSavedAt) setCurrentWeekSavedAt(new Date().toISOString());
-        setSaveMessage(data.updated ? "Your saved check-in was updated." : "Your check-in for this week was saved.");
+        if(data.checkin_id)setCurrentWeekId(data.checkin_id);
+        if(data.created_at)setCurrentWeekSavedAt(data.created_at);
+        else if (!currentWeekSavedAt) setCurrentWeekSavedAt(new Date().toISOString());
+        setSaveMessage(data.updated ? "Your saved check-in was updated." : `Your check-in for ${scheduledDate || "this week"} was saved.`);
         setSubmitted(true);
         if (failedPhotoAngles.length > 0) {
           toast(
@@ -539,10 +544,10 @@ export default function CheckInPage() {
   const enabledMetrics = (config.progress_tracking || []).filter((m) => m.enabled);
   const tierInfo = monthlyReview ? {line:"Keep your weekly reflection up to date for Gordy’s monthly review.",lane:"Foundations",rhythm:"Submit weekly. Gordy responds monthly from your joining date."} : tierCopy[(tier as keyof typeof tierCopy) || "coached"] || tierCopy.coached;
   const effectiveCheckinDay = checkinDay || config.checkin_day || null;
-  const nextCheckinDate = getCheckinDueDate(effectiveCheckinDay);
+  const nextCheckinDate = scheduledDate ? new Date(scheduledDate+"T00:00:00") : getCheckinDueDate(effectiveCheckinDay);
   const checkinOverdue = !currentWeekSubmitted && nextCheckinDate.getTime() < new Date(new Date().setHours(0, 0, 0, 0)).getTime();
   const dueLabel = editingHistory ? "Editing a saved check-in" : currentWeekSubmitted
-    ? "Submitted this week"
+    ? `Saved for ${scheduledDate || "this week"}`
     : isToday(nextCheckinDate)
       ? "Due today"
       : checkinOverdue
@@ -565,7 +570,8 @@ export default function CheckInPage() {
         )}
       </div>
 
-      {history.length > 0 && <label className="mb-4 block text-sm font-semibold">Reopen a saved check-in<select aria-label="Reopen a saved check-in" className="mt-2 w-full rounded-xl border border-white/10 bg-bg-card p-3" value={editingHistory ? currentWeekId || "" : ""} onChange={e => { window.location.href = e.target.value ? `/portal/checkin?edit=${e.target.value}` : "/portal/checkin"; }}><option value="">This week</option>{history.map(item => <option key={item.id} value={item.id}>{checkinDate(item.created_at)} · Check-in {item.week_number}</option>)}</select></label>}
+      {!editingHistory&&scheduledDates.length>0&&<label className="mb-4 block text-sm font-semibold">Scheduled check-in date<select aria-label="Scheduled check-in date" className="mt-2 w-full rounded-xl border border-white/10 bg-bg-card p-3" value={scheduledDate||""} onChange={event=>{window.location.href=`/portal/checkin?date=${event.target.value}`;}}>{scheduledDates.map(date=><option key={date} value={date}>{new Date(date+'T12:00:00Z').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'short',year:'numeric',timeZone:'Europe/London'})}</option>)}</select><span className="mt-2 block text-xs font-normal text-text-secondary">Missed a week? Choose its scheduled date. Late check-ins keep their scheduled date and record when you actually submit.</span></label>}
+      {history.length > 0 && <label className="mb-4 block text-sm font-semibold">Reopen a saved check-in<select aria-label="Reopen a saved check-in" className="mt-2 w-full rounded-xl border border-white/10 bg-bg-card p-3" value={editingHistory ? currentWeekId || "" : ""} onChange={e => { window.location.href = e.target.value ? `/portal/checkin?edit=${e.target.value}` : "/portal/checkin"; }}><option value="">Latest scheduled check-in</option>{history.map(item => <option key={item.id} value={item.id}>{item.scheduled_date ? `Scheduled ${item.scheduled_date} · submitted ${checkinDate(item.created_at)}` : checkinDate(item.created_at)} · Check-in {item.week_number}</option>)}</select></label>}
       {editingHistory && <p className="mb-4 rounded-xl border border-accent/30 p-4 text-sm">Editing the check-in from {checkinDate(currentWeekSavedAt || "")}. Changes stay on that original date; Gordy’s previous reply is kept.</p>}
       {!businessCheckin && <Link href="/portal/progress" className="mb-4 inline-block text-sm text-accent-bright">Just logging weight? Open Progress →</Link>}
       {tierLoaded && canReadCoachCheckinReplies(tier) && (
@@ -808,14 +814,14 @@ export default function CheckInPage() {
 
         <button
           type="submit"
-          disabled={(config.mood_enabled && !mood) || submitting}
+          disabled={(config.mood_enabled && !mood) || submitting || (!scheduledDate && !currentWeekId)}
           className="w-full py-4 gradient-accent text-white rounded-xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-opacity"
         >
           <CyclingStatusText
             active={submitting}
             idle={
               currentWeekSubmitted
-                ? tier === "vip" || tier === "premium" ? "Update Check-in" : "Update This Week's Check-in"
+                ? tier === "vip" || tier === "premium" ? "Update Check-in" : "Update Saved Check-in"
                 : "Submit Check-in"
             }
             messages={["Saving...", "Uploading photos...", "Syncing progress...", "Nearly there..."]}

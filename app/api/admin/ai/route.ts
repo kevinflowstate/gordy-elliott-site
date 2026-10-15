@@ -1,3 +1,4 @@
+import { consultationBodyContext } from "@/lib/consultation-metrics";
 import { homeEquipmentTrainingContext } from "@/lib/home-equipment";
 import { dateKeyInTimeZone } from "@/lib/founder-dashboard";
 import { requireAdmin } from "@/lib/admin-auth";
@@ -314,6 +315,7 @@ export async function POST(req: NextRequest) {
         days_logged: boardroom ? 0 : metricDays?.size || 0,
         possible_days: 7,
       },
+      body_metrics: boardroom ? null : consultationBodyContext(p.consultation_data),
       home_training_equipment: boardroom ? null : homeEquipmentTrainingContext(p.consultation_data),
       recent_daily_notes: boardroom ? [] : dailyNotesByClient.get(p.id) || [],
       connected_apps: {
