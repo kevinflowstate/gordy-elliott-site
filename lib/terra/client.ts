@@ -123,14 +123,26 @@ export async function generateTerraWidgetSession(
 
   let widgetUrl: URL;
   try {
-    widgetUrl = new URL(data.url);
+    widgetUrl = new URL(data?.url);
   } catch {
+    logInvalidTerraWidgetSession(data, response.status, "invalid_url");
     throw new Error("Terra did not return a valid connection session. Please try again.");
   }
   if (widgetUrl.protocol !== "https:" || widgetUrl.hostname !== "widget.tryterra.co") {
+    logInvalidTerraWidgetSession(data, response.status, "unexpected_origin", widgetUrl.origin);
     throw new Error("Terra did not return a valid connection session. Please try again.");
   }
   return data as TerraWidgetSession;
+}
+
+function logInvalidTerraWidgetSession(data: unknown, httpStatus: number, reason: string, origin?: string) {
+  // Session URLs, references, vendor messages and credentials must never enter logs.
+  const keys = data && typeof data === "object" && !Array.isArray(data)
+    ? Object.keys(data).slice(0, 12).map((key) => /^[a-z_][a-z0-9_]{0,63}$/i.test(key) ? key : "[redacted]")
+    : [];
+  console.error("terra_widget_session_invalid", {
+    httpStatus, reason, bodyKeys: keys, urlOrigin: origin?.slice(0, 150) || null,
+  });
 }
 
 export async function deauthenticateTerraUser(

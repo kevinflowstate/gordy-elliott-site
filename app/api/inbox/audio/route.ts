@@ -1,3 +1,4 @@
+import { getInboxAudioPlayback, inboxAudioPlaybackUrl } from "@/lib/inbox-audio-playback";
 import { ALLOWED_AUDIO_TYPES as ALLOWED_TYPES, hasExpectedAudioSignature } from "@/lib/audio-file";
 import { getInboxViewer } from "@/lib/inbox-server";
 import { notifyClientUser } from "@/lib/client-notifications";
@@ -63,7 +64,6 @@ export async function POST(request: Request) {
     await admin.storage.from("inbox-audio").remove([path]);
     return NextResponse.json({ error: "Voice note could not be saved" }, { status: 500 });
   }
-  const { data: signed } = await admin.storage.from("inbox-audio").createSignedUrl(path, 60 * 10);
 
   if (viewer.role === "admin") {
     await notifyClientUser(profile.user_id, { title: "New voice note from Gordy", message: "Tap to listen", link: "/portal/inbox", tag: `inbox-${profile.id}` });
@@ -76,5 +76,13 @@ export async function POST(request: Request) {
     }));
   }
 
-  return NextResponse.json({ message: { ...row, audio_url: signed?.signedUrl || null } });
+  return NextResponse.json({ message: { ...row, audio_url: inboxAudioPlaybackUrl(row.id) } });
+}
+
+// A stable authenticated URL keeps inbox polling from resetting an active player.
+// Redirect on each media request so byte-range requests can obtain a fresh token.
+export async function GET(request: Request) {
+  const viewer = await getInboxViewer();
+  if (!viewer) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  return getInboxAudioPlayback(request, viewer, createAdminClient());
 }

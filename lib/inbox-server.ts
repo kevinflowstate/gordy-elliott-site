@@ -1,3 +1,4 @@
+import { inboxAudioPlaybackUrl } from "@/lib/inbox-audio-playback";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { InboxConversation, InboxMessage, UserRole } from "@/lib/types";
@@ -142,16 +143,6 @@ export async function getInboxThread(
 
   const senderMap = new Map((sendersRes.data ?? []).map((user) => [user.id, user as UserRecord]));
   const rawMessages = (messagesRes.data ?? []) as InboxMessage[];
-  const audioPaths = [...new Set(rawMessages
-    .filter((message) => message.message_type === "audio" && message.audio_path)
-    .map((message) => message.audio_path!))];
-  const signedUrlMap = new Map<string, string>();
-  if (audioPaths.length > 0) {
-    const { data: signedRows } = await admin.storage.from("inbox-audio").createSignedUrls(audioPaths, 60 * 10);
-    for (const row of signedRows || []) {
-      if (row.path && row.signedUrl) signedUrlMap.set(row.path, row.signedUrl);
-    }
-  }
   const imagePaths = [...new Set(rawMessages
     .filter((message) => message.message_type === "image" && message.image_path)
     .map((message) => message.image_path!))];
@@ -166,7 +157,7 @@ export async function getInboxThread(
   const messages = rawMessages.map((message) => {
     return {
       ...message,
-      audio_url: message.audio_path ? signedUrlMap.get(message.audio_path) || null : null,
+      audio_url: message.audio_path ? inboxAudioPlaybackUrl(message.id) : null,
       image_url: message.image_path ? signedImageUrlMap.get(message.image_path) || null : null,
       sender_name:
         viewer.role === "client" && message.sender_role === "admin"

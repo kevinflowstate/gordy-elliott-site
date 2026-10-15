@@ -707,3 +707,35 @@ test("Terra connection consent names the processor and records the revised notic
   assert.match(sessionRoute, /\.eq\("status", "pending"\)/);
   assert.match(privacyPage, /https:\/\/tryterra\.co\/end-user-privacy/);
 });
+
+
+test("invalid Terra sessions retain origin safeguards and log diagnostics without session secrets", async () => {
+  const originalEnv = { devId: process.env.TERRA_DEV_ID, apiKey: process.env.TERRA_API_KEY };
+  const originalError = console.error;
+  const logs: unknown[][] = [];
+  process.env.TERRA_DEV_ID = "secret-dev-id";
+  process.env.TERRA_API_KEY = "secret-api-key";
+  console.error = (...args: unknown[]) => { logs.push(args); };
+  try {
+    for (const body of [
+      { status: "success", url: "https://secret:password@other.example.test/session/private-session?token=secret-token", session_id: "private-session" },
+      { status: "success", data: { url: "https://widget.tryterra.co/session/private-session" }, "secret-token?": "secret-value" },
+      null,
+    ]) {
+      await assert.rejects(generateTerraWidgetSession("00000000-0000-4000-8000-000000000001", "myfitnesspal", {
+        fetchImpl: async () => new Response(JSON.stringify(body), { status: 200 }),
+      }), /Terra did not return a valid connection session/);
+    }
+    assert.equal(logs.length, 3);
+    const output = JSON.stringify(logs);
+    for (const secret of ["secret-dev-id", "secret-api-key", "private-session", "secret-token", "secret-value", "password"]) {
+      assert.equal(output.includes(secret), false);
+    }
+    assert.deepEqual(logs[0][1], { httpStatus: 200, reason: "unexpected_origin", bodyKeys: ["status", "url", "session_id"], urlOrigin: "https://other.example.test" });
+    assert.deepEqual(logs[1][1], { httpStatus: 200, reason: "invalid_url", bodyKeys: ["status", "data", "[redacted]"], urlOrigin: null });
+  } finally {
+    console.error = originalError;
+    if (originalEnv.devId === undefined) delete process.env.TERRA_DEV_ID; else process.env.TERRA_DEV_ID = originalEnv.devId;
+    if (originalEnv.apiKey === undefined) delete process.env.TERRA_API_KEY; else process.env.TERRA_API_KEY = originalEnv.apiKey;
+  }
+});
