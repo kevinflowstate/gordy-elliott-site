@@ -71,7 +71,7 @@ export async function loadComplianceSummary(
   now = new Date(),
 ): Promise<FounderComplianceSummary> {
   const [checkinsRes, records] = await Promise.all([
-    admin.from("checkins").select("created_at").eq("client_id", clientId),
+    admin.from("checkins").select("created_at,scheduled_date").eq("client_id", clientId),
     loadComplianceRecords(admin, clientId),
   ]);
   if (checkinsRes.error) throw checkinsRes.error;

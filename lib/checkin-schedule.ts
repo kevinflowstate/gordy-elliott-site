@@ -16,3 +16,6 @@ export function scheduledCheckinDates(start: string | null | undefined, day: str
     return result;
 }
 export function scheduledCheckinError(date: unknown, dates: string[]) { return typeof date !== 'string' || !dates.includes(date) ? 'Choose an outstanding scheduled check-in date on or before today.' : null; }
+
+export function checkinEffectiveDate(checkin: {scheduled_date?: string | null; created_at: string}) { return checkin.scheduled_date || checkinToday(new Date(checkin.created_at)); }
+export function checkinInWeek(checkin: {scheduled_date?: string | null; created_at: string}, today = checkinToday()) { return checkinWeekStart(checkinEffectiveDate(checkin)) === checkinWeekStart(today); }

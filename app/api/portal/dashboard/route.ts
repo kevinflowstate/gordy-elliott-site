@@ -42,7 +42,7 @@ export async function GET() {
       .from("checkins")
       // The dashboard computes streaks and high-touch support state from check-in history,
       // so it needs the full history rather than a shallow recent slice.
-      .select("id, week_number, created_at, admin_reply, replied_at, reply_message_id, responses, form_config_snapshot")
+      .select("id, week_number, created_at, scheduled_date, admin_reply, replied_at, reply_message_id, responses, form_config_snapshot")
       .eq("client_id", profile.id)
       .order("created_at", { ascending: false }),
     admin

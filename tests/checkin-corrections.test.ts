@@ -101,3 +101,7 @@ test('an older form cannot implicitly overwrite a saved scheduled submission',as
  f.saved.scheduled_date=due;const response=await f.post({responses:{wins:'Stale form'}});
  assert.equal(response.status,409);assert.equal(f.writes.length,0);
 });
+
+test('different backfilled measurement weeks keep distinct chart dates despite same submission day',async()=>{
+ const dates=[];for(const scheduled of ['2026-09-21','2026-09-28']){const f=await fixture();f.saved.scheduled_date=scheduled;f.saved.created_at='2026-10-15T12:00:00Z';const response=await f.post({checkin_id:'old',scheduled_date:scheduled,responses:{weight:'80'},weight_unit:'kg'});assert.equal(response.status,200);dates.push(f.writes.find(w=>w.table==='client_body_measurements')?.payload.measured_date);assert.equal(f.saved.created_at,'2026-10-15T12:00:00Z');}assert.deepEqual(dates,['2026-09-21','2026-09-28']);
+});

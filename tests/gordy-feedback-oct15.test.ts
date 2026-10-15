@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PGlite } from '@electric-sql/pglite';
 import { readFile } from 'node:fs/promises';
-import { scheduledCheckinDates, checkinToday, scheduledCheckinError, addCheckinDays } from '../lib/checkin-schedule';
+import { scheduledCheckinDates, checkinToday, scheduledCheckinError, addCheckinDays, checkinInWeek } from '../lib/checkin-schedule';
 import { withConsultationBodyMetrics, consultationMetricError, consultationBodyContext } from '../lib/consultation-metrics';
 import { normalizeConsultationConfig } from '../lib/consultation-form';
 import { foundationsHelpEmail, FOUNDATIONS_HELP_EMAIL } from '../lib/foundations-help-email';
@@ -77,3 +77,5 @@ test('retained metric aliases keep configured units in coach/planning context',(
 });
 
 test('deleting a fictional client cascades saved help without blocking account deletion',async()=>{const db=await fixture();try{await db.query('SELECT submit_foundations_help($1,$2,$3,$4,true)',[id(1),id(15),'Getting unstuck','Fictional request']);await db.query('DELETE FROM client_profiles WHERE id=$1',[id(3)]);assert.equal((await db.query('SELECT * FROM foundations_help_requests')).rows.length,0);}finally{await db.close();}});
+
+test('a late prior-week check-in cannot complete this week in dashboard or reminder readers',()=>{const row={scheduled_date:'2026-10-07',created_at:'2026-10-14T09:00:00Z'};assert.equal(checkinInWeek(row,'2026-10-14'),false);assert.equal(checkinInWeek({...row,scheduled_date:'2026-10-14'},'2026-10-14'),true);assert.equal(checkinInWeek({created_at:'2026-10-14T09:00:00Z'},'2026-10-14'),true);});

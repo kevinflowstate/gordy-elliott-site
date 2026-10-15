@@ -212,7 +212,7 @@ export async function POST(request: Request) {
     const measurement: Record<string, unknown> = {
       client_id: profile.id,
       // Legacy corrections retain the UTC key used when their chart row was created.
-      measured_date: currentWeekCheckin && !currentWeekCheckin.scheduled_date ? currentWeekCheckin.created_at.slice(0,10) : checkinToday(new Date(savedCheckin?.created_at || currentWeekCheckin?.created_at || new Date().toISOString())),
+      measured_date: currentWeekCheckin && !currentWeekCheckin.scheduled_date ? currentWeekCheckin.created_at.slice(0,10) : currentWeekCheckin?.scheduled_date || selectedDate,
     };
     let hasData = false;
     // Unchanged ambiguous legacy weights stay untouched; explicit failed writes can retry.

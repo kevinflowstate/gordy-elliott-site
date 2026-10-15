@@ -1,4 +1,5 @@
 "use client";
+import { checkinInWeek, checkinEffectiveDate, checkinWeekStart, addCheckinDays } from "@/lib/checkin-schedule";
 
 import BoardroomHome from "@/components/portal/BoardroomHome";
 
@@ -102,20 +103,10 @@ function localDateKey(date: Date) {
 // Count consecutive weeks with a check-in, starting from most recent backwards
 function computeCheckinStreak(checkins: CheckIn[]): number {
   if (!checkins.length) return 0;
-  const sorted = [...checkins].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-  );
-  const weeks = new Set<number>();
-  for (const c of sorted) {
-    if (typeof c.week_number === "number") weeks.add(c.week_number);
-  }
-  const weekNums = Array.from(weeks).sort((a, b) => b - a);
-  if (!weekNums.length) return 0;
+  const weekKeys = [...new Set(checkins.map(c => checkinWeekStart(checkinEffectiveDate(c))))].sort().reverse();
+  if (!weekKeys.length) return 0;
   let streak = 1;
-  for (let i = 1; i < weekNums.length; i++) {
-    if (weekNums[i] === weekNums[i - 1] - 1) streak++;
-    else break;
-  }
+  for (let i=1; i<weekKeys.length; i++) { if (weekKeys[i] === addCheckinDays(weekKeys[i-1],-7)) streak++; else break; }
   return streak;
 }
 
@@ -384,14 +375,7 @@ export default function PortalDashboard() {
 
   // Submitted this week? Match check-in API week-start logic (Monday).
   const submittedThisWeek = useMemo(() => {
-    if (!checkins.length) return false;
-    const now = new Date();
-    const weekStart = new Date(now);
-    const day = now.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    weekStart.setDate(weekStart.getDate() + diff);
-    weekStart.setHours(0, 0, 0, 0);
-    return checkins.some((c) => new Date(c.created_at).getTime() >= weekStart.getTime());
+    return checkins.some(c => checkinInWeek(c));
   }, [checkins]);
 
   const coachNote = getCoachNoteOfWeek();

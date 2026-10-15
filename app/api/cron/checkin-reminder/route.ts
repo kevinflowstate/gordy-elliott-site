@@ -1,3 +1,5 @@
+import { checkinToday, checkinWeekStart, checkinInWeek } from "@/lib/checkin-schedule";
+import { foundationsMidnight } from "@/lib/foundations";
 import { checkinReminderDay } from "@/lib/checkin-reminder";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyClientProfile } from "@/lib/client-notifications";
@@ -115,20 +117,11 @@ export async function GET(request: Request) {
 
   if (clients && clients.length > 0 && clients.some(client => dueByUser.get(client.id))) {
     // Check which clients have already checked in this week
-    const startOfWeek = new Date();
-    const dayOfWeek = startOfWeek.getDay();
-    const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    startOfWeek.setDate(startOfWeek.getDate() - diffToMonday);
-    startOfWeek.setHours(0, 0, 0, 0);
-
-    const { data: recentCheckins } = await admin
-      .from("checkins")
-      .select("client_id")
-      .gte("created_at", startOfWeek.toISOString());
-
-    const checkedInClientIds = new Set(
-      (recentCheckins || []).map((c) => c.client_id)
-    );
+    const weekStart = checkinWeekStart(checkinToday());
+    const { data: recentCheckins } = await admin.from("checkins")
+      .select("client_id,scheduled_date,created_at")
+      .or(`scheduled_date.gte.${weekStart},and(scheduled_date.is.null,created_at.gte.${foundationsMidnight(weekStart)})`);
+    const checkedInClientIds = new Set((recentCheckins || []).filter(c => checkinInWeek(c)).map(c => c.client_id));
 
     for (const client of clients) {
       const clientId = userToClientId.get(client.id);
