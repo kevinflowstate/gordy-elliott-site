@@ -129,17 +129,6 @@ DECLARE v_row public.client_training_weekly_assignments; v_add public.client_tra
 BEGIN
   -- Cascades from deleting a client, plan or session run nested; that removes the whole history, not a replan.
   IF TG_OP = 'DELETE' AND pg_catalog.pg_trigger_depth() > 1 THEN RETURN OLD; END IF;
-  -- Nothing that places a workout changed (also the second firing of an INSERT ... ON CONFLICT that changed nothing).
-  IF TG_OP = 'UPDATE' AND NEW.planned_date IS NOT DISTINCT FROM OLD.planned_date AND NEW.is_recurring = OLD.is_recurring
-    AND NEW.recurrence_stopped = OLD.recurrence_stopped AND NEW.client_id = OLD.client_id AND NEW.plan_id = OLD.plan_id
-    AND NEW.session_id = OLD.session_id AND NEW.week_start = OLD.week_start THEN
-    RETURN NEW;
-  END IF;
-  -- An INSERT onto an existing row only proceeds as ON CONFLICT DO UPDATE, whose BEFORE UPDATE firing checks it.
-  IF TG_OP = 'INSERT' AND EXISTS (SELECT 1 FROM public.client_training_weekly_assignments a WHERE a.client_id = NEW.client_id
-    AND a.plan_id = NEW.plan_id AND a.session_id = NEW.session_id AND a.week_start = NEW.week_start) THEN
-    RETURN NEW;
-  END IF;
   IF TG_OP = 'DELETE' THEN v_row := OLD; ELSE v_row := NEW; v_add := NEW; END IF;
   IF auth.uid() IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM public.client_profiles cp
@@ -154,6 +143,19 @@ BEGIN
     RAISE EXCEPTION 'A planned workout cannot change to another workout, plan or week';
   END IF;
   SELECT p.programme_weeks IS NULL INTO v_static FROM public.client_exercise_plans p WHERE p.id = v_row.plan_id FOR NO KEY UPDATE;
+  -- Even no-op and ON CONFLICT insert passes must acquire this stronger lock before
+  -- exercise_assignments_plan_lock takes SHARE; otherwise concurrent upserts can deadlock upgrading.
+  -- Nothing that places a workout changed (also the second firing of an INSERT ... ON CONFLICT that changed nothing).
+  IF TG_OP = 'UPDATE' AND NEW.planned_date IS NOT DISTINCT FROM OLD.planned_date AND NEW.is_recurring = OLD.is_recurring
+    AND NEW.recurrence_stopped = OLD.recurrence_stopped AND NEW.client_id = OLD.client_id AND NEW.plan_id = OLD.plan_id
+    AND NEW.session_id = OLD.session_id AND NEW.week_start = OLD.week_start THEN
+    RETURN NEW;
+  END IF;
+  -- An INSERT onto an existing row only proceeds as ON CONFLICT DO UPDATE, whose BEFORE UPDATE firing checks it.
+  IF TG_OP = 'INSERT' AND EXISTS (SELECT 1 FROM public.client_training_weekly_assignments a WHERE a.client_id = NEW.client_id
+    AND a.plan_id = NEW.plan_id AND a.session_id = NEW.session_id AND a.week_start = NEW.week_start) THEN
+    RETURN NEW;
+  END IF;
   v_last := v_row.week_start;
   IF v_static IS TRUE THEN
     SELECT max(l.log_date) INTO v_latest FROM (

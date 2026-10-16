@@ -81,3 +81,38 @@ workout_first "$(day 4)"
 BAD="$(q -c "SELECT count(*) FROM client_manual_training_activity r WHERE r.kind='rest' AND r.activity_date >= '$TODAY'::date - 4 AND r.activity_date <= '$TODAY'::date - 3
   AND EXISTS (SELECT 1 FROM client_exercise_logs l WHERE l.log_date = r.activity_date AND l.completed)")"
 if [ "$BAD" = "0" ]; then echo "PASS: no date has both a rest marker and a completed workout after the fix"; else echo "FAIL: $BAD date(s) have both"; exit 1; fi
+
+# Existing-row upserts fire both INSERT and UPDATE guards. Delay the final INSERT trigger so
+# two connections would both hold SHARE before upgrading if the stronger guard lock were skipped.
+SESSION_TWO=00000000-0000-4000-8000-000000000021
+q <<SQL
+INSERT INTO client_exercise_sessions VALUES ('$SESSION_TWO', '$PLAN', 'Strength', 2, NULL);
+INSERT INTO client_training_weekly_assignments(client_id,plan_id,session_id,week_start,planned_date) VALUES
+ ('$CLIENT','$PLAN','$SESSION','2030-01-07','2030-01-07'),
+ ('$CLIENT','$PLAN','$SESSION_TWO','2030-01-07','2030-01-08');
+CREATE FUNCTION public.test_pause_planner_insert() RETURNS trigger LANGUAGE plpgsql AS \$\$
+BEGIN PERFORM pg_sleep(1); RETURN NEW; END; \$\$;
+CREATE TRIGGER zz_test_pause_planner_insert BEFORE INSERT ON client_training_weekly_assignments
+ FOR EACH ROW EXECUTE FUNCTION public.test_pause_planner_insert();
+SQL
+upsert_planner() {
+  q -c "INSERT INTO client_training_weekly_assignments(client_id,plan_id,session_id,week_start,planned_date)
+    VALUES ('$CLIENT','$PLAN','$1','2030-01-07','$2')
+    ON CONFLICT(client_id,plan_id,session_id,week_start) DO UPDATE SET planned_date=excluded.planned_date;"
+}
+upsert_planner "$SESSION" '2030-01-10' >"$WORK/planner-a.log" 2>&1 &
+PLANNER_A=$!
+upsert_planner "$SESSION_TWO" '2030-01-11' >"$WORK/planner-b.log" 2>&1 &
+PLANNER_B=$!
+PLANNER_FAILED=0
+wait "$PLANNER_A" || PLANNER_FAILED=1
+wait "$PLANNER_B" || PLANNER_FAILED=1
+if [ "$PLANNER_FAILED" != 0 ]; then
+  cat "$WORK/planner-a.log" "$WORK/planner-b.log"
+  echo 'FAIL: concurrent existing-assignment upserts must not deadlock'
+  exit 1
+fi
+PLACED="$(q -c "SELECT count(*) FROM client_training_weekly_assignments WHERE week_start='2030-01-07'
+  AND ((session_id='$SESSION' AND planned_date='2030-01-10') OR (session_id='$SESSION_TWO' AND planned_date='2030-01-11'))")"
+[ "$PLACED" = 2 ] || { echo 'FAIL: both planner updates must persist'; exit 1; }
+echo 'PASS: concurrent existing-assignment upserts serialize and both persist'
