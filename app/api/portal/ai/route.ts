@@ -519,7 +519,7 @@ Help with quick questions: meal ideas, short workouts, sleep tips, finding Educa
     if (!weeklyPlanner.error) {
       hasWeeklyPlannerData = weeklyPlanner.assignments.length > 0;
       const plannedBySessionId = new Map(weeklyPlanner.assignments.map((assignment) => [assignment.session_id, assignment]));
-      weeklyPlannedSessions = weeklyPlanner.assignments
+      weeklyPlannedSessions = [...weeklyPlanner.assignments, ...weeklyPlanner.movedIn]
         .filter((assignment) => assignment.planned_date)
         .flatMap((assignment) => {
           const session = exerciseSessionOrder.find((item) => item.id === assignment.session_id);
@@ -529,7 +529,7 @@ Help with quick questions: meal ideas, short workouts, sleep tips, finding Educa
                 day_number: session.day_number,
                 name: session.name,
                 is_recurring: assignment.is_recurring,
-                source: assignment.source || "explicit",
+                source: assignment.moved_to ? "moved by client to this date" : assignment.source || "explicit",
               }
             : [];
         })

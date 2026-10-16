@@ -177,7 +177,7 @@ export async function loadClientStrengthProgress(
         })
       ))).flatMap((result) => {
         if (result.error) throw new Error(result.error);
-        return result.assignments;
+        return [...result.assignments, ...result.movedIn];
       })
     : [];
 

@@ -129,7 +129,7 @@ export async function GET() {
   }
 
   const activePlanId = activePlanRes.data?.[0]?.id || null;
-  const [sessionsRes, assignmentsRes] = activePlanId
+  const [sessionsRes, explicitAssignmentsRes, movesRes] = activePlanId
     ? await Promise.all([
         admin
           .from("client_exercise_sessions")
@@ -137,13 +137,30 @@ export async function GET() {
           .eq("plan_id", activePlanId),
         admin
           .from("client_training_weekly_assignments")
-          .select("session_id, planned_date")
+          .select("session_id, planned_date, week_start")
           .eq("client_id", profile.id)
           .eq("plan_id", activePlanId)
           .gte("planned_date", todayKey)
           .lte("planned_date", windowEndKey),
+        admin
+          .from("client_training_date_overrides")
+          .select("session_id, planned_date, source_week_start")
+          .eq("client_id", profile.id)
+          .eq("plan_id", activePlanId)
+          .or(`and(planned_date.gte.${todayKey},planned_date.lte.${windowEndKey}),and(source_week_start.gte.${addDaysToKey(todayKey, -6)},source_week_start.lte.${windowEndKey})`),
       ])
-    : [{ data: [], error: null }, { data: [], error: null }];
+    : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
+
+  // Client date moves replace their original occurrence and count on the date they were moved to.
+  const moves = movesRes.data || [];
+  const assignmentsRes = {
+    error: explicitAssignmentsRes.error || movesRes.error,
+    data: [
+      ...(explicitAssignmentsRes.data || []).filter((assignment) => !moves.some((move) =>
+        move.session_id === assignment.session_id && move.source_week_start === assignment.week_start)),
+      ...moves.filter((move) => move.planned_date >= todayKey && move.planned_date <= windowEndKey),
+    ],
+  };
 
   if (sessionsRes.error || assignmentsRes.error) {
     console.error("weekly-capacity training load failed:", sessionsRes.error?.message || assignmentsRes.error?.message);

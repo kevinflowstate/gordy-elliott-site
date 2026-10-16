@@ -1,3 +1,4 @@
+import { loadTrainingDateOverrides } from "@/lib/training-calendar";
 import { loadExerciseSessionItems } from "@/lib/exercise-session-load";
 import { programmeToday, programmeWeek, programmeWeeksInRange, programmeCalendarWeekStart, programmeAddDays } from "@/lib/exercise-programme";
 import { createExerciseSectionDivider } from "@/lib/exercise-section";
@@ -46,13 +47,21 @@ export async function GET(request: Request) {
   try { to = search.get("to") || programmeAddDays(from, 6); weeks = programmeWeeksInRange({ ...plan, sessions: [] }, from, to); }
   catch { return NextResponse.json({ error: "Choose up to seven valid workout dates." }, { status: 400 }); }
 
+  // Workouts a client moved into this week from another programme week keep their exact session.
+  const dates = await loadTrainingDateOverrides(admin, profile.id, plan.id, programmeCalendarWeekStart(from));
+  if (dates.error) return NextResponse.json({ error: "Couldn't load moved workout dates." }, { status: 500 });
   // Load only the requested programme dates, including historical weeks. Static plans remain unchanged.
   let sessionQuery = admin
     .from("client_exercise_sessions")
     .select("*")
     .eq("plan_id", plan.id)
     .order("day_number", { ascending: true });
-  if (plan.programme_weeks) sessionQuery = sessionQuery.in("week_number", weeks);
+  if (plan.programme_weeks) {
+    const movedIds = [...new Set(dates.overrides.map((o) => o.session_id))];
+    sessionQuery = movedIds.length && weeks.length
+      ? sessionQuery.or(`week_number.in.(${weeks.join(",")}),id.in.(${movedIds.join(",")})`)
+      : sessionQuery.in("week_number", weeks);
+  }
   const { data: sessions, error: sessionError } = await sessionQuery;
   if (sessionError) return NextResponse.json({ error: "Couldn't load training sessions." }, { status: 500 });
 

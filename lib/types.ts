@@ -421,7 +421,13 @@ export interface WeeklyTrainingAssignment {
   planned_date: string | null;
   is_recurring: boolean;
   recurrence_stopped?: boolean;
-  source?: 'explicit' | 'recurring';
+  source?: 'explicit' | 'recurring' | 'date_override';
+  /** Set when a client moved this one occurrence to an actual date (client_training_date_overrides). */
+  override_id?: string;
+  source_week_start?: string;
+  moved_to?: string;
+  /** Original explicit date that still belongs to a moved occurrence until the move is undone. */
+  held_date?: string | null;
   created_at?: string;
   updated_at?: string;
 }
