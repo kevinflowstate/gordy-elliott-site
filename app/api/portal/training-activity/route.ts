@@ -32,10 +32,11 @@ export async function GET(request: Request) {
   if ("error" in context) return context.error;
   const search = new URL(request.url).searchParams;
   const to = search.get("to") || context.today;
+  if (programmeDateDay(to) === null) return NextResponse.json({ error: "Choose a valid date range." }, { status: 400 });
   const from = search.get("from") || programmeAddDays(to, -6);
   const fromDay = programmeDateDay(from);
-  const toDay = programmeDateDay(to);
-  if (fromDay === null || toDay === null || toDay < fromDay || toDay - fromDay > 366) {
+  const toDay = programmeDateDay(to)!;
+  if (fromDay === null || toDay < fromDay || toDay - fromDay > 366) {
     return NextResponse.json({ error: "Choose a valid date range." }, { status: 400 });
   }
   const { data, error } = await context.db

@@ -137,7 +137,7 @@ export function applyTrainingDateOverrides(
   return { assignments: own, movedIn };
 }
 
-/** Dates already taken in a week, mapped to the session using them (held originals included). */
+/** Dates already taken in a week, mapped to the session using them (held originals and every moved-in date included). */
 export function occupiedTrainingDates(assignments: WeeklyTrainingAssignment[], movedIn: WeeklyTrainingAssignment[], exceptSessionId?: string) {
   const dates = new Map<string, string>();
   for (const assignment of assignments) {

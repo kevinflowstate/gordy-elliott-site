@@ -46,6 +46,7 @@ test("a cross-week move leaves the source week's slot held and shows the same se
   const target = applyTrainingDateOverrides([assignment(PELOTON, "2026-10-19", "2026-10-21", "recurring")], moves, "2026-10-19", { clientId: CLIENT, planId: PLAN });
   assert.deepEqual(target.assignments.map((a) => [a.session_id, a.planned_date, a.moved_to]), [[PELOTON, "2026-10-21", undefined]]);
   assert.deepEqual(target.movedIn.map((a) => [a.session_id, a.planned_date, a.source_week_start]), [[PELOTON, "2026-10-19", "2026-10-12"]]);
+  // The moved-in Monday stays taken even for this week's own Peloton chips (the server would refuse it).
   assert.deepEqual([...occupiedTrainingDates(target.assignments, target.movedIn, PELOTON).keys()], ["2026-10-19"]);
 });
 
@@ -74,6 +75,8 @@ async function database() {
   const db = new PGlite();
   await db.exec(`
     CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;
+    CREATE SCHEMA auth;
+    CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
     CREATE TABLE client_profiles(id uuid primary key, user_id uuid unique, programme_type text, fitness_plans_enabled boolean default false);
     CREATE TABLE client_exercise_plans(id uuid primary key, client_id uuid not null references client_profiles, status text not null default 'active',
       start_date date, programme_weeks integer, created_at timestamptz default now());
@@ -92,6 +95,7 @@ async function database() {
       ('${OTHER_SESSION}', '${OTHER_PLAN}', 'Other client', 1, NULL);
   `);
   await db.exec(await readFile(new URL("../supabase/migrations/20261016100000_training_calendar_activity.sql", import.meta.url), "utf8"));
+  await db.exec(await readFile(new URL("../supabase/migrations/20261016110000_scope_training_date_override_state.sql", import.meta.url), "utf8"));
   await db.exec(`
     CREATE TRIGGER exercise_logs_plan_lock BEFORE INSERT OR UPDATE ON client_exercise_logs FOR EACH ROW EXECUTE FUNCTION public.lock_exercise_plan_for_history();
     CREATE TRIGGER exercise_summaries_plan_lock BEFORE INSERT OR UPDATE ON client_exercise_session_summaries FOR EACH ROW EXECUTE FUNCTION public.lock_exercise_plan_for_history();
@@ -166,6 +170,18 @@ test("SQL: ownership, inactive plans and grants", async () => {
     has_function_privilege('authenticated', 'save_training_calendar_date(uuid,uuid,uuid,date,date)', 'EXECUTE') move_rpc,
     has_function_privilege('authenticated', 'training_date_override_state(text,uuid,date,date)', 'EXECUTE') state_fn`);
   assert.deepEqual(grants.rows[0], { table_read: false, move_rpc: false, state_fn: true });
+});
+
+test("SQL: the trigger helper only reports moves on the signed-in client's own sessions", async () => {
+  const db = await database();
+  await moveSql(db, PELOTON, "2026-10-12", "2026-10-19");
+  const state = async (sub: string) => {
+    await db.exec(`SELECT set_config('request.jwt.claim.sub', '${sub}', false)`);
+    return (await db.query<{ s: string | null }>(`SELECT training_date_override_state('log', '${PELOTON}', NULL, '2026-10-19') s`)).rows[0].s;
+  };
+  assert.equal(await state(USER), "moved_here");
+  assert.equal(await state(OTHER_USER), null);
+  assert.equal(await state(""), "moved_here", "service contexts without a user still see moves");
 });
 
 test("SQL: programme weeks keep exact session identity when moved across weeks", async () => {
