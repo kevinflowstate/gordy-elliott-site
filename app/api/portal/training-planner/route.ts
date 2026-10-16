@@ -160,6 +160,7 @@ export async function POST(request: Request) {
 
   if (error) {
     if (error.code === "23505") return NextResponse.json({ error: "That day already has a planned session" }, { status: 409 });
+    if (error.code === "P0001") return NextResponse.json({ error: `${error.message}.` }, { status: 409 });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   return NextResponse.json({ assignment: { ...data, source: "explicit" } });

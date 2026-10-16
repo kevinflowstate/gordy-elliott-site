@@ -386,19 +386,29 @@ export function buildTrainingConsistency({
       .filter((log) => log.completed && log.session_id && log.log_date >= earliestWeek && log.log_date <= todayKey)
       .map((log) => `${log.session_id}:${log.log_date}`),
   );
-  const completedWeekSessions = new Set(
-    logs
-      .filter((log) => log.completed && log.session_id && log.log_date <= todayKey)
-      .map((log) => `${weekStartForDateKey(log.log_date)}:${log.session_id}`),
-  );
+  // Completed dates per week and session. A week can hold two occurrences of one session (its own plus one a
+  // client moved in), so each completed date satisfies at most one occurrence; any day in the week still counts.
+  const completedWeekSessionDates = new Map<string, Set<string>>();
+  for (const log of logs) {
+    if (!log.completed || !log.session_id || log.log_date > todayKey) continue;
+    const key = `${weekStartForDateKey(log.log_date)}:${log.session_id}`;
+    if (!completedWeekSessionDates.has(key)) completedWeekSessionDates.set(key, new Set());
+    completedWeekSessionDates.get(key)!.add(log.log_date);
+  }
 
   const relevantAssignments = assignments.filter((assignment) =>
     assignment.planned_date &&
     assignment.planned_date >= earliestWeek &&
     assignment.planned_date <= todayKey
   );
-  const completedPlanned = relevantAssignments.filter((assignment) =>
-    completedWeekSessions.has(`${assignment.week_start}:${assignment.session_id}`)
+  const occurrencesByWeekSession = new Map<string, number>();
+  for (const assignment of relevantAssignments) {
+    const key = `${assignment.week_start}:${assignment.session_id}`;
+    occurrencesByWeekSession.set(key, (occurrencesByWeekSession.get(key) || 0) + 1);
+  }
+  const completedPlannedCount = [...occurrencesByWeekSession].reduce(
+    (total, [key, occurrences]) => total + Math.min(occurrences, completedWeekSessionDates.get(key)?.size || 0),
+    0,
   );
 
   const weeks = weekStarts.map((weekStart) => {
@@ -433,9 +443,9 @@ export function buildTrainingConsistency({
   return {
     completedSessions: completedSessionDates.size,
     plannedSessions,
-    completedPlannedSessions: completedPlanned.length,
+    completedPlannedSessions: completedPlannedCount,
     completionRate: plannedSessions > 0
-      ? Math.min(100, Math.round((completedPlanned.length / plannedSessions) * 100))
+      ? Math.min(100, Math.round((completedPlannedCount / plannedSessions) * 100))
       : null,
     currentWeekCompleted: currentSummary?.completed || 0,
     currentWeekPlanned: currentSummary?.planned || 0,

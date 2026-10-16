@@ -121,7 +121,7 @@ export async function POST(request: Request) {
   });
 
   if (error) {
-    const status = error.code === "23505"
+    const status = error.code === "23505" || error.message.includes("already logged")
       ? 409
       : error.message.includes("not found")
         ? 404

@@ -144,6 +144,35 @@ test("training consistency matches scheduled sessions within their week and coun
   assert.equal(weekStartForDateKey("2026-08-02"), "2026-07-27");
 });
 
+test("one log completes one occurrence when a moved-in workout shares its session with the week's own", () => {
+  // Peloton moved in from the previous week to Monday 19th, plus this week's own Peloton on Wednesday 21st.
+  const assignments = [
+    { session_id: "peloton", week_start: "2026-10-19", planned_date: "2026-10-19" },
+    { session_id: "peloton", week_start: "2026-10-19", planned_date: "2026-10-21" },
+  ];
+  const mondayOnly = buildTrainingConsistency({
+    todayKey: "2026-10-21",
+    assignments,
+    logs: [
+      { session_id: "peloton", log_date: "2026-10-19", completed: true },
+      { session_id: "peloton", log_date: "2026-10-19", completed: true },
+    ],
+  });
+  assert.equal(mondayOnly.plannedSessions, 2);
+  assert.equal(mondayOnly.completedPlannedSessions, 1);
+  assert.equal(mondayOnly.completionRate, 50);
+  const both = buildTrainingConsistency({
+    todayKey: "2026-10-21",
+    assignments,
+    logs: [
+      { session_id: "peloton", log_date: "2026-10-19", completed: true },
+      { session_id: "peloton", log_date: "2026-10-20", completed: true },
+    ],
+  });
+  assert.equal(both.completedPlannedSessions, 2, "a second date in the week completes the second occurrence");
+  assert.equal(both.completionRate, 100);
+});
+
 test("strength tracker migration is client-isolated, coach-controlled and capped at five", () => {
   const migration = fs.readFileSync(
     path.join(process.cwd(), "supabase/migrations/20260804100949_add_client_strength_trackers.sql"),

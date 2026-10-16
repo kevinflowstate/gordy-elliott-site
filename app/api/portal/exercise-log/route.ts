@@ -160,6 +160,14 @@ export async function POST(request: Request) {
   if (entries.some(entry => !entry.performedExerciseId && priorLogs?.some(log => log.exercise_item_id===entry.exerciseItemId && log.performed_exercise_id!==log.prescribed_exercise_id))) {
     return NextResponse.json({error:"Refresh this workout before editing a substituted exercise."},{status:409});
   }
+  // Read before saving so the page can refresh its activity panel if this workout replaces a rest day.
+  const { data: restMarker } = await admin
+    .from("client_manual_training_activity")
+    .select("id")
+    .eq("client_id", profile.id)
+    .eq("activity_date", logDate)
+    .eq("kind", "rest")
+    .maybeSingle();
   const updatedAt = new Date().toISOString();
   const rows = entries.map((entry) => {
     const safeSets = entry.safeSets || [];
@@ -225,8 +233,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Your sets were saved, but the session summary could not be updated. Please tap save again." }, { status: 500 });
   }
 
-  // A logged workout supersedes a manual rest-day marker for the same date; the sets above are already saved.
-  let restDayCleared = false;
+  // A saved workout supersedes a rest-day marker for the date. The database clears it in the workout's own
+  // transaction (20261016120000); this delete keeps the behaviour if the web deploy lands before that migration.
+  let restDayCleared = Boolean(restMarker);
   if (rows.some((row) => row.completed)) {
     const { data: cleared, error: restError } = await admin
       .from("client_manual_training_activity")
@@ -236,7 +245,7 @@ export async function POST(request: Request) {
       .eq("kind", "rest")
       .select("id");
     if (restError) console.error("Failed to clear manual rest day after workout log:", restError.message);
-    restDayCleared = Boolean(cleared?.length);
+    restDayCleared = restDayCleared || Boolean(cleared?.length);
   }
 
   return NextResponse.json({ logs: data || [], log: data?.[0] || null, summary, rest_day_cleared: restDayCleared });
