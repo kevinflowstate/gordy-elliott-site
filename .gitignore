@@ -8,6 +8,7 @@ next-env.d.ts
 .qa/
 .ios-derived-data/
 native-shell/runtime-config.js
+native-shell/offline.html
 ios/App/App/public/runtime-config.js
 output/
 outputs/
