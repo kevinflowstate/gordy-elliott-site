@@ -273,7 +273,7 @@ export default function PortalDashboard() {
             );
             if (plannerRes.ok) {
               const plannerData = await plannerRes.json();
-              const assignment = (plannerData.assignments || []).find(
+              const assignment = [...(plannerData.assignments || []), ...(plannerData.moved_in || [])].find(
                 (item: { planned_date: string | null }) => item.planned_date === localDateKey(today),
               );
               const session = assignment

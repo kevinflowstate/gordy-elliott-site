@@ -4,6 +4,8 @@ import { consultationBodyContext } from "@/lib/consultation-metrics";
 import { homeEquipmentTrainingContext } from "@/lib/home-equipment";
 import FoundationsReviewPanel from "@/components/admin/FoundationsReviewPanel";
 
+import ManualTrainingActivityPanel from "@/components/portal/ManualTrainingActivity";
+import { formatTrainingDate, occupiedTrainingDates } from "@/lib/training-calendar";
 import { normaliseWeekStart } from "@/lib/training-planner";
 import { programmeSessionsForCalendarWeek, programmeSessionCanBePlanned, programmeToday } from "@/lib/exercise-programme";
 
@@ -3682,6 +3684,7 @@ function TrainingTabContent({
   const [weekLogs, setWeekLogs] = useState<Array<{ id: string; exercise_item_id: string; performed_exercise_id?: string; performed_exercise_name?: string; prescribed_exercise_name?: string; session_id: string | null; log_date: string; sets_data: Array<{ set_number: number; weight: string; reps: string; notes: string; circuit_rounds?: number }>; completed: boolean }>>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [weeklyPlanner, setWeeklyPlanner] = useState<WeeklyTrainingAssignment[]>([]);
+  const [plannerMovedIn, setPlannerMovedIn] = useState<WeeklyTrainingAssignment[]>([]);
   const [plannerWeekStart, setPlannerWeekStart] = useState<string | null>(null);
   const [plannerLoading, setPlannerLoading] = useState(false);
   const [plannerSaving, setPlannerSaving] = useState<string | null>(null);
@@ -3734,11 +3737,13 @@ function TrainingTabContent({
       .then((r) => r.json())
       .then((data) => {
         setWeeklyPlanner(data.assignments || []);
+        setPlannerMovedIn(data.moved_in || []);
         setPlannerWeekStart(data.week_start || from);
       })
       .catch((error) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
         setWeeklyPlanner([]);
+        setPlannerMovedIn([]);
         setPlannerWeekStart(from);
       })
       .finally(() => {
@@ -3826,7 +3831,8 @@ function TrainingTabContent({
 
   async function repeatCurrentSchedule() {
     if (plannerLoading || !plannerWeekStart) return;
-    const placed = weeklyPlanner.filter((assignment) => assignment.planned_date);
+    // Client date moves are one-off; never turn them into the repeating schedule.
+    const placed = weeklyPlanner.filter((assignment) => assignment.planned_date && !assignment.moved_to);
     if (placed.length === 0) return;
     setPlannerSaving("repeat-week");
     setPlannerError(null);
@@ -3858,7 +3864,7 @@ function TrainingTabContent({
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Previous week could not be loaded");
       const previousAssignments = (data.assignments || []) as WeeklyTrainingAssignment[];
-      const placed = previousAssignments.filter((assignment) => assignment.planned_date);
+      const placed = previousAssignments.filter((assignment) => assignment.planned_date && !assignment.moved_to);
       if (placed.length === 0) throw new Error("The previous week has no placed sessions to copy.");
 
       const assignments = placed.map((assignment) => {
@@ -3904,19 +3910,20 @@ function TrainingTabContent({
     d.setDate(d.getDate() + index);
     return formatLocalDate(d);
   });
-  const plannerByDate = weeklyPlanner.reduce((acc, assignment) => {
+  const plannerByDate = [...weeklyPlanner, ...plannerMovedIn].reduce((acc, assignment) => {
     if (!assignment.planned_date) return acc;
     if (!acc[assignment.planned_date]) acc[assignment.planned_date] = [];
     acc[assignment.planned_date].push(assignment);
     return acc;
   }, {} as Record<string, WeeklyTrainingAssignment[]>);
-  const plannedSessionIds = new Set(weeklyPlanner.filter((assignment) => assignment.planned_date).map((assignment) => assignment.session_id));
+  const plannedSessionIds = new Set(weeklyPlanner.filter((assignment) => assignment.planned_date || assignment.moved_to).map((assignment) => assignment.session_id));
   const plannerSessions = activeExPlan ? programmeSessionsForCalendarWeek(activeExPlan, plannerWeekStart || weekFrom) : [];
   const plannerUnassigned = plannerSessions.filter((session) => !plannedSessionIds.has(session.id));
 
   return (
     <div className="space-y-6">
       {(homeEquipmentTrainingContext(client.consultation_data)||(client.consultation_body_context || consultationBodyContext(client.consultation_data))) && <section className="rounded-xl border border-[#E040D0]/20 bg-[#E040D0]/5 p-4"><h2 className="text-sm font-semibold">Onboarding details for planning</h2><p className="mt-2 whitespace-pre-wrap text-sm text-text-secondary">{[homeEquipmentTrainingContext(client.consultation_data),(client.consultation_body_context || consultationBodyContext(client.consultation_data))].filter(Boolean).join("\n\n")}</p></section>}
+      <ManualTrainingActivityPanel clientId={client.id} />
       {/* ── Section 1: Assigned Plan ── */}
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -4114,9 +4121,9 @@ function TrainingTabContent({
                           {assignments.length > 0 ? assignments.map((assignment) => {
                             const session = activeExPlan.sessions.find((s) => s.id === assignment.session_id);
                             return (
-                              <div key={assignment.session_id} className="rounded-lg bg-[#E040D0]/10 px-2 py-1 text-[11px] font-semibold text-[#E040D0]">
+                              <div key={`${assignment.session_id}:${assignment.source_week_start || ""}`} className="rounded-lg bg-[#E040D0]/10 px-2 py-1 text-[11px] font-semibold text-[#E040D0]">
                                 {session?.name || "Session"}
-                                {assignment.is_recurring ? " · weekly" : ""}
+                                {assignment.moved_to ? " · moved by client" : assignment.is_recurring ? " · weekly" : ""}
                               </div>
                             );
                           }) : (
@@ -4142,20 +4149,22 @@ function TrainingTabContent({
                           <div className="min-w-0">
                             <div className="text-sm font-semibold text-text-primary">{session.name}</div>
                             <div className="mt-1 text-[11px] text-text-muted">
-                              {assignment?.is_recurring
+                              {assignment?.moved_to
+                                ? `Moved by the client to ${formatTrainingDate(assignment.moved_to, true)} (this occurrence only)`
+                                : assignment?.is_recurring
                                 ? assignment.source === "recurring" ? "Following weekly schedule" : "Repeats weekly"
                                 : assignment?.planned_date ? "This week only" : "Not placed"}
                             </div>
                           </div>
                           <div className="flex flex-wrap gap-1.5">
                             {plannerDays.map((date) => {
-                              const dayOccupied = (plannerByDate[date] || []).some((item) => item.session_id !== session.id);
+                              const dayOccupied = occupiedTrainingDates(weeklyPlanner, plannerMovedIn, session.id).has(date);
                               const selected = assignment?.planned_date === date;
                               return (
                                 <button
                                   key={date}
                                   type="button"
-                                  disabled={Boolean(plannerSaving) || dayOccupied || !programmeSessionCanBePlanned(activeExPlan, session.id, date)}
+                                  disabled={Boolean(plannerSaving) || dayOccupied || Boolean(assignment?.moved_to) || !programmeSessionCanBePlanned(activeExPlan, session.id, date)}
                                   onClick={() => void savePlannerAssignment(
                                     session.id,
                                     date,
@@ -4175,7 +4184,7 @@ function TrainingTabContent({
                             })}
                           </div>
                         </div>
-                        {assignment?.planned_date && (
+                        {assignment?.planned_date && !assignment.moved_to && (
                           <div className="mt-3 flex flex-wrap gap-2">
                             <button
                               type="button"

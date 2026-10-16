@@ -45,7 +45,7 @@ export async function GET(request: Request) {
 
   if (sessionError) return NextResponse.json({ error: sessionError.message }, { status: 500 });
 
-  const { assignments, error } = await loadWeeklyTrainingAssignments(admin, {
+  const { assignments, movedIn, error } = await loadWeeklyTrainingAssignments(admin, {
     clientId,
     planId: plan.id,
     weekStart,
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
   });
 
   if (error) return NextResponse.json({ error }, { status: 500 });
-  return NextResponse.json({ assignments, plan_id: plan.id, week_start: weekStart });
+  return NextResponse.json({ assignments, moved_in: movedIn, plan_id: plan.id, week_start: weekStart });
 }
 
 export async function POST(request: Request) {
@@ -128,7 +128,9 @@ export async function POST(request: Request) {
         : error.message.includes("must") || error.message.includes("Assignments")
           ? 400
           : 500;
-    const message = error.code === "23505" ? "A planned day can only contain one session" : error.message;
+    const message = error.code === "23505"
+      ? error.message.includes("moved workout") ? "The client has moved a workout to that day" : "A planned day can only contain one session"
+      : error.message;
     return NextResponse.json({ error: message }, { status });
   }
 

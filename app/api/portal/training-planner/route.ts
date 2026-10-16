@@ -70,7 +70,7 @@ export async function GET(request: Request) {
   const { sessionIds, error: sessionError } = await getPlanSessionIds(portal.admin, plan as ClientExercisePlan, weekStart);
   if (sessionError) return NextResponse.json({ error: sessionError }, { status: 500 });
 
-  const { assignments, error } = await loadWeeklyTrainingAssignments(portal.admin, {
+  const { assignments, movedIn, error } = await loadWeeklyTrainingAssignments(portal.admin, {
     clientId: portal.profile.id,
     planId: plan.id,
     weekStart,
@@ -79,7 +79,7 @@ export async function GET(request: Request) {
   });
 
   if (error) return NextResponse.json({ error }, { status: 500 });
-  return NextResponse.json({ assignments, plan_id: plan.id, week_start: weekStart });
+  return NextResponse.json({ assignments, moved_in: movedIn, plan_id: plan.id, week_start: weekStart });
 }
 
 export async function POST(request: Request) {
@@ -110,6 +110,18 @@ export async function POST(request: Request) {
 
   if (plan.programme_weeks && (isRecurring || (plannedDate && !programmeSessionCanBePlanned({ ...plan, sessions } as ClientExercisePlan, sessionId, plannedDate)))) {
     return NextResponse.json({ error: "Choose a date in this session's programme week. Programme weeks have independent workouts and do not repeat individual sessions." }, { status: 400 });
+  }
+  const { data: move, error: moveError } = await portal.admin
+    .from("client_training_date_overrides")
+    .select("planned_date")
+    .eq("client_id", portal.profile.id)
+    .eq("plan_id", plan.id)
+    .eq("session_id", sessionId)
+    .eq("source_week_start", weekStart)
+    .maybeSingle();
+  if (moveError) return NextResponse.json({ error: "Couldn't check moved workouts" }, { status: 500 });
+  if (move) {
+    return NextResponse.json({ error: "This week's workout has been moved to another date. Change or undo that move instead." }, { status: 409 });
   }
   if (plannedDate) {
     const { data: existingDayAssignment, error: existingDayError } = await portal.admin
@@ -146,6 +158,9 @@ export async function POST(request: Request) {
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    if (error.code === "23505") return NextResponse.json({ error: "That day already has a planned session" }, { status: 409 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   return NextResponse.json({ assignment: { ...data, source: "explicit" } });
 }

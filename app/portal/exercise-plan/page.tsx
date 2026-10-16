@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { programmeSessionsForDate, programmeSessionsForCalendarWeek, programmeScheduledSessionForDate, programmeSessionCanBePlanned, programmeWeek } from "@/lib/exercise-programme";
+import { programmeSessionsForDate, programmeSessionsForCalendarWeek, programmeScheduledSessionForDate, programmeSessionCanBePlanned, programmeWeek, programmeAddDays } from "@/lib/exercise-programme";
+import ManualTrainingActivityPanel from "@/components/portal/ManualTrainingActivity";
+import { formatTrainingDate, occupiedTrainingDates, type ManualTrainingActivity } from "@/lib/training-calendar";
 import { createPortal } from "react-dom";
 import AtCapacityWorkoutRunner, { type WorkoutRunnerMode } from "@/components/portal/AtCapacityWorkoutRunner";
 import type { ExerciseAlternative } from "@/components/portal/ExerciseSwapControl";
@@ -217,6 +219,11 @@ export default function PortalExercisePlanPage() {
   const [plannerLoading, setPlannerLoading] = useState(false);
   const [plannerError, setPlannerError] = useState<string | null>(null);
   const [plannerSavingSessionId, setPlannerSavingSessionId] = useState<string | null>(null);
+  // Workouts moved into the visible week from another week (one-off client date moves).
+  const [movedInAssignments, setMovedInAssignments] = useState<WeeklyTrainingAssignment[]>([]);
+  const [calendarDateDrafts, setCalendarDateDrafts] = useState<Record<string, string>>({});
+  const [manualActivities, setManualActivities] = useState<ManualTrainingActivity[]>([]);
+  const [activityRefreshKey, setActivityRefreshKey] = useState(0);
   const plannerRequestIdRef = useRef(0);
   const resumePointerHandledRef = useRef<string | null>(null);
   const sessionPanelRef = useRef<HTMLDivElement | null>(null);
@@ -326,6 +333,7 @@ export default function PortalExercisePlanPage() {
       if (!detail?.sessionId || !detail.date) return;
 
       void fetchWeekLogs(weekStart);
+      setActivityRefreshKey((key) => key + 1);
       if (detail.sessionId !== activeSession?.id || detail.date !== formatDate(selectedDate)) return;
 
       setSessionStartedAt(null);
@@ -351,6 +359,7 @@ export default function PortalExercisePlanPage() {
     (ws: Date) => {
       if (!plan?.id) {
         setWeeklyAssignments([]);
+        setMovedInAssignments([]);
         setPlannerLoadedWeek(null);
         return;
       }
@@ -358,6 +367,7 @@ export default function PortalExercisePlanPage() {
       const requestId = plannerRequestIdRef.current + 1;
       plannerRequestIdRef.current = requestId;
       setWeeklyAssignments([]);
+      setMovedInAssignments([]);
       setPlannerLoadedWeek(null);
       setPlannerError(null);
       setPlannerLoading(true);
@@ -372,6 +382,7 @@ export default function PortalExercisePlanPage() {
         .then((data) => {
           if (requestId !== plannerRequestIdRef.current) return;
           setWeeklyAssignments(data.assignments || []);
+          setMovedInAssignments(data.moved_in || []);
           setPlannerLoadedWeek(week);
           setPlannerError(null);
         })
@@ -379,6 +390,7 @@ export default function PortalExercisePlanPage() {
           if (requestId !== plannerRequestIdRef.current) return;
           console.error("Failed to fetch weekly planner:", err);
           setWeeklyAssignments([]);
+          setMovedInAssignments([]);
           setPlannerLoadedWeek(null);
           setPlannerError("Weekly planner could not load. Try refreshing the page.");
         })
@@ -395,15 +407,29 @@ export default function PortalExercisePlanPage() {
     fetchWeekPlanner(weekStart);
   }, [weekStart, fetchWeekPlanner]);
 
-  const sortedSessions = useMemo(
-    () => plan ? programmeSessionsForDate(plan, formatDate(selectedDate)).filter((session) => programmeSessionCanBePlanned(plan, session.id, formatDate(selectedDate))) : [],
-    [plan, selectedDate],
-  );
   const plannerLoadedForVisibleWeek = plannerLoadedWeek === formatDate(weekStart);
   const visibleWeeklyAssignments = useMemo(
     () => (plannerLoadedForVisibleWeek ? weeklyAssignments : []),
     [plannerLoadedForVisibleWeek, weeklyAssignments],
   );
+  const visibleMovedIn = useMemo(
+    () => (plannerLoadedForVisibleWeek ? movedInAssignments : []),
+    [plannerLoadedForVisibleWeek, movedInAssignments],
+  );
+  const sortedSessions = useMemo(() => {
+    if (!plan) return [];
+    const date = formatDate(selectedDate);
+    // Programme sessions are week-specific: a moved one is only available on its new date.
+    const movedAway = new Set(plan.programme_weeks
+      ? visibleWeeklyAssignments.filter((a) => a.moved_to && a.moved_to !== date).map((a) => a.session_id)
+      : []);
+    const own = programmeSessionsForDate(plan, date)
+      .filter((session) => programmeSessionCanBePlanned(plan, session.id, date) && !movedAway.has(session.id));
+    const movedHere = visibleMovedIn
+      .filter((a) => a.planned_date === date && !own.some((session) => session.id === a.session_id))
+      .flatMap((a) => plan.sessions.filter((session) => session.id === a.session_id));
+    return [...own, ...movedHere];
+  }, [plan, selectedDate, visibleWeeklyAssignments, visibleMovedIn]);
 
   const assignmentBySessionId = useMemo(() => {
     const map = new Map<string, WeeklyTrainingAssignment>();
@@ -417,12 +443,12 @@ export default function PortalExercisePlanPage() {
     const map = new Map<string, ExerciseSession[]>();
     if (!plan?.sessions?.length) return map;
 
-    for (const assignment of visibleWeeklyAssignments) {
+    for (const assignment of [...visibleWeeklyAssignments, ...visibleMovedIn]) {
       if (!assignment.planned_date) continue;
       const session = plan.sessions.find((s) => s.id === assignment.session_id);
       if (!session) continue;
       const list = map.get(assignment.planned_date) || [];
-      list.push(session);
+      if (!list.some((item) => item.id === session.id)) list.push(session);
       map.set(assignment.planned_date, list);
     }
 
@@ -431,7 +457,7 @@ export default function PortalExercisePlanPage() {
     }
 
     return map;
-  }, [plan?.sessions, visibleWeeklyAssignments]);
+  }, [plan?.sessions, visibleWeeklyAssignments, visibleMovedIn]);
 
   const fallbackSessionsByDate = useMemo(() => {
     const map = new Map<string, ExerciseSession[]>();
@@ -445,7 +471,15 @@ export default function PortalExercisePlanPage() {
     return map;
   }, [plan, weekStart, plannerLoadedForVisibleWeek, visibleWeeklyAssignments.length]);
 
-  const calendarSessionsByDate = visibleWeeklyAssignments.length > 0 ? plannedSessionsByDate : fallbackSessionsByDate;
+  const calendarSessionsByDate = useMemo(() => {
+    if (visibleWeeklyAssignments.length > 0 || fallbackSessionsByDate.size === 0) return plannedSessionsByDate;
+    // Moved-in workouts sit on top of the suggested schedule for weeks the client has not planned.
+    const map = new Map(fallbackSessionsByDate);
+    for (const [date, sessions] of plannedSessionsByDate.entries()) {
+      map.set(date, [...(map.get(date) || []), ...sessions.filter((session) => !map.get(date)?.some((item) => item.id === session.id))]);
+    }
+    return map;
+  }, [visibleWeeklyAssignments.length, plannedSessionsByDate, fallbackSessionsByDate]);
 
   const initDrafts = useCallback((session: ExerciseSession, existingLogs: ExerciseLog[] = []) => {
     const drafts = buildSessionDrafts(session, existingLogs);
@@ -550,8 +584,9 @@ export default function PortalExercisePlanPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data?.error || "We couldn't save this session. Please try again.");
 
-      // Refresh week logs
+      // Refresh week logs; a logged workout replaces any manual rest-day marker for this date.
       await fetchWeekLogs(weekStart);
+      if (data?.rest_day_cleared) setActivityRefreshKey((key) => key + 1);
       finishSessionTimer(activeSession.id, dateStr);
       setViewMode("readonly");
       setSessionOpen(false);
@@ -697,8 +732,14 @@ export default function PortalExercisePlanPage() {
   ).size;
   const totalPlanSessions = plan ? programmeSessionsForCalendarWeek(plan, formatDate(weekStart)).length : 0;
   const plannerSessions = plan ? programmeSessionsForCalendarWeek(plan, formatDate(weekStart)) : [];
-  const placedSessionsCount = plannerSessions.filter((session) => Boolean(assignmentBySessionId.get(session.id)?.planned_date)).length;
-  const unassignedSessions = plannerSessions.filter((session) => !assignmentBySessionId.get(session.id)?.planned_date);
+  const plannerSessionIds = new Set(plannerSessions.map((session) => session.id));
+  const isPlacedOrMoved = (assignment?: WeeklyTrainingAssignment) => Boolean(assignment?.planned_date || assignment?.moved_to);
+  const placedSessionsCount = plannerSessions.filter((session) => isPlacedOrMoved(assignmentBySessionId.get(session.id))).length;
+  const unassignedSessions = plannerSessions.filter((session) => !isPlacedOrMoved(assignmentBySessionId.get(session.id)));
+  const movedOccurrences = [
+    ...visibleMovedIn,
+    ...visibleWeeklyAssignments.filter((assignment) => assignment.moved_to && !assignment.planned_date),
+  ];
   const nextSession = sortedSessions.length > 0
     ? getNextSession(sortedSessions, allLogs.filter((log) => log.log_date <= selectedDateStr))
     : null;
@@ -850,6 +891,65 @@ export default function PortalExercisePlanPage() {
     setRunnerOpen(true);
   }
 
+  function calendarDraftKey(sessionId: string, sourceWeek: string) {
+    return `${sessionId}:${sourceWeek}`;
+  }
+
+  /** Moves one occurrence to an actual date. Same-week, one-off placements use the weekly planner. */
+  async function saveCalendarDate(sessionId: string, date: string, sourceWeek: string, occurrence?: WeeklyTrainingAssignment) {
+    if (!plan || !date) return;
+    const target = new Date(`${date}T00:00:00`);
+    const targetWeek = formatDate(getWeekStart(target));
+    const draftKey = calendarDraftKey(sessionId, sourceWeek);
+    if (targetWeek === sourceWeek && sourceWeek === weekStartStr && !occurrence?.moved_to && !occurrence?.is_recurring) {
+      await savePlannerAssignment(sessionId, date, false);
+      setCalendarDateDrafts((prev) => ({ ...prev, [draftKey]: "" }));
+      return;
+    }
+    setPlannerSavingSessionId(sessionId);
+    setPlannerError(null);
+    try {
+      const response = await fetch("/api/portal/training-calendar-date", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan_id: plan.id, session_id: sessionId, source_week_start: sourceWeek, planned_date: date }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Couldn't move this workout.");
+      setCalendarDateDrafts((prev) => ({ ...prev, [draftKey]: "" }));
+      setManuallyPicked(false);
+      setSessionOpen(false);
+      setSelectedDate(target);
+      if (targetWeek === weekStartStr) fetchWeekPlanner(weekStart);
+      else setWeekStart(getWeekStart(target));
+    } catch (error) {
+      setPlannerError(error instanceof Error ? error.message : "Couldn't move this workout.");
+    } finally {
+      setPlannerSavingSessionId(null);
+    }
+  }
+
+  async function undoCalendarMove(sessionId: string, sourceWeek: string) {
+    if (!plan) return;
+    setPlannerSavingSessionId(sessionId);
+    setPlannerError(null);
+    try {
+      const response = await fetch("/api/portal/training-calendar-date", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan_id: plan.id, session_id: sessionId, source_week_start: sourceWeek }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Couldn't undo this move.");
+      setManuallyPicked(false);
+      fetchWeekPlanner(weekStart);
+    } catch (error) {
+      setPlannerError(error instanceof Error ? error.message : "Couldn't undo this move.");
+    } finally {
+      setPlannerSavingSessionId(null);
+    }
+  }
+
   function dayChipClass(active: boolean, disabled: boolean) {
     return `min-w-10 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold transition-colors ${
       active
@@ -858,35 +958,93 @@ export default function PortalExercisePlanPage() {
     } ${disabled ? "cursor-wait opacity-50" : "cursor-pointer"}`;
   }
 
-  function renderPlannerDayChips(session: ExerciseSession, labelPrefix: string) {
-    const assignment = assignmentBySessionId.get(session.id);
+  function renderPlannerDayChips(session: ExerciseSession, labelPrefix: string, occurrence?: WeeklyTrainingAssignment) {
+    const assignment = occurrence
+      ?? assignmentBySessionId.get(session.id)
+      ?? (plannerSessionIds.has(session.id) ? undefined : visibleMovedIn.find((item) => item.session_id === session.id));
     const saving = plannerSavingSessionId === session.id;
+    const sourceWeek = assignment?.source_week_start || weekStartStr;
+    const movedIn = Boolean(assignment?.moved_to && assignment.source_week_start !== weekStartStr);
+    const occupiedDates = occupiedTrainingDates(visibleWeeklyAssignments, visibleMovedIn, session.id);
+    const draftKey = calendarDraftKey(session.id, sourceWeek);
+    const draft = calendarDateDrafts[draftKey] || "";
+    const minDate = plan?.programme_weeks && plan.start_date && plan.start_date > sourceWeek ? plan.start_date : sourceWeek;
+    const currentDate = assignment?.moved_to || assignment?.planned_date || "";
     return (
-      <div className="mt-3 flex flex-wrap gap-1.5" aria-label={`${labelPrefix} ${session.name}`}>
-        {weekDays.map((day, i) => {
-          const dayStr = formatDate(day);
-          const active = assignment?.planned_date === dayStr;
-          const occupied = Boolean(plannedSessionsByDate.get(dayStr)?.some((plannedSession) => plannedSession.id !== session.id));
-          const disabled = saving || active || occupied || Boolean(plan && !programmeSessionCanBePlanned(plan, session.id, dayStr));
-          return (
+      <div className="mt-3 space-y-3" aria-label={`${labelPrefix} ${session.name}`}>
+        {assignment?.moved_to ? (
+          <p className="rounded-xl bg-[#E040D0]/10 px-3 py-2 text-xs font-semibold leading-5 text-text-primary">
+            {movedIn
+              ? `Moved here from the week of ${formatTrainingDate(sourceWeek)}.`
+              : `This week's ${session.name} is moved to ${formatTrainingDate(assignment.moved_to, true)}.`}
+            {" "}Same workout, exercises and targets.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">{weekDays.map((day, i) => {
+            const dayStr = formatDate(day);
+            const active = assignment?.planned_date === dayStr;
+            const occupiedBy = occupiedDates.get(dayStr);
+            const occupied = Boolean(occupiedBy);
+            const disabled = saving || active || occupied || Boolean(plan && !programmeSessionCanBePlanned(plan, session.id, dayStr));
+            return (
+              <button
+                key={dayStr}
+                type="button"
+                disabled={disabled}
+                onClick={() => savePlannerAssignment(session.id, dayStr, assignment?.is_recurring, assignment?.recurrence_stopped)}
+                className={dayChipClass(active, disabled)}
+                title={occupied
+                  ? visibleWeeklyAssignments.some((item) => item.held_date === dayStr && item.session_id === occupiedBy)
+                    ? "Kept for a moved workout until that move is undone"
+                    : "That day already has a planned session"
+                  : undefined}
+                aria-pressed={active}
+                aria-label={active
+                  ? `${day.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}, assigned to ${session.name}`
+                  : occupied
+                    ? `${day.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}, unavailable because another session is planned`
+                    : `Schedule ${session.name} for ${day.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}`}
+              >
+                {DAY_NAMES[i]} {day.getDate()}
+              </button>
+            );
+          })}</div>
+        )}
+        <div className="flex min-w-0 flex-wrap items-end gap-2">
+          <label className="block min-w-[11rem] flex-1 text-xs font-semibold text-text-primary">
+            {assignment?.moved_to ? "Change the date" : "Or move it to any date, including next week"}
+            <input
+              type="date"
+              aria-label={`New date for ${session.name}`}
+              min={minDate}
+              max={programmeAddDays(sourceWeek, 365)}
+              value={draft || currentDate}
+              onChange={(event) => setCalendarDateDrafts((prev) => ({ ...prev, [draftKey]: event.target.value }))}
+              className="mt-1 block min-h-11 w-full min-w-0 rounded-xl border border-white/15 bg-bg-primary px-3 py-2 text-sm text-text-primary [color-scheme:dark]"
+            />
+          </label>
+          <button
+            type="button"
+            disabled={saving || !draft || draft === currentDate}
+            onClick={() => void saveCalendarDate(session.id, draft, sourceWeek, assignment)}
+            className="min-h-11 rounded-xl bg-[#E040D0] px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+          >
+            {saving ? "Saving..." : "Move"}
+          </button>
+          {assignment?.moved_to && (
             <button
-              key={dayStr}
               type="button"
-              disabled={disabled}
-              onClick={() => savePlannerAssignment(session.id, dayStr, assignment?.is_recurring, assignment?.recurrence_stopped)}
-              className={dayChipClass(active, disabled)}
-              title={occupied ? "That day already has a planned session" : undefined}
-              aria-pressed={active}
-              aria-label={active
-                ? `${DAY_NAMES[i]}, assigned to ${session.name}`
-                : occupied
-                  ? `${DAY_NAMES[i]}, unavailable because another session is assigned`
-                  : `Schedule ${session.name} for ${DAY_NAMES[i]}`}
+              disabled={saving}
+              onClick={() => void undoCalendarMove(session.id, sourceWeek)}
+              className="min-h-11 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-text-secondary disabled:opacity-40"
             >
-              {DAY_NAMES[i]}
+              {assignment.held_date ? `Undo move (back to ${formatTrainingDate(assignment.held_date)})` : "Undo move"}
             </button>
-          );
-        })}
+          )}
+        </div>
+        {draft && draft !== currentDate && (
+          <p className="text-xs text-text-secondary">Moves only this week&apos;s {session.name} to {formatTrainingDate(draft, true)}. Your weekly pattern stays the same.</p>
+        )}
       </div>
     );
   }
@@ -1026,7 +1184,7 @@ export default function PortalExercisePlanPage() {
                       <span className="min-w-0 flex-1">
                         <span className="block text-sm font-bold text-text-primary">{session.name}</span>
                         <span className="mt-0.5 block text-[11px] text-text-muted">
-                          {exerciseItems.length} exercises{assignment?.planned_date ? ` · ${new Date(`${assignment.planned_date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short" })}` : " · Not scheduled"}
+                          {exerciseItems.length} exercises{assignment?.moved_to ? ` · Moved to ${formatTrainingDate(assignment.moved_to)}` : assignment?.planned_date ? ` · ${new Date(`${assignment.planned_date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short" })}` : plannerSessionIds.has(session.id) ? " · Not scheduled" : " · Moved here"}
                         </span>
                       </span>
                       <svg className="h-4 w-4 shrink-0 text-text-muted transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m6 9 6 6 6-6" /></svg>
@@ -1046,7 +1204,7 @@ export default function PortalExercisePlanPage() {
                           This adds the session to your week. It does not start the workout.
                         </p>
                         {renderPlannerDayChips(session, "Schedule")}
-                        {assignment?.planned_date && (
+                        {assignment?.planned_date && !assignment.moved_to && (
                           <div className="mt-3 flex flex-wrap gap-2">
                             <button
                               type="button"
@@ -1124,6 +1282,7 @@ export default function PortalExercisePlanPage() {
             const todayDay = isToday(day);
             const hasLog = hasLogOnDay(day);
             const hasPlanned = Boolean(calendarSessionsByDate.get(dayStr)?.length);
+            const activity = manualActivities.find((entry) => entry.activity_date === dayStr);
 
             return (
               <button
@@ -1134,7 +1293,7 @@ export default function PortalExercisePlanPage() {
                   day: "numeric",
                   month: "long",
                   year: "numeric",
-                })}${hasLog ? ", workout logged" : hasPlanned ? ", workout planned" : ""}`}
+                })}${hasLog ? ", workout logged" : hasPlanned ? ", workout planned" : ""}${activity ? `, ${activity.kind === "rest" ? "rest day" : "other activity"} recorded` : ""}`}
                 data-training-date={dayStr}
                 className={`relative flex min-w-0 flex-col items-center justify-center rounded-xl px-0.5 py-2.5 transition-all cursor-pointer
                   ${todayDay
@@ -1148,6 +1307,7 @@ export default function PortalExercisePlanPage() {
                   {DAY_NAMES[i]}
                 </span>
                 <span className="text-sm font-bold leading-none">{day.getDate()}</span>
+                {activity && <span className="mt-1 text-[9px] font-semibold uppercase leading-none">{activity.kind === "rest" ? "Rest" : "Active"}</span>}
                 {/* Dot indicator: solid = logged, faded = session planned */}
                 <div className={`mt-1.5 w-1.5 h-1.5 rounded-full transition-all ${
                   hasLog
@@ -1161,6 +1321,15 @@ export default function PortalExercisePlanPage() {
           })}
         </div>
       </div>
+
+      <ManualTrainingActivityPanel
+        date={selectedDateStr}
+        weekStart={weekStartStr}
+        weekEnd={weekEndStr}
+        refreshKey={activityRefreshKey}
+        workoutLogged={hasLogOnDay(selectedDate)}
+        onChange={setManualActivities}
+      />
 
       {/* ---- Weekly Planner ---- */}
       <details className="group app-card rounded-[28px] p-4 mb-5">
@@ -1276,9 +1445,14 @@ export default function PortalExercisePlanPage() {
                               <span className="rounded-full bg-[#E040D0]/10 px-2.5 py-1 text-[11px] font-semibold text-[#E040D0]">
                                 {plannedLabel}
                               </span>
-                              {assignment.is_recurring && (
+                              {assignment.is_recurring && !assignment.moved_to && (
                                 <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-500">
                                   Weekly
+                                </span>
+                              )}
+                              {assignment.moved_to && (
+                                <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-text-secondary">
+                                  Moved
                                 </span>
                               )}
                             </div>
@@ -1292,7 +1466,7 @@ export default function PortalExercisePlanPage() {
                         <div className="border-t border-[rgba(0,0,0,0.05)] px-4 pb-4 pt-3">
                           <p className="text-[11px] text-text-muted">Move this workout to another day:</p>
                           {renderPlannerDayChips(session, "Move")}
-                          <div className="mt-3 flex flex-wrap gap-2">
+                          <div className="mt-3 flex flex-wrap gap-2" hidden={Boolean(assignment.moved_to)}>
                             <button
                               type="button"
                               disabled={saving}
@@ -1316,6 +1490,30 @@ export default function PortalExercisePlanPage() {
                           )}
                         </div>
                       </details>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {movedOccurrences.length > 0 && (
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-[0.16em] text-text-muted">Moved workouts</h3>
+                <div className="mt-2 space-y-2">
+                  {movedOccurrences.map((occurrence) => {
+                    const session = plan.sessions.find((item) => item.id === occurrence.session_id);
+                    if (!session || !occurrence.moved_to) return null;
+                    const incoming = occurrence.source_week_start !== weekStartStr;
+                    return (
+                      <div key={`${occurrence.session_id}:${occurrence.source_week_start}`} className="rounded-2xl border border-[#E040D0]/20 bg-[#E040D0]/5 px-4 py-3">
+                        <div className="text-sm font-bold text-text-primary">{session.name}</div>
+                        <div className="mt-0.5 text-[11px] text-text-secondary">
+                          {incoming
+                            ? `${formatTrainingDate(occurrence.moved_to)} · moved from the week of ${formatTrainingDate(occurrence.source_week_start || weekStartStr)}`
+                            : `Moved out of this week to ${formatTrainingDate(occurrence.moved_to, true)}`}
+                        </div>
+                        {renderPlannerDayChips(session, "Moved", occurrence)}
+                      </div>
                     );
                   })}
                 </div>

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { WeeklyTrainingAssignment } from "@/lib/types";
+import { applyTrainingDateOverrides, loadTrainingDateOverrides, overrideDatesInWeek } from "@/lib/training-calendar";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -99,8 +100,15 @@ export async function loadWeeklyTrainingAssignments(
     sessionIds: string[];
     allowRecurring?: boolean;
   },
-): Promise<{ assignments: WeeklyTrainingAssignment[]; error: string | null }> {
-  if (sessionIds.length === 0) return { assignments: [], error: null };
+): Promise<{ assignments: WeeklyTrainingAssignment[]; movedIn: WeeklyTrainingAssignment[]; error: string | null }> {
+  // movedIn holds occurrences a client moved here from another week; assignments stay one per own session.
+  const dates = await loadTrainingDateOverrides(supabase, clientId, planId, weekStart);
+  if (dates.error) return { assignments: [], movedIn: [], error: dates.error };
+  const overlay = (assignments: WeeklyTrainingAssignment[]) => ({
+    ...applyTrainingDateOverrides(assignments, dates.overrides, weekStart, { clientId, planId }),
+    error: null,
+  });
+  if (sessionIds.length === 0) return overlay([]);
 
   const { data: explicitRows, error: explicitError } = await supabase
     .from("client_training_weekly_assignments")
@@ -110,17 +118,18 @@ export async function loadWeeklyTrainingAssignments(
     .eq("week_start", weekStart)
     .in("session_id", sessionIds);
 
-  if (explicitError) return { assignments: [], error: explicitError.message };
+  if (explicitError) return { assignments: [], movedIn: [], error: explicitError.message };
 
   const explicitAssignments = ((explicitRows || []) as AssignmentRow[]).map(toAssignment);
   const explicitSessionIds = new Set(explicitAssignments.map((assignment) => assignment.session_id));
-  const occupiedPlannedDates = new Set(
-    explicitAssignments
+  const occupiedPlannedDates = new Set([
+    ...explicitAssignments
       .map((assignment) => assignment.planned_date)
       .filter((plannedDate): plannedDate is string => Boolean(plannedDate)),
-  );
+    ...overrideDatesInWeek(dates.overrides, weekStart),
+  ]);
 
-  if (!allowRecurring) return { assignments: explicitAssignments, error: null };
+  if (!allowRecurring) return overlay(explicitAssignments);
 
   const { data: priorRows, error: priorError } = await supabase
     .from("client_training_weekly_assignments")
@@ -131,7 +140,7 @@ export async function loadWeeklyTrainingAssignments(
     .in("session_id", sessionIds)
     .order("week_start", { ascending: false });
 
-  if (priorError) return { assignments: [], error: priorError.message };
+  if (priorError) return { assignments: [], movedIn: [], error: priorError.message };
 
   const recurringAssignments: WeeklyTrainingAssignment[] = [];
   const recurringSeen = new Set<string>();
@@ -172,8 +181,5 @@ export async function loadWeeklyTrainingAssignments(
     });
   }
 
-  return {
-    assignments: [...explicitAssignments, ...recurringAssignments],
-    error: null,
-  };
+  return overlay([...explicitAssignments, ...recurringAssignments]);
 }

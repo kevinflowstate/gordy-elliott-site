@@ -1,3 +1,4 @@
+import { workoutDateMoveState } from "@/lib/training-calendar";
 import { programmeSessionCanBePlanned, programmeDateDay } from "@/lib/exercise-programme";
 import type { ClientExercisePlan, ExerciseSession } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
@@ -142,8 +143,16 @@ export async function POST(request: Request) {
   if (planError) return NextResponse.json({ error: "Training plan could not be validated" }, { status: 500 });
   if (!ownedPlan) return NextResponse.json({ error: "Exercise not found in your plan" }, { status: 404 });
 
-  if (ownedPlan.programme_weeks && !programmeSessionCanBePlanned({ ...ownedPlan, sessions: [session as ExerciseSession] } as ClientExercisePlan, session.id, logDate)) {
-    return NextResponse.json({ error: "This workout belongs to a different programme week. Reload your training plan." }, { status: 409 });
+  if (ownedPlan.programme_weeks) {
+    // Programme weeks have their own workouts; a client date move carries one exact session to its new date.
+    const move = await workoutDateMoveState(admin, profile.id, session.id, logDate);
+    if (move.error) return NextResponse.json({ error: "Could not verify the scheduled workout date" }, { status: 500 });
+    if (!move.movedHere && move.movedAwayTo) {
+      return NextResponse.json({ error: "This workout has been moved to another date. Log it on its new date or undo the move." }, { status: 409 });
+    }
+    if (!move.movedHere && !programmeSessionCanBePlanned({ ...ownedPlan, sessions: [session as ExerciseSession] } as ClientExercisePlan, session.id, logDate)) {
+      return NextResponse.json({ error: "This workout belongs to a different programme week. Reload your training plan." }, { status: 409 });
+    }
   }
   const { data: priorLogs, error: priorError } = await admin.from("client_exercise_logs")
     .select("exercise_item_id,performed_exercise_id,prescribed_exercise_id").eq("client_id",profile.id).eq("log_date",logDate).in("exercise_item_id",itemIds);
@@ -216,5 +225,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Your sets were saved, but the session summary could not be updated. Please tap save again." }, { status: 500 });
   }
 
-  return NextResponse.json({ logs: data || [], log: data?.[0] || null, summary });
+  // A logged workout supersedes a manual rest-day marker for the same date; the sets above are already saved.
+  let restDayCleared = false;
+  if (rows.some((row) => row.completed)) {
+    const { data: cleared, error: restError } = await admin
+      .from("client_manual_training_activity")
+      .delete()
+      .eq("client_id", profile.id)
+      .eq("activity_date", logDate)
+      .eq("kind", "rest")
+      .select("id");
+    if (restError) console.error("Failed to clear manual rest day after workout log:", restError.message);
+    restDayCleared = Boolean(cleared?.length);
+  }
+
+  return NextResponse.json({ logs: data || [], log: data?.[0] || null, summary, rest_day_cleared: restDayCleared });
 }

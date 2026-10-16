@@ -1,0 +1,210 @@
+process.env.TZ = "Europe/London";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+import { PGlite } from "@electric-sql/pglite";
+import { applyTrainingDateOverrides, manualActivityError, occupiedTrainingDates, type TrainingDateOverride } from "../lib/training-calendar";
+import { programmeAddDays, programmeCalendarWeekStart } from "../lib/exercise-programme";
+import { addPlannerDays, formatPlannerDate, getPlannerWeekStart } from "../lib/training-planner";
+import type { WeeklyTrainingAssignment } from "../lib/types";
+
+const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+const USER = id(101), OTHER_USER = id(102), CLIENT = id(1), OTHER_CLIENT = id(2);
+const PLAN = id(10), PROGRAMME = id(11), OTHER_PLAN = id(12);
+const PELOTON = id(20), STRENGTH = id(21), MOBILITY = id(22), P1 = id(30), P2 = id(31), OTHER_SESSION = id(40);
+
+function assignment(sessionId: string, weekStart: string, plannedDate: string | null, source: "explicit" | "recurring" = "explicit"): WeeklyTrainingAssignment {
+  return { id: source === "explicit" ? id(900) : null, client_id: CLIENT, plan_id: PLAN, session_id: sessionId, week_start: weekStart, planned_date: plannedDate, is_recurring: source === "recurring", recurrence_stopped: false, source };
+}
+function move(sessionId: string, source: string, date: string): TrainingDateOverride {
+  return { id: id(800), client_id: CLIENT, plan_id: PLAN, session_id: sessionId, source_week_start: source, planned_date: date, created_at: "", updated_at: "" };
+}
+
+test("reported case: Friday 16 October to Monday 19 October lands in the following Monday week", () => {
+  assert.equal(programmeCalendarWeekStart("2026-10-16"), "2026-10-12");
+  assert.equal(programmeCalendarWeekStart("2026-10-19"), "2026-10-19");
+  // Month end and the UK clock change (Sunday 25 October 2026) stay date-exact.
+  assert.equal(programmeCalendarWeekStart("2026-11-01"), "2026-10-26");
+  assert.equal(programmeAddDays("2026-10-30", 3), "2026-11-02");
+  assert.equal(formatPlannerDate(getPlannerWeekStart(new Date("2026-10-25T00:00:00"))), "2026-10-19");
+  assert.equal(formatPlannerDate(getPlannerWeekStart(new Date("2026-10-26T00:30:00"))), "2026-10-26");
+  assert.equal(addPlannerDays("2026-10-19", 7), "2026-10-26");
+  assert.equal(addPlannerDays("2027-03-22", 7), "2027-03-29");
+});
+
+test("a cross-week move leaves the source week's slot held and shows the same session separately in the target week", () => {
+  const moves = [move(PELOTON, "2026-10-12", "2026-10-19")];
+  const source = applyTrainingDateOverrides([assignment(PELOTON, "2026-10-12", "2026-10-12"), assignment(STRENGTH, "2026-10-12", "2026-10-14")], moves, "2026-10-12", { clientId: CLIENT, planId: PLAN });
+  const peloton = source.assignments.find((a) => a.session_id === PELOTON)!;
+  assert.equal(peloton.planned_date, null);
+  assert.equal(peloton.moved_to, "2026-10-19");
+  assert.equal(peloton.held_date, "2026-10-12");
+  assert.equal(source.movedIn.length, 0);
+  assert.equal(source.assignments.filter((a) => a.session_id === PELOTON).length, 1);
+
+  // Target week keeps its own (static, recurring) Peloton on Wednesday and gains the moved one on Monday.
+  const target = applyTrainingDateOverrides([assignment(PELOTON, "2026-10-19", "2026-10-21", "recurring")], moves, "2026-10-19", { clientId: CLIENT, planId: PLAN });
+  assert.deepEqual(target.assignments.map((a) => [a.session_id, a.planned_date, a.moved_to]), [[PELOTON, "2026-10-21", undefined]]);
+  assert.deepEqual(target.movedIn.map((a) => [a.session_id, a.planned_date, a.source_week_start]), [[PELOTON, "2026-10-19", "2026-10-12"]]);
+  assert.deepEqual([...occupiedTrainingDates(target.assignments, target.movedIn, PELOTON).keys()], ["2026-10-19"]);
+});
+
+test("same-week and previously unplaced moves are one-off and never recurring", () => {
+  const sameWeek = applyTrainingDateOverrides([assignment(PELOTON, "2026-10-12", "2026-10-12", "recurring")], [move(PELOTON, "2026-10-12", "2026-10-15")], "2026-10-12", { clientId: CLIENT, planId: PLAN });
+  assert.equal(sameWeek.assignments[0].planned_date, "2026-10-15");
+  assert.equal(sameWeek.assignments[0].held_date, null, "a virtual recurring slot does not hold its date");
+  const unplaced = applyTrainingDateOverrides([], [move(MOBILITY, "2026-10-12", "2026-10-20")], "2026-10-12", { clientId: CLIENT, planId: PLAN });
+  assert.equal(unplaced.assignments[0].is_recurring, false);
+  assert.equal(unplaced.assignments[0].moved_to, "2026-10-20");
+});
+
+test("manual activity validation", () => {
+  const today = "2026-10-16";
+  assert.equal(manualActivityError("2026-10-16", "walking", "30", "", today), null);
+  assert.equal(manualActivityError("2026-10-16", "rest", "9999", "", today), null, "minutes ignored for rest");
+  assert.match(manualActivityError("2026-10-17", "walking", "", "", today)!, /up to today/);
+  assert.match(manualActivityError("2025-10-15", "walking", "", "", today)!, /past year/);
+  assert.match(manualActivityError("2026-10-16", "peloton", "", "", today)!, /Choose an activity/);
+  assert.match(manualActivityError("2026-10-16", "walking", "0", "", today)!, /minutes/);
+  assert.match(manualActivityError("2026-10-16", "walking", "12.5", "", today)!, /minutes/);
+  assert.match(manualActivityError("2026-10-16", "walking", "", "x".repeat(1001), today)!, /1,000/);
+});
+
+async function database() {
+  const db = new PGlite();
+  await db.exec(`
+    CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;
+    CREATE TABLE client_profiles(id uuid primary key, user_id uuid unique, programme_type text, fitness_plans_enabled boolean default false);
+    CREATE TABLE client_exercise_plans(id uuid primary key, client_id uuid not null references client_profiles, status text not null default 'active',
+      start_date date, programme_weeks integer, created_at timestamptz default now());
+    CREATE TABLE client_exercise_sessions(id uuid primary key, plan_id uuid not null references client_exercise_plans on delete cascade, name text, day_number int, week_number int);
+    CREATE TABLE client_exercise_logs(id uuid primary key default gen_random_uuid(), client_id uuid not null, exercise_item_id uuid default gen_random_uuid(), session_id uuid, log_date date not null, completed boolean default true);
+    CREATE TABLE client_exercise_session_summaries(id uuid primary key default gen_random_uuid(), client_id uuid not null, session_id uuid not null, log_date date not null);
+    CREATE TABLE client_training_weekly_assignments(id uuid primary key default gen_random_uuid(), client_id uuid not null, plan_id uuid not null, session_id uuid not null,
+      week_start date not null, planned_date date, is_recurring boolean not null default false, recurrence_stopped boolean not null default false,
+      UNIQUE(client_id, plan_id, session_id, week_start));
+    CREATE UNIQUE INDEX unique_day ON client_training_weekly_assignments(client_id, plan_id, week_start, planned_date) WHERE planned_date IS NOT NULL;
+    INSERT INTO client_profiles VALUES ('${CLIENT}', '${USER}', 'shift', false), ('${OTHER_CLIENT}', '${OTHER_USER}', 'shift', false);
+    INSERT INTO client_exercise_plans(id, client_id, start_date, programme_weeks) VALUES
+      ('${PLAN}', '${CLIENT}', '2026-09-07', NULL), ('${OTHER_PLAN}', '${OTHER_CLIENT}', '2026-09-07', NULL);
+    INSERT INTO client_exercise_sessions VALUES
+      ('${PELOTON}', '${PLAN}', 'Peloton ride', 1, NULL), ('${STRENGTH}', '${PLAN}', 'Strength', 2, NULL), ('${MOBILITY}', '${PLAN}', 'Mobility', 3, NULL),
+      ('${OTHER_SESSION}', '${OTHER_PLAN}', 'Other client', 1, NULL);
+  `);
+  await db.exec(await readFile(new URL("../supabase/migrations/20261016100000_training_calendar_activity.sql", import.meta.url), "utf8"));
+  await db.exec(`
+    CREATE TRIGGER exercise_logs_plan_lock BEFORE INSERT OR UPDATE ON client_exercise_logs FOR EACH ROW EXECUTE FUNCTION public.lock_exercise_plan_for_history();
+    CREATE TRIGGER exercise_summaries_plan_lock BEFORE INSERT OR UPDATE ON client_exercise_session_summaries FOR EACH ROW EXECUTE FUNCTION public.lock_exercise_plan_for_history();
+    CREATE TRIGGER exercise_assignments_plan_lock BEFORE INSERT OR UPDATE ON client_training_weekly_assignments FOR EACH ROW EXECUTE FUNCTION public.lock_exercise_plan_for_history();
+  `);
+  return db;
+}
+
+const moveSql = (db: PGlite, sessionId: string, source: string, date: string, user = USER, plan = PLAN) =>
+  db.query<{ planned_date: string }>(`SELECT planned_date::text FROM save_training_calendar_date('${user}', '${plan}', '${sessionId}', '${source}', '${date}')`);
+const rejects = (promise: Promise<unknown>, pattern: RegExp) => assert.rejects(promise, (error: Error) => pattern.test(error.message));
+
+test("SQL: moves preserve schedules, refuse collisions (explicit, recurring, moved) and protect logged history", async () => {
+  const db = await database();
+  // Peloton is planned explicitly on Monday 12th; Strength repeats every Wednesday from an earlier week.
+  await db.exec(`INSERT INTO client_training_weekly_assignments(client_id, plan_id, session_id, week_start, planned_date, is_recurring) VALUES
+    ('${CLIENT}', '${PLAN}', '${PELOTON}', '2026-10-12', '2026-10-12', false),
+    ('${CLIENT}', '${PLAN}', '${STRENGTH}', '2026-10-05', '2026-10-07', true);`);
+
+  assert.equal((await moveSql(db, PELOTON, "2026-10-12", "2026-10-19")).rows[0].planned_date, "2026-10-19");
+  const original = await db.query<{ planned_date: string }>(`SELECT planned_date::text FROM client_training_weekly_assignments WHERE session_id='${PELOTON}'`);
+  assert.equal(original.rows[0].planned_date, "2026-10-12", "the weekly row is untouched so undo restores it exactly");
+
+  await rejects(moveSql(db, MOBILITY, "2026-10-12", "2026-10-21"), /already has a planned session/);  // recurring Strength lands on Wed 21st
+  await rejects(moveSql(db, MOBILITY, "2026-10-12", "2026-10-19"), /already has a planned session/);  // the moved Peloton
+  await rejects(moveSql(db, MOBILITY, "2026-10-12", "2026-10-12"), /already has a planned session/);  // Peloton's held original date
+  await rejects(moveSql(db, MOBILITY, "2026-10-12", "2026-10-11"), /from this training week onwards/);
+  await rejects(moveSql(db, MOBILITY, "2026-10-12", "2027-10-13"), /within a year/);
+  await rejects(moveSql(db, MOBILITY, "2026-10-13", "2026-10-20"), /from this training week onwards/);  // source must be a Monday
+
+  // Strength's own week-19 occurrence moved away frees its recurring Wednesday for Mobility.
+  await moveSql(db, STRENGTH, "2026-10-19", "2026-10-23");
+  assert.equal((await moveSql(db, MOBILITY, "2026-10-12", "2026-10-21")).rows[0].planned_date, "2026-10-21");
+  // A stopped recurrence no longer occupies its weekday.
+  await db.exec(`INSERT INTO client_training_weekly_assignments(client_id, plan_id, session_id, week_start, planned_date, recurrence_stopped)
+    VALUES ('${CLIENT}', '${PLAN}', '${STRENGTH}', '2026-10-26', NULL, true)`);
+  assert.equal((await moveSql(db, PELOTON, "2026-11-02", "2026-11-04")).rows[0].planned_date, "2026-11-04");
+
+  // Coaches and direct client writes cannot plan another session onto a moved-in date.
+  await rejects(db.exec(`INSERT INTO client_training_weekly_assignments(client_id, plan_id, session_id, week_start, planned_date)
+    VALUES ('${CLIENT}', '${PLAN}', '${STRENGTH}', '2026-10-19', '2026-10-19')`), /moved workout/);
+  // The moved occurrence's own original row can still be edited.
+  await db.exec(`UPDATE client_training_weekly_assignments SET is_recurring=true WHERE session_id='${PELOTON}' AND week_start='2026-10-12'`);
+
+  // Logging the moved Peloton on its new date protects that move; a log in its source week blocks further moves.
+  await db.exec(`INSERT INTO client_exercise_logs(client_id, session_id, log_date) VALUES ('${CLIENT}', '${PELOTON}', '2026-10-19')`);
+  await rejects(moveSql(db, PELOTON, "2026-10-12", "2026-10-20"), /already been logged/);
+  await rejects(db.query(`SELECT clear_training_calendar_date('${USER}', '${PLAN}', '${PELOTON}', '2026-10-12')`), /logged on its new date/);
+  // That log belongs to the moved occurrence, so week 19's own Peloton can still move.
+  assert.equal((await moveSql(db, PELOTON, "2026-10-19", "2026-10-24")).rows[0].planned_date, "2026-10-24");
+  await db.exec(`INSERT INTO client_exercise_logs(client_id, session_id, log_date) VALUES ('${CLIENT}', '${MOBILITY}', '2026-10-13')`);
+  await rejects(moveSql(db, MOBILITY, "2026-10-12", "2026-10-22"), /already been logged/);
+
+  // Undo restores the original exactly.
+  assert.equal((await db.query<{ ok: boolean }>(`SELECT clear_training_calendar_date('${USER}', '${PLAN}', '${PELOTON}', '2026-10-19') ok`)).rows[0].ok, true);
+  assert.equal((await db.query<{ ok: boolean }>(`SELECT clear_training_calendar_date('${USER}', '${PLAN}', '${PELOTON}', '2026-10-19') ok`)).rows[0].ok, false);
+  const history = await db.query<{ n: number }>(`SELECT count(*)::int n FROM client_exercise_logs`);
+  assert.equal(history.rows[0].n, 2, "logs are never rewritten");
+});
+
+test("SQL: ownership, inactive plans and grants", async () => {
+  const db = await database();
+  await rejects(moveSql(db, OTHER_SESSION, "2026-10-12", "2026-10-19"), /Session not found/);
+  await rejects(moveSql(db, PELOTON, "2026-10-12", "2026-10-19", OTHER_USER), /Session not found/);
+  await rejects(moveSql(db, OTHER_SESSION, "2026-10-12", "2026-10-19", USER, OTHER_PLAN), /Session not found/);
+  await db.exec(`UPDATE client_exercise_plans SET status='archived' WHERE id='${PLAN}'`);
+  await rejects(moveSql(db, PELOTON, "2026-10-12", "2026-10-19"), /Session not found/);
+  await db.exec(`UPDATE client_profiles SET programme_type='boardroom' WHERE id='${CLIENT}'`);
+  await rejects(moveSql(db, PELOTON, "2026-10-12", "2026-10-19"), /Training access unavailable/);
+  const grants = await db.query<{ table_read: boolean; move_rpc: boolean; state_fn: boolean }>(`SELECT
+    has_table_privilege('authenticated', 'client_training_date_overrides', 'SELECT') table_read,
+    has_function_privilege('authenticated', 'save_training_calendar_date(uuid,uuid,uuid,date,date)', 'EXECUTE') move_rpc,
+    has_function_privilege('authenticated', 'training_date_override_state(text,uuid,date,date)', 'EXECUTE') state_fn`);
+  assert.deepEqual(grants.rows[0], { table_read: false, move_rpc: false, state_fn: true });
+});
+
+test("SQL: programme weeks keep exact session identity when moved across weeks", async () => {
+  const db = await database();
+  await db.exec(`INSERT INTO client_exercise_plans(id, client_id, start_date, programme_weeks) VALUES ('${PROGRAMME}', '${CLIENT}', '2026-10-05', 2);
+    UPDATE client_exercise_plans SET status='archived' WHERE id='${PLAN}';
+    INSERT INTO client_exercise_sessions VALUES ('${P1}', '${PROGRAMME}', 'Week 1 lower', 1, 1), ('${P2}', '${PROGRAMME}', 'Week 2 lower', 1, 2);`);
+  await rejects(moveSql(db, P2, "2026-10-05", "2026-10-15", USER, PROGRAMME), /not part of that programme week/);
+  await moveSql(db, P1, "2026-10-05", "2026-10-14", USER, PROGRAMME);
+  // Week 1's exact session logs on its new week-2 date, not on its old week's other dates.
+  await db.exec(`INSERT INTO client_exercise_logs(client_id, session_id, log_date) VALUES ('${CLIENT}', '${P1}', '2026-10-14')`);
+  await rejects(db.exec(`INSERT INTO client_exercise_logs(client_id, session_id, log_date) VALUES ('${CLIENT}', '${P1}', '2026-10-07')`), /moved to another date/);
+  await rejects(db.exec(`INSERT INTO client_exercise_logs(client_id, session_id, log_date) VALUES ('${CLIENT}', '${P1}', '2026-10-16')`), /does not belong to this programme week/);
+  await db.exec(`INSERT INTO client_exercise_logs(client_id, session_id, log_date) VALUES ('${CLIENT}', '${P2}', '2026-10-13')`);
+  await rejects(db.exec(`INSERT INTO client_training_weekly_assignments(client_id, plan_id, session_id, week_start, planned_date, is_recurring)
+    VALUES ('${CLIENT}', '${PROGRAMME}', '${P2}', '2026-10-12', '2026-10-13', true)`), /cannot repeat/);
+});
+
+test("SQL: manual activity is one entry per client-date and rest cannot replace a logged workout", async () => {
+  const db = await database();
+  const save = (date: string, kind: string, minutes: number | null, user = USER, today = "2026-10-16") =>
+    db.query<{ kind: string; duration_minutes: number | null }>(`SELECT kind, duration_minutes FROM save_manual_training_activity($1, $2, $3, $4, 'notes', $5)`, [user, date, kind, minutes, today]);
+  // Pin "today" inside the RPC's clamp regardless of the machine clock.
+  const today = (await db.query<{ d: string }>(`SELECT (now() AT TIME ZONE 'UTC')::date::text d`)).rows[0].d;
+  const yesterday = programmeAddDays(today, -1);
+  assert.deepEqual((await save(yesterday, "walking", 40, USER, today)).rows[0], { kind: "walking", duration_minutes: 40 });
+  assert.deepEqual((await save(yesterday, "rest", 40, USER, today)).rows[0], { kind: "rest", duration_minutes: null }, "update in place; rest has no minutes");
+  assert.equal((await db.query<{ n: number }>(`SELECT count(*)::int n FROM client_manual_training_activity`)).rows[0].n, 1);
+  await save(yesterday, "cycling", 30, OTHER_USER, today);
+  assert.equal((await db.query<{ n: number }>(`SELECT count(*)::int n FROM client_manual_training_activity`)).rows[0].n, 2, "clients are isolated");
+
+  await rejects(save(programmeAddDays(today, 2), "walking", null, USER, today), /up to today/);
+  // A client-supplied "today" is clamped to one day of timezone slack beyond the server's UTC date.
+  await rejects(save(programmeAddDays(today, 2), "walking", null, USER, programmeAddDays(today, 5)), /up to today/);
+  await rejects(save(programmeAddDays(today, -400), "walking", null, USER, today), /past year/);
+  await rejects(save(today, "peloton", null, USER, today), /valid activity/);
+  await rejects(save(today, "walking", 2000, USER, today), /valid activity/);
+
+  await db.exec(`INSERT INTO client_exercise_logs(client_id, session_id, log_date, completed) VALUES ('${CLIENT}', '${PELOTON}', '${today}', true)`);
+  await rejects(save(today, "rest", null, USER, today), /already logged/);
+  assert.equal((await save(today, "walking", 20, USER, today)).rows[0].kind, "walking", "an activity alongside a workout is fine");
+});
