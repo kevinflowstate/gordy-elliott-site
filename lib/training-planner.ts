@@ -138,7 +138,9 @@ export async function loadWeeklyTrainingAssignments(
     .eq("plan_id", planId)
     .lt("week_start", weekStart)
     .in("session_id", sessionIds)
-    .order("week_start", { ascending: false });
+    .order("week_start", { ascending: false })
+    // Same tie order as training_week_placements, so the database judges collisions exactly as this page shows them.
+    .order("session_id", { ascending: true });
 
   if (priorError) return { assignments: [], movedIn: [], error: priorError.message };
 

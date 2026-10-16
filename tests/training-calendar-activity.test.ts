@@ -377,3 +377,94 @@ test("SQL review fix: upgrading the already-applied schema keeps data and fixes 
     has_function_privilege('authenticated', 'lock_training_day(uuid,date)', 'EXECUTE') lock`)).rows[0];
   assert.deepEqual(grants, { undo: false, lock: false });
 });
+
+test("SQL follow-up: a non-owner learns nothing about another client's logged history from a forged write", async () => {
+  const db = await database();
+  await plannerUpsert(db, PELOTON, "2026-10-12", "2026-10-12");
+  // Production's client-own insert policy, so the forged row is judged by RLS as it is live.
+  await db.exec(`
+    ALTER TABLE client_training_weekly_assignments ENABLE ROW LEVEL SECURITY;
+    CREATE POLICY own_insert ON client_training_weekly_assignments FOR INSERT TO authenticated WITH CHECK (EXISTS (
+      SELECT 1 FROM client_profiles cp JOIN client_exercise_plans p ON p.id = client_training_weekly_assignments.plan_id AND p.client_id = cp.id
+      JOIN client_exercise_sessions s ON s.id = client_training_weekly_assignments.session_id AND s.plan_id = p.id
+      WHERE cp.id = client_training_weekly_assignments.client_id AND cp.user_id = auth.uid()));
+    GRANT USAGE ON SCHEMA auth TO authenticated;
+    GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;`);
+  const forge = async () => {
+    await db.exec(`SELECT set_config('request.jwt.claim.sub', '${OTHER_USER}', false); SET ROLE authenticated;`);
+    try {
+      await plannerUpsert(db, PELOTON, "2026-10-19", "2026-10-22");
+      return "accepted";
+    } catch (error) {
+      return (error as Error).message;
+    } finally {
+      await db.exec(`RESET ROLE; SELECT set_config('request.jwt.claim.sub', '', false);`);
+    }
+  };
+  const withoutLog = await forge();
+  await plannerUpsert(db, PELOTON, "2026-10-19", "2026-10-19");
+  await log(db, PELOTON, "2026-10-19");
+  const withLog = await forge();
+  assert.match(withoutLog, /row-level security/);
+  assert.equal(withLog, withoutLog, "the same RLS refusal whether or not the other client has logged that workout");
+});
+
+test("SQL follow-up: a planner row cannot be re-keyed to escape its logged occurrence", async () => {
+  const db = await database();
+  await plannerUpsert(db, PELOTON, "2026-10-12", "2026-10-12");
+  await log(db, PELOTON, "2026-10-12");
+  await rejects(db.exec(`UPDATE client_training_weekly_assignments SET week_start='2026-10-19', planned_date='2026-10-19' WHERE session_id='${PELOTON}'`), /cannot change to another workout/);
+  await rejects(db.exec(`UPDATE client_training_weekly_assignments SET session_id='${MOBILITY}' WHERE session_id='${PELOTON}'`), /cannot change to another workout/);
+  assert.equal(await plannedDate(db, PELOTON, "2026-10-12"), "2026-10-12");
+});
+
+test("SQL follow-up: the guard judges placements the way the weekly loader shows them", async () => {
+  const db = await database();
+  await plannerUpsert(db, STRENGTH, "2026-10-05", "2026-10-07", true);  // Strength repeats Wednesdays
+  // Week 19: Mobility explicitly takes Wednesday, so Strength is unplaced; Strength was logged Tuesday (any-day logging).
+  await plannerUpsert(db, MOBILITY, "2026-10-19", "2026-10-21");
+  await log(db, STRENGTH, "2026-10-20");
+  await plannerUpsert(db, STRENGTH, "2026-10-19", "2026-10-22");  // first placement of an unplaced workout: allowed
+  assert.equal(await plannedDate(db, STRENGTH, "2026-10-19"), "2026-10-22");
+
+  // Week 12: Strength sits on Wednesday 14th and is logged there. Another workout cannot take its day...
+  await log(db, STRENGTH, "2026-10-14");
+  await rejects(plannerUpsert(db, MOBILITY, "2026-10-12", "2026-10-14"), /would move a workout that is already logged/);
+  // ...and an earlier recurrence edit cannot shift it either, while an unlogged later week can still change.
+  await rejects(plannerUpsert(db, STRENGTH, "2026-10-05", "2026-10-08", true), /would move a workout that is already logged/);
+  await plannerUpsert(db, MOBILITY, "2026-10-12", "2026-10-15");
+  await plannerUpsert(db, STRENGTH, "2026-10-26", "2026-10-29", true);
+});
+
+test("SQL follow-up: Undo refuses when a newer recurring workout now holds the original day", async () => {
+  const db = await database();
+  await plannerUpsert(db, STRENGTH, "2026-10-05", "2026-10-07", true);   // Strength repeats Wednesdays from 5 Oct
+  await moveSql(db, STRENGTH, "2026-10-19", "2026-10-23");               // week 19's Strength moved to Friday
+  await plannerUpsert(db, MOBILITY, "2026-10-12", "2026-10-14", true);   // coach: Mobility repeats Wednesdays from 12 Oct
+  await rejects(undo(db, STRENGTH, "2026-10-19"), /back on Wed 21 Oct/);
+  assert.equal((await db.query<{ n: number }>(`SELECT count(*)::int n FROM client_training_date_overrides WHERE session_id='${STRENGTH}'`)).rows[0].n, 1, "the move stays");
+  // Once Mobility stops repeating, Undo restores Strength to Wednesday.
+  await db.exec(`INSERT INTO client_training_weekly_assignments(client_id, plan_id, session_id, week_start, planned_date, recurrence_stopped)
+    VALUES ('${CLIENT}', '${PLAN}', '${MOBILITY}', '2026-10-19', NULL, true)`);
+  assert.equal((await undo(db, STRENGTH, "2026-10-19")).rows[0].ok, true);
+});
+
+test("SQL follow-up: deleting a session or client cascades through logged, placed workouts", async () => {
+  const db = await database();
+  // Production's foreign keys, created in production's order (assignments before summaries).
+  await db.exec(`
+    ALTER TABLE client_training_weekly_assignments ADD FOREIGN KEY (session_id) REFERENCES client_exercise_sessions ON DELETE CASCADE,
+      ADD FOREIGN KEY (client_id) REFERENCES client_profiles ON DELETE CASCADE;
+    ALTER TABLE client_exercise_plans DROP CONSTRAINT client_exercise_plans_client_id_fkey,
+      ADD FOREIGN KEY (client_id) REFERENCES client_profiles ON DELETE CASCADE;
+    ALTER TABLE client_exercise_session_summaries ADD FOREIGN KEY (session_id) REFERENCES client_exercise_sessions ON DELETE CASCADE,
+      ADD FOREIGN KEY (client_id) REFERENCES client_profiles ON DELETE CASCADE;`);
+  await plannerUpsert(db, PELOTON, "2026-10-12", "2026-10-12");
+  await db.exec(`INSERT INTO client_exercise_session_summaries(client_id, session_id, log_date) VALUES ('${CLIENT}', '${PELOTON}', '2026-10-12')`);
+  await rejects(db.exec(`DELETE FROM client_training_weekly_assignments WHERE session_id='${PELOTON}'`), /already logged/);  // a direct delete is still a replan
+  await db.exec(`DELETE FROM client_exercise_sessions WHERE id='${PELOTON}'`);
+  await plannerUpsert(db, STRENGTH, "2026-10-12", "2026-10-14");
+  await db.exec(`INSERT INTO client_exercise_session_summaries(client_id, session_id, log_date) VALUES ('${CLIENT}', '${STRENGTH}', '2026-10-14')`);
+  await db.exec(`DELETE FROM client_profiles WHERE id='${CLIENT}'`);
+  assert.equal((await db.query<{ n: number }>(`SELECT count(*)::int n FROM client_training_weekly_assignments`)).rows[0].n, 0);
+});
