@@ -143,6 +143,8 @@ function normaliseTerraEntry(payload: AnyRecord): Omit<WearableDailySummary, "id
     protein_g: getNumber(nutrition.protein_g, nutrition.protein, macros.protein_g, summary.protein_g),
     carbs_g: getNumber(nutrition.carbs_g, nutrition.carbohydrates_g, nutrition.carbs, macros.carbohydrates_g, summary.carbs_g),
     fat_g: getNumber(nutrition.fat_g, nutrition.fat, macros.fat_g, summary.fat_g),
+    fibre_g: getNumber(nutrition.fibre_g, nutrition.fiber_g, macros.fibre_g, macros.fiber_g, summary.fibre_g, summary.fiber_g),
+    sugar_g: getNumber(nutrition.sugar_g, macros.sugar_g, summary.sugar_g),
     water_ml: getInteger(
       nutrition.water_ml,
       nutrition.water,
@@ -198,7 +200,7 @@ export function mergeDailySummary(
   const fallbackSleep = preferIncomingSleep ? existing : incoming;
   const existingMfp = existing?.providers.includes("myfitnesspal") || false;
   const incomingMfp = incoming.providers.includes("myfitnesspal");
-  const nutritionValue = (key: "nutrition_calories" | "protein_g" | "carbs_g" | "fat_g" | "water_ml") => {
+  const nutritionValue = (key: "nutrition_calories" | "protein_g" | "carbs_g" | "fat_g" | "fibre_g" | "sugar_g" | "water_ml") => {
     // Imported whole-day totals are authoritative, never added to another
     // feed's totals. An unrelated provider must not overwrite MFP values.
     if (incomingMfp) return incoming[key] ?? (existingMfp ? existing?.[key] ?? null : null);
@@ -224,6 +226,8 @@ export function mergeDailySummary(
     protein_g: nutritionValue("protein_g"),
     carbs_g: nutritionValue("carbs_g"),
     fat_g: nutritionValue("fat_g"),
+    fibre_g: nutritionValue("fibre_g"),
+    sugar_g: nutritionValue("sugar_g"),
     water_ml: nutritionValue("water_ml"),
   };
 

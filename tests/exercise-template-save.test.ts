@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { ExerciseTemplate, ExerciseSessionItem } from "../lib/types";
-import { exerciseRows, validateTemplate } from "../app/api/admin/exercise-templates/route";
+import { exerciseRows, validateTemplate } from "../lib/exercise-plan-save";
 
 const validExercise = "1242d031-d66c-4743-a89b-b961a21ee506";
 function item(id: string, order: number): ExerciseSessionItem {

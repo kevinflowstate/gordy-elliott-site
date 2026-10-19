@@ -879,13 +879,13 @@ export default function PortalNutritionPlanPage() {
             </div>
             <div className="app-inset rounded-2xl px-4 py-3">
               <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-text-muted">Fibre</div>
-              <div className="mt-1 text-xl font-heading font-bold text-emerald-500">{usingSyncedNutrition ? "—" : `${Math.round(consumedFibre)}g`}</div>
-              {usingSyncedNutrition ? <div className="text-xs text-text-secondary">not supplied</div> : plan?.target_fibre_g ? <div className="text-xs text-text-secondary">of {Math.round(targetFibre)}g</div> : <div className="text-xs text-text-secondary">target not set</div>}
+              <div className="mt-1 text-xl font-heading font-bold text-emerald-500">{usingSyncedNutrition && syncedNutrition?.fibreG == null ? "—" : `${Math.round(consumedFibre)}g`}</div>
+              {usingSyncedNutrition && syncedNutrition?.fibreG == null ? <div className="text-xs text-text-secondary">not supplied</div> : plan?.target_fibre_g ? <div className="text-xs text-text-secondary">of {Math.round(targetFibre)}g</div> : <div className="text-xs text-text-secondary">target not set</div>}
             </div>
             <div className="app-inset rounded-2xl px-4 py-3">
               <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-text-muted">Sugar</div>
-              <div className="mt-1 text-xl font-heading font-bold text-amber-500">{usingSyncedNutrition ? "—" : `${Math.round(consumedSugar)}g`}</div>
-              {usingSyncedNutrition ? <div className="text-xs text-text-secondary">not supplied</div> : plan?.target_sugar_g ? <div className="text-xs text-text-secondary">cap {Math.round(targetSugar)}g</div> : <div className="text-xs text-text-secondary">cap not set</div>}
+              <div className="mt-1 text-xl font-heading font-bold text-amber-500">{usingSyncedNutrition && syncedNutrition?.sugarG == null ? "—" : `${Math.round(consumedSugar)}g`}</div>
+              {usingSyncedNutrition && syncedNutrition?.sugarG == null ? <div className="text-xs text-text-secondary">not supplied</div> : plan?.target_sugar_g ? <div className="text-xs text-text-secondary">cap {Math.round(targetSugar)}g</div> : <div className="text-xs text-text-secondary">cap not set</div>}
             </div>
           </div>
           <button

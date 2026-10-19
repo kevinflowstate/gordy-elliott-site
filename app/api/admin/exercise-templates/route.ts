@@ -3,7 +3,6 @@ import { createExerciseSectionDivider } from "@/lib/exercise-section";
 import { requireAdmin } from "@/lib/admin-auth";
 import { dbError } from "@/lib/api-errors";
 import { exerciseRows, validateTemplate } from "@/lib/exercise-plan-save";
-export { exerciseRows, validateTemplate } from "@/lib/exercise-plan-save";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import type { ExerciseTemplate, ExerciseSession, ExerciseSessionItem } from "@/lib/types";

@@ -120,7 +120,7 @@ test("business forms reject stale revisions and preserve the submitted schema wh
   const stale = await fixture(changed);
   assert.equal((await stale.post(answers, checkinConfigRevision(original, "personal-template"))).status, 409);
   assert.equal(stale.queries.some(query => query.payload), false);
-  const editing = await fixture(changed, { id: "current-week", week_number: 4, checkin_form_id: "personal-template", form_config_snapshot: original });
+  const editing = await fixture(changed, { id: "current-week", created_at: "2026-10-19T08:00:00Z", week_number: 4, checkin_form_id: "personal-template", form_config_snapshot: original });
   const shown = await (await editing.get()).json();
   assert.equal(shown.config.progress_tracking[0].unit, "£");
   assert.equal((await editing.post(answers, shown.configRevision)).status, 200);

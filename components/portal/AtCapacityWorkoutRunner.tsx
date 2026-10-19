@@ -8,6 +8,7 @@ import {
   workoutSetProgress,
   type WorkoutSetData,
 } from "@/lib/workout-runner";
+import { hasCurrentWorkoutValues, type PreviousExerciseLoads } from "@/lib/workout-previous-loads";
 import { buildWorkoutBlocks, blockForIndex, emomMinuteParity } from "@/lib/workout-groups";
 import ExerciseSwapControl, { type ExerciseAlternative } from "./ExerciseSwapControl";
 import WorkoutCircuitControls from "./WorkoutCircuitControls";
@@ -19,6 +20,8 @@ export type WorkoutRunnerMode = "workout" | "edit";
 interface WorkoutRunnerProps {
   session: ExerciseSession;
   originalSession?: ExerciseSession;
+  previousLoads?: PreviousExerciseLoads;
+  previousLoadsError?: string | null;
   alternatives?: Record<string, ExerciseAlternative[]>;
   savedItemIds?: string[];
   onSwap?: (itemId:string,exercise:Exercise)=>void;
@@ -103,6 +106,8 @@ function Icon({
 export default function AtCapacityWorkoutRunner({
   session,
   originalSession,
+  previousLoads = {},
+  previousLoadsError,
   alternatives = {},
   savedItemIds = [],
   onSwap,
@@ -120,6 +125,10 @@ export default function AtCapacityWorkoutRunner({
   onApplyFirstSetToAll,
   onFinish,
 }: WorkoutRunnerProps) {
+  const comparablePreviousLoad = (item: ExerciseSessionItem) => {
+    const originalId = originalSession?.items.find(original => original.id === item.id)?.exercise_id;
+    return !originalId || originalId === (item.exercise?.id || item.exercise_id) ? previousLoads[item.id] : undefined;
+  };
   const blocks = useMemo(() => buildWorkoutBlocks(session), [session]);
   const exercises = useMemo(() => blocks.flatMap(block => block.exercises), [blocks]);
   const editingSavedSession = mode === "edit";
@@ -378,7 +387,7 @@ export default function AtCapacityWorkoutRunner({
                 alternatives={alternatives[current.item.id] || []}
                 original={originalSession.items.find(item=>item.id===current.item.id)!.exercise!}
                 current={current.item.exercise}
-                locked={savedItemIds.includes(current.item.id) || (sets[current.item.id] || []).some(set=>set.completed || Boolean(set.weight || set.reps || set.notes))}
+                locked={savedItemIds.includes(current.item.id) || hasCurrentWorkoutValues(sets[current.item.id] || [], comparablePreviousLoad(current.item))}
                 onChoose={exercise=>onSwap(current.item.id,exercise)}
               />}
               {(current.item.notes || current.item.tempo || current.item.rest_seconds) && (
@@ -421,6 +430,10 @@ export default function AtCapacityWorkoutRunner({
                   )}
                 </div>
 
+                {!editingSavedSession && previousLoadsError && <p role="status" className="mt-2 text-xs text-amber-300">{previousLoadsError}</p>}
+                {!editingSavedSession && previousLoads[current.item.id] && (!originalSession || originalSession.items.find(item => item.id === current.item.id)?.exercise_id === (current.item.exercise?.id || current.item.exercise_id)) && (
+                  <p className="mt-2 text-xs text-white/65">Previous weights from {new Date(`${previousLoads[current.item.id].date}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}. Check your weights and enter today&apos;s reps.</p>
+                )}
                 <div className="mt-3 space-y-3">
                   {(sets[current.item.id] || []).map((set, setIndex) => (
                     <div

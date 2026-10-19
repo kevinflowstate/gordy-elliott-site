@@ -14,6 +14,8 @@ export type SyncedNutrition = {
   proteinG: number | null;
   carbsG: number | null;
   fatG: number | null;
+  fibreG?: number | null;
+  sugarG?: number | null;
   waterMl: number | null;
   summaryUpdatedAt: string | null;
   lastSyncAt: string | null;
@@ -107,8 +109,8 @@ export function resolveNutritionTotals({
         protein: syncedNutrition.proteinG ?? 0,
         carbs: syncedNutrition.carbsG ?? 0,
         fat: syncedNutrition.fatG ?? 0,
-        fibre: 0,
-        sugar: 0,
+        fibre: syncedNutrition.fibreG ?? 0,
+        sugar: syncedNutrition.sugarG ?? 0,
       },
       source: "myfitnesspal",
       hasManualOverride: false,

@@ -36,7 +36,7 @@ export async function GET(request: Request) {
       .limit(1),
     admin
       .from("client_wearable_daily_summaries")
-      .select("summary_date, providers, nutrition_calories, protein_g, carbs_g, fat_g, water_ml, updated_at")
+      .select("summary_date, providers, nutrition_calories, protein_g, carbs_g, fat_g, fibre_g, sugar_g, water_ml, updated_at")
       .eq("client_id", profile.id)
       .eq("summary_date", date)
       .contains("providers", ["myfitnesspal"])
@@ -63,6 +63,8 @@ export async function GET(request: Request) {
     nutrition.protein_g,
     nutrition.carbs_g,
     nutrition.fat_g,
+    nutrition.fibre_g,
+    nutrition.sugar_g,
     nutrition.water_ml,
   ].some((value) => value !== null);
   const syncedNutrition = hasNutritionSignal ? {
@@ -72,6 +74,8 @@ export async function GET(request: Request) {
     proteinG: nutrition.protein_g,
     carbsG: nutrition.carbs_g,
     fatG: nutrition.fat_g,
+    fibreG: nutrition.fibre_g,
+    sugarG: nutrition.sugar_g,
     waterMl: nutrition.water_ml,
     summaryUpdatedAt: nutrition.updated_at,
     lastSyncAt: connectionResult.data?.last_sync_at || null,
