@@ -12,6 +12,7 @@ import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import { formatExercisePrescription, shouldUseSetLogging } from "@/lib/exercise-prescriptions";
 import { getExerciseDemoUrl } from "@/lib/exercise-demo";
 import { openExerciseDemo } from "@/lib/exercise-demo-client";
+import { prefillPreviousWeights, forgetPreviousWeights, type PreviousExerciseLoads } from "@/lib/workout-previous-loads";
 import { copyFirstWorkoutSetValues, type WorkoutSetData } from "@/lib/workout-runner";
 import { NATIVE_WORKOUT_SYNCED_EVENT } from "@/lib/native-workout";
 import type { ClientExercisePlan, ExerciseSession, WeeklyTrainingAssignment, Exercise } from "@/lib/types";
@@ -247,6 +248,8 @@ export default function PortalExercisePlanPage() {
   const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null);
 
   // Draft inputs: exerciseItemId -> SetData[]
+  const [resumedDraftKey, setResumedDraftKey] = useState<string | null>(null);
+  const [previousLoads, setPreviousLoads] = useState<{ key: string; data: PreviousExerciseLoads; error: string | null }>({ key: "", data: {}, error: null });
   const [draftSets, setDraftSets] = useState<Record<string, SetData[]>>({});
   const [performedExercises, setPerformedExercises] = useState<Record<string, Exercise>>({});
   const [alternatives, setAlternatives] = useState<Record<string, ExerciseAlternative[]>>({});
@@ -482,11 +485,12 @@ export default function PortalExercisePlanPage() {
   }, [visibleWeeklyAssignments.length, plannedSessionsByDate, fallbackSessionsByDate]);
 
   const initDrafts = useCallback((session: ExerciseSession, existingLogs: ExerciseLog[] = []) => {
-    const drafts = buildSessionDrafts(session, existingLogs);
+    const history = !existingLogs.length && previousLoads.key === `${session.id}:${formatDate(selectedDate)}` ? previousLoads.data : {};
+    const drafts = prefillPreviousWeights(buildSessionDrafts(session, existingLogs), history);
     setDraftSets(drafts);
     setPerformedExercises(Object.fromEntries(existingLogs.filter(log=>log.performed_exercise).map(log=>[log.exercise_item_id,log.performed_exercise!])));
     return drafts;
-  }, []);
+  }, [previousLoads, selectedDate]);
 
   // When selected date changes, figure out what session to show
   useEffect(() => {
@@ -522,6 +526,10 @@ export default function PortalExercisePlanPage() {
   }, [selectedDate, allLogs, plan, manuallyPicked, calendarSessionsByDate, initDrafts]);
 
   function updateSet(itemId: string, setIdx: number, field: keyof SetData, value: string | boolean | number) {
+    if (field === "weight") {
+      const number = draftSets[itemId]?.[setIdx]?.set_number ?? setIdx + 1;
+      setPreviousLoads(previous => ({ ...previous, data: forgetPreviousWeights(previous.data, itemId, number) }));
+    }
     setDraftSets((prev) => {
       const sets = [...(prev[itemId] || [])];
       sets[setIdx] = { ...sets[setIdx], [field]: value };
@@ -539,6 +547,7 @@ export default function PortalExercisePlanPage() {
   }
 
   function applyFirstSetToAll(itemId: string) {
+    setPreviousLoads(previous => ({ ...previous, data: forgetPreviousWeights(previous.data, itemId) }));
     setDraftSets((prev) => {
       const sets = prev[itemId] || [];
       const first = sets[0];
@@ -605,6 +614,7 @@ export default function PortalExercisePlanPage() {
   function swapExercise(itemId: string, exercise: Exercise) {
     const item = activeSession?.items.find(item => item.id === itemId);
     if (!item || allLogs.some(log=>log.exercise_item_id===itemId&&log.log_date===formatDate(selectedDate))) return;
+    setPreviousLoads(previous => ({ ...previous, data: forgetPreviousWeights(previous.data, itemId) }));
     setPerformedExercises(previous => ({...previous,[itemId]:exercise}));
     setDraftSets(previous => ({...previous,[itemId]:buildSessionDrafts({ ...activeSession!,items:[item] })[itemId]}));
   }
@@ -715,6 +725,29 @@ export default function PortalExercisePlanPage() {
   const selectedDateStr = formatDate(selectedDate);
   const dayLogs = allLogs.filter((l) => l.log_date === selectedDateStr);
   const isPast = !isToday(selectedDate) && !isFuture(selectedDate);
+  const previousLoadsKey = activeSession ? `${activeSession.id}:${selectedDateStr}` : "";
+  const needsPreviousLoads = runnerOpen && runnerMode === "workout" && !sessionStartedAt && resumedDraftKey !== previousLoadsKey
+    && !dayLogs.some(log => log.session_id === activeSession?.id);
+  const previousLoadsReady = !needsPreviousLoads || previousLoads.key === previousLoadsKey;
+  useEffect(() => {
+    if (!needsPreviousLoads || !activeSession || previousLoads.key === previousLoadsKey) return;
+    const controller = new AbortController();
+    let cancelled = false;
+    const timeout = window.setTimeout(() => controller.abort(), 10_000);
+    fetch(`/api/portal/exercise-previous-loads?session_id=${activeSession.id}&before=${selectedDateStr}`, { signal: controller.signal })
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Previous weights could not load.");
+        if (cancelled) return;
+        setDraftSets(drafts => prefillPreviousWeights(drafts, data.previousLoads || {}));
+        setPreviousLoads({ key: previousLoadsKey, data: data.previousLoads || {}, error: null });
+      })
+      .catch(() => {
+        if (!cancelled) setPreviousLoads({ key: previousLoadsKey, data: {}, error: "Previous weights couldn't load. You can still enter today's weights." });
+      })
+      .finally(() => window.clearTimeout(timeout));
+    return () => { cancelled = true; controller.abort(); window.clearTimeout(timeout); };
+  }, [activeSession, needsPreviousLoads, previousLoads, previousLoadsKey, selectedDateStr]);
   const programmeNotStarted = Boolean(plan?.programme_weeks && plan.start_date && selectedDateStr < plan.start_date);
 
   // Keep the picker aligned with the active plan order.
@@ -771,6 +804,7 @@ export default function PortalExercisePlanPage() {
       setSelectedDate(date);
       setActiveSession(session);
       if (pointer.draftSets && typeof pointer.draftSets === "object") {
+        setResumedDraftKey(`${session.id}:${pointer.date}`);
         setDraftSets(pointer.draftSets);
       } else {
         initDrafts(session);
@@ -859,6 +893,7 @@ export default function PortalExercisePlanPage() {
 
   function finishSessionTimer(sessionId: string, dateStr: string) {
     if (!plan?.id) return;
+    if (resumedDraftKey === `${sessionId}:${dateStr}`) setResumedDraftKey(null);
     setSessionStartedAt(null);
     try {
       window.localStorage.removeItem(sessionTimerKey(plan.id, sessionId, dateStr));
@@ -2032,8 +2067,8 @@ export default function PortalExercisePlanPage() {
         </div>
       )}
 
-      {runnerOpen && activeSession && !alternativesLoaded && <p role="status" className="fixed inset-0 z-[100] grid place-items-center bg-[#09090b] text-white">Loading your workout…</p>}
-      {runnerOpen && activeSession && alternativesLoaded && typeof document !== "undefined" && createPortal((
+      {runnerOpen && activeSession && (!alternativesLoaded || !previousLoadsReady) && <p role="status" className="fixed inset-0 z-[100] grid place-items-center bg-[#09090b] text-white">Loading your workout…</p>}
+      {runnerOpen && activeSession && alternativesLoaded && previousLoadsReady && typeof document !== "undefined" && createPortal((
         <NativeWorkoutLauncher
           key={`native:${activeSession.id}:${selectedDateStr}:${runnerMode}`}
           session={runnerSession!}
@@ -2051,6 +2086,8 @@ export default function PortalExercisePlanPage() {
               session={runnerSession!}
               originalSession={activeSession}
               alternatives={alternatives}
+              previousLoads={previousLoads.key === previousLoadsKey ? previousLoads.data : {}}
+              previousLoadsError={previousLoads.key === previousLoadsKey ? previousLoads.error : null}
               savedItemIds={dayLogs.map(log=>log.exercise_item_id)}
               onSwap={swapExercise}
               mode={runnerMode}
