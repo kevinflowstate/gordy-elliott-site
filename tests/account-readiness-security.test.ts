@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { revokeExternalProviderAccess } from "../app/api/portal/account/route";
+import { revokeExternalProviderAccess } from "../lib/account-provider-revocation";
 import { getSiteUrl } from "../lib/site-url";
 
 test("account deletion revokes live providers with injected dependencies only", async () => {
