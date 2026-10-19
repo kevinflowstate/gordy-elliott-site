@@ -18,6 +18,8 @@ export type WearableDailySummary = {
   protein_g: number | null;
   carbs_g: number | null;
   fat_g: number | null;
+  fibre_g?: number | null;
+  sugar_g?: number | null;
   water_ml: number | null;
   readiness_score: number | null;
   recovery_status: RecoveryStatus;

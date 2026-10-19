@@ -13,7 +13,7 @@ import type { WearableDailySummary } from "@/lib/wearable-insights";
 import { NextResponse } from "next/server";
 
 const CONNECTION_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
-const SUMMARY_FIELDS = "id, client_id, summary_date, providers, sleep_minutes, sleep_score, hrv_ms, resting_hr_bpm, steps, active_calories, total_calories_burned, training_load, workout_count, nutrition_calories, protein_g, carbs_g, fat_g, water_ml, readiness_score, recovery_status, flags, insight, source_payload_ids" as const;
+const SUMMARY_FIELDS = "id, client_id, summary_date, providers, sleep_minutes, sleep_score, hrv_ms, resting_hr_bpm, steps, active_calories, total_calories_burned, training_load, workout_count, nutrition_calories, protein_g, carbs_g, fat_g, fibre_g, sugar_g, water_ml, readiness_score, recovery_status, flags, insight, source_payload_ids" as const;
 
 function stableHash(payload: unknown) {
   return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
