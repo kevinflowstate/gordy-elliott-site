@@ -81,6 +81,7 @@ export interface NativeWorkoutLaunchPayload {
       notes: string | null;
       demoURL: string | null;
       usesSetLogging: boolean;
+      prescribedSets: number;
       groupID: string;
       groupKind: string;
       durationSeconds: number | null;
@@ -113,6 +114,7 @@ export function buildNativeWorkoutLaunchPayload(options: NativeWorkoutLaunchOpti
     notes: item.notes || null,
     demoURL: getExerciseDemoUrl(item.exercise?.video_url, item.exercise?.name),
     usesSetLogging: shouldUseSetLogging(item),
+    prescribedSets: shouldUseSetLogging(item) ? Math.max(1, Number(item.sets) || 3) : 1,
     groupID: block.id,
     groupKind: block.kind,
     durationSeconds: block.durationSeconds,

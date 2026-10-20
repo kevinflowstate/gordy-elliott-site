@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { previousExerciseLoads, prefillPreviousWeights, hasCurrentWorkoutValues, forgetPreviousWeights, type HistoryItem, type HistoryLog } from "@/lib/workout-previous-loads";
+import { previousExerciseLoads, prefillPreviousWeights, hasCurrentWorkoutValues, forgetPreviousWeights, removeSetFromPreviousWeights, type HistoryItem, type HistoryLog } from "@/lib/workout-previous-loads";
 import { buildNativeWorkoutLaunchPayload } from "@/lib/native-workout";
 import type { ExerciseSession } from "@/lib/types";
 
@@ -127,4 +127,20 @@ test("unlabelled warm-up and working exercises in different effective sections c
   const previousHeader = { ...old, id: "old-header", exercise_id: "row", order_index: 0, section_label: "Warm up" };
   const currentHeader = { ...current, id: "new-header", exercise_id: "row", order_index: 0, section_label: "Main" };
   assert.deepEqual(previousExerciseLoads([current], [previousHeader, old, currentHeader, current], [log("last", old.id, "2026-10-12", "20")], "2026-10-19"), {});
+});
+
+test("removing a blank added set preserves historical defaults and keeps exercise swapping available",()=>{
+ const previous={item:{date:"2026-10-12",weights:{1:"60",2:"62.5",3:"65"}}};
+ const sets=[set(1,"60"),set(2,"62.5"),set(3,"65"),set(4)];
+ const result=removeSetFromPreviousWeights(previous,"item",sets,3);
+ assert.deepEqual(result,previous);
+ assert.equal(hasCurrentWorkoutValues(sets.slice(0,3),result.item),false);
+});
+test("removing an extra row reindexes only surviving provenance, preserving typed work as typed",()=>{
+ const previous={item:{date:"2026-10-12",weights:{1:"60",3:"65",4:"70",5:"75"}}};
+ const sets=[set(1,"60"),set(2,"62.5"),set(3,"65"),set(4,"70"),set(5,"75")];
+ const result=removeSetFromPreviousWeights(previous,"item",sets,3);
+ assert.deepEqual(result.item,{date:"2026-10-12",weights:{1:"60",3:"65",4:"75"}});
+ assert.equal(hasCurrentWorkoutValues(sets.filter((_,i)=>i!==3).map((s,i)=>({...s,set_number:i+1})),result.item),true);
+ assert.equal(removeSetFromPreviousWeights(previous,"missing",sets,3),previous);
 });

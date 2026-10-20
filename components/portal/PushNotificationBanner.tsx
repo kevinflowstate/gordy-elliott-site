@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { usePathname } from "next/navigation";
 import { Capacitor } from "@capacitor/core";
 import {
   NATIVE_PUSH_REQUEST_EVENT,
@@ -41,7 +42,8 @@ function useHydrated() {
   return useSyncExternalStore(subscribeToHydration, () => true, () => false);
 }
 
-export default function PushNotificationBanner() {
+export default function PushNotificationBanner({ persistent = false }: { persistent?: boolean }) {
+  const pathname = usePathname();
   const { permission, subscribed, subscribe, refresh, checking, error } = usePush();
   const { canInstall, installed, install } = useInstall();
   const [userId, setUserId] = useState<string | null>(null);
@@ -117,7 +119,7 @@ export default function PushNotificationBanner() {
     setInstallDismissed(true);
   };
 
-  if (!hydrated) return null;
+  if (!hydrated || (!persistent && pathname === "/portal/settings")) return null;
 
   const pushSupported = nativeApp || hasPushSupport();
   const registered = nativeApp ? nativePushStatus === "registered" : subscribed;
@@ -127,8 +129,30 @@ export default function PushNotificationBanner() {
   const initialPrompt = !!userId && !introSeen && !denied && !needsRetry &&
     (nativeApp ? nativePushStatus === "prompt" : permission === "default");
 
+  if (persistent && registered) {
+    return (
+      <section aria-label="Notification settings" className="mb-6 app-card rounded-2xl p-6">
+        <h2 className="text-lg font-heading font-bold text-text-primary">Notifications</h2>
+        <p role="status" className="mt-2 text-sm font-semibold text-emerald-400">Notifications are on for this device.</p>
+        <p className="mt-2 text-sm text-text-secondary">Messages, programme updates and check-in reminders arrive as app notifications. Account setup and password emails are separate.</p>
+        <button type="button" onClick={handleEnable} disabled={busy} className="mt-3 min-h-11 rounded-xl border border-accent/30 px-4 text-sm font-semibold text-accent-light disabled:opacity-50 cursor-pointer">{busy ? "Checking…" : "Check connection"}</button>
+      </section>
+    );
+  }
+  if (persistent && !pushSupported) {
+    return (
+      <section aria-label="Notification settings" className="mb-6 app-card rounded-2xl p-6">
+        <h2 className="text-lg font-heading font-bold text-text-primary">Notifications</h2>
+        <p className="mt-2 text-sm text-text-secondary">Open the AT CAPACITY app to enable notifications. On iPhone, you can also add this website to your Home Screen, then open it from there.</p>
+      </section>
+    );
+  }
+  if (persistent && (nativeApp ? nativePushStatus === "unknown" : checking)) {
+    return <section aria-label="Notification settings" className="mb-6 app-card rounded-2xl p-6"><h2 className="text-lg font-heading font-bold text-text-primary">Notifications</h2><p role="status" className="mt-2 text-sm text-text-secondary">Checking this device’s notification settings…</p></section>;
+  }
+
   // Installing is necessary for iPhone web push. Supported browsers can enable push directly.
-  if (!nativeApp && !installBannerDismissed && !installed && (!pushSupported || registered)) {
+  if (!persistent && !nativeApp && !installBannerDismissed && !installed && (!pushSupported || registered)) {
     return (
       <div className="mb-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#121212]/92 px-3 py-2.5 shadow-lg">
         <div className="flex items-center justify-between gap-3">
@@ -184,7 +208,7 @@ export default function PushNotificationBanner() {
     );
   }
 
-  if (!pushSupported || registered || !userId ||
+  if (!pushSupported || registered || (!persistent && !userId) ||
       (nativeApp ? nativePushStatus === "unknown" : checking)) return null;
 
   const title = initialPrompt ? "Stay in touch with Gordy" : denied ? "Turn on notifications" :
@@ -211,12 +235,12 @@ export default function PushNotificationBanner() {
             </p>
           )}
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button onClick={denied && !nativeApp ? () => void refresh() : handleEnable} disabled={busy}
+            <button type="button" onClick={denied && !nativeApp ? () => void refresh() : handleEnable} disabled={busy}
               className="min-h-11 rounded-xl gradient-accent px-4 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 cursor-pointer">
               {busy ? "Connecting…" : denied ? "Check again" : needsRetry ? "Try again" : "Turn on notifications"}
             </button>
             {initialPrompt && (
-              <button onClick={finishIntro} className="min-h-11 rounded-xl px-3 py-2 text-xs text-white/60 hover:text-white cursor-pointer">Not now</button>
+              <button type="button" onClick={finishIntro} className="min-h-11 rounded-xl px-3 py-2 text-xs text-white/60 hover:text-white cursor-pointer">Not now</button>
             )}
           </div>
           {initialPrompt && <p className="mt-2 text-[11px] text-white/45">You can change this in your notification settings at any time.</p>}

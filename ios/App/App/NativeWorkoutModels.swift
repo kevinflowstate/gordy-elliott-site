@@ -29,6 +29,7 @@ struct NativeWorkoutExercise: Codable, Identifiable {
     var groupKind: String? = nil
     var durationSeconds: Int? = nil
     var emomMinuteParity: String? = nil
+    var prescribedSets: Int? = nil
     let usesSetLogging: Bool
 
     var logsCircuitRounds: Bool {
@@ -256,5 +257,16 @@ final class NativeWorkoutDiskStore {
     private func write(_ state: NativeWorkoutPersistedState) throws {
         let data = try encoder.encode(state)
         try data.write(to: stateURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    }
+}
+
+// Keep prescribed rows intact when the client removes an additional set.
+enum NativeWorkoutSetMutation {
+    static func removingExtra(from sets: [NativeWorkoutSet], at index: Int, prescribedCount: Int) -> [NativeWorkoutSet] {
+        guard index >= max(1, prescribedCount), sets.indices.contains(index) else { return sets }
+        var result = sets
+        result.remove(at: index)
+        for position in result.indices { result[position].setNumber = position + 1 }
+        return result
     }
 }

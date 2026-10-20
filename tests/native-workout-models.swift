@@ -82,6 +82,14 @@ struct NativeWorkoutModelRegressionChecks {
         check(resumed.launch.session.exercises[0].prescription == longInstructions, "Draft restores the entire coach prescription")
         check(resumed.launch.session.exercises[0].demoURL == emom.demoURL && resumed.launch.session.exercises[0].groupID == emom.groupID && resumed.launch.session.exercises[0].emomMinuteParity == "odd", "Draft restores demos, grouping and minute cues")
         check(resumed.sets["bike"] == [timedSet] && resumed.stage == "exercise" && resumed.exerciseIndex == 0, "Draft restores results, rounds and workout position")
+        let prescribed = (1...3).map { NativeWorkoutSet(setNumber: $0, weight: "60", reps: "8", notes: "Keep", completed: true) }
+        let extras = prescribed + [NativeWorkoutSet(setNumber: 4, weight: "", reps: "", notes: "", completed: false), NativeWorkoutSet(setNumber: 5, weight: "65", reps: "6", notes: "Extra", completed: true)]
+        check(NativeWorkoutSetMutation.removingExtra(from: extras, at: 1, prescribedCount: 3) == extras, "Prescribed rows cannot be removed")
+        check(NativeWorkoutSetMutation.removingExtra(from: extras, at: -1, prescribedCount: 3) == extras, "Invalid index cannot remove data")
+        let removed = NativeWorkoutSetMutation.removingExtra(from: extras, at: 3, prescribedCount: 3)
+        check(Array(removed.prefix(3)) == prescribed && removed.count == 4, "Removal preserves prescribed work")
+        check(removed[3].setNumber == 4 && removed[3].weight == "65" && removed[3].completed, "Surviving extra is renumbered with all logged values")
+        check(try decoder.decode([NativeWorkoutSet].self, from: encoder.encode(removed)) == removed, "Removal survives saved draft round trip")
         print("Native workout model checks passed (\(checks) assertions).")
     }
 }

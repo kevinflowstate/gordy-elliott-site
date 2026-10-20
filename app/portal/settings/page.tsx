@@ -1,5 +1,6 @@
 "use client";
 
+import PushNotificationBanner from "@/components/portal/PushNotificationBanner";
 import { type WeightUnit } from "@/lib/weight-units";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
@@ -261,6 +262,8 @@ function SettingsContent() {
         <h1 className="text-3xl font-heading font-bold text-text-primary">Settings</h1>
         <p className="text-text-secondary mt-1">Update your profile information.</p>
       </div>
+
+      <PushNotificationBanner persistent />
 
       <form onSubmit={handleSave} className="space-y-6">
         {/* Profile Picture */}

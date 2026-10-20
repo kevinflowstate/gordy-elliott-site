@@ -41,6 +41,7 @@ interface WorkoutRunnerProps {
   ) => void;
   onToggleSet: (itemId: string, setIndex: number) => void;
   onAddSet: (itemId: string) => void;
+  onRemoveSet: (itemId: string, setIndex: number) => void;
   onApplyFirstSetToAll: (itemId: string) => void;
   onFinish: () => Promise<boolean>;
 }
@@ -122,6 +123,7 @@ export default function AtCapacityWorkoutRunner({
   onUpdateSet,
   onToggleSet,
   onAddSet,
+  onRemoveSet,
   onApplyFirstSetToAll,
   onFinish,
 }: WorkoutRunnerProps) {
@@ -506,6 +508,13 @@ export default function AtCapacityWorkoutRunner({
                         aria-label={`Set ${set.set_number} note`}
                         className="mt-2 h-10 w-full rounded-xl border border-white/8 bg-black/20 px-3 text-sm text-white outline-none placeholder:text-white/25 focus:border-[#E040D0]/60"
                       />
+                      {shouldUseSetLogging(current.item) && setIndex >= Math.max(1, Number(current.item.sets) || 3) && (
+                        <button type="button" onClick={() => onRemoveSet(current.item.id, setIndex)}
+                          aria-label={`Remove extra set ${set.set_number}`}
+                          className="mt-2 min-h-11 px-2 text-xs font-semibold text-red-300 cursor-pointer">
+                          Remove extra set
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>

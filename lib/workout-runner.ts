@@ -37,3 +37,14 @@ export function copyFirstWorkoutSetValues(sets: WorkoutSetData[]): WorkoutSetDat
         reps: first.reps,
       });
 }
+
+// Prescribed rows stay in place; only client-added rows can be removed.
+export function removeExtraWorkoutSet(sets: WorkoutSetData[], index: number, prescribedCount: number): WorkoutSetData[] {
+  const minimum = Math.max(1, Math.floor(prescribedCount) || 1);
+  if (!Number.isInteger(index) || index < minimum || index >= sets.length) return sets;
+  return sets.filter((_, position) => position !== index).map((set, position) => ({ ...set, set_number: position + 1 }));
+}
+
+export function workoutSetHasValues(set: WorkoutSetData): boolean {
+  return set.completed || [set.weight, set.reps, set.notes].some(value => value.trim().length > 0);
+}

@@ -12,8 +12,8 @@ import CyclingStatusText from "@/components/ui/CyclingStatusText";
 import { formatExercisePrescription, shouldUseSetLogging } from "@/lib/exercise-prescriptions";
 import { getExerciseDemoUrl } from "@/lib/exercise-demo";
 import { openExerciseDemo } from "@/lib/exercise-demo-client";
-import { prefillPreviousWeights, forgetPreviousWeights, type PreviousExerciseLoads } from "@/lib/workout-previous-loads";
-import { copyFirstWorkoutSetValues, type WorkoutSetData } from "@/lib/workout-runner";
+import { prefillPreviousWeights, forgetPreviousWeights, removeSetFromPreviousWeights, type PreviousExerciseLoads } from "@/lib/workout-previous-loads";
+import { copyFirstWorkoutSetValues, removeExtraWorkoutSet, workoutSetHasValues, type WorkoutSetData } from "@/lib/workout-runner";
 import { NATIVE_WORKOUT_SYNCED_EVENT } from "@/lib/native-workout";
 import type { ClientExercisePlan, ExerciseSession, WeeklyTrainingAssignment, Exercise } from "@/lib/types";
 
@@ -567,6 +567,17 @@ export default function PortalExercisePlanPage() {
         [itemId]: [...sets, { set_number: sets.length + 1, weight: "", reps: "", notes: "", completed: false }],
       };
     });
+  }
+
+  function removeSet(itemId: string, setIndex: number) {
+    const item = activeSession?.items.find(item => item.id === itemId);
+    const sets = draftSets[itemId] || [];
+    if (!item || !shouldUseSetLogging(item) || !sets[setIndex]) return;
+    const prescribedCount = Math.max(1, Number(item.sets) || 3);
+    if (setIndex < prescribedCount) return;
+    if (workoutSetHasValues(sets[setIndex]) && !window.confirm("Remove this extra set and its logged values? Your prescribed sets will stay.")) return;
+    setPreviousLoads(previous => ({ ...previous, data: removeSetFromPreviousWeights(previous.data, itemId, sets, setIndex) }));
+    setDraftSets(previous => ({ ...previous, [itemId]: removeExtraWorkoutSet(previous[itemId] || [], setIndex, prescribedCount) }));
   }
 
   async function saveSession(): Promise<boolean> {
@@ -1946,6 +1957,13 @@ export default function PortalExercisePlanPage() {
                               />
                             </label>
                           </div>
+                          {useSetLogging && setIdx >= Math.max(1, Number(item.sets) || 3) && (
+                            <button type="button" onClick={() => removeSet(item.id, setIdx)}
+                              aria-label={`Remove extra set ${set.set_number}`}
+                              className="mt-2 min-h-11 px-2 text-xs font-semibold text-red-500 cursor-pointer">
+                              Remove extra set
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -2103,6 +2121,7 @@ export default function PortalExercisePlanPage() {
               onUpdateSet={updateSet}
               onToggleSet={toggleSet}
               onAddSet={addSet}
+              onRemoveSet={removeSet}
               onApplyFirstSetToAll={applyFirstSetToAll}
               onFinish={saveSession}
             />
