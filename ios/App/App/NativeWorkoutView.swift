@@ -157,6 +157,19 @@ final class NativeWorkoutViewModel: ObservableObject {
         persist()
     }
 
+    func canRemoveSet(exerciseID: String, index: Int) -> Bool {
+        guard let exercise = launch.session.exercises.first(where: { $0.id == exerciseID }), exercise.usesSetLogging else { return false }
+        let minimum = max(1, exercise.prescribedSets ?? launch.sets[exerciseID]?.count ?? 1)
+        return index >= minimum && index < (sets[exerciseID]?.count ?? 0)
+    }
+
+    func removeSet(exerciseID: String, index: Int) {
+        guard canRemoveSet(exerciseID: exerciseID, index: index), let values = sets[exerciseID],
+              let exercise = launch.session.exercises.first(where: { $0.id == exerciseID }) else { return }
+        sets[exerciseID] = NativeWorkoutSetMutation.removingExtra(from: values, at: index, prescribedCount: exercise.prescribedSets ?? launch.sets[exerciseID]?.count ?? 1)
+        persist()
+    }
+
     func skipRest() {
         restEndsAt = nil
     }
@@ -206,6 +219,7 @@ struct NativeWorkoutView: View {
     @State private var showsOverview = false
     @State private var confirmsClose = false
     @State private var saveFailed = false
+    @State private var pendingSetRemoval: (exerciseID: String, index: Int)? = nil
     @Environment(\.scenePhase) private var scenePhase
 
     let onClose: () -> Void
@@ -257,6 +271,15 @@ struct NativeWorkoutView: View {
             Button("Leave workout", role: .destructive) { onClose() }
         } message: {
             Text("Your progress is saved on this iPhone. You can continue from the same place later.")
+        }
+        .alert("Remove this extra set?", isPresented: Binding(get: { pendingSetRemoval != nil }, set: { if !$0 { pendingSetRemoval = nil } })) {
+            Button("Remove set", role: .destructive) {
+                if let pending = pendingSetRemoval { model.removeSet(exerciseID: pending.exerciseID, index: pending.index) }
+                pendingSetRemoval = nil
+            }
+            Button("Keep set", role: .cancel) { pendingSetRemoval = nil }
+        } message: {
+            Text("Its logged values will be removed. Your prescribed sets will stay.")
         }
         .alert("Workout could not be saved", isPresented: $saveFailed) {
             Button("Try again", role: .cancel) {}
@@ -540,7 +563,10 @@ struct NativeWorkoutView: View {
                         },
                         onToggle: {
                             model.toggleSet(exerciseID: exercise.id, index: index, restSeconds: exercise.restSeconds)
-                        }
+                        },
+                        onRemove: model.canRemoveSet(exerciseID: exercise.id, index: index) ? {
+                            pendingSetRemoval = (exercise.id, index)
+                        } : nil
                     )
                 }
             }
@@ -793,6 +819,7 @@ private struct NativeWorkoutSetCard: View {
     let onRepsChanged: (String) -> Void
     let onNotesChanged: (String) -> Void
     let onToggle: () -> Void
+    var onRemove: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 9) {
@@ -829,6 +856,13 @@ private struct NativeWorkoutSetCard: View {
                 .frame(height: 42)
                 .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 11))
                 .accessibilityLabel("Set \(set.setNumber) note")
+            if let onRemove {
+                Button("Remove extra set", action: onRemove)
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.red.opacity(0.9))
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .trailing)
+                    .accessibilityLabel("Remove extra set \(set.setNumber)")
+            }
         }
         .padding(12)
         .background(set.completed ? NativeWorkoutPalette.green.opacity(0.07) : NativeWorkoutPalette.card, in: RoundedRectangle(cornerRadius: 18))

@@ -86,3 +86,18 @@ export function forgetPreviousWeights(previous: PreviousExerciseLoads, itemId: s
   else delete next[itemId];
   return next;
 }
+
+/** Reindex only surviving provenance when an extra row is removed. */
+export function removeSetFromPreviousWeights(previous: PreviousExerciseLoads, itemId: string, sets: WorkoutSetData[], index: number): PreviousExerciseLoads {
+  const original = previous[itemId];
+  if (!original || !Number.isInteger(index) || index < 0 || index >= sets.length) return previous;
+  const weights: Record<number, string> = {};
+  sets.filter((_, position) => position !== index).forEach((set, position) => {
+    const weight = original.weights[set.set_number];
+    if (weight !== undefined) weights[position + 1] = weight;
+  });
+  const result = { ...previous };
+  if (Object.keys(weights).length) result[itemId] = { ...original, weights };
+  else delete result[itemId];
+  return result;
+}

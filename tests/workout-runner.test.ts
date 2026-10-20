@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   copyFirstWorkoutSetValues,
+  removeExtraWorkoutSet,
+  workoutSetHasValues,
   nextWorkoutExerciseIndex,
   workoutSetProgress,
   type WorkoutSetData,
@@ -63,4 +65,23 @@ test("up-next navigation stops cleanly at the final exercise", () => {
   assert.equal(nextWorkoutExerciseIndex(3, 5), 4);
   assert.equal(nextWorkoutExerciseIndex(4, 5), null);
   assert.equal(nextWorkoutExerciseIndex(0, 0), null);
+});
+
+test("removing an extra set preserves prescribed values, reindexes later extras and survives serialisation", () => {
+  const original = [set(1, {weight:"60",reps:"8",completed:true}),set(2),set(3),set(4,{notes:"accidental"}),set(5,{weight:"65",completed:true})];
+  const removed = removeExtraWorkoutSet(original,3,3);
+  assert.equal(removed.length,4);
+  assert.deepEqual(removed[0],original[0]);
+  assert.deepEqual(removed[3],{...original[4],set_number:4});
+  assert.deepEqual(JSON.parse(JSON.stringify(removed)),removed);
+  assert.equal(original.length,5);
+});
+test("prescribed sets and invalid indexes cannot be removed",()=>{
+  const sets=[set(1),set(2),set(3),set(4)];
+  for(const index of [-1,0,1,2,4,NaN,3.5]) assert.equal(removeExtraWorkoutSet(sets,index,3),sets);
+  assert.equal(removeExtraWorkoutSet([set(1)],0,0).length,1);
+});
+test("filled and completed extra sets require confirmation, blank extras do not",()=>{
+  assert.equal(workoutSetHasValues(set(4)),false);
+  for(const change of [{weight:"0"},{reps:"5"},{notes:"keep"},{completed:true}]) assert.equal(workoutSetHasValues(set(4,change)),true);
 });

@@ -82,6 +82,7 @@ test("native launch payload removes section rows and carries their label forward
   ]);
   assert.equal(payload.session.exercises[0].prescription, "3 x 6");
   assert.equal(payload.session.exercises[0].usesSetLogging, true);
+  assert.equal(payload.session.exercises[0].prescribedSets, 3);
   assert.equal(payload.session.exercises[1].prescription, "30 sec each side");
   assert.equal(payload.session.exercises[1].usesSetLogging, false);
   assert.equal(payload.startedAt, 1_776_508_800_000);
