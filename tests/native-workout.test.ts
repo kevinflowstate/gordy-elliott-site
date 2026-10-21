@@ -80,7 +80,8 @@ test("native launch payload removes section rows and carries their label forward
     { id: "squat-item", section: "Main strength" },
     { id: "plank-item", section: "Main strength" },
   ]);
-  assert.equal(payload.session.exercises[0].prescription, "3 x 6");
+  assert.equal(payload.session.exercises[0].prescription, "6");
+  assert.equal(payload.session.exercises[0].notes, "Complete 3 sets. Reps per set: 6. Enter the reps completed in each numbered row.\n\nControl the descent.");
   assert.equal(payload.session.exercises[0].usesSetLogging, true);
   assert.equal(payload.session.exercises[0].prescribedSets, 3);
   assert.equal(payload.session.exercises[1].prescription, "30 sec each side");
@@ -135,4 +136,36 @@ test("offline workout sync drops a stale start timestamp instead of retrying for
     prepareNativeWorkoutSyncPayload(payload, Date.parse("2026-08-18T14:01:00.000Z")),
     { ...payload, session_started_at: null },
   );
+});
+
+
+test("installed iOS REPS placeholders contain one set's target, preserving per-leg instructions and draft values", () => {
+  for (const [count, reps] of [[4, "6-8"], [3, "8-10/leg"]] as const) {
+    const item = { ...session.items[1], sets: count, reps, notes: "Keep both sides controlled." };
+    const originalSession = { ...session, items: [item] };
+    const sets = { [item.id]: Array.from({ length: count }, (_, index) => ({
+      set_number: index + 1, weight: index === 0 ? "20" : "", reps: index === 0 ? "8" : "", notes: "", completed: index === 0,
+    })) };
+    const before = JSON.stringify({ session: originalSession, sets });
+    const payload = buildNativeWorkoutLaunchPayload({ session: originalSession, date: "2026-10-21", dateLabel: "Today", mode: "workout", sets, startedAt: null });
+    const exercise = payload.session.exercises[0];
+
+    // The shipped Swift REPS field reads this exact payload property for every row.
+    assert.equal(exercise.prescription, reps);
+    assert.equal(exercise.prescribedSets, count);
+    assert.equal(payload.sets, sets);
+    assert.equal(payload.sets[item.id].length, count);
+    assert.equal(exercise.notes, `Complete ${count} sets. Reps per set: ${reps}. Enter the reps completed in each numbered row.\n\nKeep both sides controlled.`);
+    assert.equal(JSON.stringify({ session: originalSession, sets }), before);
+  }
+});
+
+test("native non-set prescriptions and coach notes remain unchanged", () => {
+  for (const [type, target] of [["time", "30 sec each side"], ["amrap", "AMRAP 12 min"], ["custom", "As directed"]] as const) {
+    const item = { ...session.items[1], prescription_type: type, prescription_text: target, notes: "Coach instructions unchanged." };
+    const payload = buildNativeWorkoutLaunchPayload({ session: { ...session, items: [item] }, date: "2026-10-21", dateLabel: "Today", mode: "edit", sets: {}, startedAt: null });
+    assert.equal(payload.session.exercises[0].prescription, target);
+    assert.equal(payload.session.exercises[0].notes, item.notes);
+    assert.equal(payload.session.exercises[0].usesSetLogging, false);
+  }
 });
