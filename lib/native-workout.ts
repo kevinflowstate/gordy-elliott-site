@@ -108,10 +108,17 @@ export function buildNativeWorkoutLaunchPayload(options: NativeWorkoutLaunchOpti
   const exercises = buildWorkoutBlocks(options.session).flatMap(block => block.exercises.map(({ item, section }) => ({
     id: item.id,
     name: item.exercise?.name || "Exercise",
-    prescription: formatExercisePrescription(item),
+    // Installed iOS builds also use this string as every REPS field's placeholder.
+    // Keep it per-set; carry the set count separately in the visible instructions.
+    prescription: shouldUseSetLogging(item) ? item.reps || "10" : formatExercisePrescription(item),
     section,
     restSeconds: item.rest_seconds || null,
-    notes: item.notes || null,
+    notes: shouldUseSetLogging(item)
+      ? [
+          `Complete ${Math.max(1, Number(item.sets) || 3)} sets. Reps per set: ${item.reps || "10"}. Enter the reps completed in each numbered row.`,
+          item.notes,
+        ].filter(Boolean).join("\n\n")
+      : item.notes || null,
     demoURL: getExerciseDemoUrl(item.exercise?.video_url, item.exercise?.name),
     usesSetLogging: shouldUseSetLogging(item),
     prescribedSets: shouldUseSetLogging(item) ? Math.max(1, Number(item.sets) || 3) : 1,
