@@ -123,7 +123,6 @@ export async function POST(request: Request) {
   const shouldUpdateConnection = action !== "data" || connectionStateChanged || syncRefreshDue || summaries.length > 0;
   const connectionUpdate = {
     failure_reason: action === "error" ? "provider_auth_error" : action === "disconnect" ? (terraUser.eventType === "access_revoked" ? "provider_revoked" : "provider_deauth") : null,
-    last_data_at: action === "data" && summaries.length ? now : connection.last_data_at,
     terra_user_id: terraUserId,
     reference_id: referenceId,
     status,
@@ -143,6 +142,14 @@ export async function POST(request: Request) {
     if (connectionError) return NextResponse.json({ error: connectionError.message }, { status: 500 });
   }
 
+  // Never restore a stale snapshot on empty/auth events. A conditional update
+  // also prevents concurrent useful-data deliveries moving this timestamp back.
+  if (action === "data" && summaries.length) {
+    const { error: dataTimeError } = await admin.from("client_wearable_connections")
+      .update({ last_data_at: now }).eq("id", connection.id)
+      .or(`last_data_at.is.null,last_data_at.lt.${now}`);
+    if (dataTimeError) return NextResponse.json({ error: "Data timestamp could not be saved" }, { status: 500 });
+  }
   const payloadHash = stableHash(payload);
   const { data: insertedEvent, error: eventError } = await admin
     .from("client_wearable_events")
