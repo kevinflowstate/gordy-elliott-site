@@ -53,7 +53,7 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
   const clientId = parseTerraReferenceId(terraUser.referenceId);
-  const connectionFields = "id, client_id, provider, terra_user_id, reference_id, status, connected_at, disconnected_at, last_sync_at, consented_at, scopes";
+  const connectionFields = "id, client_id, provider, terra_user_id, reference_id, status, connected_at, disconnected_at, last_sync_at, last_data_at, consented_at, scopes";
   let connection = null;
   if (clientId) {
     const result = await admin
@@ -80,6 +80,14 @@ export async function POST(request: Request) {
     connection = result.data;
   }
 
+  if (!connection && clientId) {
+    const { data: profile, error: profileError } = await admin.from("client_profiles").select("id").eq("id", clientId).maybeSingle();
+    if (profileError) return NextResponse.json({ error: "Profile lookup failed" }, { status: 500 });
+    if (!profile) {
+      console.warn("Ignoring Terra webhook for a deleted profile", { reason: "orphan_reference", provider });
+      return NextResponse.json({ ok: true, ignored: true, reason: "orphan_reference" });
+    }
+  }
   if (!connection || !connection.consented_at) {
     console.warn("Ignoring Terra webhook without a consented app connection", {
       eventType: terraUser.eventType,
@@ -91,6 +99,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ignored: true, reason: "connection_state_rejects_event" });
   }
 
+  const summaries = normaliseTerraPayloads(payload as Record<string, unknown>);
   const now = new Date().toISOString();
   const nowTimestamp = Date.parse(now);
   const status = action === "disconnect"
@@ -111,8 +120,9 @@ export async function POST(request: Request) {
   const connectionStateChanged = connection.status !== status
     || connection.terra_user_id !== terraUserId
     || connection.reference_id !== referenceId;
-  const shouldUpdateConnection = action !== "data" || connectionStateChanged || syncRefreshDue;
+  const shouldUpdateConnection = action !== "data" || connectionStateChanged || syncRefreshDue || summaries.length > 0;
   const connectionUpdate = {
+    failure_reason: action === "error" ? "provider_auth_error" : action === "disconnect" ? (terraUser.eventType === "access_revoked" ? "provider_revoked" : "provider_deauth") : null,
     terra_user_id: terraUserId,
     reference_id: referenceId,
     status,
@@ -132,6 +142,14 @@ export async function POST(request: Request) {
     if (connectionError) return NextResponse.json({ error: connectionError.message }, { status: 500 });
   }
 
+  // Never restore a stale snapshot on empty/auth events. A conditional update
+  // also prevents concurrent useful-data deliveries moving this timestamp back.
+  if (action === "data" && summaries.length) {
+    const { error: dataTimeError } = await admin.from("client_wearable_connections")
+      .update({ last_data_at: now }).eq("id", connection.id)
+      .or(`last_data_at.is.null,last_data_at.lt.${now}`);
+    if (dataTimeError) return NextResponse.json({ error: "Data timestamp could not be saved" }, { status: 500 });
+  }
   const payloadHash = stableHash(payload);
   const { data: insertedEvent, error: eventError } = await admin
     .from("client_wearable_events")
@@ -161,7 +179,6 @@ export async function POST(request: Request) {
     event = existingEvent;
   }
 
-  const summaries = normaliseTerraPayloads(payload as Record<string, unknown>);
   if (!summaries.length) {
     return NextResponse.json({ ok: true, stored: true, duplicate: duplicateEvent, summaryUpdated: false });
   }

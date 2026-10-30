@@ -37,6 +37,8 @@ export type WearableConnection = {
   terra_user_id: string | null;
   reference_id: string;
   status: "connected" | "disconnected" | "pending" | "error";
+  failure_reason?: string | null;
+  last_data_at?: string | null;
   last_sync_at: string | null;
   connected_at: string | null;
   disconnected_at: string | null;

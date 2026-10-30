@@ -43,7 +43,7 @@ test("copying weeks produces independent IDs and groups; a deload reaches the ex
  assert.throws(()=>copyProgrammeWeek(p.sessions,1,[4]),/empty/);
  const selected=programmeSessionsForDate(p,"2026-10-28")[0];
  const payload=buildNativeWorkoutLaunchPayload({session:selected,date:"2026-10-28",dateLabel:"Today",mode:"workout",sets:{},startedAt:null});
- assert.equal(payload.session.id,deload.id);assert.equal(payload.session.exercises[0].prescription,"2 x 5");
+ assert.equal(payload.session.id,deload.id);assert.equal(payload.session.exercises[0].prescription,"5");assert.equal(payload.session.exercises[0].prescribedSets,2);
  assert.deepEqual(payload.session.exercises.map(i=>i.id),deload.items.map(i=>i.id));
 });
 

@@ -1,3 +1,4 @@
+import { revokeExternalProviderAccess } from "@/lib/account-provider-revocation";
 import { loadConsultationConfig } from "@/lib/consultation-config";
 import { consultationBodyContext } from "@/lib/consultation-metrics";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -163,6 +164,16 @@ export async function DELETE(
     return NextResponse.json({ error: "user_id does not match this client" }, { status: 400 });
   }
 
+  try {
+    const [wearables, calendars] = await Promise.all([
+      admin.from("client_wearable_connections").select("terra_user_id, raw_user").eq("client_id", id),
+      admin.from("client_calendar_connections").select("composio_user_id, composio_connected_account_id").eq("client_id", id),
+    ]);
+    if (wearables.error || calendars.error) throw new Error("Provider lookup failed");
+    await revokeExternalProviderAccess(wearables.data || [], calendars.data || []);
+  } catch {
+    console.error("Client deletion provider revocation failed", { clientId: id });
+  }
   const { error } = await admin.auth.admin.deleteUser(user_id);
 
   if (error) {

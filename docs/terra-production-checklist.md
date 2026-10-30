@@ -55,3 +55,6 @@ Official references:
 - Flo is not treated as a supported provider without written confirmation and a successful Terra account-level test.
 - Terra-side deauthentication, revocation handling and local non-reconnection are implemented but still require a real testing-environment acceptance run.
 - Vercel maintenance logging is implemented; configure an operational alert from Terra payload history or Vercel logs before onboarding real clients.
+
+## Provider state, 30 October 2026
+Garmin is paused upstream and absent from Terra Sources. TERRA_GARMIN_ENABLED stays unset; keep historical webhooks supported. WHOOP uses the company app at whoop-prod.onlinegordy.com with v2 webhook https://whoop-prod.onlinegordy.com/hooks/whoop/push and five read scopes. Keep TERRA_WHOOP_ENABLED=false until owner verification and non-empty real readings pass. Do not enable either flag as part of hygiene deployment.
