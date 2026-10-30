@@ -17,7 +17,7 @@ public class TerraHealthPlugin: CAPPlugin, CAPBridgedPlugin {
     guard let manager=manager, error == nil else { self.connecting=false; call.reject("Couldn't initialise Apple Health"); return }
     self.manager=manager
     DispatchQueue.main.async {
-     manager.initConnection(type:.APPLE_HEALTH, token:token, customReadTypes:[.ACTIVITY_SUMMARY,.STEPS,.HEART_RATE,.RESTING_HEART_RATE,.HEART_RATE_VARIABILITY,.SLEEP_ANALYSIS,.CALORIES], schedulerOn:true) { success, error in
+     manager.initConnection(type:.APPLE_HEALTH, token:token, customReadTypes:[.WORKOUT_TYPE,.ACTIVITY_SUMMARY,.STEPS,.HEART_RATE,.RESTING_HEART_RATE,.HEART_RATE_VARIABILITY,.SLEEP_ANALYSIS,.CALORIES], schedulerOn:true) { success, error in
       self.connecting=false
       guard success, error == nil, let userId=manager.getUserId(type:.APPLE_HEALTH) else { call.reject("Apple Health connection was not completed"); return }
       call.resolve(["userId":userId])

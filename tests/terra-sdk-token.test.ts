@@ -30,3 +30,9 @@ test("SDK route enforces authenticated identity, consent and pending attempt",()
  const bridge=fs.readFileSync("lib/native/terra-health.ts","utf8");
  assert.match(bridge,/isNativePlatform/);assert.match(bridge,/isPluginAvailable\("TerraHealth"\)/);
 });
+
+test("native-only refresh succeeds without claiming a REST request; Apple requests workouts",()=>{
+ const route=fs.readFileSync("app/api/portal/integrations/terra/sync/route.ts","utf8");
+ assert.match(route,/if \(!requests.length\) return NextResponse.json\(\{ accepted: false, automatic: true/);
+ assert.match(fs.readFileSync("ios/App/App/TerraHealthPlugin.swift","utf8"),/customReadTypes:\[.WORKOUT_TYPE/);
+});

@@ -97,6 +97,7 @@ export async function POST(request: Request) {
   const requests = connected.flatMap((connection) => (
     DATA_TYPES_BY_PROVIDER[connection.provider].map((dataType) => ({ connection, dataType }))
   ));
+  if (!requests.length) return NextResponse.json({ accepted: false, automatic: true, results: [] });
   const settled = await Promise.allSettled(requests.map(({ connection, dataType }) => (
     requestTerraData(dataType, connection.terra_user_id!, startDate, endDate)
   )));
