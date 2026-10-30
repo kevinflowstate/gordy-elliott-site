@@ -1,5 +1,5 @@
 {
-  "originHash" : "da79d99de1376e2f178cbf3ef501be1f4b59f1cdddab17df3d0710c78c579685",
+  "originHash" : "fa3c278aef2c51284cb7eed30cdf2b448b7b2b859c8416590ad70d2afa1ebcd1",
   "pins" : [
     {
       "identity" : "capacitor-swift-pm",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "9b9fb0af76b2b653f6e9b999f658adc132b9ab4c",
         "version" : "8.4.2"
+      }
+    },
+    {
+      "identity" : "terraios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/tryterra/TerraiOS",
+      "state" : {
+        "revision" : "5e0e836910edb8dc3a0ce8d71b431ec5974c4396",
+        "version" : "1.9.4"
       }
     }
   ],

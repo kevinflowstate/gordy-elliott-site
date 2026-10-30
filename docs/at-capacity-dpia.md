@@ -109,3 +109,6 @@ The revision 2 additions (R11-R13) all land at low residual: they are in-platfor
 | Platform operator | Kevin Harkin | Pending | - |
 
 Sign-off confirms acceptance of the residual risks above and commitment to the action plan. Re-run this assessment when the review triggers at the top of this document occur.
+
+## Native health processing candidate,30 October2026
+Optional HealthKit(iOS)/Health Connect(Android) read access sends approved activity/sleep/heart-rate categories through Terra to the existing signed webhook for client/coach recovery and training trends. No health writes, location or reproductive data requested. Native SDK package scopes and Android merged manifest are restricted to these categories. User consent is versioned on the connection; server verification binds Terra user and reference before connection completion. Existing retention and external-revocation rules apply. Device acceptance and Play Health Connect declaration remain human release gates; Phase C is a PR pending approval.

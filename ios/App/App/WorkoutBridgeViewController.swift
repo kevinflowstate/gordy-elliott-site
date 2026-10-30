@@ -25,6 +25,7 @@ final class WorkoutBridgeViewController: CAPBridgeViewController, WKScriptMessag
 
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
+        bridge?.registerPluginInstance(TerraHealthPlugin())
         webView?.configuration.userContentController.add(
             WeakWorkoutScriptMessageHandler(delegate: self),
             name: handlerName

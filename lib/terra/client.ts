@@ -330,3 +330,15 @@ export function verifyTerraWebhookRequest(request: Request, rawBody: string) {
     webhookSigningSecret,
   );
 }
+
+export async function generateTerraSdkToken(fetchImpl: typeof fetch = fetch) {
+  const config = getTerraConfig();
+  if (!config.configured) throw new Error("Native health connections are not configured.");
+  const response = await fetchImpl("https://api.tryterra.co/v2/auth/generateAuthToken", {
+    method: "POST", headers: { "dev-id": config.devId, "x-api-key": config.apiKey },
+    signal: AbortSignal.timeout(10_000),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || result.status === "error" || typeof result.token !== "string" || !result.token) throw new Error("Couldn't start the health connection. Please try again.");
+  return { token: result.token, devId: config.devId };
+}

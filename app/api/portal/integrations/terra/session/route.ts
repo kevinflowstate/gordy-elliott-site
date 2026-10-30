@@ -31,6 +31,7 @@ export async function POST(request: Request) {
   if (!provider) {
     return NextResponse.json({ error: "That connected app is not available." }, { status: 400 });
   }
+  if (provider === "apple" || provider === "healthconnect") return NextResponse.json({ error: "Use the native health connection flow." }, { status: 400 });
   if (provider === "whoop" && !getTerraConfig().whoopEnabled) {
     return NextResponse.json({ error: "WHOOP is awaiting final provider setup and testing." }, { status: 400 });
   }

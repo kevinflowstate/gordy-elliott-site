@@ -18,3 +18,5 @@ outputs/
 *.p12
 android/app/google-services.json
 supabase/.temp/
+
+android/.kotlin/

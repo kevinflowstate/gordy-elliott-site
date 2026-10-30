@@ -96,3 +96,6 @@ Submission hold: do not copy these notes into App Store Connect or submit the ap
 - Export compliance: **No non-exempt encryption.** The app uses operating-system and standard HTTPS encryption and declares `ITSAppUsesNonExemptEncryption = NO`.
 - Regulated medical device: **No.** The app provides fitness coaching and explicitly avoids diagnosis or treatment claims.
 - Sign-in required: **Yes.** Supply the verified Demo Client credentials already held in App Store Connect.
+
+## Health integration candidate,30 October2026
+AT CAPACITY1.0.2(13) adds optional Apple Health through TerraHealth. Read access is requested only after the user accepts the health-data notice and taps Connect; categories are activity, steps, calories, heart rate, resting heart rate, HRV and sleep. The SDK requires an update-purpose string but this integration does not write HealthKit data. Review requires a physical iPhone with populated Health data, permission denial/re-enable and background-delivery checks. Reinstall/new device creates a distinct Terra user mapped to the same client reference. No App Store submission authorised.

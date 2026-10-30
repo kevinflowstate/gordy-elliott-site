@@ -1,5 +1,6 @@
 "use client";
 
+import { TerraHealth, nativeHealthProvider } from "@/lib/native/terra-health";
 import { Browser } from "@capacitor/browser";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -197,6 +198,16 @@ export default function ConnectedAppsPage() {
     let listener: PluginListenerHandle | null = null;
     let attemptStartedAt: string | undefined;
     try {
+      if (provider === "apple" || provider === "healthconnect") {
+        if(nativeHealthProvider() !== provider) throw new Error("Open the updated AT CAPACITY app on your phone to connect.");
+        const response=await fetch("/api/portal/integrations/terra/sdk-token",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({provider,consent:consentAccepted})});
+        const credentials=await response.json();
+        if(!response.ok) throw new Error(credentials.error || "Couldn't start connection");
+        attemptStartedAt=credentials.attemptStartedAt;
+        const {userId}=await TerraHealth.connect({devId:credentials.devId,referenceId:credentials.referenceId,token:credentials.token,connection:provider === "apple" ? "APPLE_HEALTH" : "HEALTH_CONNECT"});
+        await verifyConnection(provider,attemptStartedAt,userId);
+        return;
+      }
       const res = await fetch("/api/portal/integrations/terra/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -258,6 +269,7 @@ export default function ConnectedAppsPage() {
       const res = await fetch(`/api/portal/integrations/${connection.id}/disconnect`, { method: "POST" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Couldn't disconnect");
+      if(connection.provider === nativeHealthProvider()) await TerraHealth.disconnect();
       toast("Connection disconnected");
       await load();
     } catch (err) {
@@ -331,6 +343,7 @@ export default function ConnectedAppsPage() {
         consentAccepted={consentAccepted}
         available={Boolean(data?.available) && !loading}
         mockMode={Boolean(data?.mockMode)}
+        nativeHealth={nativeHealthProvider()}
         garminAvailable={Boolean(data?.providerAvailability?.garmin)}
         whoopAvailable={Boolean(data?.providerAvailability?.whoop)}
         connecting={connecting}

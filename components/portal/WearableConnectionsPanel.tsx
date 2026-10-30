@@ -19,6 +19,8 @@ export type WearableProvider = {
 };
 
 export const wearableProviders: WearableProvider[] = [
+ { id:"apple", name:"Apple Health", description:"Activity, sleep and heart-rate trends from your iPhone.",logoSrc:"/images/providers/apple-health.svg",tileClass:"bg-white" },
+ { id:"healthconnect", name:"Health Connect", description:"Activity, sleep and heart-rate trends from your Android phone.",logoSrc:"/images/providers/health-connect.svg",tileClass:"bg-white" },
   {
     id: "garmin",
     name: "Garmin",
@@ -75,6 +77,7 @@ export default function WearableConnectionsPanel({
   consentAccepted,
   available,
   mockMode,
+  nativeHealth = null,
   garminAvailable = false,
   whoopAvailable,
   connecting,
@@ -88,6 +91,7 @@ export default function WearableConnectionsPanel({
   consentAccepted: boolean;
   available: boolean;
   mockMode: boolean;
+  nativeHealth?: "apple" | "healthconnect" | null;
   garminAvailable?: boolean;
   whoopAvailable: boolean;
   connecting: string | null;
@@ -97,7 +101,8 @@ export default function WearableConnectionsPanel({
   onDisconnect: (connection: WearableConnection) => void;
   onBack: () => void;
 }) {
-  const providers = wearableProviders.map((provider) => (
+  const providers = wearableProviders.filter(provider => !nativeHealth || !["apple","healthconnect"].includes(provider.id) || provider.id === nativeHealth).map((provider) => (
+    ["apple","healthconnect"].includes(provider.id) && nativeHealth !== provider.id ? {...provider, unavailableNote:"Open the AT CAPACITY app on your phone to connect"} :
     provider.id === "garmin" && !garminAvailable ? { ...provider, unavailableNote: "Garmin has paused new third-party connections. Garmin users can sync through Apple Health once it is available." } : provider.id === "whoop" ? { ...provider, disabled: !whoopAvailable } : provider
   ));
   const connectionByProvider = new Map<string, WearableConnection>();
@@ -282,12 +287,12 @@ function ProviderRow({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-[15px] font-semibold text-white">{provider.name}</h3>
-            {provider.unavailableNote ? <span className="text-xs text-amber-200">Paused by Garmin</span> : <ConnectionState status={connection?.status} />}
+            {provider.unavailableNote && provider.id === "garmin" ? <span className="text-xs text-amber-200">Paused by Garmin</span> : <ConnectionState status={connection?.status} />}
           </div>
           <p className="mt-1 text-xs leading-5 text-white/43 sm:text-sm">{provider.description}</p>
           {connection && (
             <p className="mt-1.5 text-[11px] text-white/28">
-              {provider.unavailableNote ? "Paused by Garmin" : connection.failure_reason && connection.failure_reason !== "orphan_reference" ? connectionFailureCopy[connection.failure_reason] : connected ? connection.last_data_at ? `Last received ${formatDate(connection.last_data_at)}` : "Connected. Waiting for the first readings." : errored ? "Connection wasn't completed. Reconnect to try again." : pending ? "Awaiting authorisation and verification. You can retry if you closed the provider window." : "Not connected"}
+              {provider.unavailableNote ? provider.id === "garmin" ? "Paused by Garmin" : provider.unavailableNote : connection.failure_reason && connection.failure_reason !== "orphan_reference" ? connectionFailureCopy[connection.failure_reason] : connected ? connection.last_data_at ? `Last received ${formatDate(connection.last_data_at)}` : "Connected. Waiting for the first readings." : errored ? "Connection wasn't completed. Reconnect to try again." : pending ? "Awaiting authorisation and verification. You can retry if you closed the provider window." : "Not connected"}
             </p>
           )}
         </div>
