@@ -34,6 +34,9 @@ export async function POST(request: Request) {
   if (provider === "whoop" && !getTerraConfig().whoopEnabled) {
     return NextResponse.json({ error: "WHOOP is awaiting final provider setup and testing." }, { status: 400 });
   }
+  if (provider === "garmin" && !getTerraConfig().garminEnabled) {
+    return NextResponse.json({ error: "Garmin has paused new third-party connections. Garmin users can sync through Apple Health once it is available." }, { status: 400 });
+  }
   if (body.consent !== true) {
     return NextResponse.json(
       { error: "Confirm the health-data notice before connecting an app." },
@@ -117,6 +120,8 @@ export async function POST(request: Request) {
       provider,
       reference_id: getTerraReferenceId(profile.id),
       status: "pending",
+      failure_reason: null,
+      last_data_at: null,
       connected_at: null,
       consent_version: TERRA_CONSENT_VERSION,
       consented_at: now,
@@ -157,6 +162,7 @@ export async function PATCH(request: Request) {
     .from("client_wearable_connections")
     .update({
       status: "error",
+      failure_reason: "widget_return_failed",
       updated_at: new Date().toISOString(),
     })
     .eq("client_id", profile.id)

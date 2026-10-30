@@ -1,5 +1,6 @@
 "use client";
 
+import { connectionFailureCopy } from "@/lib/terra/connection-copy";
 import Image from "next/image";
 import Link from "next/link";
 import CyclingStatusText from "@/components/ui/CyclingStatusText";
@@ -14,6 +15,7 @@ export type WearableProvider = {
   wordmark?: string;
   tileClass: string;
   disabled?: boolean;
+  unavailableNote?: string;
 };
 
 export const wearableProviders: WearableProvider[] = [
@@ -73,6 +75,7 @@ export default function WearableConnectionsPanel({
   consentAccepted,
   available,
   mockMode,
+  garminAvailable = false,
   whoopAvailable,
   connecting,
   disconnecting,
@@ -85,6 +88,7 @@ export default function WearableConnectionsPanel({
   consentAccepted: boolean;
   available: boolean;
   mockMode: boolean;
+  garminAvailable?: boolean;
   whoopAvailable: boolean;
   connecting: string | null;
   disconnecting: string | null;
@@ -94,7 +98,7 @@ export default function WearableConnectionsPanel({
   onBack: () => void;
 }) {
   const providers = wearableProviders.map((provider) => (
-    provider.id === "whoop" ? { ...provider, disabled: !whoopAvailable } : provider
+    provider.id === "garmin" && !garminAvailable ? { ...provider, unavailableNote: "Garmin has paused new third-party connections. Garmin users can sync through Apple Health once it is available." } : provider.id === "whoop" ? { ...provider, disabled: !whoopAvailable } : provider
   ));
   const connectionByProvider = new Map<string, WearableConnection>();
   for (const connection of connections) connectionByProvider.set(connection.provider, connection);
@@ -104,7 +108,7 @@ export default function WearableConnectionsPanel({
     .map((connection) => providers.find((provider) => provider.id === connection.provider))
     .filter((provider): provider is WearableProvider => Boolean(provider));
   const mostRecentSync = connectedConnections
-    .map((connection) => connection.last_sync_at)
+    .map((connection) => connection.last_data_at)
     .filter((value): value is string => Boolean(value))
     .sort((a, b) => b.localeCompare(a))[0];
 
@@ -278,18 +282,18 @@ function ProviderRow({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-[15px] font-semibold text-white">{provider.name}</h3>
-            <ConnectionState status={connection?.status} />
+            {provider.unavailableNote ? <span className="text-xs text-amber-200">Paused by Garmin</span> : <ConnectionState status={connection?.status} />}
           </div>
           <p className="mt-1 text-xs leading-5 text-white/43 sm:text-sm">{provider.description}</p>
           {connection && (
             <p className="mt-1.5 text-[11px] text-white/28">
-              {connected ? connection.last_sync_at ? `Last received ${formatDate(connection.last_sync_at)}` : "Connected. Waiting for the first data update." : errored ? "Connection wasn't completed. Reconnect to try again." : pending ? "Awaiting authorisation and verification. You can retry if you closed the provider window." : "Not connected"}
+              {provider.unavailableNote ? "Paused by Garmin" : connection.failure_reason && connection.failure_reason !== "orphan_reference" ? connectionFailureCopy[connection.failure_reason] : connected ? connection.last_data_at ? `Last received ${formatDate(connection.last_data_at)}` : "Connected. Waiting for the first readings." : errored ? "Connection wasn't completed. Reconnect to try again." : pending ? "Awaiting authorisation and verification. You can retry if you closed the provider window." : "Not connected"}
             </p>
           )}
         </div>
       </div>
       <div className="flex shrink-0 items-center justify-end">
-        {connected ? (
+        {provider.unavailableNote && !connected ? <p className="max-w-xs text-xs leading-5 text-white/50">{provider.unavailableNote}</p> : connected ? (
           <button
             type="button"
             onClick={() => onDisconnect(connection)}

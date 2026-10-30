@@ -46,7 +46,7 @@ export async function GET(request: Request) {
   }
 
   const staleBefore = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-  const [errorsResult, staleResult] = await Promise.all([
+  const [errorsResult, staleResult, withoutDataResult] = await Promise.all([
     admin
       .from("client_wearable_connections")
       .select("id", { count: "exact", head: true })
@@ -56,11 +56,13 @@ export async function GET(request: Request) {
       .select("id", { count: "exact", head: true })
       .eq("status", "connected")
       .or(`last_sync_at.is.null,last_sync_at.lt.${staleBefore}`),
+    admin.from("client_wearable_connections").select("id", { count: "exact", head: true })
+      .eq("status", "connected").is("last_data_at", null).lt("connected_at", staleBefore),
   ]);
 
-  if (errorsResult.error || staleResult.error) {
+  if (errorsResult.error || staleResult.error || withoutDataResult.error) {
     return NextResponse.json(
-      { error: errorsResult.error?.message || staleResult.error?.message },
+      { error: errorsResult.error?.message || staleResult.error?.message || withoutDataResult.error?.message },
       { status: 500 },
     );
   }
@@ -71,9 +73,10 @@ export async function GET(request: Request) {
     cutoff,
     rawEventsDeleted: deleted,
     connectionsInError: errorsResult.count || 0,
+    connectedWithoutData: withoutDataResult.count || 0,
     connectedButStale: staleResult.count || 0,
   };
-  if (report.connectionsInError || report.connectedButStale) {
+  if (report.connectionsInError || report.connectedButStale || report.connectedWithoutData) {
     console.warn("Terra maintenance found connections needing attention", report);
   }
   return NextResponse.json(report);

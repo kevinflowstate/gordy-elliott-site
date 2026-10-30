@@ -28,7 +28,7 @@ export async function GET() {
   const [connectionsRes, summariesRes] = await Promise.all([
     admin
       .from("client_wearable_connections")
-      .select("id, client_id, provider, status, last_sync_at, connected_at, disconnected_at, consent_version, consented_at, created_at, updated_at")
+      .select("id, client_id, provider, status, failure_reason, last_data_at, last_sync_at, connected_at, disconnected_at, consent_version, consented_at, created_at, updated_at")
       .eq("client_id", profile.id)
       .order("updated_at", { ascending: false }),
     admin
@@ -48,19 +48,19 @@ export async function GET() {
     if (!isTerraConnectionAttemptExpired(connection)) return connection;
     const { data: expired, error } = await admin
       .from("client_wearable_connections")
-      .update({ status: "error", updated_at: new Date().toISOString() })
+      .update({ status: "error", failure_reason: "attempt_expired", updated_at: new Date().toISOString() })
       .eq("id", connection.id)
       .eq("client_id", profile.id)
       .eq("status", "pending")
       .eq("updated_at", connection.updated_at)
-      .select("id, client_id, provider, status, last_sync_at, connected_at, disconnected_at, consent_version, consented_at, created_at, updated_at")
+      .select("id, client_id, provider, status, failure_reason, last_data_at, last_sync_at, connected_at, disconnected_at, consent_version, consented_at, created_at, updated_at")
       .maybeSingle();
     if (error) throw new Error("An unfinished connection could not be cleared. Please try again.");
     if (expired) return expired;
     // A webhook or another attempt won the race; fetch its actual state.
     const { data: current, error: readError } = await admin
       .from("client_wearable_connections")
-      .select("id, client_id, provider, status, last_sync_at, connected_at, disconnected_at, consent_version, consented_at, created_at, updated_at")
+      .select("id, client_id, provider, status, failure_reason, last_data_at, last_sync_at, connected_at, disconnected_at, consent_version, consented_at, created_at, updated_at")
       .eq("id", connection.id)
       .eq("client_id", profile.id)
       .maybeSingle();
@@ -71,7 +71,7 @@ export async function GET() {
   return NextResponse.json({
     mockMode: terra.mockMode,
     available: terra.available,
-    providerAvailability: { whoop: terra.whoopEnabled },
+    providerAvailability: { whoop: terra.whoopEnabled, garmin: terra.garminEnabled },
     consentAccepted: connections.some((connection) =>
       connection.consent_version === TERRA_CONSENT_VERSION && Boolean(connection.consented_at)
     ),

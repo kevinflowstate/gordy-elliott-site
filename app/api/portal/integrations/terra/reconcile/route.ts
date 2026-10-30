@@ -9,7 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
-const PUBLIC_CONNECTION_FIELDS = "id, client_id, provider, status, last_sync_at, connected_at, disconnected_at, consent_version, consented_at, created_at, updated_at";
+const PUBLIC_CONNECTION_FIELDS = "id, client_id, provider, status, failure_reason, last_data_at, last_sync_at, connected_at, disconnected_at, consent_version, consented_at, created_at, updated_at";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -69,6 +69,7 @@ export async function POST(request: Request) {
         terra_user_id: terraUser.user_id,
         reference_id: referenceId,
         status: "connected",
+        failure_reason: null,
         connected_at: connection.connected_at || now,
         disconnected_at: null,
         ...(scopes.length ? { scopes } : {}),

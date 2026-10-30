@@ -12,7 +12,7 @@ import { matchesTerraConnectionAttempt } from "@/lib/terra/events";
 type IntegrationsPayload = {
   mockMode: boolean;
   available: boolean;
-  providerAvailability: { whoop: boolean };
+  providerAvailability: { whoop: boolean; garmin: boolean };
   consentAccepted: boolean;
   connections: WearableConnection[];
   latestSummary: WearableDailySummary | null;
@@ -331,6 +331,7 @@ export default function ConnectedAppsPage() {
         consentAccepted={consentAccepted}
         available={Boolean(data?.available) && !loading}
         mockMode={Boolean(data?.mockMode)}
+        garminAvailable={Boolean(data?.providerAvailability?.garmin)}
         whoopAvailable={Boolean(data?.providerAvailability?.whoop)}
         connecting={connecting}
         disconnecting={disconnecting}

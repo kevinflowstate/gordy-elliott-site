@@ -119,7 +119,7 @@ test("consent remains visible and checked after acceptance and enables the avail
   // tsx's standalone JSX transform uses React; Next's production transform supplies it automatically.
   Object.assign(globalThis, { React });
   const { default: Panel } = await import("@/components/portal/WearableConnectionsPanel");
-  const props = { connections: [], consentAccepted: false, available: true, mockMode: false, whoopAvailable: false, connecting: null, disconnecting: null, onConsentChange: () => {}, onConnect: () => {}, onDisconnect: () => {}, onBack: () => {} };
+  const props = { connections: [], consentAccepted: false, available: true, mockMode: false, whoopAvailable: false, garminAvailable: true, connecting: null, disconnecting: null, onConsentChange: () => {}, onConnect: () => {}, onDisconnect: () => {}, onBack: () => {} };
   const unchecked = renderToStaticMarkup(React.createElement(Panel, props));
   const checked = renderToStaticMarkup(React.createElement(Panel, { ...props, consentAccepted: true }));
   assert.match(unchecked, /Tick the checkbox to enable Connect/);
@@ -131,4 +131,18 @@ test("consent remains visible and checked after acceptance and enables the avail
   assert.equal((checked.match(/disabled=""/g) || []).length, 0);
   const starting = renderToStaticMarkup(React.createElement(Panel, { ...props, consentAccepted: true, connecting: "garmin" }));
   assert.equal((starting.match(/disabled=""/g) || []).length, 4);
+});
+
+test('paused Garmin and reason transitions are wired through server and visible panel', async()=>{
+ const fs=await import('node:fs');
+ const source=(p:string)=>fs.readFileSync(p,'utf8');
+ assert.match(source('app/api/portal/integrations/terra/session/route.ts'),/provider === "garmin" && !getTerraConfig\(\).garminEnabled/);
+ assert.match(source('app/api/portal/integrations/terra/session/route.ts'),/failure_reason: "widget_return_failed"/);
+ assert.match(source('app/api/portal/integrations/terra/session/route.ts'),/failure_reason: null/);
+ assert.match(source('app/api/portal/integrations/route.ts'),/failure_reason: "attempt_expired"/);
+ const webhook=source('app/api/integrations/terra/webhook/route.ts');
+ for(const reason of ['provider_auth_error','provider_revoked','provider_deauth','orphan_reference'])assert.ok(webhook.includes(reason));
+ Object.assign(globalThis,{React});const {default:Panel}=await import('@/components/portal/WearableConnectionsPanel');
+ const html=renderToStaticMarkup(React.createElement(Panel,{connections:[],consentAccepted:true,available:true,mockMode:false,whoopAvailable:false,garminAvailable:false,connecting:null,disconnecting:null,onConsentChange:()=>{},onConnect:()=>{},onDisconnect:()=>{},onBack:()=>{}}));
+ assert.match(html,/Garmin has paused new third-party connections/);
 });

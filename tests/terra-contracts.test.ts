@@ -690,7 +690,7 @@ test("Terra connection consent names the processor and records the revised notic
   assert.doesNotMatch(connectionsPanel, />Coming soon</);
   assert.doesNotMatch(connectionsPanel, />Soon</);
   assert.doesNotMatch(connectionsPanel, /Planned after provider credentials/);
-  assert.doesNotMatch(connectionsPanel, /Apple Health/);
+  assert.match(connectionsPanel, /Garmin has paused new third-party connections/);
   assert.doesNotMatch(connectionsPanel, /App Store release/);
   assert.match(connectedAppsPage, /Browser\.addListener\("browserFinished"/);
   assert.match(healthOverview, /connection\.provider === "myfitnesspal"/);
@@ -760,3 +760,9 @@ test("accepts Terra's current access origin but rejects impersonating origins an
     if (old.key === undefined) delete process.env.TERRA_API_KEY; else process.env.TERRA_API_KEY = old.key;
   }
 });
+
+ test("empty arrays never produce readings or workouts; genuine activities do", () => {
+  for (const type of ["activity", "daily", "sleep"]) assert.deepEqual(normaliseTerraPayloads({type, user:{provider:"WHOOP"}, data:[]}), []);
+  const entries = normaliseTerraPayloads({type:"activity", user:{provider:"WHOOP"}, data:[{metadata:{start_time:"2026-10-29T10:00:00Z"}},{metadata:{start_time:"2026-10-30T10:00:00Z"}}]});
+  assert.deepEqual(entries.map(e=>[e.summary_date,e.workout_count]), [["2026-10-29",1],["2026-10-30",1]]);
+ });

@@ -1,5 +1,6 @@
 "use client";
 
+import { connectionFailureCopy } from "@/lib/terra/connection-copy";
 import { sanitizeWearableRecovery, titleCaseProvider, type WearableConnection, type WearableDailySummary } from "@/lib/wearable-insights";
 import { dateKeyInTimeZone } from "@/lib/founder-dashboard";
 import { addDaysToKey } from "@/lib/storm-warning";
@@ -55,7 +56,7 @@ export default function DashboardRecoveryCard({ summaries, connections }: { summ
         {safe.insight && <p className="leading-5">{safe.insight}</p>}
         <p className="text-text-muted">Data date: {safe.summary_date}</p>
       </div> : <p className="mt-3 text-xs leading-5 text-text-muted">Ask the client to connect their wearable in Connected Apps.</p>}
-      <div className="mt-3 space-y-2 text-xs text-text-muted">{active.length ? active.map((connection) => <p key={connection.id}>{titleCaseProvider(connection.provider)} · {connection.last_sync_at ? `Synced ${new Date(connection.last_sync_at).toLocaleDateString("en-GB", { timeZone: "Europe/London", day: "numeric", month: "short" })}` : "Awaiting sync"}</p>) : <p>No apps connected.</p>}</div>
+      <div className="mt-3 space-y-2 text-xs text-text-muted">{connections.length ? connections.map((connection) => <p key={connection.id}>{titleCaseProvider(connection.provider)} · {connection.failure_reason ? connectionFailureCopy[connection.failure_reason] : connection.status !== "connected" ? ({ pending: "Awaiting authorisation", error: "Connection needs attention", disconnected: "Not connected" }[connection.status]) : connection.last_data_at ? `Synced ${new Date(connection.last_data_at).toLocaleDateString("en-GB", { timeZone: "Europe/London", day: "numeric", month: "short" })}` : "Connected. Waiting for the first readings."}</p>) : <p>No apps connected.</p>}</div>
     </details>
   </section>;
 }

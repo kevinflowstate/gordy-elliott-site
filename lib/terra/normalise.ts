@@ -137,7 +137,7 @@ function normaliseTerraEntry(payload: AnyRecord): Omit<WearableDailySummary, "id
       activity.workout_count,
       daily.workout_count,
       summary.workout_count,
-      userInfo.eventType.toLowerCase() === "activity" ? 1 : null,
+      userInfo.eventType.toLowerCase() === "activity" && (metadata.start_time || metadata.summary_id) ? 1 : null,
     ),
     nutrition_calories: getInteger(nutrition.calories, nutrition.energy_kcal, macros.calories, summary.nutrition_calories),
     protein_g: getNumber(nutrition.protein_g, nutrition.protein, macros.protein_g, summary.protein_g),
@@ -166,6 +166,7 @@ function normaliseTerraEntry(payload: AnyRecord): Omit<WearableDailySummary, "id
 }
 
 export function normaliseTerraPayloads(payload: AnyRecord) {
+  if (Array.isArray(payload.data) && payload.data.length === 0) return [];
   const entries = Array.isArray(payload.data) ? payload.data.map(asRecord) : [];
   if (!entries.length) {
     const summary = normaliseTerraEntry(payload);

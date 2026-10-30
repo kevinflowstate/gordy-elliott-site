@@ -13,7 +13,7 @@
     "migration:import-preview": "tsx scripts/import-kahunas-preview.mjs",
     "migration:activate-preview": "tsx scripts/activate-kahunas-preview-client.mjs",
     "check:shift-ai-inputs": "node scripts/check-shift-ai-inputs.mjs",
-    "test:terra": "tsx --test tests/terra-contracts.test.ts tests/nutrition-sync.test.ts",
+    "test:terra": "tsx --test tests/terra-contracts.test.ts tests/nutrition-sync.test.ts tests/terra-connections.test.ts tests/admin-client-deletion-revocation.test.ts",
     "test:comms": "tsx --test tests/push-channel-selection.test.ts tests/checkin-reminder-cron.test.ts",
     "test:composio": "tsx --test tests/composio-calendar.test.ts tests/composio-calendar-migration.test.ts",
     "test:native-push": "tsx --test tests/native-push.test.ts",

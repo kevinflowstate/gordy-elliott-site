@@ -39,6 +39,7 @@ export function getTerraConfig() {
     mockMode,
     partialCredentials,
     available,
+    garminEnabled: available && process.env.TERRA_GARMIN_ENABLED === "true",
     whoopEnabled: available && process.env.TERRA_WHOOP_ENABLED === "true",
     webhookSigningSecret: process.env.TERRA_WEBHOOK_SIGNING_SECRET || process.env.TERRA_WEBHOOK_SECRET || "",
   };
