@@ -10,6 +10,8 @@ const BACKFILL_DAYS = 7;
 const MYFITNESSPAL_REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
 
 const DATA_TYPES_BY_PROVIDER: Record<TerraLaunchProvider, readonly TerraDataType[]> = {
+  apple: [], // SDK sources sync on the phone, never through REST backfill.
+  healthconnect: [],
   garmin: ["daily", "sleep", "activity"],
   oura: ["daily", "sleep", "activity"],
   fitbit: ["daily", "sleep", "activity"],
@@ -95,6 +97,7 @@ export async function POST(request: Request) {
   const requests = connected.flatMap((connection) => (
     DATA_TYPES_BY_PROVIDER[connection.provider].map((dataType) => ({ connection, dataType }))
   ));
+  if (!requests.length) return NextResponse.json({ accepted: false, automatic: true, results: [] });
   const settled = await Promise.allSettled(requests.map(({ connection, dataType }) => (
     requestTerraData(dataType, connection.terra_user_id!, startDate, endDate)
   )));

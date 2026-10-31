@@ -58,3 +58,6 @@ Official references:
 
 ## Provider state, 30 October 2026
 Garmin is paused upstream and absent from Terra Sources. TERRA_GARMIN_ENABLED stays unset; keep historical webhooks supported. WHOOP uses the company app at whoop-prod.onlinegordy.com with v2 webhook https://whoop-prod.onlinegordy.com/hooks/whoop/push and five read scopes. Keep TERRA_WHOOP_ENABLED=false until owner verification and non-empty real readings pass. Do not enable either flag as part of hygiene deployment.
+
+## Native SDK release candidate
+Apple Health and Health Connect require the TerraHealth plugin in iOS1.0.2(13)/Android1.0.1(3). Web/older builds show the phone-app instruction. TerraiOS1.9.4 and TerraAndroid1.7.4 are pinned stable releases (the registries also offer2.0.0-beta.1). Android minimum is nowAPI28. HEALTH_CONNECT is the exact resource in the1.7.4 SDK enum; no live phone payload observed yet. SDK tokens remain server-generated and single-use; reconcile verifies reference/provider remotely. A native permission success alone is not proof of readings. New binaries use the hosted production URL; the new web/API flow requires the Phase C PR to merge. Perform device acceptance after that merge before store submission.

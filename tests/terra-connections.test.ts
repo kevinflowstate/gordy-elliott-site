@@ -133,6 +133,21 @@ test("consent remains visible and checked after acceptance and enables the avail
   assert.equal((starting.match(/disabled=""/g) || []).length, 4);
 });
 
+test("existing native connections retain their Disconnect control when changing phone platform", async () => {
+  Object.assign(globalThis, { React });
+  const { default: Panel } = await import("@/components/portal/WearableConnectionsPanel");
+  for (const [nativeHealth, provider, name] of [["healthconnect", "apple", "Apple Health"], ["apple", "healthconnect", "Health Connect"]] as const) {
+    const connection = { id: "existing", client_id: "demo", provider, status: "connected" as const, terra_user_id: null, reference_id: "client:demo", last_sync_at: null, connected_at: attempt, disconnected_at: null };
+    const props = { connections: [connection], nativeHealth, consentAccepted: true, available: true, mockMode: false, whoopAvailable: false, connecting: null, disconnecting: null, onConsentChange: () => {}, onConnect: () => {}, onDisconnect: () => {}, onBack: () => {} };
+    const markup = renderToStaticMarkup(React.createElement(Panel, props));
+    const row = markup.match(/<article[\s\S]*?<\/article>/g)?.find(article => article.includes(name));
+    assert.ok(row, `${name} remains visible on the other phone platform`);
+    assert.match(row, /Disconnect/);
+    const fresh = renderToStaticMarkup(React.createElement(Panel, { ...props, connections: [] }));
+    assert.doesNotMatch(fresh, new RegExp(`<h3[^>]*>${name}</h3>`));
+  }
+});
+
 test('paused Garmin and reason transitions are wired through server and visible panel', async()=>{
  const fs=await import('node:fs');
  const source=(p:string)=>fs.readFileSync(p,'utf8');

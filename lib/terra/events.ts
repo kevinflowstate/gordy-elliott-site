@@ -4,6 +4,8 @@ export const TERRA_LAUNCH_PROVIDERS = [
   "fitbit",
   "myfitnesspal",
   "whoop",
+  "apple",
+  "healthconnect",
 ] as const;
 
 export const TERRA_CONSENT_VERSION = "wearable_connection_v2";
@@ -48,10 +50,12 @@ const INFORMATIONAL_EVENT_TYPES = new Set([
 export function normaliseTerraProvider(value: unknown): TerraLaunchProvider | null {
   if (typeof value !== "string") return null;
   const provider = value.trim().toLowerCase().replace(/[\s_-]/g, "");
+  if (provider === "healthconnect") return "healthconnect";
   return TERRA_LAUNCH_PROVIDERS.find((candidate) => candidate === provider) || null;
 }
 
 export function getTerraWidgetProvider(provider: TerraLaunchProvider) {
+  if (provider === "apple" || provider === "healthconnect") throw new Error("Use the native health connection flow.");
   return provider.toUpperCase();
 }
 

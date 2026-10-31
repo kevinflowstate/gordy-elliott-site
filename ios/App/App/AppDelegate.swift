@@ -1,3 +1,4 @@
+import TerraiOS
 import UIKit
 import Capacitor
 
@@ -8,6 +9,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        Terra.setUpBackgroundDelivery()
         return true
     }
 
