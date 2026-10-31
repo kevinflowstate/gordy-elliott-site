@@ -101,12 +101,12 @@ export default function WearableConnectionsPanel({
   onDisconnect: (connection: WearableConnection) => void;
   onBack: () => void;
 }) {
-  const providers = wearableProviders.filter(provider => !nativeHealth || !["apple","healthconnect"].includes(provider.id) || provider.id === nativeHealth).map((provider) => (
+  const connectionByProvider = new Map<string, WearableConnection>();
+  for (const connection of connections) connectionByProvider.set(connection.provider, connection);
+  const providers = wearableProviders.filter(provider => !nativeHealth || !["apple","healthconnect"].includes(provider.id) || provider.id === nativeHealth || connectionByProvider.has(provider.id)).map((provider) => (
     ["apple","healthconnect"].includes(provider.id) && nativeHealth !== provider.id ? {...provider, unavailableNote:"Open the AT CAPACITY app on your phone to connect"} :
     provider.id === "garmin" && !garminAvailable ? { ...provider, unavailableNote: "Garmin has paused new third-party connections. Garmin users can sync through Apple Health once it is available." } : provider.id === "whoop" ? { ...provider, disabled: !whoopAvailable } : provider
   ));
-  const connectionByProvider = new Map<string, WearableConnection>();
-  for (const connection of connections) connectionByProvider.set(connection.provider, connection);
   const activeProviders = providers.filter((provider) => !provider.disabled);
   const connectedConnections = connections.filter((connection) => connection.status === "connected");
   const connectedProviderDetails = connectedConnections

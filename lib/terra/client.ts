@@ -331,10 +331,14 @@ export function verifyTerraWebhookRequest(request: Request, rawBody: string) {
   );
 }
 
-export async function generateTerraSdkToken(fetchImpl: typeof fetch = fetch) {
+export async function generateTerraSdkToken(referenceId: string, fetchImpl: typeof fetch = fetch) {
+  if (!parseTerraReferenceId(referenceId)) throw new Error("A client reference is required.");
   const config = getTerraConfig();
   if (!config.configured) throw new Error("Native health connections are not configured.");
-  const response = await fetchImpl("https://api.tryterra.co/v2/auth/generateAuthToken", {
+  const url = new URL("https://api.tryterra.co/v2/auth/generateAuthToken");
+  // Terra ignores the SDK-supplied reference when the token is bound server-side.
+  url.searchParams.set("reference_id", referenceId);
+  const response = await fetchImpl(url, {
     method: "POST", headers: { "dev-id": config.devId, "x-api-key": config.apiKey },
     signal: AbortSignal.timeout(10_000),
   });
